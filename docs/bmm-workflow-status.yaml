@@ -49,7 +49,7 @@ workflow_status:
     name: "Planning"
     workflows:
       - id: "prd"
-        status: "required"
+        status: "docs/prd.md"
         agent: "pm"
         command: "*prd"
         output: "Product Requirements Document with FRs and NFRs"
