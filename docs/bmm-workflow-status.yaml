@@ -52,7 +52,8 @@ workflow_status:
         status: "docs/prd.md"
         agent: "pm"
         command: "*prd"
-        output: "Product Requirements Document with FRs and NFRs"
+        output: "Product Requirements Document with 64 FRs and comprehensive NFRs"
+        note: "PRD v1.0 complete - Trust-First AI platform with HITL verification. Covers 11 capability areas."
       
       - id: "validate-prd"
         status: "optional"
@@ -61,10 +62,10 @@ workflow_status:
         note: "Quality check for PRD completeness"
       
       - id: "create-design"
-        status: "conditional"
+        status: "required"
         agent: "ux-designer"
         command: "*create-design"
-        note: "Determined after PRD - if UI is needed"
+        note: "UI required - Chat interface, HITL Dashboard, Embeddable Widget"
 
   # Phase 2: Solutioning
   - phase: 2
