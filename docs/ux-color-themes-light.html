@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veriply - Light Mode Color Theme Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .theme-card { transition: all 0.2s ease; }
+        .theme-card:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="mb-12 text-center">
+            <h1 class="text-3xl font-semibold text-gray-900 mb-2">Veriply Color Themes</h1>
+            <p class="text-gray-500">Light Mode Native • Zen Productivity • Linear + Superhuman Inspired</p>
+            <p class="text-sm text-gray-400 mt-2">Click any theme card to preview the HITL Dashboard</p>
+        </header>
+
+        <!-- Theme Selection -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+            
+            <!-- Theme 1: Pure Linear -->
+            <div class="theme-card bg-white rounded-xl p-6 shadow-sm border border-gray-100 cursor-pointer ring-2 ring-violet-500 ring-offset-2" onclick="selectTheme('linear')">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-gray-900"></div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900">Pure Linear</h3>
+                        <p class="text-xs text-gray-500">Monochrome + Violet accent</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-white border border-gray-200" title="Background"></div>
+                    <div class="w-10 h-10 rounded-lg bg-gray-50" title="Surface"></div>
+                    <div class="w-10 h-10 rounded-lg bg-gray-900" title="Text Primary"></div>
+                    <div class="w-10 h-10 rounded-lg bg-gray-500" title="Text Secondary"></div>
+                    <div class="w-10 h-10 rounded-lg bg-violet-500" title="Accent"></div>
+                </div>
+                <div class="text-xs text-gray-400">
+                    <strong>Trust signals:</strong> Amber #F59E0B / Green #22C55E
+                </div>
+            </div>
+
+            <!-- Theme 2: Warm Neutral -->
+            <div class="theme-card bg-white rounded-xl p-6 shadow-sm border border-gray-100 cursor-pointer" onclick="selectTheme('warm')">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-8 h-8 rounded-full" style="background: #1C1917;"></div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900">Warm Neutral</h3>
+                        <p class="text-xs text-gray-500">Stone tones + Amber harmony</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-stone-50 border border-stone-200" title="Background"></div>
+                    <div class="w-10 h-10 rounded-lg bg-stone-100" title="Surface"></div>
+                    <div class="w-10 h-10 rounded-lg bg-stone-900" title="Text Primary"></div>
+                    <div class="w-10 h-10 rounded-lg bg-stone-500" title="Text Secondary"></div>
+                    <div class="w-10 h-10 rounded-lg bg-amber-600" title="Accent"></div>
+                </div>
+                <div class="text-xs text-gray-400">
+                    <strong>Trust signals:</strong> Amber #D97706 / Emerald #059669
+                </div>
+            </div>
+
+            <!-- Theme 3: Cool Slate -->
+            <div class="theme-card bg-white rounded-xl p-6 shadow-sm border border-gray-100 cursor-pointer" onclick="selectTheme('slate')">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-slate-900"></div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900">Cool Slate</h3>
+                        <p class="text-xs text-gray-500">Blue undertones + Sky accent</p>
+                    </div>
+                </div>
+                <div class="flex gap-2 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-slate-50 border border-slate-200" title="Background"></div>
+                    <div class="w-10 h-10 rounded-lg bg-slate-100" title="Surface"></div>
+                    <div class="w-10 h-10 rounded-lg bg-slate-900" title="Text Primary"></div>
+                    <div class="w-10 h-10 rounded-lg bg-slate-500" title="Text Secondary"></div>
+                    <div class="w-10 h-10 rounded-lg bg-sky-500" title="Accent"></div>
+                </div>
+                <div class="text-xs text-gray-400">
+                    <strong>Trust signals:</strong> Amber #F59E0B / Teal #14B8A6
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Preview Section -->
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6">Live Preview: HITL Dashboard</h2>
+        </div>
+
+        <!-- Theme 1 Preview: Pure Linear -->
+        <div id="preview-linear" class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8">
+            <div class="flex">
+                <!-- Minimal Sidebar -->
+                <div class="w-16 bg-gray-50 border-r border-gray-100 p-4 flex flex-col items-center gap-4">
+                    <div class="w-8 h-8 rounded-lg bg-violet-500 flex items-center justify-center">
+                        <span class="text-white text-xs font-bold">V</span>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-500">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center text-violet-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg hover:bg-gray-200 flex items-center justify-center text-gray-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </div>
+                </div>
+                
+                <!-- Main Content -->
+                <div class="flex-1 p-6">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-lg font-semibold text-gray-900">Review Queue</h1>
+                            <p class="text-sm text-gray-500">3 items need your attention</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <kbd class="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded border border-gray-200">⌘K</kbd>
+                            <span class="text-xs text-gray-400">Command palette</span>
+                        </div>
+                    </div>
+
+                    <!-- Queue Item -->
+                    <div class="bg-gray-50 rounded-xl p-5 border border-gray-100 mb-4">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
+                                    Needs Review
+                                </span>
+                                <span class="text-xs text-gray-400">2 min ago</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span class="text-xs text-gray-500">Confidence:</span>
+                                <span class="text-xs font-medium text-amber-600">67%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-sm font-medium text-gray-900 mb-2">Customer Question:</p>
+                            <p class="text-sm text-gray-600">"What's your refund policy for annual subscriptions?"</p>
+                        </div>
+
+                        <div class="mb-4 p-4 bg-white rounded-lg border border-gray-200">
+                            <p class="text-sm font-medium text-gray-900 mb-2">AI Draft:</p>
+                            <p class="text-sm text-gray-600">"Our annual subscriptions come with a 30-day money-back guarantee. After that period, we offer prorated refunds based on the remaining months..."</p>
+                            <p class="text-xs text-gray-400 mt-2">Source: refund-policy.pdf, Section 3.2</p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button class="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors">
+                                <span class="flex items-center gap-2">
+                                    <span>Approve</span>
+                                    <kbd class="px-1.5 py-0.5 text-xs bg-green-600 rounded">A</kbd>
+                                </span>
+                            </button>
+                            <button class="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+                                <span class="flex items-center gap-2">
+                                    <span>Edit</span>
+                                    <kbd class="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">E</kbd>
+                                </span>
+                            </button>
+                            <button class="px-4 py-2 bg-white text-red-600 text-sm font-medium rounded-lg border border-gray-200 hover:bg-red-50 transition-colors">
+                                <span class="flex items-center gap-2">
+                                    <span>Reject</span>
+                                    <kbd class="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">R</kbd>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Verified Badge Example -->
+                    <div class="mt-6 p-4 bg-green-50 rounded-lg border border-green-100">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span class="text-sm font-medium text-green-800">Human Verified</span>
+                        </div>
+                        <p class="text-sm text-green-700">This answer has been reviewed and approved by your team.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Theme 2 Preview: Warm Neutral -->
+        <div id="preview-warm" class="bg-stone-50 rounded-2xl shadow-lg border border-stone-200 overflow-hidden mb-8 hidden">
+            <div class="flex">
+                <!-- Warm Sidebar -->
+                <div class="w-16 bg-stone-100 border-r border-stone-200 p-4 flex flex-col items-center gap-4">
+                    <div class="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center">
+                        <span class="text-white text-xs font-bold">V</span>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-stone-200 flex items-center justify-center text-stone-500">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    </div>
+                </div>
+                
+                <!-- Main Content -->
+                <div class="flex-1 p-6 bg-stone-50">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-lg font-semibold text-stone-900">Review Queue</h1>
+                            <p class="text-sm text-stone-500">3 items need your attention</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <kbd class="px-2 py-1 text-xs bg-stone-200 text-stone-600 rounded border border-stone-300">⌘K</kbd>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-5 border border-stone-200 mb-4">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                                    Needs Review
+                                </span>
+                                <span class="text-xs text-stone-400">2 min ago</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span class="text-xs text-stone-500">Confidence:</span>
+                                <span class="text-xs font-medium text-amber-700">67%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-sm font-medium text-stone-900 mb-2">Customer Question:</p>
+                            <p class="text-sm text-stone-600">"What's your refund policy for annual subscriptions?"</p>
+                        </div>
+
+                        <div class="mb-4 p-4 bg-stone-50 rounded-lg border border-stone-200">
+                            <p class="text-sm font-medium text-stone-900 mb-2">AI Draft:</p>
+                            <p class="text-sm text-stone-600">"Our annual subscriptions come with a 30-day money-back guarantee..."</p>
+                            <p class="text-xs text-stone-400 mt-2">Source: refund-policy.pdf, Section 3.2</p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button class="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700">
+                                <span class="flex items-center gap-2">Approve <kbd class="px-1.5 py-0.5 text-xs bg-emerald-700 rounded">A</kbd></span>
+                            </button>
+                            <button class="px-4 py-2 bg-white text-stone-700 text-sm font-medium rounded-lg border border-stone-200 hover:bg-stone-50">Edit</button>
+                            <button class="px-4 py-2 bg-white text-red-600 text-sm font-medium rounded-lg border border-stone-200 hover:bg-red-50">Reject</button>
+                        </div>
+                    </div>
+
+                    <!-- Verified Badge -->
+                    <div class="mt-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span class="text-sm font-medium text-emerald-800">Human Verified</span>
+                        </div>
+                        <p class="text-sm text-emerald-700">This answer has been reviewed and approved by your team.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Theme 3 Preview: Cool Slate -->
+        <div id="preview-slate" class="bg-slate-50 rounded-2xl shadow-lg border border-slate-200 overflow-hidden mb-8 hidden">
+            <div class="flex">
+                <!-- Cool Sidebar -->
+                <div class="w-16 bg-slate-100 border-r border-slate-200 p-4 flex flex-col items-center gap-4">
+                    <div class="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center">
+                        <span class="text-white text-xs font-bold">V</span>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    </div>
+                    <div class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                    </div>
+                </div>
+                
+                <!-- Main Content -->
+                <div class="flex-1 p-6 bg-slate-50">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h1 class="text-lg font-semibold text-slate-900">Review Queue</h1>
+                            <p class="text-sm text-slate-500">3 items need your attention</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <kbd class="px-2 py-1 text-xs bg-slate-200 text-slate-600 rounded border border-slate-300">⌘K</kbd>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-5 border border-slate-200 mb-4">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <span class="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
+                                    Needs Review
+                                </span>
+                                <span class="text-xs text-slate-400">2 min ago</span>
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <span class="text-xs text-slate-500">Confidence:</span>
+                                <span class="text-xs font-medium text-amber-600">67%</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <p class="text-sm font-medium text-slate-900 mb-2">Customer Question:</p>
+                            <p class="text-sm text-slate-600">"What's your refund policy for annual subscriptions?"</p>
+                        </div>
+
+                        <div class="mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <p class="text-sm font-medium text-slate-900 mb-2">AI Draft:</p>
+                            <p class="text-sm text-slate-600">"Our annual subscriptions come with a 30-day money-back guarantee..."</p>
+                            <p class="text-xs text-slate-400 mt-2">Source: refund-policy.pdf, Section 3.2</p>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button class="px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600">
+                                <span class="flex items-center gap-2">Approve <kbd class="px-1.5 py-0.5 text-xs bg-teal-600 rounded">A</kbd></span>
+                            </button>
+                            <button class="px-4 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg border border-slate-200 hover:bg-slate-50">Edit</button>
+                            <button class="px-4 py-2 bg-white text-red-600 text-sm font-medium rounded-lg border border-slate-200 hover:bg-red-50">Reject</button>
+                        </div>
+                    </div>
+
+                    <!-- Verified Badge -->
+                    <div class="mt-6 p-4 bg-teal-50 rounded-lg border border-teal-200">
+                        <div class="flex items-center gap-2 mb-2">
+                            <svg class="w-4 h-4 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                            <span class="text-sm font-medium text-teal-800">Human Verified</span>
+                        </div>
+                        <p class="text-sm text-teal-700">This answer has been reviewed and approved by your team.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Color Token Reference -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Color Token Reference</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Pure Linear Tokens -->
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-3">Pure Linear</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-white border border-gray-200"></div>
+                            <code class="text-gray-600">--bg-primary: #FFFFFF</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-gray-50"></div>
+                            <code class="text-gray-600">--bg-secondary: #F9FAFB</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-gray-900"></div>
+                            <code class="text-gray-600">--text-primary: #111827</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-gray-500"></div>
+                            <code class="text-gray-600">--text-secondary: #6B7280</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-violet-500"></div>
+                            <code class="text-gray-600">--accent: #8B5CF6</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-amber-500"></div>
+                            <code class="text-gray-600">--warning: #F59E0B</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-green-500"></div>
+                            <code class="text-gray-600">--success: #22C55E</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Warm Neutral Tokens -->
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-3">Warm Neutral</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-stone-50 border border-stone-200"></div>
+                            <code class="text-gray-600">--bg-primary: #FAFAF9</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-stone-100"></div>
+                            <code class="text-gray-600">--bg-secondary: #F5F5F4</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-stone-900"></div>
+                            <code class="text-gray-600">--text-primary: #1C1917</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-stone-500"></div>
+                            <code class="text-gray-600">--text-secondary: #78716C</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-amber-600"></div>
+                            <code class="text-gray-600">--accent: #D97706</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-amber-500"></div>
+                            <code class="text-gray-600">--warning: #F59E0B</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-emerald-600"></div>
+                            <code class="text-gray-600">--success: #059669</code>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cool Slate Tokens -->
+                <div>
+                    <h3 class="font-medium text-gray-700 mb-3">Cool Slate</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-slate-50 border border-slate-200"></div>
+                            <code class="text-gray-600">--bg-primary: #F8FAFC</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-slate-100"></div>
+                            <code class="text-gray-600">--bg-secondary: #F1F5F9</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-slate-900"></div>
+                            <code class="text-gray-600">--text-primary: #0F172A</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-slate-500"></div>
+                            <code class="text-gray-600">--text-secondary: #64748B</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-sky-500"></div>
+                            <code class="text-gray-600">--accent: #0EA5E9</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-amber-500"></div>
+                            <code class="text-gray-600">--warning: #F59E0B</code>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded bg-teal-500"></div>
+                            <code class="text-gray-600">--success: #14B8A6</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Decision Section -->
+        <div class="mt-8 p-6 bg-violet-50 rounded-xl border border-violet-100">
+            <h2 class="text-lg font-semibold text-violet-900 mb-2">🎨 Which theme speaks to you?</h2>
+            <p class="text-violet-700 mb-4">Click any theme card above to preview it. Consider:</p>
+            <ul class="text-sm text-violet-600 space-y-2">
+                <li><strong>1. Pure Linear:</strong> Most neutral, violet adds subtle energy. Classic SaaS feel. Best for professional/enterprise positioning.</li>
+                <li><strong>2. Warm Neutral:</strong> Friendlier, amber accent harmonizes with trust signals. Less corporate, more approachable.</li>
+                <li><strong>3. Cool Slate:</strong> Professional, sky blue feels "tech trustworthy". Slight blue undertone conveys reliability.</li>
+            </ul>
+            <p class="text-sm text-violet-500 mt-4 italic">All three keep the trust signals consistent: Amber = needs attention, Green = verified.</p>
+        </div>
+    </div>
+
+    <script>
+        function selectTheme(theme) {
+            // Hide all previews
+            document.getElementById('preview-linear').classList.add('hidden');
+            document.getElementById('preview-warm').classList.add('hidden');
+            document.getElementById('preview-slate').classList.add('hidden');
+            
+            // Show selected preview
+            document.getElementById('preview-' + theme).classList.remove('hidden');
+            
+            // Update theme cards visual state
+            document.querySelectorAll('.theme-card').forEach(card => {
+                card.classList.remove('ring-2', 'ring-violet-500', 'ring-offset-2');
+            });
+            event.currentTarget.classList.add('ring-2', 'ring-violet-500', 'ring-offset-2');
+        }
+    </script>
+</body>
+</html>
