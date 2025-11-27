@@ -2,21 +2,21 @@
 
 **Author:** Dario
 **Date:** 2025-11-27
+**Tech Stack:** Next.js 14, FastAPI, Ollama (Local), TanStack Query
 **Project Level:** SaaS B2B Platform
-**Target Scale:** High Complexity
 
 ---
 
 ## Overview
 
-This document provides the complete epic and story breakdown for Veriply, decomposing the requirements from the [PRD](./prd.md) into implementable stories.
+This document provides the complete epic and story breakdown for Veriply, decomposing the requirements from the [PRD](./prd.md) and [Tech Spec](./tech-spec.md) into implementable stories.
 
 **Living Document Notice:** This is the initial version. It will be updated after UX Design and Architecture workflows add interaction and technical details to stories.
 
 ### Proposed Epic Structure
 
 1.  **Epic 1: Foundation & App Shell**
-    *   **Goal:** Establish the secure, multi-tenant infrastructure AND the frontend application shell (Sidebar, Layout).
+    *   **Goal:** Establish the secure, multi-tenant infrastructure (Monorepo, Docker, Ollama) AND the frontend application shell.
     *   **Value:** Users can securely sign up, log in, and see the "Deep Ocean" interface immediately.
     *   **FR Coverage:** FR1, FR2, FR3 + (UI Shell foundation)
 
@@ -26,13 +26,13 @@ This document provides the complete epic and story breakdown for Veriply, decomp
     *   **FR Coverage:** FR4, FR5, FR6, FR7, FR8, FR12 (PII Redaction)
 
 3.  **Epic 3: Trust-First RAG & Eval**
-    *   **Goal:** Implement the core retrieval logic, citation, and a **Quality Evaluation Framework** (Automated testing).
-    *   **Value:** The system generates accurate, cited answers, and we can mathematically prove accuracy via the Eval framework.
+    *   **Goal:** Implement the core retrieval logic, citation, and a **Quality Evaluation Framework**.
+    *   **Value:** The system generates accurate, cited answers using **Ollama (Llama3)**.
     *   **FR Coverage:** FR9, FR10, FR11, FR17, FR18
 
 4.  **Epic 4: HITL Workflow**
-    *   **Goal:** Implement the specific "Draft Review" interactions and "Trust Gap" UI components within the existing shell.
-    *   **Value:** Support agents can efficiently verify AI work, turning drafts into trusted answers with minimal effort.
+    *   **Goal:** Implement the specific "Draft Review" interactions and "Trust Gap" UI components.
+    *   **Value:** Support agents can efficiently verify AI work using **TanStack Query** for optimistic updates.
     *   **FR Coverage:** FR13, FR14, FR15, FR16
 
 5.  **Epic 5: Analytics & Insights**
@@ -84,7 +84,7 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 ### Story 1.1: Project Initialization & Monorepo Setup
 **As a** Developer,
-**I want** a configured monorepo with Next.js (Frontend) and FastAPI (Backend),
+**I want** a configured monorepo with Next.js (Frontend), FastAPI (Backend), and Ollama (AI),
 **So that** I have a stable foundation for building the application.
 
 **Acceptance Criteria:**
@@ -92,14 +92,13 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **When** I run `npm install` and `npm run dev`
 **Then** the Next.js frontend should load on localhost:3000
 **And** the FastAPI backend should load on localhost:8000/docs
-**And** a shared `types` package should be available for TypeScript interfaces
-**And** Docker Compose should spin up a local PostgreSQL instance
+**And** the Ollama service should be reachable at localhost:11434
+**And** Docker Compose should spin up Postgres, Redis, and Ollama
 
 **Technical Notes:**
-*   Use Turborepo or simple npm workspaces.
-*   Frontend: Next.js 14 (App Router), Tailwind CSS, shadcn/ui.
-*   Backend: FastAPI, Pydantic, SQLAlchemy (Async).
-*   Database: PostgreSQL 16 with pgvector extension enabled.
+*   **Stack:** Next.js 14, FastAPI, Ollama.
+*   **Docker:** Custom entrypoint for Ollama to pull `llama3` and `nomic-embed-text`.
+*   **CI/CD:** GitHub Actions for Lint/Test/Build.
 
 ### Story 1.2: Database Schema & Multi-Tenancy Foundation
 **As a** System Architect,
@@ -132,7 +131,7 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **And** the backend should validate the token on every protected request
 
 **Technical Notes:**
-*   Use Supabase Auth or NextAuth.js (with custom backend validation).
+*   Use **NextAuth.js** (Frontend) + JWT Validation (Backend).
 *   Token payload must include `tenant_id` and `role`.
 *   Implement a "Login" page with the "Deep Ocean" branding (Slate 900 background).
 
@@ -152,7 +151,7 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Technical Notes:**
 *   Implement the layout from `docs/mockups/agent-dashboard.html`.
 *   Use `shadcn/ui` components: `Button` (ghost), `Avatar`, `ScrollArea`.
-*   Ensure the "Deep Ocean" color palette is configured in `tailwind.config.js`.
+*   **State:** Use **TanStack Query** for data fetching.
 
 ### Story 1.5: Tenant Onboarding Flow (Create Org)
 **As a** New User,

@@ -143,7 +143,7 @@ Build a multi-tenant SaaS platform with a "Trust-First" RAG architecture.
 *   `tailwindcss`, `postcss`, `autoprefixer`
 *   `lucide-react` (icons)
 *   `next-auth`
-*   `swr` or `tanstack-query` (data fetching)
+*   `@tanstack/react-query` (data fetching & state management)
 *   `shadcn-ui` (components)
 
 ### Configuration Changes
