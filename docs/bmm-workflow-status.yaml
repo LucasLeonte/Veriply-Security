@@ -27,7 +27,7 @@ workflow_status:
     name: "Discovery (Optional)"
     workflows:
       - id: "brainstorm-project"
-        status: "optional"
+        status: "docs/brainstorming-session-results-2025-11-27.md"
         agent: "analyst"
         command: "*brainstorm-project"
         note: "Creative exploration and ideation - selected by user"
