@@ -225,7 +225,7 @@ results = await session.execute(
 
 *   **Platform:** GitHub.
 *   **Branching Strategy:** GitHub Flow.
-    *   `main`: Production-ready code.
+    *   `main`: Production-ready code. Protected branch.
     *   `feat/<feature-name>`: New features (e.g., `feat/auth-login`).
     *   `fix/<bug-name>`: Bug fixes (e.g., `fix/upload-error`).
     *   `chore/<task-name>`: Maintenance/Config (e.g., `chore/update-deps`).
@@ -233,6 +233,19 @@ results = await session.execute(
     *   **Pull Requests:** All changes must be submitted via PR.
     *   **Reviews:** Code must be reviewed before merging.
     *   **Commits:** Use conventional commits (e.g., `feat: add login page`).
+
+**Branch Protection Rules (Main):**
+*   Require pull request reviews before merging (Minimum 1 reviewer).
+*   Require status checks to pass before merging (CI/CD).
+*   Require linear history (Squash merging recommended).
+*   Do not allow bypassing the above settings.
+
+**CI/CD Pipeline (GitHub Actions):**
+*   **Triggers:** Push to `main`, Pull Request to `main`.
+*   **Jobs:**
+    *   `lint`: Run ESLint (Frontend) and Ruff/Black (Backend).
+    *   `test`: Run `vitest` (Frontend) and `pytest` (Backend).
+    *   `build`: Verify Docker build succeeds.
 
 ---
 
