@@ -58,39 +58,69 @@ We aim for the **cleanliness of Chatbase** for setup, but the **utility/density 
 
 ### 2.4 Novel UX Patterns
 
-{{novel_ux_patterns}}
+**The "Trust Gap" Visual System:**
+AI-generated content lives in a visually distinct "Draft Zone" (amber border, subtle amber tint) until explicitly approved by a human. This creates a clear mental model: amber = unverified, green = safe to send.
+
+**Flag-First Review Interface:**
+When agents review a draft, the FIRST thing they see is WHY it was flagged—not the draft itself. This prioritizes understanding the risk before reading the content, enabling faster and more confident decisions.
+
+**Keyboard-First Productivity:**
+Inspired by Linear and Superhuman, power users can navigate the entire HITL workflow without touching a mouse:
+- `J/K` - Navigate queue
+- `Enter` - Open conversation
+- `A` - Approve draft
+- `E` - Edit draft
+- `R` - Reject draft
+- `⌘K` - Command palette
+
+**Confidence-Driven Density:**
+High-confidence AI responses (>90%) show a condensed view. Lower-confidence responses expand automatically to show more context, citations, and the specific flag trigger.
 
 ---
 
 ## 3. Visual Foundation
 
-### 3.1 Color System
+### 3.1 Design Direction: Cool Slate
 
-**Theme Name:** Deep Ocean Trust
-**Personality:** Professional, Stable, Secure.
+**Theme Name:** Cool Slate
+**Personality:** Professional, Tech-Trustworthy, Clean
+**Inspiration:** Linear + Stripe (polished, keyboard-first, fast)
+**Mode:** Light mode native (dark mode as secondary option)
 
 **Primary Palette:**
-*   **Primary (Deep Ocean):** `#0F172A` (Slate 900) - Used for primary actions, headers, and branding.
-*   **Secondary (Coastal Mist):** `#F1F5F9` (Slate 100) - Used for backgrounds, secondary buttons.
-*   **Accent (Electric Teal):** `#0EA5E9` (Sky 500) - Used for focus states, links, and active indicators.
+*   **Background:** `#F8FAFC` (Slate 50) - Light, cool-toned canvas
+*   **Surface:** `#FFFFFF` (White) - Cards and elevated elements
+*   **Text Primary:** `#0F172A` (Slate 900) - High contrast for readability
+*   **Text Secondary:** `#64748B` (Slate 500) - Muted labels and hints
+*   **Border:** `#E2E8F0` (Slate 200) - Subtle dividers
+
+**Accent Palette:**
+*   **Primary Accent:** `#0EA5E9` (Sky 500) - Interactive elements, focus states
+*   **Accent Hover:** `#0284C7` (Sky 600) - Hover states
+*   **Accent Light:** `#E0F2FE` (Sky 100) - Selected backgrounds
 
 **Semantic Palette (Trust Signals):**
-*   **Verified (Safe Green):** `#10B981` (Emerald 500) - Indicates human-verified content.
-*   **Unverified (Caution Amber):** `#F59E0B` (Amber 500) - Indicates AI-generated drafts needing review.
-*   **Error (Stop Red):** `#EF4444` (Red 500) - Indicates hallucinations or system errors.
+*   **Verified/Success:** `#22C55E` (Green 500) - Human-verified, approved actions
+*   **Pending/Warning:** `#F59E0B` (Amber 500) - AI drafts needing review
+*   **Rejected/Error:** `#EF4444` (Red 500) - Errors, rejections, hallucinations
 
 **Typography:**
-*   **Font Family:** `Inter` (Clean, legible, standard for SaaS).
-*   **Headings:** Bold, tight tracking.
-*   **Body:** Regular, relaxed line height for readability.
+*   **Font Family:** `Inter` - Clean, legible, standard for SaaS
+*   **Headings:** Semibold (600), tight tracking (-0.02em)
+*   **Body:** Regular (400), relaxed line height (1.6)
+*   **UI Labels:** Medium (500), normal tracking
 
-**Spacing:**
-*   **Base Unit:** 4px (Tailwind standard).
-*   **Layout:** 12-column grid with 24px gutters.
+**Spacing & Layout:**
+*   **Base Unit:** 4px (Tailwind standard)
+*   **Layout:** 12-column grid with 24px gutters
+*   **Border Radius:** XL for cards (12px), LG for buttons (8px), MD for inputs (6px)
+*   **Shadows:** Subtle (`shadow-sm`) for depth, stronger on hover
 
 **Interactive Visualizations:**
 
-- Color Theme Explorer: [ux-color-themes.html](./ux-color-themes.html)
+- Color Theme Explorer: [ux-color-themes-light.html](./ux-color-themes-light.html)
+- Design Direction Mockup: [mockups/design-direction-coolslate.html](./mockups/design-direction-coolslate.html)
+- Design Comparison: [mockups/design-comparison.html](./mockups/design-comparison.html)
 
 ---
 
@@ -124,6 +154,26 @@ We have generated interactive HTML mockups to visualize these concepts.
 ---
 
 ## 5. User Journey Flows
+
+### 5.0 User Personas & Priorities
+
+**Sarah, the Support Agent**
+- **Goal:** Process HITL queue efficiently with confidence
+- **Priority Information (in order):**
+  1. 🚩 Why it was flagged (the specific trigger)
+  2. 😊 Customer sentiment indicator
+  3. 💬 Conversation history + AI confidence score
+- **Desired Emotion:** "I've got this, it's organized" → "I understand exactly what's needed" → "That was satisfying, next!"
+
+**Marcus, the Operations Manager**
+- **Goal:** Monitor team performance and AI effectiveness
+- **Priority Views:** KPI dashboard, approval rates, agent performance, AI training feedback
+- **Desired Emotion:** "I can see everything that matters" → "I know exactly where to dig in"
+
+**Jamie, the End Customer**
+- **Goal:** Get a quick, accurate answer to their question
+- **Experience:** Seamless chat that feels helpful, not robotic
+- **Desired Emotion:** "Wow that was fast AND helpful" (even if a human reviewed it behind the scenes)
 
 ### 5.1. Flow A: The "Trust-First" Ingestion Loop
 This flow describes how a customer query is processed before it ever reaches a human agent.
@@ -207,7 +257,44 @@ To accelerate development, we will utilize the **shadcn/ui** component library. 
 
 ### 7.1 Consistency Rules
 
-{{ux_pattern_decisions}}
+**Navigation Patterns:**
+- Left sidebar: Icon-only (collapsed) or icon + label (expanded), slate-900 background
+- Breadcrumbs: Only for deep navigation (Settings > Integrations > Slack)
+- Command palette (`⌘K`): Global access to all actions
+
+**Button Hierarchy:**
+- Primary: Sky-500 fill, white text (main CTA per context)
+- Success: Green-500 fill (Approve actions only)
+- Danger: Red-500 fill (Reject/delete, requires confirmation)
+- Secondary: White fill, slate border
+- Ghost: No border, text only (navigation, tertiary actions)
+
+**Trust Signal Badges:**
+- Verified: Green-100 bg, Green-700 text, checkmark icon
+- Pending: Amber-100 bg, Amber-700 text, clock icon
+- Flagged: Red-100 bg, Red-700 text, alert icon
+
+**Card Patterns:**
+- Default: White bg, slate-200 border, shadow-sm
+- Hover: shadow-md, sky-500 left border accent
+- Selected: sky-50 bg, sky-500 left border
+- Draft (AI): Amber-50 bg, amber-300 border (left accent)
+- Approved: Green-50 bg, green-300 border (left accent)
+
+**Empty States:**
+- Centered illustration (simple, monochrome)
+- Headline + explanation
+- Single primary action button
+
+**Loading States:**
+- Skeleton loaders matching content shape
+- Subtle pulse animation
+- Never show spinners for < 300ms
+
+**Feedback Patterns:**
+- Toast notifications: Bottom-right, auto-dismiss after 3s
+- Inline validation: Below input, red-500 text
+- Success states: Green checkmark + brief message
 
 ---
 
@@ -215,15 +302,97 @@ To accelerate development, we will utilize the **shadcn/ui** component library. 
 
 ### 8.1 Responsive Strategy
 
-{{responsive_accessibility_strategy}}
+**Breakpoints (Tailwind defaults):**
+- `sm`: 640px (Mobile landscape)
+- `md`: 768px (Tablet)
+- `lg`: 1024px (Desktop)
+- `xl`: 1280px (Large desktop)
+- `2xl`: 1536px (Ultra-wide)
+
+**Desktop-First Approach:**
+The primary experience is optimized for desktop (1280px+) since support agents work on full-sized screens. Mobile serves as a "monitoring" view for managers, not a primary workflow.
+
+**Layout Adaptations:**
+- **Desktop (lg+):** Full 3-column layout (sidebar + list + workspace)
+- **Tablet (md):** Collapsible sidebar, 2-column (list + workspace)
+- **Mobile (sm):** Single column, bottom tab navigation, list-first view
+
+**Chat Widget:**
+- Fixed 400px width on desktop
+- Full-screen takeover on mobile
+- Respects system dark/light mode preference
+
+### 8.2 Accessibility Requirements
+
+**WCAG 2.1 AA Compliance:**
+- Color contrast: Minimum 4.5:1 for body text, 3:1 for large text
+- All interactive elements: Minimum 44x44px touch target
+- Focus indicators: Visible 2px sky-500 ring on all focusable elements
+
+**Keyboard Navigation:**
+- Full tab order for all interactive elements
+- Skip links for main content areas
+- Keyboard shortcuts documented and discoverable (`?` to show)
+- Escape closes all modals/dropdowns
+
+**Screen Reader Support:**
+- Semantic HTML5 elements (nav, main, aside, article)
+- ARIA labels for icon-only buttons
+- Live regions for toast notifications and queue updates
+- Status announcements for approval/rejection actions
+
+**Motion & Preferences:**
+- Respect `prefers-reduced-motion`: Disable animations
+- Respect `prefers-color-scheme`: Auto dark mode option
+- No auto-playing media or flashing content
 
 ---
 
 ## 9. Implementation Guidance
 
-### 9.1 Completion Summary
+### 9.1 Technology Stack
 
-{{completion_summary}}
+**Frontend Framework:** Next.js 14 (App Router)
+**Component Library:** shadcn/ui + Radix UI primitives
+**Styling:** Tailwind CSS v3
+**Icons:** Lucide React (consistent with shadcn/ui)
+**Fonts:** Inter (via Google Fonts or self-hosted)
+
+### 9.2 Component Priority (MVP)
+
+**Phase 1 - Core HITL Workflow:**
+1. Sidebar navigation
+2. Ticket list with status badges
+3. Conversation thread view
+4. AI Draft Card with approve/edit/reject
+5. Toast notifications
+
+**Phase 2 - Enhanced Productivity:**
+1. Command palette (`⌘K`)
+2. Keyboard shortcut system
+3. Diff view for edits
+4. Bulk actions
+
+**Phase 3 - Analytics & Admin:**
+1. KPI dashboard
+2. Agent performance views
+3. Settings pages
+4. Knowledge base management
+
+### 9.3 Completion Summary
+
+This UX Design Specification provides:
+- ✅ Design system foundation (Cool Slate theme, shadcn/ui)
+- ✅ Color palette with trust-signal semantics
+- ✅ Typography and spacing guidelines
+- ✅ User personas and journey priorities
+- ✅ Core user flows (Ingestion + HITL)
+- ✅ Component inventory mapped to shadcn/ui
+- ✅ UX pattern decisions for consistency
+- ✅ Responsive strategy and accessibility requirements
+- ✅ Interactive mockups for visual reference
+
+**Ready for:** Solution Architecture → Sprint Planning → Implementation
 
 ---
 
