@@ -62,10 +62,11 @@ workflow_status:
         note: "Quality check for PRD completeness"
       
       - id: "create-design"
-        status: "required"
+        status: "docs/ux-design-specification.md"
         agent: "ux-designer"
         command: "*create-design"
-        note: "UI required - Chat interface, HITL Dashboard, Embeddable Widget"
+        output: "UX Design Specification with Cool Slate theme, shadcn/ui, HITL patterns"
+        note: "Validated 77% (Strong). Interactive mockups created. Ready for architecture."
 
   # Phase 2: Solutioning
   - phase: 2
