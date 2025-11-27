@@ -28,13 +28,17 @@ Key features include:
 
 **Session Goals:** Validate MVP, explore differentiators, and refine advanced features (HITL/Email).
 
-**Techniques Used:** AI-Recommended (Assumption Reversal, Chaos Engineering, Future Self Interview)
+**Techniques Used:** AI-Recommended (Assumption Reversal, Chaos Engineering, Future Self Interview), Rapid Fire A/B Testing.
 
-**Total Ideas Generated:** (To be determined)
+**Total Ideas Generated:** 12+
 
 ### Key Themes Identified:
 
-(To be determined)
+1.  **Trust is the Product:** The biggest risk is hallucination. Features that build trust (citations, confidence scores, HITL) are more important than "flashy" AI features.
+2.  **Internal Control is Key:** We rejected "Community HITL" in favor of strict internal verification to maintain quality.
+3.  **Security is a Feature:** PII redaction and rate limiting are not just backend tasks; they are selling points for the enterprise.
+4.  **Gamification via Impact:** Support staff are motivated by "Time Saved" and "Impact" metrics, not badges.
+5.  **Visual Onboarding:** The "Black Box" of AI needs to be visualized during ingestion to build trust immediately.
 
 ## Technique Sessions
 
@@ -56,8 +60,6 @@ _Challenging core beliefs to find new angles_
 **Reversal:** "What if knowledge is NEVER uploaded?"
 **Idea:** The AI "lives" in the browser/OS and learns by watching the expert work (screen recording/action observation) rather than reading static docs. "Veriply Watch" mode.
 **Refinement:** Instead of "watching" live, simply ingest *historical* chats/emails. It's easier and achieves the same goal of learning from "done" work without manual upload.
-
-### Technique 2: Chaos Engineering
 
 ### Technique 2: Chaos Engineering
 
@@ -87,6 +89,30 @@ _Gaining long-term perspective on the product vision_
 **Insight:** Trust is the currency. If Veriply had been 'creative' instead of 'accurate' in the beginning, we would have lost the enterprise market immediately.
 **Strategic Implication:** The "Confidence Score" and "Source Citation" features are not just nice-to-haves; they are the *core* of the brand. We must prioritize accuracy over feature bloat.
 
+### Technique 4: Rapid Fire Feature Selection
+
+_Refining specific feature implementations based on user preference_
+
+**1. Conflict Resolution Strategy: "The Conflict Tribunal"**
+*   **Concept:** A dedicated "Health Check" dashboard where the AI flags contradictions between sources (e.g., Old Email vs. New PDF).
+*   **User Decision:** Admin resolves the conflict with one click.
+*   **Value:** Turns "AI Confusion" into "Knowledge Cleaning".
+
+**2. Proactive Strategy: "Draft & Publish" (Internal)**
+*   **Concept:** AI notices recurring questions and drafts a "Standard Answer" or "Knowledge Snippet".
+*   **Constraint:** We cannot push to their external FAQ page directly.
+*   **Refinement:** The "Publish" action saves it to the **Veriply Knowledge Base** (so the bot answers correctly next time) and optionally provides a "Copy to Clipboard" or "Hosted Help Page" link for them to share.
+
+**3. Gamification Strategy: "Impact Metrics"**
+*   **Concept:** Show support staff the *result* of their work.
+*   **Metric:** "Your correction saved 2 hours of support time today."
+*   **Value:** Professional motivation based on efficiency and mastery, not childish badges.
+
+**4. Onboarding Strategy: "Live Brain Visualization"**
+*   **Concept:** Visual feedback during the ingestion process.
+*   **UI:** A graph or network visualization showing topics being connected in real-time as files are processed.
+*   **Value:** Makes the "waiting time" feel like "value creation" and builds trust that the AI is actually "reading" the data.
+
 ## Idea Categorization
 
 ### Immediate Opportunities
@@ -97,14 +123,16 @@ _Ideas ready to implement now_
 2.  **Internal HITL Dashboard:** The quality control layer. Staff verifies low-confidence answers.
 3.  **Historical Ingestion:** Jumpstart knowledge by reading past support tickets/emails.
 4.  **Smart Rate Limiting:** Protect the business from API abuse via cost-based throttling.
+5.  **Conflict Tribunal UI:** Simple dashboard to resolve data contradictions.
+6.  **Live Ingestion Visualizer:** Frontend component to show RAG processing progress.
 
 ### Future Innovations
 
 _Ideas requiring development/research_
 
-1.  **Proactive FAQ Suggestions:** AI prompts admins to publish recurring answers to the public site.
+1.  **Proactive Snippet Drafter:** AI prompts admins to save recurring answers to the internal knowledge base.
 2.  **Pre-set Guardrails:** "Safe Mode" toggles for easy security configuration.
-3.  **Email Draft Automation:** Generating replies based on historical style (requires high trust first).
+3.  **Impact Analytics:** Dashboard showing "Time Saved" by AI.
 
 ### Moonshots
 
@@ -120,6 +148,7 @@ _Key realizations from the session_
 1.  **Trust is the Product:** The biggest risk is hallucination. Features that build trust (citations, confidence scores, HITL) are more important than "flashy" AI features.
 2.  **Internal Control is Key:** We rejected "Community HITL" in favor of strict internal verification to maintain quality.
 3.  **Security is a Feature:** PII redaction and rate limiting are not just backend tasks; they are selling points for the enterprise.
+4.  **Visuals Build Trust:** The "Live Brain" visualization is critical for the "Magic Moment" during onboarding.
 
 ## Action Planning
 
@@ -150,7 +179,7 @@ _Key realizations from the session_
 
 ### What Worked Well
 
-The "Assumption Reversal" helped us pivot from "Community HITL" (risky) to "Internal HITL" (safe) and clarified the "Proactive FAQ" feature. "Chaos Engineering" solidified the security requirements.
+The "Assumption Reversal" helped us pivot from "Community HITL" (risky) to "Internal HITL" (safe) and clarified the "Proactive FAQ" feature. "Chaos Engineering" solidified the security requirements. The "Rapid Fire" round quickly solidified the UX direction for Conflict Resolution and Onboarding.
 
 ### Areas for Further Exploration
 
@@ -162,7 +191,7 @@ We need to define the specific "Guardrails" for the Pre-set Safe Modes. What exa
 
 ### Questions That Emerged
 
-- How do we handle "conflicting" information in historical data? (e.g., old emails vs. new PDFs).
+- How do we handle "conflicting" information in historical data? (e.g., old emails vs. new PDFs). -> **Solved:** "Conflict Tribunal" UI.
 - What is the exact pricing model for the "Compute Cost" rate limiting?
 
 ### Next Session Planning
