@@ -33,10 +33,10 @@ workflow_status:
         note: "Creative exploration and ideation - selected by user"
       
       - id: "research"
-        status: "skipped"
+        status: "docs/research-market-2025-11-27.md, docs/research-technical-2025-11-27.md, docs/research-user-domain-2025-11-27.md"
         agent: "analyst"
         command: "*research"
-        note: "Technical/competitive analysis - not selected"
+        note: "Comprehensive research completed: Market ($12B→$44B TAM), Technical (Qwen 2.5, pgvector), User personas, Domain standards"
       
       - id: "product-brief"
         status: "skipped"
