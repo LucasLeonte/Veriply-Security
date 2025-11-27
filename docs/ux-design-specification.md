@@ -408,15 +408,19 @@ This UX Design Specification provides:
 
 This UX Design Specification was created through visual collaboration:
 
-- **Color Theme Visualizer**: docs/ux-color-themes.html
-  - Interactive HTML showing all color theme options explored
+- **Color Theme Visualizer**: [docs/ux-color-themes-light.html](./ux-color-themes-light.html)
+  - Interactive HTML showing 3 color theme options explored (Pure Linear, Warm Neutral, Cool Slate)
   - Live UI component examples in each theme
   - Side-by-side comparison and semantic color usage
 
-- **Design Direction Mockups**: docs/ux-design-directions.html
-  - Interactive HTML with 6-8 complete design approaches
-  - Full-screen mockups of key screens
-  - Design philosophy and rationale for each direction
+- **Design Direction Mockups**:
+  - [Cool Slate (Selected)](./mockups/design-direction-coolslate.html) - Professional, tech-trustworthy, Linear/Stripe inspired
+  - [Minimal Ink](./mockups/design-direction-minimal-ink.html) - Ultra-clean, Superhuman-style monochrome
+  - [Soft Cloud](./mockups/design-direction-soft-cloud.html) - Warm, friendly, rounded design
+  - [Design Comparison](./mockups/design-comparison.html) - Side-by-side comparison of all 3 directions
+
+- **Agent Dashboard Wireframe**: [docs/mockups/agent-dashboard.html](./mockups/agent-dashboard.html)
+  - Original wireframe demonstrating HITL workflow structure
 
 ### Optional Enhancement Deliverables
 
