@@ -1,5 +1,5 @@
 ---
-name: "ux designer"
+name: "ux-designer"
 description: "UX Designer"
 ---
 
