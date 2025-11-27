@@ -1,45 +1,88 @@
 # Veriply - Product Requirements Document
 
-**Author:** Dario
-**Date:** 2025-11-27
+**Author:** Dario  
+**Date:** 2025-11-27  
 **Version:** 1.0
 
 ---
 
 ## Executive Summary
 
-Veriply is a **Trust-First AI Customer Service & Knowledge Automation Platform** designed to solve the problem of unreliable AI support. Unlike generic chatbots that prioritize speed and conversational fluency, Veriply prioritizes **accuracy and safety**. It empowers support teams to automate responses with confidence by integrating an **Internal Human-in-the-Loop (HITL)** verification layer, ensuring that the AI never hallucinates on critical queries.
+Veriply is a **Trust-First AI Customer Service & Knowledge Automation Platform** that bridges the critical "Service-Trust Gap" in the market. While 90% of customers expect responses in under 10 minutes and 68% will pay more for better service, businesses—from solo entrepreneurs to enterprise sales teams—lack affordable, trustworthy tools to deliver both speed and accuracy.
+
+Unlike existing chatbots that "hallucinate" and erode trust (Chatbase, Dante AI) or enterprise solutions that are prohibitively expensive (Zendesk at €155/agent/month), Veriply implements a **Human-in-the-Loop (HITL) verification system** where low-confidence answers are routed to humans for validation, then fed back into the AI's knowledge base. This creates a self-improving system that gets smarter with every interaction while guaranteeing accuracy.
+
+The platform serves three core use cases:
+1. **RAG-based Q&A** from company documentation with source citations
+2. **Email draft automation** matching the user's writing style
+3. **Internal knowledge retrieval** for sales/support teams needing instant verified answers
+
+Targeting a $12B → $44.7B market (20%+ CAGR), Veriply positions itself as **"Verified Intelligence"**—not just another AI chatbot, but a trust layer for business communication.
 
 ### What Makes This Special
 
-**Trust-First RAG Architecture:** The core differentiator is the "Internal HITL" workflow. Instead of unleashing the AI directly on customers with a risk of error, Veriply acts as a "Junior Support Agent" that drafts responses for human review (initially) and learns from every approval, building a "Verified Knowledge Base" that can eventually answer autonomously with 100% certainty.
+**Verified Intelligence:** The core differentiator is turning AI's greatest weakness (hallucination) into a strength. Every uncertain answer triggers *"I'm not sure, let me check"* instead of confident guessing. Human corrections feed back into a **Verified Knowledge Base** that grows more reliable over time.
+
+**The Trust Loop:**
+1. AI drafts response with confidence score (0-100%)
+2. Low confidence → Human reviews, corrects, approves
+3. Correction feeds back → AI learns from every interaction
+4. Eventually: High-confidence answers auto-send with 100% accuracy guarantee
+
+The result: customers trust the bot because they know it won't make things up.
 
 ---
 
 ## Project Classification
 
-**Technical Type:** SaaS B2B Platform
-**Domain:** Customer Service Automation (AI)
-**Complexity:** High (Due to AI Trust, Safety, and PII requirements)
+**Technical Type:** SaaS B2B Platform  
+**Domain:** Customer Service Automation (AI/ML)  
+**Complexity:** High
+
+### Why High Complexity
+
+| Factor | Complexity Driver |
+|--------|-------------------|
+| **Multi-Tenancy** | Row-level security, bot isolation, data sovereignty |
+| **RAG Pipeline** | Vector search, confidence scoring, HITL workflow |
+| **Email Integration** | OAuth2, style matching, draft queue management |
+| **Compliance** | GDPR (Right to be Forgotten), EU AI Act (transparency), PII handling |
+| **Real-time Scale** | Sub-200ms vector search, streaming LLM responses |
 
 ### Domain Context
 
-The Customer Service domain requires handling sensitive user data and providing accurate information. The "AI Trust" aspect adds complexity, requiring strict guardrails against hallucinations (making up facts) and data leakage. Compliance with GDPR (Right to be Forgotten, PII protection) is mandatory.
+The Customer Service AI domain requires handling sensitive user data while providing accurate information. The "AI Trust" aspect adds complexity:
+- **Hallucination Risk:** AI making up facts damages customer relationships (78% abandon due to poor service)
+- **Data Leakage:** Multi-tenant systems must prevent cross-contamination
+- **Compliance:** GDPR mandates Right to be Forgotten (deleting from vector stores), EU AI Act requires AI response transparency
 
 ---
 
 ## Success Criteria
 
-1.  **Zero Hallucinations on Verified Answers:** The system must never serve an unverified answer as "truth" without a disclaimer or human check.
-2.  **40% Reduction in Ticket Volume:** By automating repetitive queries with high confidence.
-3.  **< 2 Second Response Time:** For queries matched against the Verified KB.
-4.  **Agent Efficiency:** Support agents should spend < 30 seconds reviewing an AI draft vs. 3-5 minutes writing a response.
+### North Star Metric
+**Time saved per user per week while maintaining 0 incorrect verified answers.**
+
+### Product Success Metrics
+
+| Criteria | Target | Rationale |
+|----------|--------|-----------|
+| **Trust Guarantee** | 0 incorrect verified answers | Core value prop—if HITL fails, Veriply fails |
+| **Time Liberation** | 5+ hours saved/week per user | Quantifiable ROI for marketing |
+| **Learning Velocity** | <20% HITL intervention after 30 days | Proves AI actually learns from corrections |
+| **Response Speed** | <3s chat, <30s email draft | Meets "instant" expectation (90% want <10min) |
+| **Agent Productivity** | 10x faster review than writing | 30 seconds vs 5 minutes = competitive edge |
 
 ### Business Metrics
 
-*   **Customer Churn Rate:** < 5% (Trust is the retention driver).
-*   **Deflection Rate:** Percentage of queries resolved without human intervention (post-verification).
-*   **MRR Growth:** Driven by "Pro" and "Enterprise" tiers.
+| Metric | Target | Why It Matters |
+|--------|--------|----------------|
+| **Activation Rate** | >80% complete onboarding | Upload doc → Ask question → Get answer with source |
+| **90-Day Retention** | >60% | Proves ongoing value beyond novelty |
+| **Trust Score** | >95% thumbs-up ratio | Users trust AI answers |
+| **Free → Paid Conversion** | >5% | Sustainable unit economics |
+| **Customer Churn** | <5% monthly | Trust is the retention driver |
+| **Deflection Rate** | 40%+ queries auto-resolved | ROI justification for customers |
 
 ---
 
@@ -47,26 +90,54 @@ The Customer Service domain requires handling sensitive user data and providing 
 
 ### MVP - Minimum Viable Product
 
-1.  **RAG Q&A Engine:** Core retrieval-augmented generation using vector search (PostgreSQL + pgvector).
-2.  **Multi-Bot Architecture:** Users can create multiple Bots (e.g., "HR Bot", "Sales Bot") with isolated knowledge bases.
-3.  **Internal HITL Dashboard:** A dedicated interface for support agents to review, edit, and approve AI-generated answers.
-4.  **Verified Knowledge Base:** A separate, high-trust index of approved Q&A pairs.
-5.  **Email Automation:** OAuth2 integration (Gmail/Outlook) to generate drafts for incoming emails.
-6.  **Document Versioning:** Automatic version control for uploaded files to ensure freshness.
-7.  **PII Redaction:** Automatic detection and masking of sensitive data.
-8.  **Basic Analytics:** Dashboard showing query volume, deflection rate, and agent correction actions.
+**Core Value Delivery:**
 
-### Growth Features (Post-MVP)
+| # | Feature | Description | Why Essential |
+|---|---------|-------------|---------------|
+| 1 | **RAG Q&A Engine** | Retrieval-augmented generation using PostgreSQL + pgvector | Core functionality—answer questions from docs |
+| 2 | **Multi-Bot Architecture** | Users create multiple bots with isolated knowledge bases | Enables "HR Bot" vs "Sales Bot" separation |
+| 3 | **HITL Dashboard** | Agent interface to review, edit, approve AI drafts | Core differentiator—the trust layer |
+| 4 | **Verified Knowledge Base** | High-trust index of approved Q&A pairs | Learning loop—AI improves from corrections |
+| 5 | **Email Automation** | OAuth2 Gmail/Outlook integration for draft generation | Primary use case for SME personas |
+| 6 | **PII Redaction** | Auto-detect and mask sensitive data before LLM | Safety requirement—prevents data leakage |
+| 7 | **Basic Analytics** | Query volume, deflection rate, correction metrics | Prove ROI to customers |
+| 8 | **Multi-Tenant Auth** | User registration, org creation, RBAC, data isolation | SaaS foundation |
 
-1.  **Proactive FAQ Generation:** AI analyzes chat history to suggest new FAQ articles.
-2.  **Multi-Channel Support:** WhatsApp, Messenger, Slack integrations.
-3.  **Voice Interface:** Telephony integration for AI voice support.
-4.  **Advanced Task Automation:** AI executing actions (e.g., booking appointments).
+**MVP User Journey:**
+```
+Upload docs → Create bot → Ask question → Get answer with citation
+                                              ↓
+                              Low confidence? → HITL review → Approve → Verified KB
+                                              ↓
+                              High confidence? → Auto-respond (with user consent)
+```
+
+### Post-MVP (v1.1)
+
+| Feature | Description | Why Deferred |
+|---------|-------------|--------------|
+| **Document Versioning** | Version control with rollback | Nice-to-have, not blocking core value |
+| **Malware Scanning** | Scan uploads before processing | Can use basic file validation initially |
+| **External Data Sources** | Notion, SharePoint, Google Drive sync | Complex integrations, web upload works |
+| **Web Scraping** | Import from URLs | Can manually upload content initially |
+
+### Growth Features (v2.0)
+
+| Feature | Description | Market Signal |
+|---------|-------------|---------------|
+| **WhatsApp/Messenger** | Multi-channel support | +219% messaging growth (Zendesk) |
+| **Proactive FAQ Generation** | AI suggests new articles from chat history | Reduces knowledge gaps |
+| **Slack Integration** | Internal team knowledge access | Support team persona (Sara) |
+| **Advanced Task Automation** | AI executes actions (booking, CRM updates) | Enterprise tier feature |
 
 ### Vision (Future)
 
-1.  **Fully Autonomous Agent (Level 5):** AI handles 90% of support with human-level accuracy.
-2.  **Predictive Support:** Detecting and resolving user issues before they even report them.
+| Feature | Description | Maturity Level |
+|---------|-------------|----------------|
+| **Fully Autonomous Agent** | 90%+ queries auto-resolved with human accuracy | McKinsey Level 5 |
+| **Predictive Support** | Detect and resolve issues before users report | Proactive AI |
+| **Voice Interface** | Telephony integration | Different tech stack, low priority |
+| **On-Premise Deployment** | Self-hosted option for enterprise | Data sovereignty requirement |
 
 ---
 
