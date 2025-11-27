@@ -8,7 +8,10 @@
   "scripts": {
     "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
     "dev:web": "npm run dev -w apps/web",
-    "dev:api": "cd apps/api && uvicorn app.main:app --reload --port 8000"
+    "dev:api": "cd apps/api && .venv\\Scripts\\uvicorn app.main:app --reload --port 8000",
+    "test": "npm run test:web && npm run test:api",
+    "test:web": "npm run test -w apps/web",
+    "test:api": "cd apps/api && .venv\\Scripts\\pytest"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"
