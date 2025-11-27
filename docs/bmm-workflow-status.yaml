@@ -39,10 +39,10 @@ workflow_status:
         note: "Comprehensive research completed: Market ($12B→$44B TAM), Technical (Qwen 2.5, pgvector), User personas, Domain standards"
       
       - id: "product-brief"
-        status: "skipped"
+        status: "docs/product-brief-Veriply-2025-11-27.md"
         agent: "analyst"
         command: "*product-brief"
-        note: "Strategic product planning - not selected"
+        note: "Strategic product vision document created with origin story, personas, MVP scope, and market context"
 
   # Phase 1: Planning
   - phase: 1
