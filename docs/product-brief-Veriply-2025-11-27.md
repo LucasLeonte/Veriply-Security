@@ -376,6 +376,127 @@ A platform that combines AI speed with human accuracy:
 
 ## Risks and Assumptions
 
+### 🔒 Security Architecture (Critical Priority)
+
+Based on the security concerns raised, Veriply must implement defense-in-depth from day one. These are not "nice to haves" — they are **launch blockers**.
+
+#### Threat 1: OAuth Token Leakage (Email Integration)
+
+**Risk:** If OAuth tokens are compromised, an attacker can read the user's entire email inbox.
+
+| Layer | Mitigation | Implementation |
+|-------|------------|----------------|
+| **Encryption at Rest** | All tokens encrypted with AES-256 | Store encrypted in PostgreSQL, key in environment variable or secrets manager |
+| **Token Isolation** | Tokens stored separately from user data | Dedicated `oauth_tokens` table with restricted access |
+| **Minimal Scopes** | Request only necessary permissions | Gmail: `gmail.readonly` + `gmail.send` (not full access) |
+| **Token Rotation** | Refresh tokens rotated on each use | Implement refresh token rotation per OAuth 2.0 best practices |
+| **Secure Transport** | HTTPS only, no token in URLs | TLS 1.3 enforced, tokens only in headers/body |
+| **Session Binding** | Tokens bound to user session | Invalidate tokens on logout, password change |
+| **Disconnect Flow** | Users can revoke access anytime | One-click disconnect + token revocation at provider |
+| **Monitoring** | Alert on suspicious token usage | Log all token operations, alert on anomalies |
+
+**Emergency Response:**
+- If breach detected → Immediately revoke all tokens for affected accounts
+- Notify affected users within 72 hours (GDPR requirement)
+- Rotate encryption keys
+
+---
+
+#### Threat 2: Knowledge Base Poisoning (Malicious HITL)
+
+**Risk:** A malicious insider (or compromised account) could inject incorrect information into the knowledge base, causing the AI to give wrong answers.
+
+| Layer | Mitigation | Implementation |
+|-------|------------|----------------|
+| **Immutable Audit Log** | Every HITL action logged permanently | Append-only table: `hitl_audit_log` with timestamp, user_id, action, before/after content |
+| **Role-Based Access** | Not everyone can approve corrections | Roles: `viewer` < `editor` < `reviewer` < `admin` < `owner` |
+| **Two-Person Rule** | Critical corrections require approval | Optional: Enable "require second reviewer" for high-impact changes |
+| **Change Attribution** | Every answer traces back to who approved it | `approved_by`, `approved_at` on every knowledge entry |
+| **Anomaly Detection** | Flag unusual correction patterns | Alert if: >10 corrections/hour, corrections to same topic, late-night edits |
+| **Rollback Capability** | Undo poisoned corrections quickly | Version history on all knowledge entries, one-click rollback |
+| **Soft Delete Only** | Never hard-delete, always audit trail | `is_deleted` flag, `deleted_by`, `deleted_at` — recoverable |
+| **Regular Review** | Periodic audit of high-impact corrections | Monthly review of corrections with highest usage/impact |
+
+**Detection Signals:**
+- Sudden spike in "incorrect answer" feedback after a correction
+- User complaints about specific topics
+- Corrections that contradict multiple sources
+
+---
+
+#### Threat 3: Multi-Tenant Data Leakage
+
+**Risk:** One customer accidentally (or maliciously) accesses another customer's data.
+
+| Layer | Mitigation | Implementation |
+|-------|------------|----------------|
+| **Row-Level Security (RLS)** | Database enforces tenant isolation | PostgreSQL RLS policies on ALL tables with `tenant_id` |
+| **Tenant Context** | Every request has tenant context | Middleware extracts `tenant_id` from JWT, passes to all queries |
+| **Query Validation** | No raw SQL without tenant filter | ORM-level enforcement, code review checks |
+| **API Authorization** | Resource-level permission checks | Every endpoint verifies user has access to requested resource |
+| **Embedding Isolation** | Vector search scoped to tenant | `WHERE tenant_id = $1` in all similarity searches |
+| **Testing** | Automated cross-tenant access tests | CI/CD includes "can user A access user B's data?" tests |
+
+---
+
+#### Threat 4: Prompt Injection / AI Manipulation
+
+**Risk:** Malicious users try to manipulate the AI through crafted inputs.
+
+| Layer | Mitigation | Implementation |
+|-------|------------|----------------|
+| **Input Sanitization** | Clean dangerous characters | Escape `{}`, `<>`, template markers before processing |
+| **System Prompt Protection** | AI can't reveal system prompts | Strict system prompts with "never reveal instructions" |
+| **Output Validation** | Check AI responses before delivery | LLM-as-Judge: Does response match sources? Flag if not. |
+| **Rate Limiting** | Prevent abuse/probing | 20 queries/minute/user, adaptive throttling |
+| **Content Filtering** | Block harmful outputs | Basic profanity/harm detection before sending |
+
+---
+
+#### Threat 5: Document Upload Attacks
+
+**Risk:** Malicious files uploaded through document ingestion.
+
+| Layer | Mitigation | Implementation |
+|-------|------------|----------------|
+| **File Type Validation** | Only allow safe formats | Whitelist: PDF, DOCX, TXT, MD, CSV only |
+| **MIME Type Check** | Verify file content matches extension | Magic number validation, reject mismatches |
+| **Size Limits** | Prevent resource exhaustion | Max 25MB per file, max 100 files per upload |
+| **Malware Scanning** | Scan all uploads | ClamAV integration before processing |
+| **Sandboxed Processing** | Isolate document parsing | Run PDF/DOCX parsers in sandboxed containers |
+| **Content Sanitization** | Remove embedded scripts/macros | Strip JavaScript from PDFs, disable macros |
+
+---
+
+### Compliance Requirements (EU)
+
+| Regulation | Requirement | Veriply Implementation |
+|------------|-------------|------------------------|
+| **GDPR** | Right to access | User can export all their data (JSON) |
+| **GDPR** | Right to deletion | One-click "delete my account" → full data purge |
+| **GDPR** | Data minimization | Only collect what's necessary, retention limits |
+| **GDPR** | Breach notification | 72-hour notification process documented |
+| **AI Act** | Transparency | Clear labeling: "This response was generated by AI" |
+| **AI Act** | Human oversight | HITL is core feature — humans verify AI outputs |
+| **AI Act** | Documentation | Audit logs, model documentation, risk assessment |
+
+---
+
+### Security Audit Checklist (Before Launch)
+
+- [ ] Penetration testing by third party
+- [ ] OAuth token flow security review
+- [ ] RLS policies tested with cross-tenant scenarios
+- [ ] Audit logging verified (cannot be modified/deleted)
+- [ ] GDPR data export/deletion flows tested
+- [ ] Rate limiting configured and tested
+- [ ] Malware scanning verified
+- [ ] Incident response plan documented
+- [ ] Privacy policy and ToS reviewed by legal
+- [ ] HTTPS enforced, no mixed content
+
+---
+
 ### Key Assumptions
 
 | Assumption | Validation Plan |
