@@ -20,7 +20,12 @@ Veriply is a **Trust-First AI Customer Service Platform** that prioritizes accur
 
 ### 1.1 Design System Choice
 
-{{design_system_decision}}
+**System:** shadcn/ui (built on Radix UI + Tailwind CSS).
+**Rationale:**
+*   **Aesthetic:** Perfectly matches the "Simple SaaS" vibe (Chatbase style).
+*   **Flexibility:** Provides unstyled primitives (Radix) for custom interactions (like the HITL diff view) while offering beautiful defaults.
+*   **Accessibility:** Best-in-class keyboard navigation and screen reader support (critical for agent efficiency).
+*   **Customization:** Easy to theme for the "Trust-First" color coding (Amber/Green).
 
 ---
 
@@ -38,7 +43,20 @@ Veriply is a **Trust-First AI Customer Service Platform** that prioritizes accur
 **Secondary:** Efficient & Fast ("Let's crush this queue").
 **Vibe:** A safety net that empowers speed. The UI should feel stable and trustworthy, not frantic.
 
-### 2.3 Novel UX Patterns
+### 2.3 Inspiration
+
+**Chatbase:**
+*   **Why:** Captures the "Simple SaaS" aesthetic perfectly. Clean, minimalist, card-based configuration.
+*   **Application:** Use this vibe for the **Admin/Setup** pages (Knowledge Base management, Settings).
+
+**Zendesk:**
+*   **Why:** The gold standard for "Support Density". Handles lists, queues, and status indicators clearly without clutter.
+*   **Application:** Use this structure for the **HITL Dashboard** (Ticket queues, diff views, status toggles).
+
+**Synthesis:**
+We aim for the **cleanliness of Chatbase** for setup, but the **utility/density of Zendesk** for the active workspace.
+
+### 2.4 Novel UX Patterns
 
 {{novel_ux_patterns}}
 
