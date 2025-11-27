@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy[asyncio]
+alembic
+asyncpg
+pgvector
+celery
+redis
+langchain
+langchain-community
+python-multipart
+pydantic-settings
