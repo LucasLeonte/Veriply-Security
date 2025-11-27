@@ -169,12 +169,28 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Technical Notes:**
 *   Transactional integrity: User creation + Tenant creation must happen atomically.
 
+### Story 1.6: Bot Management & Configuration
+**As a** Tenant Admin,
+**I want** to create and configure multiple "Bots" (e.g., HR Bot, Sales Bot),
+**So that** I can compartmentalize knowledge and access for different departments.
+
+**Acceptance Criteria:**
+**Given** I am an Admin
+**When** I create a new Bot
+**Then** I should be able to set its Name, Description, and Confidence Threshold (e.g., 0.75)
+**And** I should be able to assign specific users/groups to this Bot
+**And** the Bot should have its own isolated API keys and Knowledge Base context
+
+**Technical Notes:**
+*   Database: `bots` table linked to `tenants`.
+*   RLS: Users can only access Bots they are assigned to.
+
 ## Epic 2: Secure Ingestion Pipeline
 
 **Goal:** Build the pipeline to ingest, **redact PII**, chunk, and embed various data sources (Files, Web, Email).
 **Value:** Users can safely upload data, knowing PII is handled *before* storage, populating the AI's brain.
 
-### Story 2.1: Document Upload API & Storage
+### Story 2.1: Document Upload API with Malware Scan
 **As a** User,
 **I want** to upload PDF, Markdown, and Text files via the API,
 **So that** my documents are securely stored and ready for processing.
@@ -182,15 +198,15 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Acceptance Criteria:**
 **Given** an authenticated user with "Admin" or "Manager" role
 **When** I POST a file to `/api/v1/documents/upload`
-**Then** the file should be validated (size limit, allowed extensions)
-**And** the file should be stored in the object storage (S3/MinIO) with a unique key
+**Then** the file should be scanned for malware (ClamAV)
+**And** if clean, the file should be stored in object storage (S3/MinIO)
 **And** a record should be created in the `documents` table with status "PENDING"
 
 **Technical Notes:**
 *   Allowed types: `.pdf`, `.md`, `.txt`.
-*   Max size: 10MB.
-*   Use `python-multipart` for file handling in FastAPI.
-*   Store metadata: `filename`, `content_type`, `size`, `uploaded_by`.
+*   Max size: 25MB.
+*   Use `python-multipart` for file handling.
+*   **Security:** Integrate `clamav` or similar scanning library.
 
 ### Story 2.2: Text Extraction Service
 **As a** System,
@@ -257,6 +273,23 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Technical Notes:**
 *   Frontend: `shadcn/ui` Table component.
 *   Real-time updates: Poll status or use WebSocket/SSE for "Indexing..." progress.
+
+### Story 2.6: Document Version Control
+**As a** Knowledge Manager,
+**I want** to upload a new version of an existing document,
+**So that** the AI always uses the most up-to-date information without losing history.
+
+**Acceptance Criteria:**
+**Given** an existing document "Policy.pdf"
+**When** I upload a new file with the same name (or select "New Version")
+**Then** the system should create a new version record (v2)
+**And** the old version (v1) should be archived (soft delete or marked inactive)
+**And** the AI should only index and retrieve chunks from v2
+**And** I should be able to view the version history in the UI
+
+**Technical Notes:**
+*   Database: `document_versions` table.
+*   Logic: When v2 is indexed, v1 chunks must be disabled/deleted from the vector store to prevent stale answers.
 
 ## Epic 3: Trust-First RAG & Eval
 
@@ -415,22 +448,56 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Technical Notes:**
 *   Store rejection reasons for the Analytics Dashboard (Epic 5).
 
-### Story 4.5: Email Integration (Ingestion & Reply)
-**As a** System,
-**I want** to ingest incoming support emails and send approved replies via SMTP,
-**So that** the platform works seamlessly with our existing email support channel.
+### Story 4.5: Email Account Integration (OAuth2)
+**As a** User,
+**I want** to securely connect my Gmail or Outlook account via OAuth2,
+**So that** the system can read emails and send drafts on my behalf.
 
 **Acceptance Criteria:**
-**Given** an incoming email to `support@veriply.com`
-**When** the system receives it (via Webhook or IMAP polling)
-**Then** it should create a new interaction record
-**And** trigger the RAG pipeline to generate a draft
-**And** place the draft in the "Pending Review" queue
-**And** (on Approval) send the reply via the configured SMTP server
+**Given** I am on the "Integrations" page
+**When** I click "Connect Gmail"
+**Then** I should be redirected to the Google OAuth consent screen
+**And** upon approval, the system should store the Refresh Token securely (Encrypted)
+**And** the system should start monitoring the inbox (via Webhooks or Polling)
 
 **Technical Notes:**
-*   Use `mailgun` or `sendgrid` for reliable delivery, or standard SMTP for MVP.
-*   Parse email threads to extract the latest message body.
+*   Use `authlib` or official SDKs.
+*   **Security:** Encrypt tokens at rest (AES-256).
+*   Scopes: `gmail.readonly`, `gmail.compose` (or equivalent).
+
+### Story 4.6: Inbound Email Processing & Draft Generation
+**As a** System,
+**I want** to ingest incoming emails and generate a context-aware draft,
+**So that** the user has a head start on the reply.
+
+**Acceptance Criteria:**
+**Given** a new email arrives
+**When** the system processes it
+**Then** it should classify the intent (Question vs Spam)
+**And** retrieve relevant context from the Knowledge Base (RAG)
+**And** generate a draft reply matching the user's tone (Formal/Informal)
+**And** save the draft to the "Pending Review" queue
+
+**Technical Notes:**
+*   Use the "Hybrid" stack: OpenAI GPT-4o-mini for generation.
+*   Prompt Engineering: Include "Style Matching" instructions based on previous emails if available.
+
+### Story 4.7: Email Draft Review UI (The Inbox)
+**As a** User,
+**I want** a dedicated "Draft Inbox" to review and send AI-generated email drafts,
+**So that** I can quickly process my email backlog.
+
+**Acceptance Criteria:**
+**Given** I have pending drafts
+**When** I open the Draft Inbox
+**Then** I should see a list of drafts with "Confidence Scores"
+**And** clicking one should show the Side-by-Side view (Original Email vs Draft)
+**And** I should be able to Edit, Approve (Send), or Reject the draft
+**And** sending should trigger the email via the connected OAuth account
+
+**Technical Notes:**
+*   Frontend: Rich Text Editor for the draft.
+*   Backend: Use the stored OAuth token to send the email.
 
 ## Epic 5: Analytics & Insights
 

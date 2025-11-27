@@ -32,7 +32,7 @@ The Customer Service domain requires handling sensitive user data and providing 
 
 1.  **Zero Hallucinations on Verified Answers:** The system must never serve an unverified answer as "truth" without a disclaimer or human check.
 2.  **40% Reduction in Ticket Volume:** By automating repetitive queries with high confidence.
-3.  **< 2 Second Response Time:** For queries matched against the Verified Knowledge Base.
+3.  **< 2 Second Response Time:** For queries matched against the Verified KB.
 4.  **Agent Efficiency:** Support agents should spend < 30 seconds reviewing an AI draft vs. 3-5 minutes writing a response.
 
 ### Business Metrics
@@ -48,23 +48,25 @@ The Customer Service domain requires handling sensitive user data and providing 
 ### MVP - Minimum Viable Product
 
 1.  **RAG Q&A Engine:** Core retrieval-augmented generation using vector search (PostgreSQL + pgvector).
-2.  **Internal HITL Dashboard:** A dedicated interface for support agents to review, edit, and approve AI-generated answers.
-3.  **Verified Knowledge Base:** A separate, high-trust index of approved Q&A pairs.
-4.  **Email Draft Automation:** AI generates drafts for incoming support emails, inserted directly into the agent's workflow.
-5.  **PII Redaction:** Automatic detection and masking of sensitive data (emails, phones, credit cards) before processing.
-6.  **Basic Analytics:** Dashboard showing query volume, deflection rate, and agent correction actions.
+2.  **Multi-Bot Architecture:** Users can create multiple Bots (e.g., "HR Bot", "Sales Bot") with isolated knowledge bases.
+3.  **Internal HITL Dashboard:** A dedicated interface for support agents to review, edit, and approve AI-generated answers.
+4.  **Verified Knowledge Base:** A separate, high-trust index of approved Q&A pairs.
+5.  **Email Automation:** OAuth2 integration (Gmail/Outlook) to generate drafts for incoming emails.
+6.  **Document Versioning:** Automatic version control for uploaded files to ensure freshness.
+7.  **PII Redaction:** Automatic detection and masking of sensitive data.
+8.  **Basic Analytics:** Dashboard showing query volume, deflection rate, and agent correction actions.
 
 ### Growth Features (Post-MVP)
 
-1.  **Proactive FAQ Generation:** AI analyzes chat history to suggest new FAQ articles for approval.
-2.  **Multi-Channel Support:** Integration with Slack, Microsoft Teams, and WhatsApp.
-3.  **Smart Rate Limiting:** Dynamic throttling based on user sentiment and query complexity.
-4.  **Advanced Sentiment Analysis:** Prioritizing angry customers for human review.
+1.  **Proactive FAQ Generation:** AI analyzes chat history to suggest new FAQ articles.
+2.  **Multi-Channel Support:** WhatsApp, Messenger, Slack integrations.
+3.  **Voice Interface:** Telephony integration for AI voice support.
+4.  **Advanced Task Automation:** AI executing actions (e.g., booking appointments).
 
 ### Vision (Future)
 
 1.  **Fully Autonomous Agent (Level 5):** AI handles 90% of support with human-level accuracy.
-2.  **Predictive Support:** Detecting and resolving user issues before they even report them (based on logs/behavior).
+2.  **Predictive Support:** Detecting and resolving user issues before they even report them.
 
 ---
 
@@ -77,26 +79,27 @@ The Customer Service domain requires handling sensitive user data and providing 
 
 **Compliance:**
 *   **GDPR/CCPA:** System must support "Right to be Forgotten" (deleting user data from vector stores).
-*   **Audit Logs:** All AI actions and Human approvals must be logged for accountability.
+*   **Malware Scanning:** All uploads must be scanned before processing.
+*   **Audit Logs:** All AI actions and Human approvals must be logged.
 
 ---
 
 ## Innovation & Novel Patterns
 
 **Internal HITL as a Feature:**
-Turning the "bug" of AI hallucination into a feature by making the verification process the core value proposition. The "Human" is not just a fallback; they are the "Teacher" and "Validator."
+Turning the "bug" of AI hallucination into a feature by making the verification process the core value proposition.
 
-**Validation Approach:**
-*   **Chaos Engineering:** Regular "Data Poisoning" tests to ensure the system doesn't learn from bad data.
-*   **Shadow Mode:** Running new models in the background to compare accuracy against the live model before deployment.
+**Hybrid Tech Stack Strategy:**
+*   **Embeddings:** Open-Source (`all-MiniLM-L6-v2`) for cost efficiency and privacy.
+*   **LLM:** Hybrid approach—OpenAI (GPT-4o-mini) for MVP speed, migrating to Self-Hosted (Qwen-2.5 14B) for scale and privacy.
 
 ---
 
 ## SaaS B2B Specific Requirements
 
 ### Multi-Tenancy Architecture
-*   **Logical Separation:** Row-level security (RLS) in PostgreSQL to ensure Tenant A never sees Tenant B's data.
-*   **Namespace Isolation:** Vector store namespaces per tenant.
+*   **Logical Separation:** Row-level security (RLS) in PostgreSQL.
+*   **Bot Isolation:** Tenants can have multiple Bots; Documents are assigned to specific Bots or Groups.
 
 ### Permissions & Roles (RBAC)
 *   **Admin:** Manage billing, integrations, users.
@@ -140,6 +143,8 @@ Turning the "bug" of AI hallucination into a feature by making the verification 
 *   FR6: Users can import historical email archives (via IMAP or file upload) to populate the knowledge base.
 *   FR7: System must automatically chunk and embed ingested content into the vector store.
 *   FR8: Users can manually delete or update specific documents.
+*   FR21: System must support document versioning (v1, v2) and rollback.
+*   FR22: System must scan all uploads for malware.
 
 **RAG & Q&A Engine**
 *   FR9: System can retrieve relevant context for a user query using semantic search.
@@ -152,6 +157,8 @@ Turning the "bug" of AI hallucination into a feature by making the verification 
 *   FR14: Agents can edit the AI draft before approving.
 *   FR15: Agents can "Approve" a draft, which sends it to the user and adds it to the Verified KB.
 *   FR16: Agents can "Reject" a draft, providing a reason (e.g., "Hallucination", "Wrong Tone").
+*   FR23: System must support OAuth2 for Gmail/Outlook integration.
+*   FR24: System must generate email drafts matching the user's historical style/tone.
 
 **Verified Knowledge Base**
 *   FR17: System maintains a separate index of "Verified Q&A Pairs" (Golden Dataset).
