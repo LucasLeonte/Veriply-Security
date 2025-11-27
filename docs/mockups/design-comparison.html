@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veriply - Design Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="text-center mb-12">
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">Veriply Design Directions</h1>
+            <p class="text-slate-500">Compare all three directions and pick your favorite</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Card 1: Cool Slate -->
+            <a href="design-direction-coolslate.html" class="group">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl hover:border-sky-300 transition-all">
+                    <!-- Preview Image -->
+                    <div class="h-48 bg-gradient-to-br from-slate-50 to-slate-100 p-4 relative">
+                        <div class="absolute inset-4 bg-white rounded-xl shadow-sm border border-slate-200 p-3">
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-5 h-5 rounded bg-sky-500"></div>
+                                <div class="h-2 w-20 bg-slate-200 rounded"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="h-2 w-full bg-slate-100 rounded"></div>
+                                <div class="h-2 w-3/4 bg-slate-100 rounded"></div>
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                                <div class="h-6 w-16 bg-green-500 rounded"></div>
+                                <div class="h-6 w-12 bg-slate-100 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Info -->
+                    <div class="p-5">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center">
+                                <span class="text-white text-xs font-bold">CS</span>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900">Cool Slate</h3>
+                                <p class="text-xs text-slate-500">Current selection</p>
+                            </div>
+                            <span class="ml-auto px-2 py-1 text-xs bg-sky-100 text-sky-700 rounded-full font-medium">Selected</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-4">Professional blue undertones with sky accent. Tech-trustworthy feel with classic green/red trust signals.</p>
+                        <div class="flex gap-1">
+                            <div class="w-6 h-6 rounded bg-slate-50 border border-slate-200" title="Background"></div>
+                            <div class="w-6 h-6 rounded bg-slate-900" title="Text"></div>
+                            <div class="w-6 h-6 rounded bg-sky-500" title="Accent"></div>
+                            <div class="w-6 h-6 rounded bg-green-500" title="Success"></div>
+                            <div class="w-6 h-6 rounded bg-amber-500" title="Warning"></div>
+                            <div class="w-6 h-6 rounded bg-red-500" title="Error"></div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+
+            <!-- Card 2: Minimal Ink -->
+            <a href="design-direction-minimal-ink.html" class="group">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl hover:border-neutral-400 transition-all">
+                    <!-- Preview Image -->
+                    <div class="h-48 bg-white p-4 relative">
+                        <div class="absolute inset-4 bg-white rounded-lg border border-neutral-200 p-3">
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-5 h-5 rounded bg-neutral-900"></div>
+                                <div class="h-2 w-20 bg-neutral-200 rounded"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="h-2 w-full bg-neutral-100 rounded"></div>
+                                <div class="h-2 w-3/4 bg-neutral-100 rounded"></div>
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                                <div class="h-6 w-16 bg-green-500 rounded"></div>
+                                <div class="h-6 w-12 bg-neutral-100 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Info -->
+                    <div class="p-5">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-8 h-8 rounded bg-neutral-900 flex items-center justify-center">
+                                <span class="text-white text-xs font-bold">MI</span>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900">Minimal Ink</h3>
+                                <p class="text-xs text-slate-500">Ultra-clean</p>
+                            </div>
+                            <span class="ml-auto px-2 py-1 text-xs bg-slate-100 text-slate-600 rounded-full font-medium">New</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-4">Almost monochrome with maximum whitespace. Superhuman-style focus. Pure black accent, minimal borders.</p>
+                        <div class="flex gap-1">
+                            <div class="w-6 h-6 rounded bg-white border border-neutral-200" title="Background"></div>
+                            <div class="w-6 h-6 rounded bg-neutral-900" title="Text/Accent"></div>
+                            <div class="w-6 h-6 rounded bg-neutral-100" title="Surface"></div>
+                            <div class="w-6 h-6 rounded bg-green-500" title="Success"></div>
+                            <div class="w-6 h-6 rounded bg-amber-500" title="Warning"></div>
+                            <div class="w-6 h-6 rounded bg-red-500" title="Error"></div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+
+            <!-- Card 3: Soft Cloud -->
+            <a href="design-direction-soft-cloud.html" class="group">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-xl hover:border-indigo-300 transition-all">
+                    <!-- Preview Image -->
+                    <div class="h-48 bg-gradient-to-br from-[#FEFDFB] to-[#FAF9F7] p-4 relative">
+                        <div class="absolute inset-4 bg-white rounded-2xl shadow-md p-3">
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-5 h-5 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500"></div>
+                                <div class="h-2 w-20 bg-[#E8E6E3] rounded"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="h-2 w-full bg-[#FAF9F7] rounded"></div>
+                                <div class="h-2 w-3/4 bg-[#FAF9F7] rounded"></div>
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                                <div class="h-6 w-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg"></div>
+                                <div class="h-6 w-12 bg-[#FAF9F7] rounded-lg"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Info -->
+                    <div class="p-5">
+                        <div class="flex items-center gap-3 mb-3">
+                            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+                                <span class="text-white text-xs font-bold">SC</span>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-slate-900">Soft Cloud</h3>
+                                <p class="text-xs text-slate-500">Warm & friendly</p>
+                            </div>
+                            <span class="ml-auto px-2 py-1 text-xs bg-violet-100 text-violet-600 rounded-full font-medium">New</span>
+                        </div>
+                        <p class="text-sm text-slate-600 mb-4">Warmer tones with soft shadows and rounded corners. Indigo/violet gradients. More approachable & playful.</p>
+                        <div class="flex gap-1">
+                            <div class="w-6 h-6 rounded-lg bg-[#FEFDFB] border border-[#E8E6E3]" title="Background"></div>
+                            <div class="w-6 h-6 rounded-lg bg-[#1F1E1C]" title="Text"></div>
+                            <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500" title="Accent"></div>
+                            <div class="w-6 h-6 rounded-lg bg-green-500" title="Success"></div>
+                            <div class="w-6 h-6 rounded-lg bg-amber-500" title="Warning"></div>
+                            <div class="w-6 h-6 rounded-lg bg-red-500" title="Error"></div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <!-- Comparison Table -->
+        <div class="mt-12 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100">
+                <h2 class="font-semibold text-slate-900">Quick Comparison</h2>
+            </div>
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-slate-500 font-medium">Aspect</th>
+                        <th class="px-6 py-3 text-left text-slate-500 font-medium">Cool Slate</th>
+                        <th class="px-6 py-3 text-left text-slate-500 font-medium">Minimal Ink</th>
+                        <th class="px-6 py-3 text-left text-slate-500 font-medium">Soft Cloud</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <tr>
+                        <td class="px-6 py-3 text-slate-600">Overall Feel</td>
+                        <td class="px-6 py-3 text-slate-900">Professional & trustworthy</td>
+                        <td class="px-6 py-3 text-slate-900">Clean & focused</td>
+                        <td class="px-6 py-3 text-slate-900">Warm & approachable</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-3 text-slate-600">Color Temperature</td>
+                        <td class="px-6 py-3 text-slate-900">Cool (blue undertones)</td>
+                        <td class="px-6 py-3 text-slate-900">Neutral (pure grays)</td>
+                        <td class="px-6 py-3 text-slate-900">Warm (cream tones)</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-3 text-slate-600">Primary Accent</td>
+                        <td class="px-6 py-3"><span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-sky-500"></span> Sky Blue</span></td>
+                        <td class="px-6 py-3"><span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-neutral-900"></span> Black</span></td>
+                        <td class="px-6 py-3"><span class="inline-flex items-center gap-1"><span class="w-3 h-3 rounded bg-indigo-500"></span> Indigo/Violet</span></td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-3 text-slate-600">Border Radius</td>
+                        <td class="px-6 py-3 text-slate-900">Medium (xl)</td>
+                        <td class="px-6 py-3 text-slate-900">Small (lg/md)</td>
+                        <td class="px-6 py-3 text-slate-900">Large (2xl/3xl)</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-3 text-slate-600">Shadows</td>
+                        <td class="px-6 py-3 text-slate-900">Subtle</td>
+                        <td class="px-6 py-3 text-slate-900">Minimal/none</td>
+                        <td class="px-6 py-3 text-slate-900">Soft & layered</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-3 text-slate-600">Best For</td>
+                        <td class="px-6 py-3 text-slate-900">Enterprise/B2B SaaS</td>
+                        <td class="px-6 py-3 text-slate-900">Power users, devs</td>
+                        <td class="px-6 py-3 text-slate-900">SMB, friendly brands</td>
+                    </tr>
+                    <tr>
+                        <td class="px-6 py-3 text-slate-600">Inspiration</td>
+                        <td class="px-6 py-3 text-slate-900">Linear + Stripe</td>
+                        <td class="px-6 py-3 text-slate-900">Superhuman + Notion</td>
+                        <td class="px-6 py-3 text-slate-900">Loom + Figma</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Decision -->
+        <div class="mt-8 p-6 bg-indigo-50 rounded-xl border border-indigo-100 text-center">
+            <h2 class="text-lg font-semibold text-indigo-900 mb-2">🎨 Which one feels right?</h2>
+            <p class="text-indigo-700 mb-4">Click any card above to see the full interactive mockup.<br>When you've decided, let me know your choice!</p>
+            <div class="flex justify-center gap-3">
+                <span class="px-3 py-1 bg-white rounded-full text-sm text-indigo-600 border border-indigo-200">Type "1" for Cool Slate</span>
+                <span class="px-3 py-1 bg-white rounded-full text-sm text-indigo-600 border border-indigo-200">Type "2" for Minimal Ink</span>
+                <span class="px-3 py-1 bg-white rounded-full text-sm text-indigo-600 border border-indigo-200">Type "3" for Soft Cloud</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

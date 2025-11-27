@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veriply - Design Direction: Soft Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Soft Cloud Theme - Warm & approachable
+                        cloud: {
+                            bg: '#FEFDFB',
+                            surface: '#FAF9F7',
+                            elevated: '#FFFFFF',
+                            border: '#E8E6E3',
+                            'text-primary': '#1F1E1C',
+                            'text-secondary': '#6B6966',
+                            'text-muted': '#9C9995',
+                            accent: '#6366F1',
+                            'accent-hover': '#4F46E5',
+                            warning: '#F59E0B',
+                            success: '#22C55E',
+                            error: '#EF4444',
+                        }
+                    },
+                    borderRadius: {
+                        '2xl': '1rem',
+                        '3xl': '1.5rem',
+                    },
+                    boxShadow: {
+                        'soft': '0 2px 8px -2px rgba(0,0,0,0.05), 0 4px 16px -4px rgba(0,0,0,0.05)',
+                        'soft-lg': '0 4px 12px -4px rgba(0,0,0,0.08), 0 8px 24px -8px rgba(0,0,0,0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-[#FEFDFB] min-h-screen">
+    
+    <!-- Navigation Tabs -->
+    <div class="border-b border-[#E8E6E3] sticky top-0 z-50 bg-[#FEFDFB]/95 backdrop-blur-sm">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-soft">
+                        <span class="text-white text-sm font-bold">V</span>
+                    </div>
+                    <span class="font-semibold text-[#1F1E1C]">Veriply</span>
+                    <span class="text-[#E8E6E3] mx-2">•</span>
+                    <span class="text-sm text-[#6B6966]">Soft Cloud</span>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="showView('dashboard')" id="tab-dashboard" class="px-5 py-2 text-sm font-medium rounded-xl bg-indigo-50 text-indigo-600">Dashboard</button>
+                    <button onclick="showView('widget')" id="tab-widget" class="px-5 py-2 text-sm font-medium rounded-xl text-[#6B6966] hover:bg-[#FAF9F7]">Widget</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: HITL Dashboard -->
+    <div id="view-dashboard" class="fade-in">
+        <div class="flex h-[calc(100vh-64px)]">
+            <!-- Soft Sidebar -->
+            <div class="w-64 border-r border-[#E8E6E3] flex flex-col bg-[#FAF9F7]">
+                <!-- Org Selector -->
+                <div class="p-5">
+                    <button class="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-white shadow-soft hover:shadow-soft-lg transition-shadow">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-400 flex items-center justify-center text-white text-sm font-bold shadow-sm">A</div>
+                        <div class="text-left flex-1">
+                            <p class="text-sm font-semibold text-[#1F1E1C]">Acme Corp</p>
+                            <p class="text-xs text-[#9C9995]">Pro Plan</p>
+                        </div>
+                        <svg class="w-4 h-4 text-[#9C9995]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                    </button>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="flex-1 px-3 space-y-1">
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl text-[#6B6966] hover:bg-white hover:shadow-soft transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        <span class="text-sm font-medium">Dashboard</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-white shadow-soft text-indigo-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        <span class="text-sm font-semibold">Review Queue</span>
+                        <span class="ml-auto px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700">3</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl text-[#6B6966] hover:bg-white hover:shadow-soft transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="text-sm font-medium">Verified KB</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-xl text-[#6B6966] hover:bg-white hover:shadow-soft transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                        <span class="text-sm font-medium">Knowledge Base</span>
+                    </a>
+                </nav>
+
+                <!-- User -->
+                <div class="p-4">
+                    <div class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white hover:shadow-soft transition-all cursor-pointer">
+                        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center text-white text-sm font-semibold shadow-sm">D</div>
+                        <div class="flex-1">
+                            <p class="text-sm font-medium text-[#1F1E1C]">Dario</p>
+                            <p class="text-xs text-[#9C9995]">Manager</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="flex-1 bg-[#FEFDFB] overflow-auto">
+                <!-- Header -->
+                <div class="px-8 py-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-xl font-semibold text-[#1F1E1C]">Review Queue</h1>
+                            <p class="text-sm text-[#6B6966] mt-1">3 items waiting for your review ✨</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-soft">
+                                <kbd class="px-2 py-1 text-xs bg-[#FAF9F7] text-[#6B6966] rounded-lg font-mono">⌘K</kbd>
+                                <span class="text-xs text-[#9C9995]">Quick actions</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="px-8 pb-8 max-w-4xl">
+                    <!-- Active Review Card -->
+                    <div class="bg-white rounded-3xl shadow-soft-lg mb-6 overflow-hidden ring-2 ring-indigo-100">
+                        <!-- Card Header -->
+                        <div class="px-6 py-4 bg-gradient-to-r from-indigo-50 to-violet-50 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></div>
+                                <span class="text-sm font-medium text-[#1F1E1C]">Needs Review</span>
+                                <span class="text-sm text-[#9C9995]">• 2 min ago</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm text-[#6B6966]">Confidence:</span>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-20 h-2 bg-white rounded-full overflow-hidden">
+                                        <div class="w-2/3 h-full bg-gradient-to-r from-amber-400 to-orange-400 rounded-full"></div>
+                                    </div>
+                                    <span class="text-sm font-semibold text-amber-600">67%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-6">
+                            <!-- Question -->
+                            <div class="mb-5">
+                                <p class="text-xs uppercase tracking-wider text-[#9C9995] font-medium mb-2">Customer asked</p>
+                                <p class="text-[#1F1E1C] text-lg">"What's your refund policy for annual subscriptions?"</p>
+                            </div>
+
+                            <!-- AI Draft -->
+                            <div class="bg-[#FAF9F7] rounded-2xl p-5 mb-5">
+                                <div class="flex items-center gap-2 mb-3">
+                                    <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center">
+                                        <span class="text-white text-xs">🤖</span>
+                                    </div>
+                                    <span class="text-sm font-medium text-[#1F1E1C]">AI Draft</span>
+                                </div>
+                                <p class="text-[#1F1E1C] leading-relaxed">"Our annual subscriptions come with a 30-day money-back guarantee. After that period, we offer prorated refunds based on the remaining months. To request a refund, please contact our support team with your account email."</p>
+                                <div class="mt-4 pt-4 border-t border-[#E8E6E3] flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-[#9C9995]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                                    <span class="text-sm text-[#6B6966]">Source: <span class="text-indigo-600 font-medium hover:underline cursor-pointer">refund-policy.pdf</span></span>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-3">
+                                <button class="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    Approve
+                                    <kbd class="px-1.5 py-0.5 text-xs bg-white/20 rounded ml-1">A</kbd>
+                                </button>
+                                <button class="px-6 py-3 bg-white text-[#1F1E1C] text-sm font-semibold rounded-xl border border-[#E8E6E3] hover:border-indigo-200 hover:bg-indigo-50 transition-all flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    Edit
+                                    <kbd class="px-1.5 py-0.5 text-xs bg-[#FAF9F7] text-[#6B6966] rounded ml-1">E</kbd>
+                                </button>
+                                <button class="px-6 py-3 bg-white text-red-600 text-sm font-semibold rounded-xl border border-[#E8E6E3] hover:border-red-200 hover:bg-red-50 transition-all flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                    Reject
+                                    <kbd class="px-1.5 py-0.5 text-xs bg-[#FAF9F7] text-[#6B6966] rounded ml-1">R</kbd>
+                                </button>
+                                <button class="ml-auto px-4 py-3 text-[#9C9995] text-sm font-medium rounded-xl hover:bg-[#FAF9F7] transition-all flex items-center gap-2">
+                                    Next
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsed Items -->
+                    <div class="space-y-3">
+                        <div class="bg-white rounded-2xl shadow-soft p-5 hover:shadow-soft-lg transition-shadow cursor-pointer flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="w-2 h-2 rounded-full bg-amber-400"></div>
+                                <span class="font-medium text-[#1F1E1C]">"How do I upgrade my plan?"</span>
+                                <span class="text-sm text-[#9C9995]">5 min ago</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-medium text-amber-600">72%</span>
+                                <svg class="w-4 h-4 text-[#9C9995]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl shadow-soft p-5 hover:shadow-soft-lg transition-shadow cursor-pointer flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="w-2 h-2 rounded-full bg-violet-400"></div>
+                                <span class="font-medium text-[#1F1E1C]">"Re: Integration question"</span>
+                                <span class="px-2 py-0.5 text-xs rounded-full bg-violet-100 text-violet-600 font-medium">Email</span>
+                                <span class="text-sm text-[#9C9995]">12 min ago</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-medium text-amber-600">58%</span>
+                                <svg class="w-4 h-4 text-[#9C9995]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="mt-10 py-12 text-center bg-white rounded-3xl shadow-soft">
+                        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
+                            <svg class="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-[#1F1E1C] mb-1">You're all caught up! 🎉</h3>
+                        <p class="text-[#6B6966]">No items need review. Take a well-deserved break!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Chat Widget -->
+    <div id="view-widget" class="hidden fade-in">
+        <div class="min-h-[calc(100vh-64px)] bg-[#FAF9F7] p-8 flex items-center justify-center">
+            <div class="max-w-5xl w-full grid grid-cols-2 gap-12">
+                <!-- Website Preview -->
+                <div class="bg-white rounded-2xl shadow-soft-lg overflow-hidden">
+                    <div class="bg-[#FAF9F7] px-4 py-3 flex items-center gap-3">
+                        <div class="flex gap-2">
+                            <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+                            <div class="w-3 h-3 rounded-full bg-green-400"></div>
+                        </div>
+                        <div class="flex-1 mx-4">
+                            <div class="bg-white rounded-lg px-4 py-1.5 text-xs text-[#6B6966] shadow-sm">acmecorp.com</div>
+                        </div>
+                    </div>
+                    <div class="p-8 h-96 bg-white">
+                        <div class="h-8 w-32 bg-[#FAF9F7] rounded-xl mb-8"></div>
+                        <div class="space-y-3">
+                            <div class="h-4 w-full bg-[#FAF9F7] rounded-lg"></div>
+                            <div class="h-4 w-5/6 bg-[#FAF9F7] rounded-lg"></div>
+                            <div class="h-4 w-4/6 bg-[#FAF9F7] rounded-lg"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Widget - Soft Style -->
+                <div class="relative">
+                    <div class="bg-white rounded-3xl shadow-soft-lg overflow-hidden w-96 mx-auto">
+                        <!-- Header -->
+                        <div class="bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 px-5 py-5 text-white">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-xl backdrop-blur-sm">🤖</div>
+                                    <div>
+                                        <h3 class="font-semibold text-lg">Acme Support</h3>
+                                        <p class="text-sm text-white/80">We typically reply instantly</p>
+                                    </div>
+                                </div>
+                                <button class="p-2 hover:bg-white/10 rounded-xl transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Messages -->
+                        <div class="h-80 overflow-y-auto p-5 space-y-4 bg-[#FAF9F7]">
+                            <!-- Bot Welcome -->
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center flex-shrink-0 text-sm">🤖</div>
+                                <div class="bg-white rounded-2xl rounded-tl-md px-4 py-3 shadow-soft max-w-[240px]">
+                                    <p class="text-sm text-[#1F1E1C]">Hi there! 👋 How can I help you today?</p>
+                                </div>
+                            </div>
+
+                            <!-- User -->
+                            <div class="flex gap-3 justify-end">
+                                <div class="bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-2xl rounded-tr-md px-4 py-3 shadow-soft max-w-[240px]">
+                                    <p class="text-sm">What's your refund policy?</p>
+                                </div>
+                            </div>
+
+                            <!-- Bot - Verified -->
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center flex-shrink-0 text-sm">🤖</div>
+                                <div class="space-y-2 max-w-[240px]">
+                                    <div class="bg-white rounded-2xl rounded-tl-md px-4 py-3 shadow-soft">
+                                        <p class="text-sm text-[#1F1E1C]">We offer a 30-day money-back guarantee on all annual plans. After 30 days, we provide prorated refunds.</p>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 px-2">
+                                        <div class="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
+                                            <svg class="w-2.5 h-2.5 text-green-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>
+                                        </div>
+                                        <span class="text-xs text-green-600 font-medium">Verified by team</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bot - Pending -->
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center flex-shrink-0 text-sm">🤖</div>
+                                <div class="space-y-2 max-w-[240px]">
+                                    <div class="bg-white rounded-2xl rounded-tl-md px-4 py-3 shadow-soft">
+                                        <p class="text-sm text-[#1F1E1C]">For prorated refunds, contact support@acme.com with your account details.</p>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 px-2">
+                                        <div class="w-4 h-4 rounded-full bg-amber-100 flex items-center justify-center">
+                                            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                                        </div>
+                                        <span class="text-xs text-amber-600 font-medium">Being verified...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input -->
+                        <div class="p-4 border-t border-[#E8E6E3] bg-white">
+                            <div class="flex items-center gap-3">
+                                <input type="text" placeholder="Type your message..." class="flex-1 px-4 py-3 bg-[#FAF9F7] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+                                <button class="p-3 bg-gradient-to-r from-indigo-500 to-violet-500 text-white rounded-xl hover:shadow-lg hover:shadow-indigo-500/25 transition-all">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                                </button>
+                            </div>
+                            <p class="text-xs text-center text-[#9C9995] mt-3">Powered by <span class="font-medium text-indigo-600">Veriply</span></p>
+                        </div>
+                    </div>
+
+                    <!-- FAB -->
+                    <div class="absolute -bottom-3 -right-3 w-14 h-14 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-2xl shadow-lg shadow-indigo-500/30 flex items-center justify-center text-white cursor-pointer hover:scale-105 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showView(view) {
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-widget').classList.add('hidden');
+            document.getElementById('view-' + view).classList.remove('hidden');
+            
+            document.getElementById('tab-dashboard').classList.remove('bg-indigo-50', 'text-indigo-600');
+            document.getElementById('tab-dashboard').classList.add('text-[#6B6966]');
+            document.getElementById('tab-widget').classList.remove('bg-indigo-50', 'text-indigo-600');
+            document.getElementById('tab-widget').classList.add('text-[#6B6966]');
+            
+            document.getElementById('tab-' + view).classList.remove('text-[#6B6966]');
+            document.getElementById('tab-' + view).classList.add('bg-indigo-50', 'text-indigo-600');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Veriply - Design Direction: Minimal Ink</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        // Minimal Ink Theme - Almost monochrome
+                        ink: {
+                            bg: '#FFFFFF',
+                            surface: '#FAFAFA',
+                            elevated: '#FFFFFF',
+                            border: '#E5E5E5',
+                            'text-primary': '#171717',
+                            'text-secondary': '#737373',
+                            'text-muted': '#A3A3A3',
+                            accent: '#171717',
+                            'accent-hover': '#404040',
+                            warning: '#F59E0B',
+                            success: '#22C55E',
+                            error: '#EF4444',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Ultra-minimal focus states */
+        button:focus-visible, a:focus-visible { outline: 2px solid #171717; outline-offset: 2px; }
+    </style>
+</head>
+<body class="bg-white min-h-screen text-neutral-900">
+    
+    <!-- Navigation Tabs -->
+    <div class="border-b border-neutral-200 sticky top-0 z-50 bg-white">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="flex items-center justify-between h-14">
+                <div class="flex items-center gap-3">
+                    <div class="w-7 h-7 rounded bg-neutral-900 flex items-center justify-center">
+                        <span class="text-white text-xs font-semibold">V</span>
+                    </div>
+                    <span class="font-medium text-neutral-900">Veriply</span>
+                    <span class="text-neutral-300 mx-2">/</span>
+                    <span class="text-sm text-neutral-500">Minimal Ink</span>
+                </div>
+                <div class="flex gap-1">
+                    <button onclick="showView('dashboard')" id="tab-dashboard" class="px-4 py-2 text-sm font-medium rounded-md bg-neutral-100 text-neutral-900">Dashboard</button>
+                    <button onclick="showView('widget')" id="tab-widget" class="px-4 py-2 text-sm font-medium rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50">Widget</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: HITL Dashboard -->
+    <div id="view-dashboard" class="fade-in">
+        <div class="flex h-[calc(100vh-56px)]">
+            <!-- Ultra-minimal Sidebar -->
+            <div class="w-56 border-r border-neutral-100 flex flex-col bg-neutral-50/50">
+                <!-- Org -->
+                <div class="p-4 border-b border-neutral-100">
+                    <div class="flex items-center gap-2">
+                        <div class="w-6 h-6 rounded bg-neutral-900 flex items-center justify-center text-white text-xs font-medium">A</div>
+                        <span class="text-sm font-medium text-neutral-900">Acme Corp</span>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <nav class="flex-1 p-2 space-y-0.5">
+                    <a href="#" class="flex items-center gap-2 px-3 py-2 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 text-sm">
+                        Dashboard
+                    </a>
+                    <a href="#" class="flex items-center justify-between px-3 py-2 rounded-md bg-neutral-900 text-white text-sm">
+                        <span>Review Queue</span>
+                        <span class="px-1.5 py-0.5 text-xs rounded bg-amber-500 text-white font-medium">3</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-2 px-3 py-2 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 text-sm">
+                        Verified KB
+                    </a>
+                    <a href="#" class="flex items-center gap-2 px-3 py-2 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 text-sm">
+                        Knowledge Base
+                    </a>
+                    <a href="#" class="flex items-center gap-2 px-3 py-2 rounded-md text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 text-sm">
+                        Analytics
+                    </a>
+                </nav>
+
+                <!-- Keyboard hints -->
+                <div class="p-4 border-t border-neutral-100">
+                    <p class="text-xs text-neutral-400 mb-2">Keyboard</p>
+                    <div class="space-y-1 text-xs text-neutral-500">
+                        <div class="flex justify-between"><span>Approve</span><kbd class="px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-600">A</kbd></div>
+                        <div class="flex justify-between"><span>Edit</span><kbd class="px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-600">E</kbd></div>
+                        <div class="flex justify-between"><span>Reject</span><kbd class="px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-600">R</kbd></div>
+                        <div class="flex justify-between"><span>Next</span><kbd class="px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-600">N</kbd></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="flex-1 bg-white overflow-auto">
+                <!-- Header -->
+                <div class="px-8 py-6 border-b border-neutral-100">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h1 class="text-lg font-medium text-neutral-900">Review Queue</h1>
+                            <p class="text-sm text-neutral-500 mt-0.5">3 items pending</p>
+                        </div>
+                        <div class="flex items-center gap-2 text-neutral-400">
+                            <kbd class="px-2 py-1 text-xs bg-neutral-100 rounded border border-neutral-200">⌘K</kbd>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-8 max-w-4xl">
+                    <!-- Active Item -->
+                    <div class="border border-neutral-200 rounded-lg mb-6">
+                        <!-- Item Header -->
+                        <div class="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                <span class="text-sm text-neutral-500">2 min ago</span>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="text-neutral-400">Confidence</span>
+                                <span class="font-medium text-amber-600">67%</span>
+                            </div>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="p-6">
+                            <!-- Question -->
+                            <div class="mb-6">
+                                <p class="text-xs uppercase tracking-wider text-neutral-400 mb-2">Question</p>
+                                <p class="text-neutral-900">"What's your refund policy for annual subscriptions?"</p>
+                            </div>
+
+                            <!-- AI Response -->
+                            <div class="mb-6">
+                                <p class="text-xs uppercase tracking-wider text-neutral-400 mb-2">AI Response</p>
+                                <div class="bg-neutral-50 rounded-md p-4">
+                                    <p class="text-neutral-700 leading-relaxed">"Our annual subscriptions come with a 30-day money-back guarantee. After that period, we offer prorated refunds based on the remaining months. To request a refund, please contact our support team with your account email."</p>
+                                </div>
+                                <p class="text-xs text-neutral-400 mt-2">Source: refund-policy.pdf, Section 3.2</p>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex items-center gap-3 pt-4 border-t border-neutral-100">
+                                <button class="px-5 py-2.5 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors">
+                                    Approve
+                                </button>
+                                <button class="px-5 py-2.5 bg-white text-neutral-700 text-sm font-medium rounded-md border border-neutral-200 hover:bg-neutral-50 transition-colors">
+                                    Edit
+                                </button>
+                                <button class="px-5 py-2.5 bg-white text-red-600 text-sm font-medium rounded-md border border-neutral-200 hover:bg-red-50 transition-colors">
+                                    Reject
+                                </button>
+                                <button class="ml-auto text-neutral-400 text-sm hover:text-neutral-600">
+                                    Skip →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Queue List -->
+                    <div class="space-y-2">
+                        <div class="px-4 py-3 border border-neutral-200 rounded-lg hover:border-neutral-300 cursor-pointer flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span class="text-neutral-900">"How do I upgrade my plan?"</span>
+                            </div>
+                            <span class="text-sm text-neutral-400">72%</span>
+                        </div>
+                        <div class="px-4 py-3 border border-neutral-200 rounded-lg hover:border-neutral-300 cursor-pointer flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span class="text-neutral-900">"Re: Integration question"</span>
+                                <span class="text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded">Email</span>
+                            </div>
+                            <span class="text-sm text-neutral-400">58%</span>
+                        </div>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div class="mt-12 py-12 text-center border border-dashed border-neutral-200 rounded-lg">
+                        <div class="w-10 h-10 mx-auto mb-3 rounded-full bg-green-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        </div>
+                        <p class="text-neutral-900 font-medium">All done</p>
+                        <p class="text-neutral-500 text-sm">No items need review</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View: Chat Widget -->
+    <div id="view-widget" class="hidden fade-in">
+        <div class="min-h-[calc(100vh-56px)] bg-neutral-50 p-8 flex items-center justify-center">
+            <div class="max-w-5xl w-full grid grid-cols-2 gap-12">
+                <!-- Website Preview -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden border border-neutral-200">
+                    <div class="bg-neutral-100 px-4 py-3 flex items-center gap-2">
+                        <div class="flex gap-1.5">
+                            <div class="w-2.5 h-2.5 rounded-full bg-neutral-300"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-neutral-300"></div>
+                            <div class="w-2.5 h-2.5 rounded-full bg-neutral-300"></div>
+                        </div>
+                        <div class="flex-1 mx-4">
+                            <div class="bg-white rounded px-3 py-1 text-xs text-neutral-400 border border-neutral-200">acmecorp.com</div>
+                        </div>
+                    </div>
+                    <div class="p-6 h-96">
+                        <div class="h-6 w-24 bg-neutral-100 rounded mb-6"></div>
+                        <div class="space-y-2">
+                            <div class="h-3 w-full bg-neutral-100 rounded"></div>
+                            <div class="h-3 w-5/6 bg-neutral-100 rounded"></div>
+                            <div class="h-3 w-4/6 bg-neutral-100 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Widget - Minimal Style -->
+                <div class="relative">
+                    <div class="bg-white rounded-xl shadow-xl overflow-hidden w-80 mx-auto border border-neutral-200">
+                        <!-- Header -->
+                        <div class="bg-neutral-900 px-4 py-3 text-white">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-sm">🤖</div>
+                                    <div>
+                                        <p class="text-sm font-medium">Acme Support</p>
+                                        <p class="text-xs text-neutral-400">Online</p>
+                                    </div>
+                                </div>
+                                <button class="text-neutral-400 hover:text-white">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Messages -->
+                        <div class="h-72 overflow-y-auto p-4 space-y-3 bg-neutral-50">
+                            <!-- Bot -->
+                            <div class="flex gap-2">
+                                <div class="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs flex-shrink-0">🤖</div>
+                                <div class="bg-white rounded-lg rounded-tl-none px-3 py-2 shadow-sm max-w-[200px]">
+                                    <p class="text-sm text-neutral-700">Hi! How can I help you today?</p>
+                                </div>
+                            </div>
+
+                            <!-- User -->
+                            <div class="flex gap-2 justify-end">
+                                <div class="bg-neutral-900 text-white rounded-lg rounded-tr-none px-3 py-2 max-w-[200px]">
+                                    <p class="text-sm">What's your refund policy?</p>
+                                </div>
+                            </div>
+
+                            <!-- Bot - Verified -->
+                            <div class="flex gap-2">
+                                <div class="w-6 h-6 rounded-full bg-neutral-200 flex items-center justify-center text-xs flex-shrink-0">🤖</div>
+                                <div class="space-y-1 max-w-[200px]">
+                                    <div class="bg-white rounded-lg rounded-tl-none px-3 py-2 shadow-sm">
+                                        <p class="text-sm text-neutral-700">We offer a 30-day money-back guarantee on all plans.</p>
+                                    </div>
+                                    <div class="flex items-center gap-1 px-1">
+                                        <svg class="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                        <span class="text-xs text-green-600">Verified</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Input -->
+                        <div class="p-3 border-t border-neutral-200 bg-white">
+                            <div class="flex items-center gap-2">
+                                <input type="text" placeholder="Type a message..." class="flex-1 px-3 py-2 bg-neutral-100 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-neutral-900">
+                                <button class="p-2 bg-neutral-900 text-white rounded-md hover:bg-neutral-800">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FAB -->
+                    <div class="absolute -bottom-2 -right-2 w-12 h-12 bg-neutral-900 rounded-full shadow-lg flex items-center justify-center text-white cursor-pointer hover:bg-neutral-800">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showView(view) {
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-widget').classList.add('hidden');
+            document.getElementById('view-' + view).classList.remove('hidden');
+            
+            document.getElementById('tab-dashboard').classList.remove('bg-neutral-100', 'text-neutral-900');
+            document.getElementById('tab-dashboard').classList.add('text-neutral-500');
+            document.getElementById('tab-widget').classList.remove('bg-neutral-100', 'text-neutral-900');
+            document.getElementById('tab-widget').classList.add('text-neutral-500');
+            
+            document.getElementById('tab-' + view).classList.remove('text-neutral-500');
+            document.getElementById('tab-' + view).classList.add('bg-neutral-100', 'text-neutral-900');
+        }
+    </script>
+</body>
+</html>
