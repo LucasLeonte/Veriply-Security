@@ -1,0 +1,18 @@
+version: "3.8"
+
+services:
+    postgres:
+        image: ankane/pgvector:postgres-15
+        container_name: veriply-postgres
+        environment:
+            POSTGRES_USER: veriply
+            POSTGRES_PASSWORD: veriplypass
+            POSTGRES_DB: veriply
+        ports:
+            - "5432:5432"
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+            - ./init-db:/docker-entrypoint-initdb.d:ro
+
+volumes:
+    pgdata:
