@@ -60,7 +60,8 @@ development_status:
   # Format: <epic>-<story>-<slug>: <status>
   # Status values: backlog | drafted | in-progress | review | done
   1-5-secrets-management-and-configuration: drafted
-  1-6-ci-pipeline-lint-tests-and-smoke-e2e: backlog
+  1-6-ci-pipeline-lint-tests-and-smoke-e2e: drafted
+  1-7-api-instrumentation-metrics-and-traces: backlog
 ready_status:
   # Mark stories ready after context is generated
   1-5-secrets-management-and-configuration: ready
