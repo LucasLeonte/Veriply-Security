@@ -61,3 +61,6 @@ development_status:
   # Status values: backlog | drafted | in-progress | review | done
   1-5-secrets-management-and-configuration: drafted
   1-6-ci-pipeline-lint-tests-and-smoke-e2e: backlog
+ready_status:
+  # Mark stories ready after context is generated
+  1-5-secrets-management-and-configuration: ready

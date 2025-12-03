@@ -1,0 +1,96 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.5</storyId>
+    <title>Secrets Management & Configuration</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-03</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/story-foundation-5.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer and operator</asA>
+    <iWant>centralize secrets and environment-specific configuration via .env files and typed settings</iWant>
+    <soThat>the system is secure-by-default, portable across environments, and aligned with DevOps best practices</soThat>
+    <tasks>
+      <![CDATA[
+      - Create env example files at root, apps/api, apps/web
+      - Implement Pydantic BaseSettings in FastAPI
+      - Wire Docker Compose to load root .env
+      - Ensure Next.js uses .env.local vars
+      - Add secrets scanning (gitleaks) and pre-commit hook
+      - Write smoke tests for API /healthz and web API call
+      ]]>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <![CDATA[
+    - Env templates exist and documented
+    - .env files ignored by Git; no hard-coded credentials remain
+    - Compose loads env; services read config
+    - API uses BaseSettings; web uses env
+    - CI secrets scan configured; minimal smoke tests pass
+    ]]>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <![CDATA[
+      - docs/validation-report-architecture.md#Gaps-/-Actions
+      - docker-compose.yml
+      - docs/sprint-artifacts/story-foundation-5.md
+      - docs/epics.md (Epic 1 context)
+      ]]>
+    </docs>
+    <code>
+      <![CDATA[
+      - apps/api/app/main.py
+      - apps/api/app/core/settings.py (to be created)
+      - apps/web/src/app/page.tsx
+      ]]>
+    </code>
+    <dependencies>
+      <![CDATA[
+      - Python: pydantic, python-dotenv (optional)
+      - Node: next, next-auth (optional), dotenv
+      - Tools: gitleaks
+      ]]>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <![CDATA[
+    - No secrets in VCS; .env files not committed
+    - Consistent variable names across services
+    - Keep local dev simple; containers read env without extra tooling
+    ]]>
+  </constraints>
+  <interfaces>
+    <![CDATA[
+    - API: /healthz endpoint returns 200 and includes config-derived OK
+    - Web: fetch to NEXT_PUBLIC_API_URL for a basic status check
+    ]]>
+  </interfaces>
+  <tests>
+    <standards>
+      <![CDATA[
+      - Pytest for API settings resolution and /healthz
+      - Vitest/Playwright for web env consumption (optional)
+      ]]>
+    </standards>
+    <locations>
+      <![CDATA[
+      - apps/api/tests/test_healthz.py
+      - apps/web/__tests__/env-smoke.test.ts
+      ]]>
+    </locations>
+    <ideas>
+      <![CDATA[
+      - Add pre-commit CI job for gitleaks on PRs
+      - Add API /config dump in dev-only mode for debugging
+      ]]>
+    </ideas>
+  </tests>
+</story-context>

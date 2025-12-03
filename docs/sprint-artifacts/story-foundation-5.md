@@ -71,7 +71,7 @@ so that the system is secure-by-default, portable across environments, and compl
 
 ### Context Reference
 
-- N/A (story context XML will be produced by `story-context` workflow)
+- docs/sprint-artifacts/story-foundation-5.context.xml
 
 ### Agent Model Used
 
@@ -85,6 +85,7 @@ GPT-5
 
 - Created env scaffolding examples for root, API, and Web
 - Updated sprint-status with development_status entries
+ - Generated story context XML and linked in Dev Agent Record
 
 ### File List
 
