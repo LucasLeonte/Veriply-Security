@@ -43,7 +43,7 @@ story_location: docs/sprint-artifacts
 development_status:
   # Epic 1: Foundation & Auth
   epic-1: contexted
-  1-1-project-infrastructure-setup: ready-for-dev
+  1-1-project-infrastructure-setup: done
   1-2-database-schema-multi-tenancy-foundation: drafted
   1-3-user-registration-tenant-creation: drafted
   1-4-user-login-session-management: drafted
