@@ -93,7 +93,7 @@ workflow_status:
         note: "Testability assessment before gate check"
       
       - id: "validate-architecture"
-        status: "optional"
+        status: "docs/validation-report-architecture.md"
         agent: "architect"
         command: "*validate-architecture"
         note: "Quality check for architecture completeness"
