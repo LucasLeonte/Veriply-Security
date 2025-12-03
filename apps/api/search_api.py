@@ -1,5 +1,4 @@
 """Simple semantic search API endpoint for testing embeddings."""
-import asyncio
 from typing import List
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException

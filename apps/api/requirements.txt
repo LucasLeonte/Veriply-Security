@@ -10,3 +10,4 @@ langchain
 langchain-community
 python-multipart
 pydantic-settings
+psycopg2-binary

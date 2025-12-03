@@ -23,7 +23,7 @@ async def verify():
             FROM embeddings 
             LIMIT 3
         """))
-        print(f"\n✓ Sample data:")
+        print("\n✓ Sample data:")
         for row in result:
             print(f"  - {row.preview}...")
             
