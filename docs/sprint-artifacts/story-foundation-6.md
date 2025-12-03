@@ -78,7 +78,7 @@ so that code quality is enforced, regressions are caught early, and deployments 
 
 ### Context Reference
 
-- N/A (story context XML will be produced by `story-context` workflow)
+- docs/sprint-artifacts/story-foundation-6.context.xml
 
 ### Agent Model Used
 
@@ -91,6 +91,7 @@ Claude Sonnet 4.5
 ### Completion Notes List
 
 - Drafted Story 1.6 with acceptance criteria and tasks
+- Generated story context XML and linked in Dev Agent Record
 
 ### File List
 

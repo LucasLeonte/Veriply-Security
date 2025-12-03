@@ -65,3 +65,4 @@ development_status:
 ready_status:
   # Mark stories ready after context is generated
   1-5-secrets-management-and-configuration: ready
+  1-6-ci-pipeline-lint-tests-and-smoke-e2e: ready

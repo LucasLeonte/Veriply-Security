@@ -1,0 +1,105 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>1</epicId>
+    <storyId>1.6</storyId>
+    <title>CI Pipeline - Lint, Tests, and Smoke E2E</title>
+    <status>drafted</status>
+    <generatedAt>2025-12-03</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/story-foundation-6.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>developer and engineering team</asA>
+    <iWant>a robust CI pipeline with linting, unit tests, and smoke E2E tests on every PR and commit</iWant>
+    <soThat>code quality is enforced, regressions are caught early, and deployments are reliable</soThat>
+    <tasks>
+      <![CDATA[
+      - Extend existing CI workflow with coverage and optimizations
+      - Add gitleaks job for secrets scanning
+      - Add smoke E2E job with Docker Compose and Playwright/curl
+      - Enable branch protection on main
+      - Update README with CI badge and local test instructions
+      ]]>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <![CDATA[
+    - CI runs on push/PR with lint, unit tests, secrets scan, smoke E2E
+    - All jobs pass; pipeline completes in <5 minutes
+    - Failed CI blocks merging via branch protection
+    - README updated with CI badge and test instructions
+    ]]>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <![CDATA[
+      - docs/validation-report-architecture.md#Gaps-/-Actions
+      - .github/workflows/ci.yml (existing)
+      - docs/test-design.md
+      - docs/sprint-artifacts/story-foundation-6.md
+      ]]>
+    </docs>
+    <code>
+      <![CDATA[
+      - .github/workflows/ci.yml
+      - .gitleaks.toml (to be created)
+      - tests/e2e/ (new directory for smoke tests)
+      - apps/api/tests/ (existing unit tests)
+      - apps/web/__tests__/ (existing unit tests)
+      ]]>
+    </code>
+    <dependencies>
+      <![CDATA[
+      - GitHub Actions: actions/checkout@v4, actions/setup-node@v4, actions/setup-python@v5
+      - Tools: gitleaks, playwright (or curl for smoke tests)
+      - Docker Compose (for E2E environment)
+      ]]>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <![CDATA[
+    - Keep E2E tests minimal (smoke only); full E2E suite can be future story
+    - Pipeline must complete in <5 minutes for fast feedback
+    - Cache dependencies (npm, pip) to speed up jobs
+    - Run jobs in parallel where possible
+    ]]>
+  </constraints>
+  <interfaces>
+    <![CDATA[
+    - CI workflow triggers on push to main and PR events
+    - Smoke E2E verifies: API /healthz returns 200, Web / returns 200, basic login flow
+    - Gitleaks scans all commits in PR for secrets
+    ]]>
+  </interfaces>
+  <tests>
+    <standards>
+      <![CDATA[
+      - ESLint for frontend (Next.js)
+      - Ruff for backend (FastAPI)
+      - Pytest for API unit tests
+      - Vitest for web unit tests
+      - Playwright or curl for smoke E2E
+      ]]>
+    </standards>
+    <locations>
+      <![CDATA[
+      - .github/workflows/ci.yml (all CI jobs)
+      - tests/e2e/smoke.spec.ts (Playwright) or tests/e2e/smoke.sh (bash/curl)
+      - apps/api/tests/test_*.py
+      - apps/web/__tests__/*.test.ts
+      ]]>
+    </locations>
+    <ideas>
+      <![CDATA[
+      - Add coverage reports (Codecov integration)
+      - Store test artifacts (screenshots, logs) on failure
+      - Add performance budget checks in CI
+      - Consider matrix testing (multiple Node/Python versions)
+      ]]>
+    </ideas>
+  </tests>
+</story-context>
