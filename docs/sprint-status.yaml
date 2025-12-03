@@ -56,3 +56,8 @@ status:
       progress: "not-started"
 
 # Update progress per epic/story as sprint advances.
+development_status:
+  # Format: <epic>-<story>-<slug>: <status>
+  # Status values: backlog | drafted | in-progress | review | done
+  1-5-secrets-management-and-configuration: drafted
+  1-6-ci-pipeline-lint-tests-and-smoke-e2e: backlog
