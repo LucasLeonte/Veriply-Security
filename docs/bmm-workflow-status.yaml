@@ -86,7 +86,7 @@ workflow_status:
         note: "Break down PRD into implementable epics and stories"
       
       - id: "test-design"
-        status: "recommended"
+        status: "docs/test-design.md"
         agent: "tea"
         command: "*test-design"
         output: "System-level testability review"
