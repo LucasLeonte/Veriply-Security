@@ -1,0 +1,118 @@
+# Sprint Status - Veriply
+
+# This tracks development progress through all 8 epics and 44 stories
+# Generated from epics.md
+
+# generated: 2025-12-03
+# project: Veriply
+# project_key: veriply
+# tracking_system: file-system
+# story_location: docs/sprint-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic exists in epic file but not contexted
+#   - contexted: Epic tech context created (required before drafting stories)
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - drafted: Story file created in stories folder
+#   - ready-for-dev: Draft approved and story context created
+#   - in-progress: Developer actively working on implementation
+#   - review: Under SM review (via code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - completed: Retrospective has been done
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epics should be 'contexted' before stories can be 'drafted'
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically drafts next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', SM reviews, then Dev moves to 'done'
+
+generated: 2025-12-03
+project: Veriply
+project_key: veriply
+tracking_system: file-system
+story_location: docs/sprint-artifacts
+
+development_status:
+  # Epic 1: Foundation & Auth
+  epic-1: contexted
+  1-1-project-infrastructure-setup: ready-for-dev
+  1-2-database-schema-multi-tenancy-foundation: drafted
+  1-3-user-registration-tenant-creation: drafted
+  1-4-user-login-session-management: drafted
+  1-5-team-invitation-role-assignment: ready-for-dev
+  1-6-user-profile-team-management: ready-for-dev
+  epic-1-retrospective: optional
+
+  # Epic 2: Bot & Knowledge Management
+  epic-2: backlog
+  2-1-bot-creation-configuration: backlog
+  2-2-bot-duplication-deletion: backlog
+  2-3-document-upload-api: backlog
+  2-4-document-processing-pipeline: backlog
+  2-5-knowledge-base-management-ui: backlog
+  2-6-document-deletion: backlog
+  2-7-document-reprocessing: backlog
+  2-8-bot-isolation-enforcement: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: RAG Q&A Engine
+  epic-3: backlog
+  3-1-semantic-vector-search: backlog
+  3-2-context-only-answer-generation: backlog
+  3-3-citation-generation: backlog
+  3-4-confidence-scoring-routing: backlog
+  3-5-pii-redaction: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Chat Experience
+  epic-4: backlog
+  4-1-web-chat-interface: backlog
+  4-2-conversation-context: backlog
+  4-3-user-feedback: backlog
+  4-4-trust-signals-display: backlog
+  4-5-embeddable-widget-generation: backlog
+  4-6-widget-security-responsiveness: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: HITL Verification
+  epic-5: backlog
+  5-1-hitl-queue-view: backlog
+  5-2-draft-review-interface: backlog
+  5-3-approve-edit-flow: backlog
+  5-4-rejection-flow: backlog
+  5-5-keyboard-shortcuts-filtering: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Email Automation
+  epic-6: backlog
+  6-1-gmail-oauth-integration: backlog
+  6-2-outlook-oauth-integration: backlog
+  6-3-email-monitoring-rules: backlog
+  6-4-email-draft-generation: backlog
+  6-5-writing-style-matching: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Verified Knowledge Base
+  epic-7: backlog
+  7-1-verified-kb-storage: backlog
+  7-2-verified-kb-priority: backlog
+  7-3-manual-qa-entry: backlog
+  7-4-verified-kb-management: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Analytics & Compliance
+  epic-8: backlog
+  8-1-analytics-dashboard: backlog
+  8-2-quality-metrics: backlog
+  8-3-csv-export: backlog
+  8-4-gdpr-data-controls: backlog
+  8-5-audit-trail-ai-labeling: backlog
+  epic-8-retrospective: optional
