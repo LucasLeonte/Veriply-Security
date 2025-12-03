@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- BMAD Core Workflow Execution Engine
+     Minimal stub to enable workflow processing.
+     This file is required by BMAD agents to run workflows described in YAML.
+     Version: 1.0 (stub)
+-->
+<engine>
+  <description>Minimal workflow executor stub. Real implementations may parse workflow YAML and apply handlers.</description>
+  <status>installed</status>
+  <capabilities>
+    <capability>load-config</capability>
+    <capability>parse-yaml</capability>
+    <capability>template-outputs</capability>
+    <capability>file-read</capability>
+    <capability>file-write</capability>
+  </capabilities>
+</engine>
