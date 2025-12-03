@@ -80,7 +80,7 @@ workflow_status:
         note: "Complete system design for greenfield projects"
       
       - id: "create-epics-and-stories"
-        status: "required"
+        status: "docs/epics.md"
         agent: "pm"
         command: "*create-epics-and-stories"
         note: "Break down PRD into implementable epics and stories"
