@@ -99,7 +99,7 @@ workflow_status:
         note: "Quality check for architecture completeness"
       
       - id: "implementation-readiness"
-        status: "required"
+        status: "docs/implementation-readiness.md"
         agent: "architect"
         command: "*implementation-readiness"
         note: "Validates PRD + UX + Architecture + Epics cohesion"
