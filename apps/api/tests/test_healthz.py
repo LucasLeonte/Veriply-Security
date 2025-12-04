@@ -60,8 +60,8 @@ def test_healthz_includes_database_config(client):
     assert "password" not in db_str.lower() or "***" in db_str
 
 
-def test_healthz_includes_timestamp(client):
-    """Verify /healthz response is valid JSON with expected fields."""
+def test_healthz_has_healthy_status(client):
+    """Verify /healthz response contains a healthy status."""
     response = client.get("/healthz")
     data = response.json()
     # Check core fields that should always be present
