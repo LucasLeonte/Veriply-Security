@@ -5,7 +5,7 @@ from app.core.settings import settings
 
 # Create async engine with connection pooling configured for multiple developers
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.get_database_url(),
     echo=settings.DEBUG,  # SQL logging in debug mode
     future=True,
     pool_size=settings.DB_POOL_SIZE,          # Base connection pool size

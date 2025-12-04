@@ -31,8 +31,10 @@ class Settings(BaseSettings):
     """
     
     model_config = SettingsConfigDict(
-        # Load .env from project root (two levels up from this file)
-        env_file=str(Path(__file__).resolve().parents[3] / ".env"),
+        # Load .env from project root (four levels up from this file)
+        # settings.py is at: apps/api/app/core/settings.py
+        # parents[4] goes: core -> app -> api -> apps -> PROJECT_ROOT
+        env_file=str(Path(__file__).resolve().parents[4] / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",  # Ignore extra fields from .env
@@ -42,11 +44,15 @@ class Settings(BaseSettings):
     # DATABASE CONFIGURATION
     # ========================================================================
     
-    DB_HOST: str = "localhost"
-    DB_PORT: int = 5432
-    DB_NAME: str = "veriply_dev"
-    DB_USER: str = "veriply_user"
-    DB_PASSWORD: str
+    # Primary: Direct DATABASE_URL (preferred)
+    DATABASE_URL: Optional[str] = None
+    
+    # Alternative: Individual components (for backward compatibility)
+    DB_HOST: Optional[str] = None
+    DB_PORT: Optional[int] = None
+    DB_NAME: Optional[str] = None
+    DB_USER: Optional[str] = None
+    DB_PASSWORD: Optional[str] = None
     
     # Legacy variable names for backward compatibility
     POSTGRES_HOST: Optional[str] = None
@@ -55,35 +61,48 @@ class Settings(BaseSettings):
     POSTGRES_USER: Optional[str] = None
     POSTGRES_PASSWORD: Optional[str] = None
     
-    @property
-    def DATABASE_URL(self) -> str:
+    def get_database_url(self) -> str:
         """
-        Construct PostgreSQL connection string from individual components.
+        Get PostgreSQL connection string.
         
-        Uses asyncpg driver for async database operations.
+        Priority:
+        1. Use DATABASE_URL if set directly (preferred)
+        2. Construct from DB_* components
+        3. Fall back to POSTGRES_* components (legacy)
+        
         Format: postgresql+asyncpg://user:password@host:port/database
-        
-        Connection pooling is handled by SQLAlchemy create_async_engine.
-        See app/core/database.py for pool configuration.
         """
-        # Use new variable names, fall back to legacy if needed
+        # If DATABASE_URL is set directly, use it
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
+        
+        # Otherwise, construct from components
         host = self.DB_HOST or self.POSTGRES_HOST or "localhost"
         port = self.DB_PORT or self.POSTGRES_PORT or 5432
         db = self.DB_NAME or self.POSTGRES_DB or "veriply_dev"
         user = self.DB_USER or self.POSTGRES_USER or "veriply_user"
         password = self.DB_PASSWORD or self.POSTGRES_PASSWORD
         
+        if not password:
+            raise ValueError(
+                "Database credentials required. "
+                "Set DATABASE_URL or DB_PASSWORD/POSTGRES_PASSWORD in .env"
+            )
+        
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
     
     @property
     def DATABASE_URL_SYNC(self) -> str:
         """
-        Synchronous database URL for Alembic migrations.
+        Synchronous PostgreSQL connection string (for migrations, etc.).
+        
         Uses psycopg2 driver instead of asyncpg.
+        Format: postgresql://user:password@host:port/database
         """
-        host = self.DB_HOST or self.POSTGRES_HOST or "localhost"
-        port = self.DB_PORT or self.POSTGRES_PORT or 5432
-        db = self.DB_NAME or self.POSTGRES_DB or "veriply_dev"
+        # Replace asyncpg with standard driver
+        return self.get_database_url().replace("postgresql+asyncpg://", "postgresql://")
+    
+    # Connection pooling configuration
         user = self.DB_USER or self.POSTGRES_USER or "veriply_user"
         password = self.DB_PASSWORD or self.POSTGRES_PASSWORD
         
@@ -122,7 +141,7 @@ class Settings(BaseSettings):
     # JWT & AUTHENTICATION
     # ========================================================================
     
-    JWT_SECRET: str  # REQUIRED - will fail if not set
+    JWT_SECRET: Optional[str] = None  # REQUIRED - validation done on first use
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 1440  # 24 hours
     
@@ -224,11 +243,11 @@ if not settings.JWT_SECRET:
         "and add it to your .env file."
     )
 
-if not settings.DB_PASSWORD:
-    raise ValueError(
-        "DB_PASSWORD is required but not set. "
-        "Add it to your .env file or request credentials from your team lead."
-    )
+# Validate database connection (check if we can construct a URL)
+try:
+    _ = settings.get_database_url()
+except ValueError as e:
+    raise ValueError(f"Database configuration error: {e}") from e
 
 
 # ============================================================================
