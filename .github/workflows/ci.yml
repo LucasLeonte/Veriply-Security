@@ -114,9 +114,9 @@ jobs:
       - name: Run smoke E2E script
         id: run-smoke
         run: |
-          bash tests/e2e/smoke.sh || true
-      - name: Upload smoke logs (on failure)
-        if: failure()
+          bash tests/e2e/smoke.sh
+      - name: Upload smoke logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: smoke-logs
