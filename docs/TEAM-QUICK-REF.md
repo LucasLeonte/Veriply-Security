@@ -128,7 +128,7 @@ git pull origin main
 ## Current Sprint Focus
 
 **Epic 1: Foundation & Auth**
-- ✅ 1-1-project-infrastructure-setup (Soulaymane) - DONE
+- ✅ 1-1-project-infrastructure-setup (Dario) - DONE
 - ✅ 1-2-database-schema-multi-tenancy-foundation (Dario) - DONE
 - ✅ 1-3-user-registration-tenant-creation (Dario) - DONE
 - 📋 1-4-user-login-session-management (Lucas) - ASSIGNED

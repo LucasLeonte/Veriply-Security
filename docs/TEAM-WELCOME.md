@@ -15,7 +15,7 @@
 | **Kainy** | Frontend, UI, Testing | Available (0/2 WIP) |
 | **Soulaymane** | Fullstack, DevOps, Integration | Available (0/2 WIP) |
 
-✅ **Completed:** 3 stories (1-1, 1-2, 1-3)  
+✅ **Completed:** 3 stories (1-1, 1-2, 1-3 by Dario)  
 🔨 **In Progress:** 1 story (1-4 by Lucas)  
 ⭐ **Available:** 1 story (1-5)  
 ⏸️ **Blocked:** 1 story (1-6 waiting for 1-4)
@@ -238,8 +238,7 @@ Example output:
 ## 🎉 Celebrate Wins!
 
 ### Already Done (Awesome!):
-- ✅ **Soulaymane:** Infrastructure setup
-- ✅ **Dario:** Database schema + User registration
+- ✅ **Dario:** Infrastructure setup, Database schema, User registration
 - 🎯 **Lucas:** Currently working on login system
 
 ### Upcoming Milestones:

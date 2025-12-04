@@ -135,7 +135,7 @@ git pull origin main
 
 | Story | Status | Assigned | Blocked By |
 |-------|--------|----------|------------|
-| 1-1-project-infrastructure-setup | ✅ done | Soulaymane | - |
+| 1-1-project-infrastructure-setup | ✅ done | Dario | - |
 | 1-2-database-schema-multi-tenancy-foundation | ✅ done | Dario | - |
 | 1-3-user-registration-tenant-creation | ✅ done | Dario | - |
 | 1-4-user-login-session-management | 📋 assigned | Lucas | - |
