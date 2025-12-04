@@ -1,71 +1,151 @@
-# Story 1.5: Secrets Management & Configuration
+# Story 1.5: Secrets Management & Configuration + Centralized Database
 
 **Epic:** 1. Foundation & App Shell
 **Status:** Drafted
-**Context:** Architecture gaps called out in docs/validation-report-architecture.md (centralize secrets into .env; remove hard-coded credentials)
+**Context:** Architecture gaps called out in docs/validation-report-architecture.md (centralize secrets into .env; remove hard-coded credentials). 4-developer team shares a centralized PostgreSQL database on a Linux Ubuntu server for both dev and prod.
 
 ## Story
 
 As a developer and operator,
-I want all secrets and environment-specific configuration to be centralized in .env files and loaded via typed settings,
-so that the system is secure-by-default, portable across environments, and compliant with good DevOps practices.
+I want all secrets and environment-specific configuration to be centralized in .env files and loaded via typed settings, AND connect all developer machines and production to a single centralized PostgreSQL database on a Linux Ubuntu server,
+so that the system is secure-by-default, portable across environments, compliant with good DevOps practices, and allows seamless collaboration across the dev team.
 
 ## Acceptance Criteria
 
-- [ ] .env.example files exist at repository root, apps/api, and apps/web with documented variables and placeholders (no real secrets).
-- [ ] .env files are ignored by Git; secrets never committed. Root .gitignore contains .env rule (verified).
-- [ ] Docker Compose loads environment variables from root .env; services can override via service-level env.
-- [ ] FastAPI loads configuration via a Pydantic BaseSettings class (e.g., `app/core/settings.py`) and uses environment variables for DB URL, JWT secret, and Ollama host.
-- [ ] Next.js reads API URL and NextAuth secrets from environment variables; local dev uses `.env.local`.
+### Secrets & Configuration (Single Centralized `.env`)
+- [ ] **SINGLE SOURCE OF TRUTH:** One `.env` file at repository root contains ALL configuration for all services (API, Web, Database, etc.).
+- [ ] `.env.example` exists at repository root with documented variables and placeholders (no real secrets); developers copy to `.env` for local/server use.
+- [ ] `.env` file is ignored by Git; secrets never committed. Root `.gitignore` contains `.env` rule (verified).
+- [ ] All services (Docker Compose, FastAPI, Next.js, etc.) reference the root `.env` file—no redundant per-service `.env` files.
+- [ ] FastAPI loads configuration via a Pydantic BaseSettings class (e.g., `app/core/settings.py`) that reads from the root `.env`.
+- [ ] Next.js reads API URL and NextAuth secrets from the root `.env` during build and runtime; Next.js `.env.local` is NOT used (all config comes from root `.env`).
+- [ ] Docker Compose explicitly loads root `.env` file; all containers inherit variables from single source.
 - [ ] No hard-coded credentials remain in the repo (scan using gitleaks or similar); create a pre-commit hook to prevent accidental commits of secrets.
+
+### Centralized Database (Linux Ubuntu Server)
+- [ ] PostgreSQL database running in Docker container on central Ubuntu server with persistent volume storage.
+- [ ] Database accessible via network connection string: `postgresql://{db_user}:{db_password}@{server_ip}:5432/{db_name}`.
+- [ ] All 4 developer machines configured to connect to central DB via `.env` files (DB_HOST points to server IP, not localhost).
+- [ ] Production database uses same PostgreSQL setup on production Ubuntu server with separate credentials in prod `.env`.
+- [ ] Database connection pooling configured in FastAPI to handle multiple concurrent connections from 4 developers + API instances.
+- [ ] Health check endpoint `/healthz` verifies DB connectivity and returns 200 when connected.
+- [ ] Database migrations (Alembic) can run from any developer machine or during deployment.
+- [ ] Documentation includes setup instructions for adding new developer machines (set DB_HOST, DB_USER, DB_PASSWORD in .env).
+
+### Testing & Documentation
 - [ ] Minimal smoke tests prove configuration is loaded (API returns 200 on `/healthz` with correct config-derived settings; web renders page consuming NEXT_PUBLIC_API_URL).
-- [ ] Documentation in README.md updated to explain env setup and variables.
+- [ ] Test can verify connection to central DB and query execution succeeds.
+- [ ] Documentation in README.md updated to explain env setup, variables, and centralized database connection steps.
+- [ ] Team onboarding guide includes: getting DB credentials, setting .env values, verifying connection from new machine.
 
 ## Tasks / Subtasks
 
-1) Repository-level env scaffolding
-- [ ] Add root `.env.example` with Postgres, Ollama, JWT, NextAuth, and observability vars
-- [ ] Add `apps/api/.env.example` and `apps/web/.env.local.example`
-- [ ] Double-check `.gitignore` includes `.env*` patterns (root and apps/web already configured)
+### 1) Repository-level env scaffolding (Single Centralized `.env`)
+- [ ] Add root `.env.example` with ALL variables needed across all services:
+  - Database: `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_PORT`, `DB_NAME`
+  - Ollama: `OLLAMA_HOST`, `OLLAMA_PORT`
+  - JWT/Auth: `JWT_SECRET`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`
+  - Next.js: `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_APP_URL`
+  - Observability: any logging/monitoring vars
+  - Other: any additional service-specific secrets
+- [ ] Add `apps/api/.env.example` that references the root `.env` (e.g., sourcing it or loading from parent directory)
+- [ ] Add `apps/web/.env.example` that references the root `.env` (e.g., sourcing it or loading from parent directory)
+- [ ] Each app's `.env` file points to/inherits from central root `.env` so configuration is not duplicated
+- [ ] Verify root `.gitignore` includes `.env` rule (verify `.gitignore` entries allow `.env.example` to be committed but block `.env`)
+- [ ] Document in `.env.example` which variables apply to which service for clarity
 
-2) FastAPI typed settings
-- [ ] Create `apps/api/app/core/settings.py` with Pydantic BaseSettings and defaults
+### 2) Centralized Database Setup (Ubuntu Server)
+- [ ] **NEW:** Create Docker setup on Ubuntu server: PostgreSQL container with named volume for persistence
+- [ ] **NEW:** Expose PostgreSQL on port 5432 (ensure firewall allows inbound on port 5432 from developer machines)
+- [ ] **NEW:** Initialize DB with schema and initial migrations
+- [ ] **NEW:** Create database user accounts for each developer + production account with appropriate permissions
+- [ ] **NEW:** Document server setup: IP address, connection credentials, and backup/restore procedures
+- [ ] **NEW:** Add health check in container to verify DB is running and accessible
+
+### 3) FastAPI typed settings & centralized DB connection
+- [ ] Create `apps/api/app/core/settings.py` with Pydantic BaseSettings that reads from environment:
+  - Load `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_PORT`, `DB_NAME` from environment
+  - `DATABASE_URL` constructed as `postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}`
+  - Connection pool settings (e.g., pool_size=10, max_overflow=20 for multiple concurrent dev connections)
+  - Load `JWT_SECRET`, `OLLAMA_HOST` from environment
 - [ ] Wire settings into `main.py` and database initialization code
 - [ ] Replace any inline constants with references to `settings`
+- [ ] **NOTE:** `apps/api/.env` sources/references the root `.env` so environment variables are inherited
 
-3) Docker Compose integration
-- [ ] Load root `.env` from compose; verify services receive values
-- [ ] Document overrides per-environment (e.g., CI uses different values)
+### 4) Docker Compose configuration
+- [ ] Root `docker-compose.yml`: explicitly load root `.env` file with `env_file: .env`
+- [ ] All services (API, web, postgres, ollama) inherit variables from root `.env`
+- [ ] Services use the root `.env` as the single source of truth; individual app `.env` files inherit from it
+- [ ] Production `docker-compose.yml` on Ubuntu server: same approach, uses production `.env` file on server
+- [ ] Document in docker-compose.yml comments which variables apply to which service
 
-4) Next.js configuration
-- [ ] Use `.env.local` for local dev; document `NEXT_PUBLIC_API_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`
-- [ ] Verify pages can call the API URL from env (basic fetch on a server action or route)
+### 5) Next.js configuration
+- [ ] Create `apps/web/.env` that sources/inherits from root `.env` so build-time variables are available
+- [ ] Next.js reads `NEXT_PUBLIC_API_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET` from the inherited environment
+- [ ] Update `next.config.ts` to ensure environment variables are properly loaded during build
+- [ ] Verify pages can call the API URL from environment (basic fetch on a server action or route)
 
-5) Secrets scanning & pre-commit
+### 6) Secrets scanning & pre-commit
 - [ ] Add `gitleaks` config and a CI step to scan PRs
 - [ ] Add a pre-commit hook (optional) to run `gitleaks protect` locally
 
-6) Tests & docs
+### 7) Tests & docs
 - [ ] Add a small API test asserting settings resolve (pytest) and `/healthz` reports OK
-- [ ] Update top-level README with an "Environment Setup" section
+- [ ] Add integration test: verify connection to centralized DB succeeds (query a test table or run migration)
+- [ ] **NEW:** Add team onboarding guide: "Getting DB Access" with steps to request credentials, set .env values, and test connection from new machine
+- [ ] Update top-level README with sections:
+  - "Environment Setup" (general secrets/config)
+  - "Centralized Database Setup" (dev and prod connection instructions)
+  - "Adding a New Developer" (one-time setup steps)
 
 ## Dev Notes
 
+### Secrets & Configuration
 - Architecture report flags secrets management as a gap to close for MVP; this story addresses that gap directly.
-- Keep variable names consistent across Docker, API, and Web to reduce friction.
-- Consider `python-dotenv` in local dev for API (optional); not needed in containers.
+- **Single `.env` model** reduces friction and misconfiguration: one file to manage for all services.
+- `.env.example` is the contract—document every variable, its purpose, and which service uses it.
+- Consider `python-dotenv` in local dev for API (optional); Docker Compose will load `.env` automatically.
+
+### Centralized Database Architecture
+- **Single Source of Truth:** All 4 developers + production use ONE PostgreSQL instance on the Ubuntu server.
+- **Single `.env` file** also simplifies database configuration—DB_HOST, DB_USER, DB_PASSWORD all in one place.
+- **Connection String Pattern:** `postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}` built from `.env` vars
+- **Network Security:** 
+  - PostgreSQL port (5432) should be accessible only to authorized developer IPs (firewall rules or VPN).
+  - Use strong DB passwords; do NOT commit `.env` to repo.
+  - Consider IP whitelisting on the server to restrict access.
+- **Local Testing Optional:** Developers can optionally edit `.env` to point to a local PostgreSQL container for isolated testing; production and main dev work use the central server.
+- **Connection Pooling:** FastAPI must use connection pooling (e.g., pgbouncer or sqlalchemy pool settings) to handle multiple concurrent connections from 4 developers without exhausting DB resources.
+- **Backup & Recovery:** Central server requires regular backups (e.g., daily dumps or WAL archiving). Document backup/restore procedures.
+- **Migrations:** Alembic migrations should be idempotent so any developer can run them against the shared DB without conflicts.
 
 ### Project Structure Notes
 
-- API settings module target: `apps/api/app/core/settings.py`
-- Web env files: `apps/web/.env.local` (local use only) and `.env.production.local` for prod overrides (not tracked).
+- **Single `.env.example`** at repository root (committed to repo)—the source of truth
+- **Root `.env`** file at repository root (NOT committed; each machine/server has its own)
+- **`apps/api/.env`** sources/inherits from root `.env` so API settings can load all variables
+- **`apps/web/.env`** sources/inherits from root `.env` so Next.js can access all variables at build time
+- API settings module: `apps/api/app/core/settings.py` reads from environment
+- Docker setup: `docker-compose.yml` at root (and on Ubuntu server) with `env_file: .env` loads the central `.env`
+- All `.env` files (root, API, web) excluded from git via `.gitignore`; only `.env.example` files committed
+
+### Ubuntu Server Setup Checklist
+- Install Docker and Docker Compose
+- Clone repo or pull latest code
+- Copy `.env.example` to `.env` and edit with production values (DB credentials, API URLs, secrets, etc.)
+- Run services with: `docker-compose up -d` (reads from root `.env`)
+- Initialize schema: `alembic upgrade head` (run from a dev machine or server shell)
+- All configuration managed via single `.env` file on server
+- Document server IP and how to request DB credentials for team onboarding
 
 ### References
 
 - docs/validation-report-architecture.md#Gaps-/-Actions
 - docker-compose.yml
+- docker/postgres/docker-compose.yml (new/updated)
 - apps/web/.gitignore
 - .gitignore (root)
+- docs/TEAM-WELCOME.md (add onboarding steps)
 
 ## Dev Agent Record
 
