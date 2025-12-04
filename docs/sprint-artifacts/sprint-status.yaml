@@ -93,8 +93,9 @@ development_status:
         completed_date: 2025-12-04
 
     1-5-team-invitation-role-assignment:
-        status: ready-for-dev
+        status: done
         assigned_to: Dario
+        completed_date: 2025-12-04
         blocked_by: 1-4-user-login-session-management
 
     1-6-user-profile-team-management:
