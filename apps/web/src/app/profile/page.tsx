@@ -119,25 +119,39 @@ export default function ProfilePage() {
         return;
       }
 
-      // In a real app, upload to S3 or similar
-      // For now, create a data URL
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const avatarUrl = event.target?.result as string;
+      // Use FormData for efficient multipart/form-data upload
+      // This is the recommended approach for file uploads:
+      // - Memory efficient: No base64 encoding overhead
+      // - Standard: Uses HTTP multipart/form-data specification
+      // - Scalable: Handles large files better than data URLs
+      const formData = new FormData();
+      formData.append('file', file);
 
-        // Mock API response
-        if (profile) {
-          setProfile({
-            ...profile,
-            avatar_url: avatarUrl,
-          });
-        }
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
-      };
-      reader.readAsDataURL(file);
+      const response = await fetch('/api/v1/profile/avatar', {
+        method: 'POST',
+        credentials: 'include', // Include httpOnly cookies
+        body: formData, // FormData automatically sets Content-Type: multipart/form-data
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Avatar upload failed');
+        return;
+      }
+
+      const result = await response.json();
+      
+      // Update profile with new avatar URL from server
+      if (profile && result.avatar_url) {
+        setProfile({
+          ...profile,
+          avatar_url: result.avatar_url,
+        });
+      }
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(err instanceof Error ? err.message : 'Avatar upload failed');
     }
   };
 

@@ -303,13 +303,16 @@ def test_update_profile_name_too_short(client):
         "Name too short should be rejected"
 
 
-# ===== TEST SUITE 4: POST /api/v1/profile/avatar - Upload Avatar =====
+# ===== TEST SUITE 4: POST /api/v1/profile/avatar - Upload Avatar (Multipart) =====
 
 def test_upload_avatar_missing_token(client):
     """Test that avatar upload requires authentication."""
+    # Create a test file for upload
+    test_file = ("avatar.jpg", b"fake image content", "image/jpeg")
+    
     response = client.post(
         "/api/v1/profile/avatar",
-        json={"avatar_url": "https://example.com/avatar.jpg"}
+        files={"file": test_file}
     )
     
     # Assert: Should require authentication
@@ -318,24 +321,76 @@ def test_upload_avatar_missing_token(client):
 
 
 def test_upload_avatar_success(client):
-    """Test successful avatar URL upload."""
+    """Test successful avatar file upload using multipart/form-data."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     token = create_token(user_id, tenant_id, role="owner")
     
+    # Create a test file (in real scenario, this would be actual image bytes)
+    test_file = ("avatar.jpg", b"fake JPEG data for testing", "image/jpeg")
+    
     response = client.post(
         "/api/v1/profile/avatar",
         headers={"Authorization": f"Bearer {token}"},
-        params={"avatar_url": "https://example.com/avatar.jpg"}
+        files={"file": test_file}
     )
     
-    # Assert: Should accept avatar upload
+    # Assert: Should accept multipart file upload
     assert response.status_code in [200, 404], \
-        f"Avatar upload should succeed for authenticated user. Got {response.status_code}"
+        f"Avatar upload should succeed for authenticated user. Got {response.status_code}: {response.json()}"
     
     if response.status_code == 200:
         data = response.json()
+        # Should return avatar URL and metadata
         assert "avatar_url" in data or "message" in data
+        if "filename" in data:
+            assert "avatar_" in data["filename"], "Filename should contain avatar prefix"
+        if "size_bytes" in data:
+            assert data["size_bytes"] > 0, "File size should be greater than 0"
+
+
+def test_upload_avatar_invalid_type(client):
+    """Test that invalid file types are rejected."""
+    user_id = str(uuid.uuid4())
+    tenant_id = str(uuid.uuid4())
+    token = create_token(user_id, tenant_id, role="owner")
+    
+    # Try to upload non-image file
+    test_file = ("document.pdf", b"fake PDF content", "application/pdf")
+    
+    response = client.post(
+        "/api/v1/profile/avatar",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": test_file}
+    )
+    
+    # Assert: Should reject invalid file type
+    assert response.status_code == 400, \
+        "Invalid file type should be rejected with 400 Bad Request"
+    assert "Invalid file type" in response.json()["detail"]
+
+
+def test_upload_avatar_oversized(client):
+    """Test that oversized files are rejected."""
+    user_id = str(uuid.uuid4())
+    tenant_id = str(uuid.uuid4())
+    token = create_token(user_id, tenant_id, role="owner")
+    
+    # Create a file larger than 5MB (just the bytes, not actually creating a 5MB+ file)
+    # This tests the size validation logic
+    oversized_content = b"x" * (6 * 1024 * 1024)  # 6MB of data
+    test_file = ("large.jpg", oversized_content, "image/jpeg")
+    
+    response = client.post(
+        "/api/v1/profile/avatar",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": test_file}
+    )
+    
+    # Assert: Should reject oversized file
+    assert response.status_code == 413, \
+        "Oversized file should be rejected with 413 Payload Too Large"
+    assert "File size must be less than 5MB" in response.json()["detail"]
 
 
 # ===== TEST SUITE 5: GET /api/v1/profile/team/members - List Team Members =====
