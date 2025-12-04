@@ -1,0 +1,455 @@
+# Story 3.5: PII Redaction
+
+**Epic:** 3. RAG Q&A Engine  
+**Status:** drafted  
+**Assigned to:** TBD  
+**Blocked by:** 3-2-context-only-answer-generation
+
+## Story
+
+As a System,  
+I want to detect and redact PII from queries before sending to LLM,  
+so that sensitive data is never processed by the AI.
+
+## Acceptance Criteria
+
+### PII Detection
+
+- [ ] System detects and redacts the following PII types:
+  - [ ] Email addresses (user@example.com → `<EMAIL>`)
+  - [ ] Phone numbers (555-123-4567 → `<PHONE>`)
+  - [ ] Credit card numbers (4111111111111111 → `<CREDIT_CARD>`)
+  - [ ] Social Security Numbers (123-45-6789 → `<SSN>`)
+  - [ ] Names (context-dependent, → `<PERSON>`)
+  - [ ] IP addresses (192.168.1.1 → `<IP_ADDRESS>`)
+  - [ ] URLs → `<URL>` (keep domain, redact paths with credentials)
+
+### Redaction Accuracy
+
+- [ ] High-confidence detections (99%+ accuracy)
+- [ ] Minimal false positives (avoid redacting non-PII)
+- [ ] Minimal false negatives (catch real PII)
+- [ ] Multiple occurrences of same PII are redacted consistently
+
+### Query Processing
+
+- [ ] Original (unredacted) query is stored separately (encrypted)
+- [ ] Redacted query is sent to LLM for generation
+- [ ] Original query ID links original and redacted versions
+- [ ] Answer is de-redacted before display if applicable
+
+### Logging & Privacy
+
+- [ ] Original query is encrypted at rest (AES-256)
+- [ ] Original query logged only for support/debugging
+- [ ] Redacted version used in analytics (safe to log)
+- [ ] Audit trail shows redaction occurred
+
+### Edge Cases
+
+- [ ] Empty query after redaction is handled gracefully
+- [ ] Queries with excessive PII don't break system
+- [ ] Mixed PII (multiple types) in one query is handled
+- [ ] Redaction preserves sentence structure for LLM
+
+## Technical Specifications
+
+### PII Redaction Architecture
+
+**Two-Tier Approach:**
+
+1. **Rule-Based Detection (Fast):**
+   - Regex patterns for emails, phone, SSN, credit cards, IPs
+   - High precision, low recall
+   - Threshold: >95% confidence to redact
+
+2. **ML-Based Detection (Comprehensive):**
+   - Microsoft Presidio or spacy NER models
+   - Catches context-dependent PII (names, organizations)
+   - Used for lower-confidence decisions
+
+**Pipeline:**
+```
+Original Query
+    ↓
+[Rule-Based Regex Detection]
+    ↓
+[ML-Based NER Detection]
+    ↓
+[Conflict Resolution]
+    ↓
+[Redaction + Encryption]
+    ↓
+Redacted Query → LLM
+Original Query (Encrypted) → Storage
+```
+
+### Regex Patterns
+
+| PII Type | Pattern | Example Match |
+|----------|---------|----------------|
+| Email | `\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z\|a-z]{2,}\b` | john@example.com |
+| Phone | `\b(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})\b` | 555-123-4567 |
+| SSN | `\b\d{3}-\d{2}-\d{4}\b` | 123-45-6789 |
+| Credit Card | `\b(?:\d[ -]*?){13,19}\b` (Luhn validated) | 4111111111111111 |
+| IP Address | `\b(?:\d{1,3}\.){3}\d{1,3}\b` | 192.168.1.1 |
+| URL | `https?://[^\s]+` | https://user:pass@example.com/path |
+
+### Microsoft Presidio Integration
+
+```python
+from presidio_analyzer import AnalyzerEngine
+from presidio_anonymizer import AnonymizerEngine
+
+analyzer = AnalyzerEngine()
+anonymizer = AnonymizerEngine()
+
+def redact_query(query: str) -> Tuple[str, Dict]:
+    """Detect and redact PII"""
+    
+    # Analyze
+    results = analyzer.analyze(
+        text=query,
+        language="en",
+        entities=[
+            "EMAIL_ADDRESS",
+            "PHONE_NUMBER",
+            "CREDIT_CARD",
+            "US_SSN",
+            "IP_ADDRESS",
+            "PERSON",
+            "URL"
+        ],
+        score_threshold=0.5  # 50% confidence
+    )
+    
+    # Anonymize
+    redacted = anonymizer.anonymize(
+        text=query,
+        analyzer_results=results,
+        operators={
+            "EMAIL_ADDRESS": OperatorConfig("replace", {"new_value": "<EMAIL>"}),
+            "PHONE_NUMBER": OperatorConfig("replace", {"new_value": "<PHONE>"}),
+            "CREDIT_CARD": OperatorConfig("replace", {"new_value": "<CREDIT_CARD>"}),
+            "US_SSN": OperatorConfig("replace", {"new_value": "<SSN>"}),
+            "IP_ADDRESS": OperatorConfig("replace", {"new_value": "<IP_ADDRESS>"}),
+            "PERSON": OperatorConfig("replace", {"new_value": "<PERSON>"}),
+            "URL": OperatorConfig("replace", {"new_value": "<URL>"})
+        }
+    )
+    
+    return redacted.text, {
+        "original": query,
+        "redactions": results
+    }
+```
+
+### Redaction Mapping
+
+Store mapping of redacted entities for potential de-redaction:
+
+```python
+class PiiRedaction:
+    query_id: UUID
+    original_text: str  # Encrypted
+    redacted_text: str
+    
+    redactions: List[Dict] = [
+        {
+            "type": "EMAIL_ADDRESS",
+            "original": "john@example.com",
+            "redacted_as": "<EMAIL>",
+            "position": (45, 62),  # Character offsets
+            "confidence": 0.99
+        },
+        {
+            "type": "PHONE_NUMBER",
+            "original": "555-123-4567",  # Only first/last digits stored
+            "redacted_as": "<PHONE>",
+            "position": (68, 80),
+            "confidence": 0.95
+        }
+    ]
+    
+    created_at: datetime
+    encrypted_key_id: str
+```
+
+### Database Schema
+
+```sql
+CREATE TABLE pii_redactions (
+  id UUID PRIMARY KEY,
+  query_id UUID NOT NULL,
+  bot_id UUID NOT NULL REFERENCES bots(id),
+  tenant_id UUID NOT NULL REFERENCES tenants(id),
+  
+  -- Original encrypted
+  original_query_encrypted BYTEA NOT NULL,  -- AES-256-GCM
+  encryption_key_id VARCHAR(100),
+  iv BYTEA,  -- Initialization vector
+  
+  -- Redacted
+  redacted_query TEXT NOT NULL,
+  
+  -- Redaction details (JSON)
+  redactions JSONB NOT NULL,  -- List of redacted entities
+  
+  -- Audit
+  created_at TIMESTAMP,
+  user_id UUID,
+  accessed_count INT DEFAULT 0,
+  
+  INDEX idx_query ON query_id,
+  INDEX idx_bot_tenant ON (bot_id, tenant_id)
+);
+```
+
+### Encryption
+
+Use AES-256-GCM for original query encryption:
+
+```python
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
+
+def encrypt_query(original_query: str, key: bytes) -> Tuple[bytes, bytes]:
+    """Encrypt original query"""
+    iv = os.urandom(12)  # 96-bit IV for GCM
+    cipher = AESGCM(key)
+    ciphertext = cipher.encrypt(iv, original_query.encode(), None)
+    return ciphertext, iv
+
+def decrypt_query(ciphertext: bytes, iv: bytes, key: bytes) -> str:
+    """Decrypt original query (support only, logging)"""
+    cipher = AESGCM(key)
+    plaintext = cipher.decrypt(iv, ciphertext, None)
+    return plaintext.decode()
+```
+
+## API Contract
+
+### Endpoint
+```
+POST /api/bots/{bot_id}/query
+```
+
+### Request (with Redaction)
+```json
+{
+  "query": "Contact john@example.com for refunds or call 555-123-4567",
+  "redact_pii": true
+}
+```
+
+### Response
+```json
+{
+  "original_query": "Contact john@example.com for refunds or call 555-123-4567",
+  "redacted_query": "Contact <EMAIL> for refunds or call <PHONE>",
+  "query_id": "uuid",
+  "redactions": [
+    {
+      "type": "EMAIL_ADDRESS",
+      "value": "john@example.com",
+      "position": [8, 28],
+      "confidence": 0.99
+    },
+    {
+      "type": "PHONE_NUMBER",
+      "value": "555-1234**",  // Partial masking in logs
+      "position": [50, 62],
+      "confidence": 0.95
+    }
+  ],
+  "answer": "Refund requests should be submitted to your account manager...",
+  "pii_detected": true
+}
+```
+
+## Implementation Tasks
+
+### Backend (FastAPI)
+
+1. **PII Redaction Service:**
+   - Integration with Microsoft Presidio or spacy NER
+   - Regex pattern matching for high-confidence types
+   - Conflict resolution (overlapping detections)
+   - Redaction injection and entity mapping
+
+2. **Encryption Service:**
+   - AES-256-GCM encryption for original queries
+   - Key management and rotation
+   - Secure key storage
+
+3. **Database Storage:**
+   - Store redacted queries (safe to log)
+   - Store encrypted original queries
+   - Store redaction metadata for audit trail
+   - Create migration for pii_redactions table
+
+4. **API Integration:**
+   - Middleware or query handler to redact before LLM
+   - Also redact before document search (embeddings)
+   - Flag queries with PII for analytics
+
+5. **Testing:**
+   - Unit tests: Regex patterns for each PII type
+   - Unit tests: Microsoft Presidio integration
+   - Integration tests: End-to-end redaction
+   - Edge cases: Multiple PII types, overlapping patterns, special characters
+   - Accuracy tests: High precision, low false positives
+
+### Frontend (Next.js)
+
+1. **PII Indicator:**
+   - Show badge if query contains detected PII
+   - User sees: "Privacy note: We detected sensitive info and removed it"
+   - Optional: Allow user to not redact (for testing)
+
+2. **Support Panel:**
+   - Support agents can view redaction history
+   - Ability to decrypt original (with audit logging)
+   - Redaction details shown
+
+## Dependencies
+
+### Required
+- Microsoft Presidio library (or spacy)
+- Encryption library (cryptography)
+
+### Optional
+- Custom NER model for domain-specific PII
+- Advanced PII detection (credit card validation, etc.)
+
+## Acceptance Test Plan
+
+### Test Scenarios
+
+**Scenario 1: Email Detection**
+- Input: "Contact support@veriply.io for help"
+- Redacted: "Contact <EMAIL> for help"
+- Result: PASS
+
+**Scenario 2: Phone Detection**
+- Input: "Call us at 555-123-4567 or 1 (800) 555-1234"
+- Redacted: "Call us at <PHONE> or <PHONE>"
+- Result: PASS (both formats detected)
+
+**Scenario 3: Credit Card Detection**
+- Input: "Charged $50 to 4111111111111111"
+- Redacted: "Charged $50 to <CREDIT_CARD>"
+- Result: PASS (Luhn validation passes)
+
+**Scenario 4: Multiple PII Types**
+- Input: "Name: John Doe, Email: john@example.com, Phone: 555-123-4567"
+- Redacted: "Name: <PERSON>, Email: <EMAIL>, Phone: <PHONE>"
+- Result: PASS (all types detected)
+
+**Scenario 5: No PII**
+- Input: "What is your refund policy?"
+- Redacted: "What is your refund policy?"
+- Result: PASS (no false positives)
+
+**Scenario 6: False Negative Check**
+- Input: "My SSN is 123-45-6789"
+- Redacted: "My SSN is <SSN>"
+- Result: PASS (SSN detected)
+
+**Scenario 7: Original Query Encryption**
+- Given: Redacted query sent to LLM
+- When: Original is stored
+- Then: Original is encrypted, cannot be read without key
+
+## Definition of Done
+
+- [ ] PII detection working for all types (email, phone, SSN, etc.)
+- [ ] Redaction accuracy tested (high precision, low false negatives)
+- [ ] Original queries encrypted at rest
+- [ ] Redacted queries used for LLM and analytics
+- [ ] Redaction mapping stored for audit trail
+- [ ] Support access to encrypted originals (with logging)
+- [ ] Edge cases handled (overlaps, special characters, etc.)
+- [ ] Performance acceptable (<100ms redaction latency)
+- [ ] Code reviewed and tested
+- [ ] Code merged to main
+
+## Functional Requirements Covered
+
+- **FR26:** System redacts PII from queries before sending to LLM ✓
+
+## Technical Notes
+
+### Performance Optimization
+
+- **Caching:** Cache redaction results for identical queries (unlikely but safe)
+- **Batch Processing:** Redact multiple queries in parallel
+- **Model Loading:** Load Presidio/NER model once at startup
+
+### Privacy Best Practices
+
+1. **Least Privilege:** Support staff need explicit permissions to decrypt
+2. **Audit Logging:** Log every decryption attempt with user, timestamp, reason
+3. **Data Retention:** Keep encrypted originals for 30 days only
+4. **Key Rotation:** Rotate encryption keys quarterly
+
+### False Positive Mitigation
+
+Common false positives to watch:
+- IP-like numbers (version numbers, timestamps)
+- Email-like strings (artifact.com@latest)
+- Phone-like numbers (extensions)
+
+Solution: Validate with Luhn algorithm (credit cards), format checking, context
+
+## Risk & Mitigation
+
+| Risk | Mitigation |
+|------|-----------|
+| PII leakage to LLM | Strict redaction before embedding/generation |
+| Encryption key compromise | Secure key storage, rotation, access control |
+| False positives (over-redaction) | Conservative thresholds, manual review option |
+| Performance impact | Async redaction, caching, batch processing |
+| Support access abuse | Audit logging, least privilege, monitoring |
+
+## Dev Agent Record
+
+### Context Reference
+
+<!-- Story context XML will be added by context workflow -->
+
+### Agent Model Used
+
+Claude Haiku 4.5
+
+### Completion Notes List
+
+- Story 3.5 drafted with comprehensive PII redaction strategy
+- Two-tier approach (rule-based + ML-based detection)
+- Microsoft Presidio integration for entity recognition
+- Regex patterns for high-confidence types
+- AES-256-GCM encryption for original queries
+- Audit logging for support access to originals
+- Database schema for PII redaction tracking
+- Support for multiple PII types (email, phone, SSN, credit card, IP, URL)
+- De-redaction capability for support use cases
+
+### Debug Log References
+
+### File List
+
+<!-- Will be updated by dev agent during implementation -->
+
+## Change Log
+
+- 2025-12-04: Initial draft created by SM
+  - Two-tier PII detection (regex + Microsoft Presidio)
+  - Comprehensive PII type support
+  - AES-256-GCM encryption for original queries
+  - Redaction mapping and audit trail
+  - Database schema for tracking
+  - Support access with audit logging
+  - Performance and privacy best practices
+  - False positive mitigation strategies
+
