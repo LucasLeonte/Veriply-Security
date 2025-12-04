@@ -4,65 +4,66 @@
 # Epics and stories are sourced from docs/epics.md
 
 sprint:
-  name: "Sprint 1"
-  start_date: "2025-12-03"
-  end_date: "2025-12-17"
-  goals:
-    - Close architecture validation gaps (RLS, secrets, CI, metrics)
-    - Deliver MVP features for Foundation, Bot Management, RAG Q&A, and HITL Verification
-    - Achieve stable test coverage and CI pipeline integration
+    name: "Sprint 1"
+    start_date: "2025-12-03"
+    end_date: "2025-12-17"
+    goals:
+        - Close architecture validation gaps (RLS, secrets, CI, metrics)
+        - Deliver MVP features for Foundation, Bot Management, RAG Q&A, and HITL Verification
+        - Achieve stable test coverage and CI pipeline integration
 
 status:
-  epics:
-    - id: 1
-      title: "Foundation & Auth"
-      fr_coverage: "FR1-FR6"
-      stories: 6
-      progress: "not-started"
-    - id: 2
-      title: "Bot & Knowledge Management"
-      fr_coverage: "FR7-FR19"
-      stories: 8
-      progress: "not-started"
-    - id: 3
-      title: "RAG Q&A Engine"
-      fr_coverage: "FR20-FR26"
-      stories: 5
-      progress: "not-started"
-    - id: 4
-      title: "Chat Experience"
-      fr_coverage: "FR27-FR36"
-      stories: 6
-      progress: "not-started"
-    - id: 5
-      title: "HITL Verification"
-      fr_coverage: "FR37-FR43"
-      stories: 5
-      progress: "not-started"
-    - id: 6
-      title: "Email Automation"
-      fr_coverage: "FR44-FR50"
-      stories: 5
-      progress: "not-started"
-    - id: 7
-      title: "Verified Knowledge Base"
-      fr_coverage: "FR51-FR55"
-      stories: 4
-      progress: "not-started"
-    - id: 8
-      title: "Analytics & Compliance"
-      fr_coverage: "FR56-FR64"
-      stories: 5
-      progress: "not-started"
+    epics:
+        - id: 1
+          title: "Foundation & Auth"
+          fr_coverage: "FR1-FR6"
+          stories: 6
+          progress: "not-started"
+        - id: 2
+          title: "Bot & Knowledge Management"
+          fr_coverage: "FR7-FR19"
+          stories: 8
+          progress: "not-started"
+        - id: 3
+          title: "RAG Q&A Engine"
+          fr_coverage: "FR20-FR26"
+          stories: 5
+          progress: "not-started"
+        - id: 4
+          title: "Chat Experience"
+          fr_coverage: "FR27-FR36"
+          stories: 6
+          progress: "not-started"
+        - id: 5
+          title: "HITL Verification"
+          fr_coverage: "FR37-FR43"
+          stories: 5
+          progress: "not-started"
+        - id: 6
+          title: "Email Automation"
+          fr_coverage: "FR44-FR50"
+          stories: 5
+          progress: "not-started"
+        - id: 7
+          title: "Verified Knowledge Base"
+          fr_coverage: "FR51-FR55"
+          stories: 4
+          progress: "not-started"
+        - id: 8
+          title: "Analytics & Compliance"
+          fr_coverage: "FR56-FR64"
+          stories: 5
+          progress: "not-started"
 
 # Update progress per epic/story as sprint advances.
 development_status:
-  # Format: <epic>-<story>-<slug>: <status>
-  # Status values: backlog | drafted | in-progress | review | done
-  1-5-secrets-management-and-configuration: drafted
-  1-6-ci-pipeline-lint-tests-and-smoke-e2e: drafted
-  1-7-api-instrumentation-metrics-and-traces: backlog
+    # Format: <epic>-<story>-<slug>: <status>
+    # Status values: backlog | drafted | in-progress | review | done
+    1-5-secrets-management-and-configuration: drafted
+    1-6-ci-pipeline-lint-tests-and-smoke-e2e: drafted
+    1-7-api-instrumentation-metrics-and-traces: backlog
+    2-1-bot-creation-configuration: ready-for-dev
 ready_status:
-  # Mark stories ready after context is generated
-  1-5-secrets-management-and-configuration: ready
-  1-6-ci-pipeline-lint-tests-and-smoke-e2e: ready
+    # Mark stories ready after context is generated
+    1-5-secrets-management-and-configuration: ready
+    1-6-ci-pipeline-lint-tests-and-smoke-e2e: ready
