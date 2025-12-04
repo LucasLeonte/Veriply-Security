@@ -1,7 +1,7 @@
 import os
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthCredentials
 
 
 def _get_jwt_secret() -> str:
@@ -33,12 +33,37 @@ def _get_jwt_secret() -> str:
 JWT_SECRET = _get_jwt_secret()
 JWT_ALGORITHM = "HS256"
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 
-async def get_current_user(credentials = Depends(security)) -> dict:
-    """Validate JWT token and return user info."""
-    token = credentials.credentials
+async def get_current_user(
+    request: Request,
+    credentials = Depends(security)
+) -> dict:
+    """
+    Validate JWT token from secure httpOnly cookie or Bearer token.
+    
+    Priority order:
+    1. httpOnly cookie (preferred - not accessible to JavaScript)
+    2. Authorization Bearer token (fallback for testing/mobile apps)
+    
+    Returns user info or raises 401/403 error.
+    """
+    token = None
+    
+    # First try to get token from secure httpOnly cookie
+    token = request.cookies.get("access_token")
+    
+    # Fallback to Bearer token if no cookie (for testing and mobile clients)
+    if not token and credentials:
+        token = credentials.credentials
+    
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Missing credentials.",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
     
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -62,7 +87,7 @@ async def get_current_user(credentials = Depends(security)) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired"
         )
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"

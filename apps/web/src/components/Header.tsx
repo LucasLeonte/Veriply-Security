@@ -32,9 +32,18 @@ export function Header({
         setUserMenuOpen(false);
     };
 
-    const handleSignOut = () => {
-        // Clear any auth tokens and redirect to login
-        localStorage.removeItem("access_token");
+    const handleSignOut = async () => {
+        // Call logout endpoint to clear httpOnly cookie
+        try {
+            await fetch('/api/v1/auth/logout', {
+                method: 'POST',
+                credentials: 'include', // Include cookies
+            });
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
+        
+        // Redirect to login (cookie is automatically cleared by browser)
         router.push("/login");
         setUserMenuOpen(false);
     };

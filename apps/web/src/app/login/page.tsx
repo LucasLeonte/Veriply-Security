@@ -42,14 +42,32 @@ export default function LoginPage() {
     try {
       setLoading(true);
 
-      // Mock authentication - in production, this would call your API
-      // For testing, accept any email/password combination
-      const mockToken = btoa(`${email}:${password}`);
-      localStorage.setItem('access_token', mockToken);
-      
+      // Call registration/login API endpoint
+      // The backend sets a secure httpOnly cookie (not accessible to JavaScript)
+      // This prevents XSS attacks from stealing the token
+      const response = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        credentials: 'include', // Include cookies in request
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          tenant_name: email.split('@')[0], // Use email prefix as default tenant name
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Login failed');
+        return;
+      }
+
       setSuccess(true);
-      
+
       // Redirect to dashboard after brief delay
+      // The secure httpOnly cookie is automatically sent with requests
       setTimeout(() => {
         router.push('/');
       }, 500);
@@ -60,11 +78,33 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = () => {
-    // Quick demo login
-    const demoToken = btoa('demo@example.com:demo123');
-    localStorage.setItem('access_token', demoToken);
-    router.push('/');
+  const handleDemoLogin = async () => {
+    // Quick demo login using the registration endpoint
+    setLoading(true);
+    try {
+      const response = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: 'demo@example.com',
+          password: 'demo123456',
+          tenant_name: 'Demo Tenant',
+        }),
+      });
+
+      if (response.ok) {
+        router.push('/');
+      } else {
+        setError('Demo login failed');
+      }
+    } catch (err) {
+      setError('Demo login error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
