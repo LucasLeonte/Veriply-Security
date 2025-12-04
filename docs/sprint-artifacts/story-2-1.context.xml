@@ -1,0 +1,407 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>1</storyId>
+    <title>Bot Creation &amp; Configuration</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-04</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/story-2-1-bot-creation-configuration.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>User</asA>
+    <iWant>create and configure multiple bots within my organization</iWant>
+    <soThat>I can separate knowledge bases by department or use case</soThat>
+    <tasks>
+      <task id="1" category="Backend - Bot Creation API">
+        <title>Create POST /api/v1/bots endpoint</title>
+        <details>Accept name (required), description (optional), confidence_threshold (default 80). Validate name length, uniqueness within tenant, threshold range 0-100. Return bot object with id, name, description, confidence_threshold, status, created_at. Enforce tenant isolation (RLS) and authenticated user. Audit log bot creation.</details>
+      </task>
+      <task id="2" category="Backend - Database Migration">
+        <title>Create bots table migration</title>
+        <details>Schema: id (UUID PK), tenant_id (UUID FK indexed), name (VARCHAR 2-50 NOT NULL), description (VARCHAR max 500), confidence_threshold (INT 0-100 default 80), status (ENUM: Empty/Processing/Ready, default Empty), created_at (TIMESTAMP), updated_at (TIMESTAMP), created_by (UUID FK). Constraints: unique(tenant_id, name), RLS policy, indexes on tenant_id and (tenant_id, created_at).</details>
+      </task>
+      <task id="3" category="Backend - Bot Settings API">
+        <title>Create GET/PATCH bot endpoints</title>
+        <details>GET /api/v1/bots/{bot_id} returns complete bot object with RLS enforcement. PATCH /api/v1/bots/{bot_id} accepts name/description/confidence_threshold with validation and audit logging. GET /api/v1/bots (list) with query params: limit (default 20), offset, sort_by (name/created_at), search (name). Return paginated list with total_count and enforce RLS.</details>
+      </task>
+      <task id="4" category="Backend - Subscription Tier">
+        <title>Implement bot limit enforcement</title>
+        <details>Add subscription_tier column to tenants table (free/pro/enterprise, default free). Define limits: free=5, pro=25, enterprise=unlimited. In POST /bots, check current bot count vs limit before creation. Return 402 Limit Exceeded with error message if at limit.</details>
+      </task>
+      <task id="5" category="Frontend - Bot List Page">
+        <title>Create Bot List page component</title>
+        <details>Path: apps/web/src/app/(dashboard)/bots/page.tsx. Include BotListHeader (title, "Create Bot" button, search), BotCard (name, description, doc count, threshold, actions), BotGrid (paginated). Features: fetch via GET /api/v1/bots?limit=20&amp;offset=0, real-time debounced search (300ms), pagination, sorting (name/created date), responsive mobile layout. Handle loading/error states with skeletons and error banner.</details>
+      </task>
+      <task id="6" category="Frontend - Create Bot Modal">
+        <title>Create CreateBotModal component</title>
+        <details>Path: apps/web/src/components/CreateBotModal.tsx. Fields: Name input (required 2-50 chars), Description textarea (optional max 500 with char counter), Confidence threshold slider (0-100%). Real-time validation with live uniqueness check (debounced API call). Submit disabled until valid. Show loading during submission and inline error display. On success close modal, add to list, show toast. On error show inline messages.</details>
+      </task>
+      <task id="7" category="Frontend - Bot Settings Modal">
+        <title>Create BotSettingsModal component</title>
+        <details>Path: apps/web/src/components/BotSettingsModal.tsx. Load bot details on mount via GET /api/v1/bots/{bot_id}. Display all fields with editable name/description/threshold and read-only id/created_at. Field validation same as create. Save triggers PATCH with optimistic updates. Show loading indicator. Handle server errors inline. Copy bot ID to clipboard feature.</details>
+      </task>
+      <task id="8" category="Frontend - State &amp; Hooks">
+        <title>Create custom React hooks for bots</title>
+        <details>Create useBotsQuery() for list fetching, useBotQuery(botId) for single bot details, useCreateBot() mutation for POST, useUpdateBot(botId) for PATCH, useDeleteBot(botId) for DELETE (future). Implement optimistic updates. Handle loading/error/success states. Manage pagination state. Use TanStack Query (React Query) or SWR. Paths: apps/web/src/hooks/useBotsQuery.ts, useCreateBot.ts, useUpdateBot.ts.</details>
+      </task>
+      <task id="9" category="Frontend - API Client">
+        <title>Create bot API client functions</title>
+        <details>Path: apps/web/src/lib/api/bots.ts. Functions: createBot(name, description, threshold), listBots(limit, offset, search, sort), getBotDetails(botId), updateBot(botId, updates), deleteBot(botId). Include proper error handling and type safety.</details>
+      </task>
+      <task id="10" category="Frontend - Types">
+        <title>Define TypeScript bot types</title>
+        <details>Path: apps/web/src/types/bot.ts. Types: Bot (id, name, description, confidence_threshold, status, created_at, updated_at, doc_count), CreateBotInput, UpdateBotInput, PaginatedBotsResponse.</details>
+      </task>
+      <task id="11" category="Testing - Backend">
+        <title>Write pytest tests for bot endpoints</title>
+        <details>Path: apps/api/tests/test_bots.py. Test POST /bots: valid input, invalid name (length), duplicate name, unauthenticated, at limit, RLS isolation. Test GET /bots: list all bots, pagination, search filter, RLS isolation. Test GET /bots/{id}: correct bot details, RLS forbidden. Test PATCH /bots/{id}: name/description/threshold updates with validation, RLS enforcement.</details>
+      </task>
+      <task id="12" category="Testing - Frontend">
+        <title>Write Vitest/RTL tests for bot components</title>
+        <details>Path: apps/web/__tests__/BotListPage.test.tsx and component tests. Test BotListPage: render with list, mock API calls, search filtering, pagination, modal open. Test CreateBotModal: form rendering, name validation, uniqueness check, threshold slider, submit disabled until valid, success/error handling. Test BotSettingsModal: load details, edit fields, submit, toast, error handling, copy to clipboard.</details>
+      </task>
+      <task id="13" category="Testing - E2E">
+        <title>Write Playwright E2E integration test</title>
+        <details>User logs in → navigates to Bots page → clicks "Create Bot" → fills form (name="HR Bot", description, threshold=75) → submits → bot appears in list → clicks bot to open settings → updates name to "HR Bot v2" → saves → name updates in list → test free tier limit (create 5 bots, 6th fails with 402).</details>
+      </task>
+      <task id="14" category="Documentation">
+        <title>Update README and API docs</title>
+        <details>Update README.md with bot management feature overview. Document API endpoints: POST/GET/PATCH /bots with request/response examples. Add database schema diagram for bots table. Include frontend architecture notes: component hierarchy and state flow. Add curl/code snippets for API examples.</details>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criteria category="Bot Creation" id="ac-1">User can navigate to Bots page from dashboard</criteria>
+    <criteria category="Bot Creation" id="ac-2">User can click "Create Bot" button</criteria>
+    <criteria category="Bot Creation" id="ac-3">Create Bot form displays with fields: Name (required, 2-50 chars, unique per org), Description (optional, max 500 chars), Confidence threshold slider (0-100%, default 80%)</criteria>
+    <criteria category="Bot Creation" id="ac-4">Form validates in real-time: Name min 2 / max 50 chars, Unique constraint checked live, Description max 500 chars, Confidence threshold numeric 0-100</criteria>
+    <criteria category="Bot Creation" id="ac-5">When submitting valid form: New bot record created with status "Empty", Bot assigned to current tenant, User redirected to bot's Knowledge Base page, Bot appears in list</criteria>
+    <criteria category="Bot Creation" id="ac-6">Success toast: "Bot created: [Bot Name]"</criteria>
+    <criteria category="Bot Creation" id="ac-7">User sees empty state: "No documents uploaded. Upload your first document to get started."</criteria>
+    <criteria category="Bot List Display" id="ac-8">User can view all bots they own in their organization</criteria>
+    <criteria category="Bot List Display" id="ac-9">Bot list displays: Bot name (clickable), Description preview (truncated), Document count, Last updated date, Confidence threshold value, Actions button (Settings, Duplicate, Delete)</criteria>
+    <criteria category="Bot List Display" id="ac-10">Bot list supports pagination (20 per page)</criteria>
+    <criteria category="Bot List Display" id="ac-11">Bots sortable by: name, created date, last updated</criteria>
+    <criteria category="Bot List Display" id="ac-12">User can search bots by name (case-insensitive)</criteria>
+    <criteria category="Bot Settings" id="ac-13">User can click "Settings" on any bot</criteria>
+    <criteria category="Bot Settings" id="ac-14">Settings modal displays: Name (editable), Description (editable, max 500 chars), Confidence threshold (slider 0-100%), Bot ID (read-only, copyable), Created date (read-only)</criteria>
+    <criteria category="Bot Settings" id="ac-15">User can edit name and description</criteria>
+    <criteria category="Bot Settings" id="ac-16">Name must remain unique within organization (live validation)</criteria>
+    <criteria category="Bot Settings" id="ac-17">User can adjust confidence threshold</criteria>
+    <criteria category="Bot Settings" id="ac-18">Changes saved immediately on field blur or button click</criteria>
+    <criteria category="Bot Settings" id="ac-19">User sees success toast: "Settings updated"</criteria>
+    <criteria category="Bot Settings" id="ac-20">Validation errors display inline</criteria>
+    <criteria category="Bot Limits &amp; Constraints" id="ac-21">Organization's bot limit enforced per subscription tier</criteria>
+    <criteria category="Bot Limits &amp; Constraints" id="ac-22">When user hits bot limit, "Create Bot" button disabled with tooltip: "You've reached your bot limit. Upgrade to create more."</criteria>
+    <criteria category="Bot Limits &amp; Constraints" id="ac-23">Free tier: 5 bots max, Pro tier: 25 bots max, Enterprise: unlimited</criteria>
+    <criteria category="Error Handling" id="ac-24">If bot name not unique: "Bot name already exists in your organization"</criteria>
+    <criteria category="Error Handling" id="ac-25">If invalid input: specific field validation message</criteria>
+    <criteria category="Error Handling" id="ac-26">If submission fails: "Failed to create bot. Please try again."</criteria>
+    <criteria category="Error Handling" id="ac-27">If reached bot limit: "You've reached your bot limit. Upgrade to create more."</criteria>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Implementation Details &gt; Database &amp; Multi-Tenancy</section>
+        <snippet>RLS (Row Level Security): All tables must have tenant_id. Session: Inject tenant_id into PostgreSQL session on every request. Vector Store: Use pgvector for embeddings with IVFFlat index for performance.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Project Stack</section>
+        <snippet>Frontend: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui. Backend: FastAPI (Python 3.11+), Pydantic, SQLAlchemy (Async). Database: PostgreSQL 16 with pgvector. Auth: NextAuth.js (Frontend) + JWT Validation (Backend).</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Prioritized Architectural Decisions &gt; Multi-tenancy enforcement</section>
+        <snippet>Mandate: Row-Level Security (RLS) in PostgreSQL + tenant_id context propagation in APIs. Use PostgreSQL + pgvector for MVP and early scale with careful partitioning and tuning.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 2.1: Bot Creation &amp; Configuration</section>
+        <snippet>Epic 2 covers Bot &amp; Knowledge Management FR7-FR19. Story 2.1 enables users to create and configure multiple bots for knowledge base separation by department or use case. Includes bot creation, list display, settings, subscription tier limits.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Bot Management (FR7-FR12)</section>
+        <snippet>FR7: Users can create multiple bots within their organization. FR8: Users can configure bot settings: name, description, confidence threshold. FR9: Users can set the auto-respond confidence threshold. FR12: Bots are isolated - documents and queries scoped to assigned bot.</snippet>
+      </artifact>
+    </docs>
+
+    <code>
+      <artifact>
+        <path>apps/api/app/models/bot.py</path>
+        <kind>model</kind>
+        <symbol>Bot</symbol>
+        <reason>Existing SQLAlchemy Bot model stub; will be extended with full schema: description, confidence_threshold, status, created_by, created_at, updated_at fields and RLS policy.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/tenant.py</path>
+        <kind>model</kind>
+        <symbol>Tenant</symbol>
+        <reason>Existing Tenant model; requires subscription_tier column addition (free/pro/enterprise) for bot limit enforcement logic.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <reason>Reference for existing user/tenant relationship patterns; confirms tenant_id foreign key and role structure to reuse for bot permissions.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/api/v1/auth.py</path>
+        <kind>routes</kind>
+        <symbol>router</symbol>
+        <reason>Existing auth endpoints show FastAPI router pattern and JWT/tenant context injection via dependencies. Reuse pattern for bot endpoints: get_current_user(), get_current_tenant().</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/main.py</path>
+        <kind>main</kind>
+        <symbol>app, lifespan</symbol>
+        <reason>Entry point showing app initialization, lifespan events (enable_pgvector, enable_rls), and router inclusion. Will add bot router here: app.include_router(bots.router).</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/core/database.py</path>
+        <kind>config</kind>
+        <symbol>get_db, init_db</symbol>
+        <reason>Database initialization and session management. Need to understand session injection pattern for RLS tenant_id setting: current_setting('app.current_tenant_id').</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/app</path>
+        <kind>directory</kind>
+        <reason>Next.js App Router structure; bot list page will be created at src/app/(dashboard)/bots/page.tsx. Examine existing dashboard layout at src/app/(dashboard)/layout.tsx for navigation integration.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/components</path>
+        <kind>directory</kind>
+        <reason>Existing component directory; create BotCard.tsx, CreateBotModal.tsx, BotSettingsModal.tsx following project patterns and shadcn/ui conventions.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/package.json</path>
+        <kind>config</kind>
+        <symbol>dependencies</symbol>
+        <reason>Frontend dependencies: Next.js 16, React 19, Tailwind CSS, shadcn/ui, lucide-react icons. Note: React Query/SWR not listed; may need to add for state management (or implement custom hooks with fetch).</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/requirements.txt</path>
+        <kind>config</kind>
+        <symbol>dependencies</symbol>
+        <reason>Backend dependencies: FastAPI, SQLAlchemy (async), Pydantic, alembic for migrations, pgvector, Redis, Celery. All core libs available; no additions needed.</reason>
+      </artifact>
+    </code>
+
+    <dependencies>
+      <ecosystem name="Python">
+        <package>fastapi</package>
+        <package>uvicorn[standard]</package>
+        <package>sqlalchemy[asyncio]</package>
+        <package>alembic</package>
+        <package>asyncpg</package>
+        <package>pgvector</package>
+        <package>pydantic</package>
+        <package>pydantic-settings</package>
+        <package>PyJWT</package>
+        <package>bcrypt</package>
+      </ecosystem>
+      <ecosystem name="TypeScript/Node">
+        <package>next@16.0.5</package>
+        <package>react@19.2.0</package>
+        <package>typescript@^5</package>
+        <package>tailwindcss@^3.4.0</package>
+        <package>shadcn-ui@^0.9.5</package>
+        <package>lucide-react@^0.555.0</package>
+      </ecosystem>
+      <ecosystem name="Database">
+        <package>PostgreSQL@16</package>
+        <package>pgvector extension</package>
+      </ecosystem>
+      <note>Frontend may need React Query or SWR for state management if not already included in shadcn/ui setup; verify and add if needed.</note>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <title>RLS Enforcement</title>
+      <details>All bot queries must include tenant_id filters via PostgreSQL RLS policies. Pattern: tenant_id = current_setting('app.current_tenant_id')::uuid. Enforce at database layer, not application layer.</details>
+    </constraint>
+    <constraint>
+      <title>JWT Authentication</title>
+      <details>All bot endpoints require valid JWT token in Authorization header. Token must be validated via existing AuthService from apps/api/app/core/security.py. Tenant ID extracted from JWT payload and set in session for RLS.</details>
+    </constraint>
+    <constraint>
+      <title>Subscription Tier Limits</title>
+      <details>Bot creation must enforce subscription tier limits before database insert. Free tier: 5 bots max. Pro: 25. Enterprise: unlimited. Check at API layer and return 402 Limit Exceeded if limit reached.</details>
+    </constraint>
+    <constraint>
+      <title>Name Uniqueness per Tenant</title>
+      <details>Bot names must be unique within a tenant (not globally). Database unique constraint: (tenant_id, name). Live validation on frontend via debounced API call to check availability before submit.</details>
+    </constraint>
+    <constraint>
+      <title>Status Immutability at Creation</title>
+      <details>Bot status defaults to "Empty" on creation and is read-only for this story. Future stories will transition status to "Processing" (during document ingestion) and "Ready" (after embeddings complete).</details>
+    </constraint>
+    <constraint>
+      <title>Pagination Defaults</title>
+      <details>Bot list endpoint default limit: 20 per page. Offset-based pagination (not cursor-based). Support client-side search/sort via query parameters for now; database-side implementation acceptable if performance requires it.</details>
+    </constraint>
+    <constraint>
+      <title>Error Response Format</title>
+      <details>All error responses must follow consistent Pydantic error schema. 400 for validation errors, 401 for auth, 402 for limit exceeded, 409 for conflict (duplicate name), 403 for RLS forbidden.</details>
+    </constraint>
+    <constraint>
+      <title>Optimistic Updates</title>
+      <details>Frontend state updates should assume success before server response to minimize perceived latency. Revert on error and display error toast. Apply to bot creation and settings updates.</details>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Bot Creation Endpoint</name>
+      <kind>REST API</kind>
+      <signature>POST /api/v1/bots</signature>
+      <request>{ name: string (2-50 chars), description?: string (max 500 chars), confidence_threshold?: number (0-100, default 80) }</request>
+      <response>{ id: UUID, name: string, description: string, confidence_threshold: number, status: "Empty", created_at: ISO8601, tenant_id: UUID }</response>
+      <path>apps/api/app/api/routes/bots.py</path>
+    </interface>
+    <interface>
+      <name>Bot List Endpoint</name>
+      <kind>REST API</kind>
+      <signature>GET /api/v1/bots?limit=20&amp;offset=0&amp;search=&amp;sort_by=name</signature>
+      <response>{ total_count: number, bots: Bot[], limit: number, offset: number }</response>
+      <path>apps/api/app/api/routes/bots.py</path>
+    </interface>
+    <interface>
+      <name>Bot Details Endpoint</name>
+      <kind>REST API</kind>
+      <signature>GET /api/v1/bots/{bot_id}</signature>
+      <response>{ id: UUID, name: string, description: string, confidence_threshold: number, status: string, created_at: ISO8601, updated_at: ISO8601 }</response>
+      <path>apps/api/app/api/routes/bots.py</path>
+    </interface>
+    <interface>
+      <name>Bot Update Endpoint</name>
+      <kind>REST API</kind>
+      <signature>PATCH /api/v1/bots/{bot_id}</signature>
+      <request>{ name?: string, description?: string, confidence_threshold?: number }</request>
+      <response>{ id: UUID, name: string, description: string, confidence_threshold: number, updated_at: ISO8601 }</response>
+      <path>apps/api/app/api/routes/bots.py</path>
+    </interface>
+    <interface>
+      <name>BotCard Component</name>
+      <kind>React Component</kind>
+      <signature>&lt;BotCard bot={Bot} onSettings={() =&gt; {}} onDuplicate={() =&gt; {}} onDelete={() =&gt; {}} /&gt;</signature>
+      <props>bot: Bot object with id, name, description, doc_count, confidence_threshold, last_updated; onSettings, onDuplicate, onDelete callbacks</props>
+      <path>apps/web/src/components/BotCard.tsx</path>
+    </interface>
+    <interface>
+      <name>CreateBotModal Component</name>
+      <kind>React Component</kind>
+      <signature>&lt;CreateBotModal isOpen={boolean} onClose={() =&gt; {}} onSuccess={(bot) =&gt; {}} /&gt;</signature>
+      <props>isOpen, onClose, onSuccess callback with created bot</props>
+      <path>apps/web/src/components/CreateBotModal.tsx</path>
+    </interface>
+    <interface>
+      <name>BotSettingsModal Component</name>
+      <kind>React Component</kind>
+      <signature>&lt;BotSettingsModal botId={UUID} isOpen={boolean} onClose={() =&gt; {}} onSave={() =&gt; {}} /&gt;</signature>
+      <props>botId to load, isOpen, onClose, onSave callbacks</props>
+      <path>apps/web/src/components/BotSettingsModal.tsx</path>
+    </interface>
+    <interface>
+      <name>useBotsQuery Hook</name>
+      <kind>React Custom Hook</kind>
+      <signature>const { data, isLoading, error, refetch } = useBotsQuery(limit, offset, search, sortBy)</signature>
+      <returns>{ data: { bots: Bot[], total_count: number }, isLoading: boolean, error: Error | null, refetch: () =&gt; void }</returns>
+      <path>apps/web/src/hooks/useBotsQuery.ts</path>
+    </interface>
+    <interface>
+      <name>useCreateBot Hook</name>
+      <kind>React Custom Hook</kind>
+      <signature>const { mutate, isPending, error } = useCreateBot()</signature>
+      <returns>{ mutate: (botData) =&gt; Promise&lt;Bot&gt;, isPending: boolean, error: Error | null }</returns>
+      <path>apps/web/src/hooks/useCreateBot.ts</path>
+    </interface>
+    <interface>
+      <name>useUpdateBot Hook</name>
+      <kind>React Custom Hook</kind>
+      <signature>const { mutate, isPending, error } = useUpdateBot(botId)</signature>
+      <returns>{ mutate: (updates) =&gt; Promise&lt;Bot&gt;, isPending: boolean, error: Error | null }</returns>
+      <path>apps/web/src/hooks/useUpdateBot.ts</path>
+    </interface>
+    <interface>
+      <name>Bots API Client</name>
+      <kind>TypeScript Module</kind>
+      <signature>import { createBot, listBots, getBotDetails, updateBot } from '@/lib/api/bots'</signature>
+      <functions>createBot(name, description, threshold), listBots(limit, offset, search, sort), getBotDetails(botId), updateBot(botId, updates)</functions>
+      <path>apps/web/src/lib/api/bots.ts</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <paragraph>Backend tests use pytest with FastAPI TestClient for endpoint testing. Follow existing auth test patterns in Story 1-4: mock JWT tokens with tenant_id in payload, use fixtures for authenticated clients. All database tests must verify RLS enforcement by confirming queries return only current-tenant data and forbidden access for other tenants. Frontend tests use Vitest + React Testing Library with mocked API calls via MSW (Mock Service Worker) or simple fetch mocks. E2E tests use Playwright with user-level flows: login, navigate, interact with forms, verify DOM updates. All tests must be isolated and non-flaky (deterministic, no external service dependencies).</paragraph>
+    </standards>
+    <locations>
+      <directory>apps/api/tests/test_bots.py</directory>
+      <directory>apps/web/__tests__/BotListPage.test.tsx</directory>
+      <directory>apps/web/__tests__/components/CreateBotModal.test.tsx</directory>
+      <directory>apps/web/__tests__/components/BotSettingsModal.test.tsx</directory>
+      <directory>apps/web/__tests__/hooks/useBotsQuery.test.ts</directory>
+    </locations>
+    <ideas>
+      <idea>
+        <acRef>ac-5,ac-6</acRef>
+        <description>Test POST /bots: verify new bot created with status "Empty", assigned to tenant, and returned in response with correct fields (id, name, description, confidence_threshold, created_at).</description>
+      </idea>
+      <idea>
+        <acRef>ac-4</acRef>
+        <description>Test real-time form validation: type invalid name lengths (1 char, 51 chars), verify error message updates immediately without form submission. Test threshold slider out of range (negative, &gt;100), verify error.</description>
+      </idea>
+      <idea>
+        <acRef>ac-24</acRef>
+        <description>Test name uniqueness: create bot "HR Bot", attempt to create second bot with same name, verify 409 Conflict response with message "Bot name already exists in your organization".</description>
+      </idea>
+      <idea>
+        <acRef>ac-23</acRef>
+        <description>Test free tier bot limit: create 5 bots successfully, attempt 6th bot, verify 402 Limit Exceeded response. Verify "Create Bot" button disabled and tooltip shows "You've reached your bot limit. Upgrade to create more."</description>
+      </idea>
+      <idea>
+        <acRef>ac-8,ac-12</acRef>
+        <description>Test RLS isolation: create bots in tenant A, verify user from tenant B cannot see them via GET /bots or direct GET /bots/{id}. Verify 403 Forbidden on cross-tenant access.</description>
+      </idea>
+      <idea>
+        <acRef>ac-10</acRef>
+        <description>Test pagination: GET /bots?limit=20&amp;offset=0 returns first 20 bots and total_count. Verify offset=20 returns next page. Verify limit parameter respected.</description>
+      </idea>
+      <idea>
+        <acRef>ac-12</acRef>
+        <description>Test search filter: create bots "HR Bot", "IT Bot", "Sales Bot". Search "HR" returns only "HR Bot". Search is case-insensitive ("hr" matches "HR Bot").</description>
+      </idea>
+      <idea>
+        <acRef>ac-18,ac-19</acRef>
+        <description>Test BotSettingsModal: update bot name to "Updated Name", verify changes reflected in modal and list immediately (optimistic). Verify success toast "Settings updated" appears. Test name uniqueness validation live in settings form.</description>
+      </idea>
+      <idea>
+        <acRef>ac-2,ac-3</acRef>
+        <description>Test "Create Bot" button opens modal with empty form. Test modal opens from dashboard button and from bot list actions menu. Verify modal is reusable.</description>
+      </idea>
+      <idea>
+        <acRef>ac-7</acRef>
+        <description>Test empty state: newly created bot shows empty state message "No documents uploaded. Upload your first document to get started." on Knowledge Base page.</description>
+      </idea>
+      <idea>
+        <acRef>ac-11</acRef>
+        <description>Test sort options: fetch bots, apply sort_by=name, verify list sorted alphabetically. Apply sort_by=created_at, verify newest/oldest order (specify ascending/descending if in spec).</description>
+      </idea>
+    </ideas>
+  </tests>
+
+</story-context>
