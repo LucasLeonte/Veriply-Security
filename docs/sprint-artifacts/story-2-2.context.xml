@@ -1,0 +1,458 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context" v="1.0">
+  <metadata>
+    <epicId>2</epicId>
+    <storyId>2</storyId>
+    <title>Bot Duplication &amp; Deletion</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-04</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/story-2-2-bot-duplication-deletion.md</sourceStoryPath>
+    <blockedBy>Story 2.1 (Bot Creation &amp; Configuration)</blockedBy>
+  </metadata>
+
+  <story>
+    <asA>User</asA>
+    <iWant>duplicate or delete bots</iWant>
+    <soThat>I can quickly create similar bots or clean up unused ones</soThat>
+    <tasks>
+      <task id="1" category="Backend - Bot Duplication API">
+        <title>Create POST /api/v1/bots/{bot_id}/duplicate endpoint</title>
+        <details>Accept optional name parameter for new bot name. Validate user owns bot (RLS). Fetch source bot details. Create new bot with status "Empty", inheriting description and confidence_threshold from source. New bot gets unique bot_id and optional custom name or default "[source.name] (Copy)". Validate name uniqueness within tenant. Return new bot object. Audit log duplication with source_bot_id and new_bot_id.</details>
+      </task>
+      <task id="2" category="Backend - Bot Deletion API">
+        <title>Create DELETE /api/v1/bots/{bot_id} endpoint</title>
+        <details>Validate user owns bot (RLS). Check document count for bot. If &gt;100 documents: enqueue background deletion job, return 202 Accepted with job_id. If ≤100 documents: execute synchronous deletion, return 204 No Content. Sync deletion: delete bot record (cascade handles foreign keys), delete documents from storage (S3/MinIO), delete embeddings from pgvector, delete chunks, delete chat history. Audit log deletion with timestamp and user.</details>
+      </task>
+      <task id="3" category="Backend - Background Deletion Service">
+        <title>Create BotDeletionService with async deletion task</title>
+        <details>Create tasks/bot_deletion.py with delete_bot_async(bot_id, tenant_id) method. Implement batch processing for large datasets: documents → storage → embeddings → chunks → chat history → bot record. Add error handling and retry logic (max 3 retries). Add progress tracking in Redis or database table. Create Celery task that calls BotDeletionService with proper error logging and alerting. Ensure Celery/Redis queue configured properly.</details>
+      </task>
+      <task id="4" category="Backend - Deletion Progress API (Optional for MVP)">
+        <title>Create GET /api/v1/bots/{bot_id}/deletion-status endpoint (Optional)</title>
+        <details>Return status (pending/in-progress/completed/failed), progress percentage, estimated time remaining. Use Redis or database table to track deletion jobs. Implement polling or SSE for real-time progress updates (optional for MVP; simple polling acceptable).</details>
+      </task>
+      <task id="5" category="Backend - Database CASCADE Constraints">
+        <title>Add/verify CASCADE constraints in database schema</title>
+        <details>Ensure cascading DELETE constraints exist: documents.bot_id → ON DELETE CASCADE, chunks.document_id → ON DELETE CASCADE, embeddings.chunk_id → ON DELETE CASCADE, chat_sessions.bot_id → ON DELETE CASCADE. Create Alembic migration if constraints missing. Test cascade behavior in development: delete bot, verify all dependent records deleted automatically.</details>
+      </task>
+      <task id="6" category="Backend - Bot Duplication Tests">
+        <title>Write pytest tests for bot duplication endpoint</title>
+        <details>Test POST /bots/{bot_id}/duplicate: valid duplication creates new bot with correct attributes, default name "[Original] (Copy)" applied, custom name provided used instead, duplicate name conflict returns 409 error, RLS cannot duplicate other tenant's bot returns 403, source bot not found returns 404. All tests verify new bot has unique id, status "Empty", and inherits description/threshold.</details>
+      </task>
+      <task id="7" category="Backend - Bot Deletion Tests">
+        <title>Write pytest tests for bot deletion endpoint</title>
+        <details>Test DELETE /bots/{bot_id}: small bot (≤100 docs) synchronous deletion returns 204, large bot (&gt;100 docs) async deletion returns 202, bot with documents deletes all documents/chunks/embeddings, bot with chat history deletes all chat sessions, RLS cannot delete other tenant's bot returns 403, bot not found returns 404. Test cascade deletion: verify documents deleted when bot deleted, chunks deleted when document deleted, embeddings deleted when chunk deleted.</details>
+      </task>
+      <task id="8" category="Frontend - Duplicate Bot Modal Component">
+        <title>Create src/components/DuplicateBotModal.tsx component</title>
+        <details>Form fields: Original bot name (read-only display), New bot name input (editable, default "[Original] (Copy)"), Warning message "This will create a new bot with the same settings. Documents will NOT be copied." Validation: real-time name length (2-50 chars), live uniqueness check (debounced API call). Submit button disabled until valid. On success: close modal, refresh bot list, show success toast "Bot duplicated: [New Bot Name]". Error handling: display inline errors.</details>
+      </task>
+      <task id="9" category="Frontend - Delete Bot Modal Component">
+        <title>Create src/components/DeleteBotModal.tsx component</title>
+        <details>Display: Bot name (bold, prominent), Warning message "This will permanently delete the bot and all its documents. This cannot be undone.", Document count if any, Confirmation input field "Type the bot name to confirm", Delete button (red danger style, disabled until name matches exactly, case-sensitive). Submit logic: call DELETE /bots/{bot_id}, handle 202 (async) vs 204 (sync) responses. If async: show progress toast, optionally poll status. If sync: show success toast. Remove bot from local state immediately. Error handling: display error, allow retry.</details>
+      </task>
+      <task id="10" category="Frontend - Update BotCard Menu">
+        <title>Update src/components/BotCard.tsx actions menu</title>
+        <details>Add "Duplicate" action to dropdown menu: opens DuplicateBotModal with bot details. Add "Delete" action to dropdown menu: opens DeleteBotModal with bot details. Ensure both actions available only for bots user owns. Pass bot id and name to modals as props.</details>
+      </task>
+      <task id="11" category="Frontend - API Hooks">
+        <title>Create custom React hooks for duplication and deletion</title>
+        <details>Create useDuplicateBot(botId) mutation hook: POST /bots/{botId}/duplicate, handle response, optimistic updates. Create useDeleteBot(botId) mutation hook: DELETE /bots/{botId}, handle response (202 vs 204), optimistic removal from list. Create useDeletionStatus(botId) query hook (optional): GET /bots/{botId}/deletion-status, poll for updates if async deletion. Add to apps/web/src/hooks/useBotsQuery.ts or separate files. Use same patterns as useCreateBot and useUpdateBot from Story 2.1.</details>
+      </task>
+      <task id="12" category="Frontend - API Client Functions">
+        <title>Extend src/lib/api/bots.ts with new functions</title>
+        <details>Add duplicateBot(botId, name?: string) function: POST /bots/{botId}/duplicate with optional name. Add deleteBot(botId) function: DELETE /bots/{botId}. Add getDeletionStatus(botId) function (optional): GET /bots/{botId}/deletion-status. All functions include error handling and type safety.</details>
+      </task>
+      <task id="13" category="Frontend - Types Updates">
+        <title>Update src/types/bot.ts with new types</title>
+        <details>Add DuplicateBotRequest type with optional name field. Add DeleteBotResponse type with optional job_id (for async deletion). Add DeletionJob type: bot_id, status, progress, estimated_time_remaining. Update Bot type to include optional job_id and deletion_status fields if needed.</details>
+      </task>
+      <task id="14" category="Frontend - Modal Integration Tests">
+        <title>Write Vitest/RTL tests for modal components</title>
+        <details>Test DuplicateBotModal: render with bot details, default name includes "(Copy)", name validation works, submit disabled until valid, successful duplication closes modal and updates list. Test DeleteBotModal: render with warning and document count, delete button disabled until name typed correctly, case-sensitive name matching works, successful deletion removes bot from list, async deletion shows progress indicator. Test modal open/close from BotCard actions.</details>
+      </tool>
+      <task id="15" category="Testing - E2E Integration">
+        <title>Write Playwright E2E integration test for duplication and deletion</title>
+        <details>User logs in → navigates to bot list → clicks "Duplicate" on a bot → edits new bot name → confirms → new bot appears in list with correct name → clicks "Delete" on a bot → types bot name to confirm → confirms → bot removed from list → navigates to deleted bot page → 404 or redirects to list. Test both sync and async deletion paths if possible.</details>
+      </task>
+      <task id="16" category="Documentation">
+        <title>Update API documentation and user guide</title>
+        <details>Document API endpoints: POST /bots/{id}/duplicate, DELETE /bots/{id}, GET /bots/{id}/deletion-status (if implemented). Include request/response examples, error codes, async deletion behavior. Update user guide: how to duplicate bots (copy settings, not documents), how to delete bots (permanent, confirmation required), progress indicator for large deletions. Add cascade deletion behavior explanation.</details>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criteria category="Bot Duplication" id="dup-1">User can click "Duplicate" button on any bot from bot list or bot settings</criteria>
+    <criteria category="Bot Duplication" id="dup-2">Duplicate confirmation modal displays with: Original bot name, New bot name input (default "[Original Name] (Copy)"), Confirmation message "This will create a new bot with the same settings. Documents will NOT be copied."</criteria>
+    <criteria category="Bot Duplication" id="dup-3">User can edit the new bot name before confirming</criteria>
+    <criteria category="Bot Duplication" id="dup-4">When user confirms duplication: New bot created with status "Empty", New bot inherits description and confidence_threshold, New bot does NOT inherit documents/embeddings/chat history, New bot gets unique bot_id</criteria>
+    <criteria category="Bot Duplication" id="dup-5">Name uniqueness validation applies within tenant</criteria>
+    <criteria category="Bot Duplication" id="dup-6">Success toast displays "Bot duplicated: [New Bot Name]"</criteria>
+    <criteria category="Bot Duplication" id="dup-7">User redirected to new bot's page or bot list updates with new bot</criteria>
+    <criteria category="Bot Duplication" id="dup-8">Original bot remains unchanged</criteria>
+    <criteria category="Bot Deletion" id="del-1">User can click "Delete" button on any bot from bot list or bot settings</criteria>
+    <criteria category="Bot Deletion" id="del-2">Deletion warning modal displays: Bot name, Warning "This will permanently delete the bot and all its documents. This cannot be undone.", Document count if any, Confirmation input "Type the bot name to confirm"</criteria>
+    <criteria category="Bot Deletion" id="del-3">User must type exact bot name (case-sensitive) to enable delete button</criteria>
+    <criteria category="Bot Deletion" id="del-4">Delete button disabled until name matches exactly</criteria>
+    <criteria category="Bot Deletion" id="del-5">When user confirms: Bot record deleted, All associated documents deleted, All associated embeddings deleted, All associated chat history deleted, All associated chunks deleted</criteria>
+    <criteria category="Bot Deletion" id="del-6">For bots with large knowledge bases (&gt;100 documents): Deletion runs as background job, Progress indicator shows status, User sees toast "Deletion in progress. This may take a few minutes.", User can navigate away; deletion continues</criteria>
+    <criteria category="Bot Deletion" id="del-7">For small bots (≤100 documents): Deletion completes immediately, Success toast "Bot deleted: [Bot Name]"</criteria>
+    <criteria category="Bot Deletion" id="del-8">Bot removed from bot list immediately after deletion starts</criteria>
+    <criteria category="Bot Deletion" id="del-9">User redirected to bot list page after deletion</criteria>
+    <criteria category="Error Handling" id="err-1">If duplication fails: "Failed to duplicate bot. Please try again."</criteria>
+    <criteria category="Error Handling" id="err-2">If deletion fails: "Failed to delete bot. Please try again."</criteria>
+    <criteria category="Error Handling" id="err-3">If user tries to delete bot that doesn't exist: "Bot not found"</criteria>
+    <criteria category="Error Handling" id="err-4">If user tries to delete another tenant's bot: 403 Forbidden</criteria>
+    <criteria category="Error Handling" id="err-5">If background deletion job fails: user receives notification with retry option</criteria>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Implementation Details &gt; Background Job Infrastructure</section>
+        <snippet>Background Job Infrastructure: Celery + Redis queue for async tasks. Async deletion for bots &gt;100 documents: enqueue task, return 202 Accepted, track progress in Redis/database. Retry logic: max 3 retries with exponential backoff. Error logging and alerting for failed tasks.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Implementation Details &gt; Cascade Deletion</section>
+        <snippet>Cascade Deletion: Use PostgreSQL CASCADE constraints for data integrity. Foreign key: documents.bot_id → ON DELETE CASCADE, chunks.document_id → ON DELETE CASCADE, embeddings.chunk_id → ON DELETE CASCADE, chat_sessions.bot_id → ON DELETE CASCADE. Background job handles object storage cleanup (S3/MinIO files).</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>Architecture Document</title>
+        <section>Prioritized Architectural Decisions &gt; Multi-tenancy enforcement</section>
+        <snippet>Mandate: Row-Level Security (RLS) in PostgreSQL + tenant_id context propagation in APIs. Use PostgreSQL + pgvector for MVP and early scale. All deletion operations must respect RLS policies and tenant isolation.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Story 2.2: Bot Duplication &amp; Deletion</section>
+        <snippet>Epic 2 covers Bot &amp; Knowledge Management FR7-FR19. Story 2.2 enables users to duplicate bots (copy settings, not documents) for quick similar bot creation and delete bots (with cascade cleanup and background jobs for large datasets) for knowledge base cleanup. Includes RLS enforcement and async deletion threshold (100 docs).</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Bot Management (FR10-FR12)</section>
+        <snippet>FR10: Users can delete bots and associated documents with confirmation. FR11: Users can duplicate bots (settings only, no documents). FR12: Bots are isolated per tenant; deletion/duplication respects multi-tenancy. Large bot deletion (&gt;100 docs) runs async with progress indication.</snippet>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/story-2-1-bot-creation-configuration.md</path>
+        <title>Story 2.1 Learnings</title>
+        <section>Dev Agent Record &gt; Learnings from Previous Story</section>
+        <snippet>Bot Model: apps/api/app/models/bot.py has id, tenant_id, name, description, confidence_threshold, status, created_at, updated_at, created_by. Bot Service: apps/api/app/services/bot_service.py handles business logic and subscription checks. Bot Routes: apps/api/app/api/routes/bots.py has GET/POST/PATCH endpoints. RLS: all queries enforce tenant_id filtering. API Hooks: useBotsQuery, useCreateBot, useUpdateBot from apps/web/src/hooks/useBotsQuery.ts. BotCard: apps/web/src/components/BotCard.tsx displays bot with actions menu. Unique constraint: (tenant_id, name). Alembic migrations for schema.</snippet>
+      </artifact>
+    </docs>
+
+    <code>
+      <artifact>
+        <path>apps/api/app/models/bot.py</path>
+        <kind>model</kind>
+        <symbol>Bot</symbol>
+        <reason>Existing SQLAlchemy Bot model with id, tenant_id, name, description, confidence_threshold, status, created_at, updated_at, created_by. Will be referenced for duplication (source bot fetch) and deletion (cascading relationships). No new fields needed; cascade constraints enforced at database level via alembic migration.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/document.py</path>
+        <kind>model</kind>
+        <symbol>Document</symbol>
+        <reason>Document model with bot_id foreign key. Cascade constraint documents.bot_id → ON DELETE CASCADE ensures documents deleted when bot deleted. Verify cascade relationship exists or add via migration.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/chunk.py</path>
+        <kind>model</kind>
+        <symbol>Chunk</symbol>
+        <reason>Chunk model with document_id foreign key. Cascade constraint chunks.document_id → ON DELETE CASCADE ensures chunks deleted when document deleted.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/embedding.py</path>
+        <kind>model</kind>
+        <symbol>Embedding</symbol>
+        <reason>Embedding model with chunk_id foreign key. Cascade constraint embeddings.chunk_id → ON DELETE CASCADE ensures embeddings deleted when chunk deleted. pgvector storage cleanup handled by background job.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/chat_session.py</path>
+        <kind>model</kind>
+        <symbol>ChatSession</symbol>
+        <reason>ChatSession model with bot_id foreign key. Cascade constraint chat_sessions.bot_id → ON DELETE CASCADE ensures chat history deleted when bot deleted.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/services/bot_service.py</path>
+        <kind>service</kind>
+        <symbol>BotService</symbol>
+        <reason>Existing service with bot business logic. Extend with duplicate_bot(source_bot_id, tenant_id, name=None) method and delete_bot(bot_id, tenant_id) method. Reuse tenant_id validation patterns and RLS enforcement from create_bot logic.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/tasks/bot_deletion.py</path>
+        <kind>task</kind>
+        <symbol>delete_bot_async</symbol>
+        <reason>New file for Celery async deletion task. Implement delete_bot_async(bot_id, tenant_id) with batch processing: documents → storage → embeddings → chunks → chat history → bot record. Add retry logic (max 3 retries), error handling, progress tracking.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/api/routes/bots.py</path>
+        <kind>routes</kind>
+        <symbol>router</symbol>
+        <reason>Existing bot routes. Add POST /bots/{bot_id}/duplicate endpoint and DELETE /bots/{bot_id} endpoint. Add optional GET /bots/{bot_id}/deletion-status for progress tracking. Follow FastAPI patterns from Story 2.1 POST/PATCH endpoints.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/alembic/versions</path>
+        <kind>migration</kind>
+        <reason>Create migration to add CASCADE constraints if not already present: documents.bot_id ON DELETE CASCADE, chunks.document_id ON DELETE CASCADE, embeddings.chunk_id ON DELETE CASCADE, chat_sessions.bot_id ON DELETE CASCADE. Verify existing schema before creating migration.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/components/DuplicateBotModal.tsx</path>
+        <kind>component</kind>
+        <reason>New React component for duplication modal. Form fields: original name (read-only), new name input (editable, default "[Original] (Copy)"), warning text. Validation: name length 2-50, uniqueness check. Submit button, close modal on success, show toast.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/components/DeleteBotModal.tsx</path>
+        <kind>component</kind>
+        <reason>New React component for deletion modal. Display: bot name, warning, doc count, confirmation input (case-sensitive). Delete button (red, danger, disabled until match). Handle 202/204 responses, show progress for async, remove from list immediately.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/components/BotCard.tsx</path>
+        <kind>component</kind>
+        <reason>Existing BotCard component. Extend actions dropdown menu to include "Duplicate" and "Delete" options. Pass bot id/name to new modal components on click.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/hooks/useBotsQuery.ts</path>
+        <kind>hooks</kind>
+        <reason>Existing hooks file with useBotsQuery, useCreateBot, useUpdateBot. Add useDuplicateBot(botId) mutation and useDeleteBot(botId) mutation. Follow same pattern as existing hooks: return { mutate, isPending, error }. Add useDeletionStatus(botId) query hook (optional) for async deletion polling.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/lib/api/bots.ts</path>
+        <kind>api</kind>
+        <reason>Existing API client with createBot, listBots, getBotDetails, updateBot. Add duplicateBot(botId, name?: string), deleteBot(botId), getDeletionStatus(botId) functions. Include error handling and type safety.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/types/bot.ts</path>
+        <kind>types</kind>
+        <reason>Existing bot types. Add DuplicateBotRequest, DeleteBotResponse, DeletionJob types for new operations.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/tests/test_bots.py</path>
+        <kind>tests</kind>
+        <reason>Existing pytest file with 30+ tests for bot CRUD. Add tests for POST /bots/{id}/duplicate (valid, default name, custom name, conflict, RLS, 404) and DELETE /bots/{id} (sync, async, cascade, RLS, 404). Follow existing patterns with fixtures and mocked auth.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/__tests__</path>
+        <kind>tests</kind>
+        <reason>Existing test directory. Add DuplicateBotModal.test.tsx and DeleteBotModal.test.tsx with Vitest/RTL tests for rendering, validation, submit, success, error handling. Add integration tests for BotCard actions.</reason>
+      </artifact>
+    </code>
+
+    <dependencies>
+      <ecosystem name="Python">
+        <package>celery</package>
+        <package>redis</package>
+        <package>fastapi</package>
+        <package>sqlalchemy[asyncio]</package>
+        <package>alembic</package>
+        <package>pytest</package>
+        <note>Celery and Redis should be already configured from Story foundations. Verify in apps/api/requirements.txt and docker-compose.yml. Background job infrastructure expected to be in place.</note>
+      </ecosystem>
+      <ecosystem name="TypeScript/Node">
+        <package>next@16.0.5</package>
+        <package>react@19.2.0</package>
+        <package>typescript@^5</package>
+        <package>tailwindcss@^3.4.0</package>
+        <package>shadcn-ui@^0.9.5</package>
+        <note>All frontend dependencies from Story 2.1 already available. No new packages needed for modals or hooks.</note>
+      </ecosystem>
+      <ecosystem name="Database">
+        <package>PostgreSQL@16</package>
+        <package>pgvector extension</package>
+        <note>Cascade constraints enforced at database schema level via Alembic migrations. No new DB packages needed.</note>
+      </ecosystem>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint>
+      <title>RLS Enforcement for Duplication and Deletion</title>
+      <details>Both duplicate and delete endpoints must enforce RLS to ensure users can only duplicate/delete their own tenant's bots. Validate tenant_id matches current user's tenant before operation. Return 403 Forbidden if attempting cross-tenant access. Pattern: tenant_id = current_setting('app.current_tenant_id')::uuid in all queries.</details>
+    </constraint>
+    <constraint>
+      <title>Async Deletion Threshold</title>
+      <details>100 documents chosen as threshold for async vs sync deletion. If bot has ≤100 documents: synchronous deletion, return 204. If bot has &gt;100 documents: async deletion, return 202 Accepted with job_id. Threshold configurable via environment variable BOT_DELETION_ASYNC_THRESHOLD. Rationale: small bots = instant feedback; large bots = prevent timeout, allow user to continue.</details>
+    </constraint>
+    <constraint>
+      <title>Duplication Scope</title>
+      <details>Duplication must copy ONLY: name (with "(Copy)" suffix or custom), description, confidence_threshold, tenant_id. Must NOT copy: documents, embeddings, chunks, chat_history, bot_id. Rationale: knowledge base and history specific to original context; user likely wants fresh KB for new use case.</details>
+    </constraint>
+    <constraint>
+      <title>Name Uniqueness for Duplicates</title>
+      <details>Duplicated bot names must be unique within tenant. If default name "[Original] (Copy)" already exists, generate "[Original] (Copy) 1", "[Original] (Copy) 2", etc., or reject with 409 Conflict if user provides duplicate name. Enforce (tenant_id, name) unique constraint at database level.</details>
+    </constraint>
+    <constraint>
+      <title>Cascade Deletion Integrity</title>
+      <details>Use PostgreSQL CASCADE constraints for referential integrity. When bot deleted: documents cascade-delete, chunks cascade-delete (via documents), embeddings cascade-delete (via chunks), chat_sessions cascade-delete. Background job handles object storage cleanup (S3/MinIO files) after cascading deletes complete. All cascades must complete successfully or entire deletion transaction rolled back.</details>
+    </constraint>
+    <constraint>
+      <title>Deletion Confirmation Security</title>
+      <details>Delete modal must require user to type exact bot name (case-sensitive) to confirm deletion. Delete button disabled until typed name matches exactly. No shortcuts or abbreviations accepted. This prevents accidental bulk deletions.</details>
+    </constraint>
+    <constraint>
+      <title>Optimistic Updates for UX</title>
+      <details>Frontend must remove bot from list immediately on delete submission (optimistic update), not wait for server confirmation. If deletion fails, restore bot to list and display error toast. Apply same pattern to duplication: add new bot to list optimistically, revert on error.</details>
+    </constraint>
+    <constraint>
+      <title>Background Job Error Handling</title>
+      <details>Celery tasks must implement retry logic: max 3 retries with exponential backoff. On final failure, log error, alert admin, and notify user via email or in-app notification with retry option. Do not silently fail. Track job status in Redis or database for user visibility.</details>
+    </constraint>
+    <constraint>
+      <title>API Response Codes</title>
+      <details>POST /duplicate: 200 (sync) or 202 (if future async option added). DELETE: 202 Accepted (async, large bot) or 204 No Content (sync, small bot). 404 Bot not found. 403 Forbidden (cross-tenant RLS). 409 Conflict (duplicate name in duplication). 400 Bad Request (validation errors). 401 Unauthorized (no JWT). 500+ Server errors.</details>
+    </constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Bot Duplication Endpoint</name>
+      <kind>REST API</kind>
+      <signature>POST /api/v1/bots/{bot_id}/duplicate</signature>
+      <request>{ name?: string (2-50 chars, optional; default "[source.name] (Copy)") }</request>
+      <response>{ id: UUID, name: string, description: string, confidence_threshold: number, status: "Empty", created_at: ISO8601, tenant_id: UUID, source_bot_id?: UUID }</response>
+      <errorCodes>404 (bot not found), 403 (RLS forbidden), 409 (duplicate name conflict), 400 (validation error)</errorCodes>
+      <path>apps/api/app/api/routes/bots.py</path>
+    </interface>
+    <interface>
+      <name>Bot Deletion Endpoint</name>
+      <kind>REST API</kind>
+      <signature>DELETE /api/v1/bots/{bot_id}</signature>
+      <response>204 No Content (sync, ≤100 docs) OR 202 Accepted with { job_id: string, status: "pending", message: "Deletion in progress..." } (async, &gt;100 docs)</response>
+      <errorCodes>404 (bot not found), 403 (RLS forbidden), 400 (validation error)</errorCodes>
+      <path>apps/api/app/api/routes/bots.py</path>
+    </interface>
+    <interface>
+      <name>Deletion Status Endpoint (Optional)</name>
+      <kind>REST API</kind>
+      <signature>GET /api/v1/bots/{bot_id}/deletion-status</signature>
+      <response>{ bot_id: UUID, status: "pending" | "in-progress" | "completed" | "failed", progress: number (0-100), estimated_time_remaining?: number (seconds), error_message?: string }</response>
+      <errorCodes>404 (deletion job not found)</errorCodes>
+      <path>apps/api/app/api/routes/bots.py</path>
+    </interface>
+    <interface>
+      <name>BotDeletionService</name>
+      <kind>Python Service Class</kind>
+      <signature>BotDeletionService.delete_bot_async(bot_id: UUID, tenant_id: UUID) -&gt; None</signature>
+      <method>Celery task; batch delete documents, storage, embeddings, chunks, chat history, bot record. Retry up to 3 times on failure. Log progress and errors.</method>
+      <path>apps/api/app/tasks/bot_deletion.py</path>
+    </interface>
+    <interface>
+      <name>DuplicateBotModal Component</name>
+      <kind>React Component</kind>
+      <signature>&lt;DuplicateBotModal bot={Bot} isOpen={boolean} onClose={() =&gt; {}} onSuccess={(newBot) =&gt; {}} /&gt;</signature>
+      <props>bot: source Bot object with id, name, description, confidence_threshold; isOpen, onClose, onSuccess callbacks</props>
+      <state>newBotName (editable input), validationError (name length/uniqueness), isLoading (during submission)</state>
+      <path>apps/web/src/components/DuplicateBotModal.tsx</path>
+    </interface>
+    <interface>
+      <name>DeleteBotModal Component</name>
+      <kind>React Component</kind>
+      <signature>&lt;DeleteBotModal bot={Bot} isOpen={boolean} onClose={() =&gt; {}} onSuccess={() =&gt; {}} /&gt;</signature>
+      <props>bot: Bot object with id, name, doc_count; isOpen, onClose, onSuccess callbacks</props>
+      <state>confirmationInput (typed bot name), isDeleteButtonEnabled (name matches exactly), isLoading, deletionProgress (if async)</state>
+      <path>apps/web/src/components/DeleteBotModal.tsx</path>
+    </interface>
+    <interface>
+      <name>useDuplicateBot Hook</name>
+      <kind>React Custom Hook</kind>
+      <signature>const { mutate, isPending, error } = useDuplicateBot()</signature>
+      <returns>{ mutate: (botId: UUID, name?: string) =&gt; Promise&lt;Bot&gt;, isPending: boolean, error: Error | null }</returns>
+      <behavior>POST /bots/{botId}/duplicate, optimistic add to bot list, show success toast on completion, show error toast on failure</behavior>
+      <path>apps/web/src/hooks/useBotsQuery.ts</path>
+    </interface>
+    <interface>
+      <name>useDeleteBot Hook</name>
+      <kind>React Custom Hook</kind>
+      <signature>const { mutate, isPending, error, progress } = useDeleteBot()</signature>
+      <returns>{ mutate: (botId: UUID) =&gt; Promise&lt;void&gt;, isPending: boolean, error: Error | null, progress?: number }</returns>
+      <behavior>DELETE /bots/{botId}, optimistic remove from bot list, handle 202 (async) vs 204 (sync), poll for progress if async, show success/progress toast</behavior>
+      <path>apps/web/src/hooks/useBotsQuery.ts</path>
+    </interface>
+    <interface>
+      <name>Bots API Client Extensions</name>
+      <kind>TypeScript Module</kind>
+      <signature>import { duplicateBot, deleteBot, getDeletionStatus } from '@/lib/api/bots'</signature>
+      <functions>
+        duplicateBot(botId: UUID, name?: string): Promise&lt;Bot&gt;
+        deleteBot(botId: UUID): Promise&lt;{ jobId?: string; status: 202 | 204 }&gt;
+        getDeletionStatus(botId: UUID): Promise&lt;DeletionJob&gt;
+      </functions>
+      <path>apps/web/src/lib/api/bots.ts</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      <paragraph>Backend tests use pytest with FastAPI TestClient. Follow Story 2.1 patterns: mock JWT tokens with tenant_id in payload, use fixtures for authenticated clients and test database. All database tests verify RLS enforcement by confirming queries return only current-tenant data and forbidden access for other tenants. Test both sync (≤100 docs) and async (&gt;100 docs) deletion paths separately. Verify cascade deletion: delete bot, confirm documents/chunks/embeddings/chat_history deleted automatically. Mock S3/MinIO file operations or skip in unit tests (integration tests can test real storage cleanup). Frontend tests use Vitest + React Testing Library with mocked API calls via MSW or simple fetch mocks. Mock useBotsQuery hook to control list state during modal tests. E2E tests use Playwright with full user flows: login, navigate, duplicate bot, verify new bot appears, delete bot with confirmation, verify removed. All tests isolated, deterministic, no external dependencies (mock all API calls).</paragraph>
+    </standards>
+    <locations>
+      <directory>apps/api/tests/test_bots.py</directory>
+      <directory>apps/web/__tests__/components/DuplicateBotModal.test.tsx</directory>
+      <directory>apps/web/__tests__/components/DeleteBotModal.test.tsx</directory>
+      <directory>apps/web/__tests__/hooks/useDuplicateBot.test.ts</directory>
+      <directory>apps/web/__tests__/hooks/useDeleteBot.test.ts</directory>
+      <directory>tests/e2e/bot-duplication-deletion.spec.ts</directory>
+    </locations>
+    <ideas>
+      <idea>
+        <acRef>dup-4</acRef>
+        <description>Test POST /bots/{bot_id}/duplicate: verify new bot created with status "Empty", unique id, inherits description and confidence_threshold from source, does NOT inherit documents/embeddings/chat_history. Verify source bot unchanged.</description>
+      </idea>
+      <idea>
+        <acRef>dup-2,dup-3</acRef>
+        <description>Test DuplicateBotModal rendering and interactions: default name "[Original] (Copy)" appears in input, user can edit name, form validates name length 2-50 chars, live uniqueness check (mock API call), submit button disabled until valid.</description>
+      </idea>
+      <idea>
+        <acRef>dup-5</acRef>
+        <description>Test name uniqueness in duplication: create bot "HR Bot", duplicate to "HR Bot (Copy)" (succeeds), attempt to duplicate again to same name (409 Conflict). Test custom name conflict: duplicate with provided name "HR Bot" (409).</description>
+      </idea>
+      <idea>
+        <acRef>dup-6</acRef>
+        <description>Test success toast: after successful duplication, verify toast displays "Bot duplicated: [New Bot Name]" and closes after 3-5 seconds.</description>
+      </idea>
+      <idea>
+        <acRef>del-3,del-4</acRef>
+        <description>Test DeleteBotModal confirmation: delete button disabled initially, user types bot name in input, button enabled only when typed name matches exactly (case-sensitive). Test "Bot Name" vs "bot name" vs "Bot name" all treated as different (case-sensitive).</description>
+      </idea>
+      <idea>
+        <acRef>del-5</acRef>
+        <description>Test cascade deletion: create bot with documents, chunks, embeddings, chat sessions. Delete bot. Verify bot record deleted, all documents deleted (including from storage), all chunks deleted, all embeddings deleted, all chat sessions deleted.</description>
+      </idea>
+      <idea>
+        <acRef>del-7</acRef>
+        <description>Test sync deletion (≤100 docs): delete small bot, verify 204 No Content response, bot removed from list immediately, success toast "Bot deleted: [Bot Name]".</description>
+      </idea>
+      <idea>
+        <acRef>del-6</acRef>
+        <description>Test async deletion (&gt;100 docs): delete large bot, verify 202 Accepted response with job_id, progress toast "Deletion in progress. This may take a few minutes.", bot removed from list immediately, user can navigate away (deletion continues background), optional polling shows progress updates.</description>
+      </idea>
+      <idea>
+        <acRef>err-4</acRef>
+        <description>Test RLS enforcement: user from tenant A creates bot, user from tenant B attempts to duplicate/delete that bot, verify 403 Forbidden response, bot not modified.</description>
+      </idea>
+      <idea>
+        <acRef>err-1,err-2</acRef>
+        <description>Test error handling in modals: mock API error response (500), verify inline error message displays in modal, user can close modal or retry. Test network error (timeout), verify user-friendly error message.</description>
+      </idea>
+      <idea>
+        <acRef>dup-7,del-9</acRef>
+        <description>Test E2E duplication flow: user logs in, navigates to bot list, clicks "Duplicate" on "HR Bot", edits name to "HR Bot v2", confirms, new bot "HR Bot v2" appears in list with same description and threshold as original. Test E2E deletion flow: user clicks "Delete" on "Sales Bot", types "Sales Bot" in confirmation input, confirms, "Sales Bot" removed from list and navigates to list view.</description>
+      </idea>
+      <idea>
+        <acRef>dup-1,del-1</acRef>
+        <description>Test modal open/close from BotCard actions menu: click three-dot menu on bot card, verify "Duplicate" and "Delete" options appear, click "Duplicate" opens DuplicateBotModal, click close modal returns to list. Test "Delete" opens DeleteBotModal similarly.</description>
+      </idea>
+      <idea>
+        <acRef>del-2</acRef>
+        <description>Test DeleteBotModal displays: bot name (bold, prominent), warning message text, document count (e.g., "5 documents"), confirmation input placeholder "Type the bot name to confirm", red danger-style delete button initially disabled.</description>
+      </idea>
+    </ideas>
+  </tests>
+
+</story-context>
