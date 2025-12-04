@@ -102,6 +102,12 @@ development_status:
         assigned_to: null
         blocked_by: 1-4-user-login-session-management
 
+    # Story 1.6 (CI Pipeline) - added record: implemented by Kainy
+    1-6-ci-pipeline:
+        status: done
+        assigned_to: Kainy
+        completed_date: 2025-12-04
+
     epic-1-retrospective: optional
 
     # Epic 2: Bot & Knowledge Management
