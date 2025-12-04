@@ -1,149 +1,373 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import ProfilePage from '@/app/profile/page';
+import LoginPage from '@/app/login/page';
 
 // Mock next/navigation
+const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push: mockPush,
   }),
   usePathname: () => '/',
 }));
 
-describe('Profile API Tests', () => {
+// Mock DashboardLayout to avoid nested component complexity
+vi.mock('@/components/DashboardLayout', () => ({
+  DashboardLayout: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="dashboard-layout">{children}</div>
+  ),
+}));
+
+describe('Login Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.setItem('access_token', 'test-token');
+    global.fetch = vi.fn();
   });
 
-  it('should fetch user profile successfully', async () => {
-    const mockProfile = {
-      id: '123',
-      email: 'test@example.com',
-      name: 'Test User',
-      avatar_url: null,
-      notification_frequency: 'weekly',
-      role: 'agent',
-      last_active: null,
-      is_active: 'active',
-    };
+  it('renders login form with all required fields', () => {
+    render(<LoginPage />);
 
-    expect(mockProfile.email).toBe('test@example.com');
-    expect(mockProfile.notification_frequency).toBe('weekly');
+    expect(screen.getByPlaceholderText(/email/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/password/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
-  it('should update profile with valid data', async () => {
-    const updateData = {
-      name: 'Updated Name',
-      notification_frequency: 'daily',
-    };
+  it('shows validation error when email is missing', async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
 
-    expect(updateData.name).toBe('Updated Name');
-    expect(updateData.notification_frequency).toBe('daily');
+    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    await user.click(submitButton);
+
+    expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
   });
 
-  it('should validate name length (min 2, max 100)', async () => {
-    const validNames = ['Jo', 'John Doe', 'A'.repeat(100)];
-    const invalidNames = ['A', 'A'.repeat(101)];
+  it('shows validation error when password is missing', async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
 
-    validNames.forEach((name) => {
-      expect(name.length).toBeGreaterThanOrEqual(2);
-      expect(name.length).toBeLessThanOrEqual(100);
+    const emailInput = screen.getByPlaceholderText(/email/i);
+    await user.type(emailInput, 'test@example.com');
+
+    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    await user.click(submitButton);
+
+    expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
+  });
+
+  it('shows validation error for invalid email format', async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    const emailInput = screen.getByPlaceholderText(/email/i);
+    const passwordInput = screen.getByPlaceholderText(/password/i);
+
+    await user.type(emailInput, 'invalid-email');
+    await user.type(passwordInput, 'password123');
+
+    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    await user.click(submitButton);
+
+    expect(await screen.findByText(/valid email address/i)).toBeInTheDocument();
+  });
+
+  it('shows validation error for short password', async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    const emailInput = screen.getByPlaceholderText(/email/i);
+    const passwordInput = screen.getByPlaceholderText(/password/i);
+
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'short');
+
+    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    await user.click(submitButton);
+
+    expect(await screen.findByText(/at least 8 characters/i)).toBeInTheDocument();
+  });
+
+  it('submits login form with valid credentials and calls API', async () => {
+    const user = userEvent.setup();
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ message: 'Success' }),
     });
 
-    invalidNames.forEach((name) => {
-      expect(
-        name.length < 2 || name.length > 100
-      ).toBe(true);
+    render(<LoginPage />);
+
+    const emailInput = screen.getByPlaceholderText(/email/i);
+    const passwordInput = screen.getByPlaceholderText(/password/i);
+
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'password123');
+
+    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    await user.click(submitButton);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/auth/register',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: expect.stringContaining('test@example.com'),
+        })
+      );
     });
   });
 
-  it('should validate notification frequency', async () => {
-    const validFrequencies = ['daily', 'weekly', 'never'];
-    const invalidFrequencies = ['hourly', 'monthly', 'random'];
-
-    validFrequencies.forEach((freq) => {
-      expect(['daily', 'weekly', 'never'].includes(freq)).toBe(true);
+  it('displays error message when API call fails', async () => {
+    const user = userEvent.setup();
+    (global.fetch as any).mockResolvedValue({
+      ok: false,
+      json: async () => ({ detail: 'Invalid credentials' }),
     });
 
-    invalidFrequencies.forEach((freq) => {
-      expect(['daily', 'weekly', 'never'].includes(freq)).toBe(false);
-    });
+    render(<LoginPage />);
+
+    const emailInput = screen.getByPlaceholderText(/email/i);
+    const passwordInput = screen.getByPlaceholderText(/password/i);
+
+    await user.type(emailInput, 'test@example.com');
+    await user.type(passwordInput, 'password123');
+
+    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    await user.click(submitButton);
+
+    expect(await screen.findByText(/invalid credentials/i)).toBeInTheDocument();
+  });
+
+  it('toggles password visibility when eye icon is clicked', async () => {
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    const passwordInput = screen.getByPlaceholderText(/password/i);
+    expect(passwordInput).toHaveAttribute('type', 'password');
+
+    // Find and click the toggle button (look for Eye icon button)
+    const toggleButtons = screen.getAllByRole('button');
+    const toggleButton = toggleButtons.find(btn => btn !== screen.getByRole('button', { name: /sign in/i }));
+    
+    if (toggleButton) {
+      await user.click(toggleButton);
+      expect(passwordInput).toHaveAttribute('type', 'text');
+
+      await user.click(toggleButton);
+      expect(passwordInput).toHaveAttribute('type', 'password');
+    }
   });
 });
 
-describe('Team Management API Tests', () => {
+describe('Profile Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.setItem('access_token', 'test-token');
+    global.fetch = vi.fn();
   });
 
-  it('should fetch team members successfully', async () => {
-    const mockMembers = [
-      {
-        id: '1',
-        email: 'owner@example.com',
-        name: 'Owner User',
-        role: 'owner',
-        last_active: '2025-01-01T00:00:00',
-        is_active: 'active',
-      },
-      {
-        id: '2',
-        email: 'member@example.com',
-        name: 'Member User',
-        role: 'agent',
-        last_active: '2025-01-02T00:00:00',
-        is_active: 'active',
-      },
-    ];
-
-    expect(mockMembers).toHaveLength(2);
-    expect(mockMembers[0].role).toBe('owner');
+  it('displays loading state initially', () => {
+    render(<ProfilePage />);
+    expect(screen.getByText(/loading profile/i)).toBeInTheDocument();
   });
 
-  it('should prevent removal of last owner', async () => {
-    const members = [
-      { id: '1', role: 'owner', is_active: 'active' },
-    ];
-    const ownerCount = members.filter(
-      (m) => m.role === 'owner' && m.is_active === 'active'
-    ).length;
+  it('renders profile information after loading', async () => {
+    render(<ProfilePage />);
 
-    expect(ownerCount).toBe(1);
-    expect(ownerCount <= 1).toBe(true);
-  });
-
-  it('should validate role change constraints', async () => {
-    const validRoles = ['owner', 'admin', 'manager', 'agent', 'viewer'];
-    const testRoles = ['owner', 'superuser', 'member'];
-
-    testRoles.forEach((role) => {
-      if (role === 'superuser') {
-        expect(validRoles.includes(role)).toBe(false);
-      } else {
-        expect(validRoles.includes(role)).toBe(true);
-      }
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+      expect(screen.getByDisplayValue(/john doe/i)).toBeInTheDocument();
+      expect(screen.getByText(/user@example\.com/i)).toBeInTheDocument();
     });
   });
 
-  it('should track audit log for role changes', async () => {
-    const auditAction = {
-      action: 'role_change',
-      old_role: 'agent',
-      new_role: 'manager',
-    };
+  it('enables edit mode when edit button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
 
-    expect(auditAction.action).toBe('role_change');
-    expect(auditAction.old_role).not.toBe(auditAction.new_role);
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    const editButton = screen.getByRole('button', { name: /edit profile/i });
+    await user.click(editButton);
+
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
 
-  it('should track audit log for member removal', async () => {
-    const auditAction = {
-      action: 'user_removed',
-      removed_user_email: 'member@example.com',
-      removed_user_role: 'agent',
-    };
+  it('updates profile name when form is submitted', async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
 
-    expect(auditAction.action).toBe('user_removed');
-    expect(auditAction.removed_user_email).toBe('member@example.com');
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    // Click edit button
+    const editButton = screen.getByRole('button', { name: /edit profile/i });
+    await user.click(editButton);
+
+    // Change name
+    const nameInput = screen.getByDisplayValue(/john doe/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Jane Smith');
+
+    // Save changes
+    const saveButton = screen.getByRole('button', { name: /save changes/i });
+    await user.click(saveButton);
+
+    // Verify success message and updated name
+    expect(await screen.findByText(/profile updated successfully/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/jane smith/i)).toBeInTheDocument();
+  });
+
+  it('shows validation error for invalid name length', async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    // Click edit button
+    const editButton = screen.getByRole('button', { name: /edit profile/i });
+    await user.click(editButton);
+
+    // Enter invalid name (too short)
+    const nameInput = screen.getByDisplayValue(/john doe/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, 'A');
+
+    // Try to save
+    const saveButton = screen.getByRole('button', { name: /save changes/i });
+    await user.click(saveButton);
+
+    expect(await screen.findByText(/between 2 and 100 characters/i)).toBeInTheDocument();
+  });
+
+  it('changes notification frequency', async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    // Click edit button
+    const editButton = screen.getByRole('button', { name: /edit profile/i });
+    await user.click(editButton);
+
+    // Change notification frequency
+    const frequencySelect = screen.getByRole('combobox');
+    await user.selectOptions(frequencySelect, 'daily');
+
+    // Save changes
+    const saveButton = screen.getByRole('button', { name: /save changes/i });
+    await user.click(saveButton);
+
+    expect(await screen.findByText(/profile updated successfully/i)).toBeInTheDocument();
+  });
+
+  it('cancels edit mode without saving changes', async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    // Click edit button
+    const editButton = screen.getByRole('button', { name: /edit profile/i });
+    await user.click(editButton);
+
+    // Change name
+    const nameInput = screen.getByDisplayValue(/john doe/i);
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Changed Name');
+
+    // Cancel
+    const cancelButton = screen.getByRole('button', { name: /cancel/i });
+    await user.click(cancelButton);
+
+    // Verify name is unchanged
+    expect(screen.getByDisplayValue(/john doe/i)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue(/changed name/i)).not.toBeInTheDocument();
+  });
+
+  it('validates file type when uploading avatar', async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    // Create invalid file (PDF)
+    const invalidFile = new File(['test'], 'test.pdf', { type: 'application/pdf' });
+
+    // Find file input
+    const fileInput = screen.getByLabelText(/change avatar/i);
+    await user.upload(fileInput, invalidFile);
+
+    expect(await screen.findByText(/only jpg, png, and webp/i)).toBeInTheDocument();
+  });
+
+  it('validates file size when uploading avatar', async () => {
+    const user = userEvent.setup();
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    // Create oversized file (6MB)
+    const largeContent = new Uint8Array(6 * 1024 * 1024);
+    const largeFile = new File([largeContent], 'large.jpg', { type: 'image/jpeg' });
+
+    // Find file input
+    const fileInput = screen.getByLabelText(/change avatar/i);
+    await user.upload(fileInput, largeFile);
+
+    expect(await screen.findByText(/less than 5mb/i)).toBeInTheDocument();
+  });
+
+  it('successfully uploads valid avatar image', async () => {
+    const user = userEvent.setup();
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        avatar_url: 'https://example.com/avatar.jpg',
+        filename: 'avatar.jpg',
+        size_bytes: 1024,
+      }),
+    });
+
+    render(<ProfilePage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
+    });
+
+    // Create valid file
+    const validFile = new File(['image'], 'avatar.jpg', { type: 'image/jpeg' });
+
+    // Upload file
+    const fileInput = screen.getByLabelText(/change avatar/i);
+    await user.upload(fileInput, validFile);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/v1/profile/avatar',
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+        })
+      );
+    });
+
+    expect(await screen.findByText(/profile updated successfully/i)).toBeInTheDocument();
   });
 });
