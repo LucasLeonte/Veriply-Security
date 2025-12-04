@@ -38,6 +38,13 @@ async def get_user_profile_by_id(
     session: AsyncSession = Depends(get_db)
 ):
     """Get user profile by ID (admin/owner only)."""
+    # Authorization check: only owners and admins can view other users' profiles
+    if current_user["role"] not in ["owner", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners and admins can view other users' profiles"
+        )
+    
     user = await get_user_profile(user_id, session)
     return user
 

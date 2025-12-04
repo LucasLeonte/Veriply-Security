@@ -373,3 +373,58 @@ async def test_audit_trail(db_session):
     assert audits[0].action == "profile_update"
     assert audits[1].action == "avatar_update"
     assert audits[2].action == "role_change"
+
+
+@pytest.mark.asyncio
+async def test_get_user_profile_by_id_authorization(client):
+    """Test authorization check on GET /{user_id} endpoint (SECURITY FIX)."""
+    # This test verifies that only owners and admins can view other users' profiles
+    # Non-admin users should receive 403 Forbidden when attempting to access another user's profile
+    
+    owner_id = str(uuid.uuid4())
+    agent_id = str(uuid.uuid4())
+    target_user_id = str(uuid.uuid4())
+    
+    # Mock JWT tokens for different roles
+    owner_token = f"Bearer {owner_id}:owner"  # Owner role can access
+    agent_token = f"Bearer {agent_id}:agent"  # Agent role CANNOT access
+    
+    # Test 1: Owner should be able to view another user's profile
+    response = client.get(
+        f"/api/v1/profile/{target_user_id}",
+        headers={"Authorization": owner_token}
+    )
+    # In mock, this would return 200 or 404 (user not found), but NOT 403
+    assert response.status_code in [200, 404], \
+        "Owner should be able to access other users' profiles"
+    
+    # Test 2: Admin should be able to view another user's profile  
+    admin_token = f"Bearer {owner_id}:admin"
+    response = client.get(
+        f"/api/v1/profile/{target_user_id}",
+        headers={"Authorization": admin_token}
+    )
+    # In mock, this would return 200 or 404 (user not found), but NOT 403
+    assert response.status_code in [200, 404], \
+        "Admin should be able to access other users' profiles"
+    
+    # Test 3: Agent should NOT be able to view another user's profile
+    response = client.get(
+        f"/api/v1/profile/{target_user_id}",
+        headers={"Authorization": agent_token}
+    )
+    # Should return 403 Forbidden
+    assert response.status_code == 403, \
+        "Non-admin user should not be able to view other users' profiles"
+    assert "admin" in response.json()["detail"].lower(), \
+        "Error message should clarify admin permission requirement"
+    
+    # Test 4: Viewer role should NOT be able to access
+    viewer_token = f"Bearer {owner_id}:viewer"
+    response = client.get(
+        f"/api/v1/profile/{target_user_id}",
+        headers={"Authorization": viewer_token}
+    )
+    assert response.status_code == 403, \
+        "Viewer role should not be able to view other users' profiles"
+
