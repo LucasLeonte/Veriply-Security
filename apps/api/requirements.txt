@@ -10,4 +10,7 @@ langchain
 langchain-community
 python-multipart
 pydantic-settings
+pydantic[email]
 psycopg2-binary
+bcrypt
+PyJWT

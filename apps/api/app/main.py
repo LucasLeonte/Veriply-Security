@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends
 from contextlib import asynccontextmanager
 from app.core.database import get_db, init_db
 from app.core.migrations import enable_pgvector, enable_rls
+from app.api.v1 import auth
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -13,6 +14,9 @@ async def lifespan(app: FastAPI):
     # Shutdown (optional)
 
 app = FastAPI(title="Veriply API", lifespan=lifespan)
+
+# Include routers
+app.include_router(auth.router)
 
 @app.get("/")
 async def root():
