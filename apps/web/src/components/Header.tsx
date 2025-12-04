@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
@@ -18,7 +19,25 @@ export function Header({
     userInitials = "JD",
     userName = "John Doe",
 }: HeaderProps) {
+    const router = useRouter();
     const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+
+    const handleProfile = () => {
+        router.push("/profile");
+        setUserMenuOpen(false);
+    };
+
+    const handleSettings = () => {
+        router.push("/settings");
+        setUserMenuOpen(false);
+    };
+
+    const handleSignOut = () => {
+        // Clear any auth tokens and redirect to login
+        localStorage.removeItem("access_token");
+        router.push("/login");
+        setUserMenuOpen(false);
+    };
 
     return (
         <header
@@ -66,13 +85,13 @@ export function Header({
                         {/* User Menu Dropdown */}
                         {userMenuOpen && (
                             <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white border border-slate-300 py-1 z-50">
-                                <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                                <button onClick={handleProfile} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
                                     Profile
                                 </button>
-                                <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
+                                <button onClick={handleSettings} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">
                                     Settings
                                 </button>
-                                <button className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 border-t border-slate-300">
+                                <button onClick={handleSignOut} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 border-t border-slate-300">
                                     Sign out
                                 </button>
                             </div>
