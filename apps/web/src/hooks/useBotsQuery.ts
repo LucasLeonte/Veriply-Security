@@ -150,3 +150,34 @@ export function useDeleteBot() {
 
     return { mutate, isPending, error };
 }
+
+export function useDuplicateBot() {
+    const [isPending, setIsPending] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+
+    const mutate = useCallback(
+        async (params: { botId: string; name?: string }): Promise<Bot> => {
+            setIsPending(true);
+            setError(null);
+            try {
+                const result = await botsApi.duplicateBot(
+                    params.botId,
+                    params.name
+                );
+                return result;
+            } catch (err) {
+                const error =
+                    err instanceof Error
+                        ? err
+                        : new Error("Failed to duplicate bot");
+                setError(error);
+                throw error;
+            } finally {
+                setIsPending(false);
+            }
+        },
+        []
+    );
+
+    return { mutate, isPending, error };
+}

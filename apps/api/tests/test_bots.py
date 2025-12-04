@@ -545,3 +545,179 @@ async def test_update_bot_cross_tenant_denied(async_db: AsyncSession, test_tenan
             tenant_id=test_pro_tenant.id,  # Different tenant
             bot_data=update_data,
         )
+
+# Test Bot Duplication
+@pytest.mark.asyncio
+async def test_duplicate_bot_valid(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
+    """Test duplicating a bot creates new bot with copied settings"""
+    # Create source bot
+    bot_data = BotCreateRequest(
+        name="Original Bot",
+        description="Original description",
+        confidence_threshold=75
+    )
+    source_bot = await BotService.create_bot(
+        db=async_db,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        bot_data=bot_data,
+    )
+    
+    # Duplicate with default name
+    dup_bot = await BotService.duplicate_bot(
+        db=async_db,
+        source_bot_id=source_bot.id,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        new_name=None,
+    )
+    
+    # Verify new bot has copied settings but not documents
+    assert dup_bot.name == "Original Bot (Copy)"
+    assert dup_bot.description == source_bot.description
+    assert dup_bot.confidence_threshold == source_bot.confidence_threshold
+    assert dup_bot.status == BotStatus.EMPTY
+    assert dup_bot.id != source_bot.id
+    assert dup_bot.tenant_id == test_tenant.id
+    
+    # Verify source bot unchanged
+    source_bot_check = await BotService.get_bot(async_db, source_bot.id, test_tenant.id)
+    assert source_bot_check.name == "Original Bot"
+
+@pytest.mark.asyncio
+async def test_duplicate_bot_custom_name(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
+    """Test duplicating a bot with custom name"""
+    bot_data = BotCreateRequest(name="Original Bot")
+    source_bot = await BotService.create_bot(
+        db=async_db,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        bot_data=bot_data,
+    )
+    
+    # Duplicate with custom name
+    dup_bot = await BotService.duplicate_bot(
+        db=async_db,
+        source_bot_id=source_bot.id,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        new_name="Custom Bot Name",
+    )
+    
+    assert dup_bot.name == "Custom Bot Name"
+
+@pytest.mark.asyncio
+async def test_duplicate_bot_not_found(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
+    """Test duplicating non-existent bot fails"""
+    with pytest.raises(ValueError, match="not found"):
+        await BotService.duplicate_bot(
+            db=async_db,
+            source_bot_id=uuid4(),
+            tenant_id=test_tenant.id,
+            user_id=test_user.id,
+        )
+
+@pytest.mark.asyncio
+async def test_duplicate_bot_name_conflict(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
+    """Test duplicating with name that already exists fails"""
+    # Create two bots
+    bot_data1 = BotCreateRequest(name="Bot 1")
+    bot_data2 = BotCreateRequest(name="Bot 1 (Copy)")
+    
+    bot1 = await BotService.create_bot(
+        db=async_db,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        bot_data=bot_data1,
+    )
+    
+    await BotService.create_bot(
+        db=async_db,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        bot_data=bot_data2,
+    )
+    
+    # Try to duplicate bot1 (would create "Bot 1 (Copy)" which exists)
+    with pytest.raises(ValueError, match="already exists"):
+        await BotService.duplicate_bot(
+            db=async_db,
+            source_bot_id=bot1.id,
+            tenant_id=test_tenant.id,
+            user_id=test_user.id,
+        )
+
+@pytest.mark.asyncio
+async def test_duplicate_bot_cross_tenant_denied(async_db: AsyncSession, test_tenant: Tenant, test_pro_tenant: Tenant, test_user: User):
+    """Test RLS: cannot duplicate bot from another tenant"""
+    bot_data = BotCreateRequest(name="Test Bot")
+    source_bot = await BotService.create_bot(
+        db=async_db,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        bot_data=bot_data,
+    )
+    
+    # Try to duplicate from different tenant
+    with pytest.raises(ValueError, match="not found"):
+        await BotService.duplicate_bot(
+            db=async_db,
+            source_bot_id=source_bot.id,
+            tenant_id=test_pro_tenant.id,  # Different tenant
+            user_id=test_user.id,
+        )
+
+# Test Bot Deletion
+@pytest.mark.asyncio
+async def test_delete_bot_valid(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
+    """Test deleting a bot"""
+    bot_data = BotCreateRequest(name="Bot to Delete")
+    bot = await BotService.create_bot(
+        db=async_db,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        bot_data=bot_data,
+    )
+    
+    # Delete the bot
+    result = await BotService.delete_bot(
+        db=async_db,
+        bot_id=bot.id,
+        tenant_id=test_tenant.id,
+    )
+    
+    assert result is True
+    
+    # Verify bot is gone
+    deleted_bot = await BotService.get_bot(async_db, bot.id, test_tenant.id)
+    assert deleted_bot is None
+
+@pytest.mark.asyncio
+async def test_delete_bot_not_found(async_db: AsyncSession, test_tenant: Tenant):
+    """Test deleting non-existent bot fails"""
+    with pytest.raises(ValueError, match="not found"):
+        await BotService.delete_bot(
+            db=async_db,
+            bot_id=uuid4(),
+            tenant_id=test_tenant.id,
+        )
+
+@pytest.mark.asyncio
+async def test_delete_bot_cross_tenant_denied(async_db: AsyncSession, test_tenant: Tenant, test_pro_tenant: Tenant, test_user: User):
+    """Test RLS: cannot delete bot from another tenant"""
+    bot_data = BotCreateRequest(name="Test Bot")
+    bot = await BotService.create_bot(
+        db=async_db,
+        tenant_id=test_tenant.id,
+        user_id=test_user.id,
+        bot_data=bot_data,
+    )
+    
+    # Try to delete from different tenant
+    with pytest.raises(ValueError, match="not found"):
+        await BotService.delete_bot(
+            db=async_db,
+            bot_id=bot.id,
+            tenant_id=test_pro_tenant.id,  # Different tenant
+        )
+

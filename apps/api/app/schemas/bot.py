@@ -49,6 +49,17 @@ class BotUpdateRequest(BaseModel):
             return v.strip() if v else None
         return v
 
+class BotDuplicateRequest(BaseModel):
+    """Request schema for duplicating a bot"""
+    name: Optional[str] = Field(None, min_length=2, max_length=50, description="New bot name (2-50 chars, optional)")
+
+    @field_validator('name')
+    @classmethod
+    def name_not_empty(cls, v):
+        if v is not None and (not v or not v.strip()):
+            raise ValueError('Name cannot be empty or whitespace')
+        return v.strip() if v else None
+
 class BotResponse(BaseModel):
     """Response schema for bot operations"""
     id: UUID

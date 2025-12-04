@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from app.core.database import get_db
 from app.api.v1.auth import get_current_user, get_current_tenant
-from app.schemas.bot import BotCreateRequest, BotUpdateRequest, BotResponse, BotListResponse
+from app.schemas.bot import BotCreateRequest, BotUpdateRequest, BotResponse, BotListResponse, BotDuplicateRequest
 from app.services.bot_service import BotService
 from app.models.user import User
 from app.models.bot import BotStatus
@@ -143,3 +143,74 @@ async def update_bot(
         await db.rollback()
         logger.exception(f"Error updating bot: {e}")
         raise HTTPException(status_code=500, detail="Failed to update bot")
+
+@router.post("/{bot_id}/duplicate", response_model=BotResponse, status_code=201)
+async def duplicate_bot(
+    bot_id: UUID,
+    duplicate_data: BotDuplicateRequest | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """
+    Duplicate a bot by copying settings but NOT documents/embeddings/chat history.
+    
+    - **name**: Optional custom name for the duplicated bot (default: "[Original Name] (Copy)")
+    """
+    try:
+        new_name = duplicate_data.name if duplicate_data else None
+        
+        bot = await BotService.duplicate_bot(
+            db=db,
+            source_bot_id=bot_id,
+            tenant_id=tenant_id,
+            user_id=current_user.id,
+            new_name=new_name,
+        )
+        await db.commit()
+        return bot
+    except ValueError as e:
+        await db.rollback()
+        error_msg = str(e)
+        if "not found" in error_msg:
+            raise HTTPException(status_code=404, detail=error_msg)
+        elif "already exists" in error_msg:
+            raise HTTPException(status_code=409, detail=error_msg)
+        else:
+            raise HTTPException(status_code=400, detail=error_msg)
+    except Exception as e:
+        await db.rollback()
+        logger.exception(f"Error duplicating bot: {e}")
+        raise HTTPException(status_code=500, detail="Failed to duplicate bot")
+
+@router.delete("/{bot_id}", status_code=204)
+async def delete_bot(
+    bot_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """
+    Delete a bot and all associated data (documents, embeddings, chunks, chat history).
+    
+    Requires confirmation by typing the bot name (for safety).
+    """
+    try:
+        await BotService.delete_bot(
+            db=db,
+            bot_id=bot_id,
+            tenant_id=tenant_id,
+        )
+        await db.commit()
+        return None  # 204 No Content
+    except ValueError as e:
+        await db.rollback()
+        error_msg = str(e)
+        if "not found" in error_msg:
+            raise HTTPException(status_code=404, detail=error_msg)
+        else:
+            raise HTTPException(status_code=403, detail=error_msg)
+    except Exception as e:
+        await db.rollback()
+        logger.exception(f"Error deleting bot: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete bot")

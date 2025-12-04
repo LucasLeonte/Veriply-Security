@@ -122,9 +122,9 @@ development_status:
         completed_date: 2025-12-04
 
     2-2-bot-duplication-deletion:
-        status: assigned
+        status: done
         assigned_to: Lucas
-        blocked_by: 2-1-bot-creation-configuration
+        completed_date: 2025-12-04
 
     2-3-document-upload-api:
         status: assigned

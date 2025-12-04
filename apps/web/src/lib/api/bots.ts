@@ -100,4 +100,15 @@ export const botsApi = {
             throw new Error(`Failed to delete bot: ${response.status}`);
         }
     },
+
+    async duplicateBot(botId: string, name?: string): Promise<Bot> {
+        const response = await fetchWithAuth(
+            `${BOTS_ENDPOINT}/${botId}/duplicate`,
+            {
+                method: "POST",
+                body: JSON.stringify({ name }),
+            }
+        );
+        return handleResponse<Bot>(response);
+    },
 };

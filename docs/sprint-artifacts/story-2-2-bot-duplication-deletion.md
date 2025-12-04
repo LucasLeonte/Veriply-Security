@@ -1,7 +1,7 @@
 # Story 2.2: Bot Duplication & Deletion
 
 **Epic:** 2. Bot & Knowledge Management  
-**Status:** drafted  
+**Status:** done  
 **Assigned to:** Lucas  
 **Blocked by:** 2-1-bot-creation-configuration
 
@@ -338,6 +338,9 @@ Claude Sonnet 4.5
 -   All tasks mapped to existing project structure from Story 2.1
 -   Test coverage planned across backend, frontend, and E2E
 -   Previous story learnings incorporated for consistency
+
+**Completed:** 2025-12-04  
+**Definition of Done:** All acceptance criteria met (23/23), code reviewed and APPROVED, all tests passing (8 backend + 21 frontend + 6 E2E), Playwright E2E framework configured and operational
 
 ### Debug Log References
 
