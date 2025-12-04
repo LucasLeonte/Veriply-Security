@@ -1,22 +1,65 @@
 version: '3.8'
 
+# ============================================================================
+# Veriply Docker Compose Configuration
+# ============================================================================
+# This file loads ALL environment variables from the root .env file.
+# Docker Compose automatically loads .env from the same directory.
+# See .env.example for all available configuration options.
+#
+# Usage:
+#   1. Ensure .env file exists (copy from .env.example)
+#   2. Run: docker-compose up -d
+#
+# Centralized Database Setup:
+#   - For development with shared DB: Set DB_HOST to Ubuntu server IP in .env
+#   - For local testing: Set DB_HOST=localhost in .env
+#   - Production: Use production .env with prod credentials
+# ============================================================================
+
 services:
+  # PostgreSQL with pgvector extension
+  # NOTE: For centralized DB setup, this service runs ONLY on the Ubuntu server.
+  #       Developer machines connect to the remote DB via DB_HOST in .env
   db:
     image: pgvector/pgvector:pg16
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=pass
-      - POSTGRES_DB=veriply
+      # Use DB_* variables from .env, fall back to POSTGRES_* for compatibility
+      - POSTGRES_USER=${DB_USER:-${POSTGRES_USER:-user}}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-${POSTGRES_PASSWORD:-pass}}
+      - POSTGRES_DB=${DB_NAME:-${POSTGRES_DB:-veriply}}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - veriply-network
 
+  # Redis for caching and sessions
   redis:
     image: redis:alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+    command: >
+      sh -c "if [ -n \"${REDIS_PASSWORD}\" ]; then
+        redis-server --requirepass ${REDIS_PASSWORD};
+      else
+        redis-server;
+      fi"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - veriply-network
 
+  # Ollama for LLM inference
   ollama:
     build:
       context: ./docker/ollama
@@ -24,6 +67,13 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - veriply-network
     # Uncomment if you have an NVIDIA GPU
     # deploy:
     #   resources:
@@ -36,3 +86,8 @@ services:
 volumes:
   postgres_data:
   ollama_data:
+
+networks:
+  veriply-network:
+    driver: bridge
+
