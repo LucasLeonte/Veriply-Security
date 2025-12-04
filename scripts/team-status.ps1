@@ -33,26 +33,27 @@ foreach ($line in $lines) {
     }
 }
 
-# Parse work assignments
+# Parse work assignments (use indexed loop so look-ahead finds the correct assigned_to for each story)
 $currentStory = $null
-foreach ($line in $lines) {
+for ($i = 0; $i -lt $lines.Count; $i++) {
+    $line = $lines[$i]
     if ($line -match '^\s+(\d+-\d+-.+?):\s*$') {
         $currentStory = $Matches[1].Trim()
+        continue
     }
-    
-    if ($line -match '^\s+status:\s*(.+)$' -and $currentStory) {
+
+    if ($currentStory -and $line -match '^\s+status:\s*(.+)$') {
         $status = $Matches[1].Trim()
         $storyData = @{ID = $currentStory; Status = $status; AssignedTo = $null}
-        
-        # Look ahead for assigned_to
-        $idx = [array]::IndexOf($lines, $line)
-        if ($idx -ge 0 -and $idx + 1 -lt $lines.Count) {
-            $nextLine = $lines[$idx + 1]
+
+        # Look ahead for assigned_to within the next few lines
+        for ($j = $i + 1; ($j -lt $lines.Count) -and ($j -le $i + 3); $j++) {
+            $nextLine = $lines[$j]
             if ($nextLine -match '^\s+assigned_to:\s*(.+)$') {
                 $assignedTo = $Matches[1].Trim()
                 if ($assignedTo -ne 'null') {
                     $storyData.AssignedTo = $assignedTo
-                    
+
                     # Add to developer's stories
                     $dev = $developers | Where-Object { $_.Name -eq $assignedTo }
                     if ($dev) {
@@ -62,8 +63,10 @@ foreach ($line in $lines) {
                         }
                     }
                 }
+                break
             }
         }
+
         $currentStory = $null
     }
 }

@@ -15,21 +15,21 @@ team:
     size: 4
     developers:
         - name: Dario
-          max_wip: 2
-          current_wip: 0
-          skills: [frontend, backend, auth]
+            max_wip: 2
+            current_wip: 0
+            skills: [frontend, backend, auth]
         - name: Lucas
-          max_wip: 2
-          current_wip: 0
-          skills: [backend, database, api]
+            max_wip: 2
+            current_wip: 0
+            skills: [backend, database, api]
         - name: Kainy
-          max_wip: 2
-          current_wip: 0
-          skills: [frontend, ui, testing]
+            max_wip: 2
+            current_wip: 0
+            skills: [frontend, ui, testing]
         - name: Soulaymane
-          max_wip: 2
-          current_wip: 0
-          skills: [fullstack, devops, integration]
+            max_wip: 2
+            current_wip: 0
+            skills: [fullstack, devops, integration]
 
 # STATUS DEFINITIONS:
 # ==================
@@ -97,7 +97,7 @@ development_status:
         assigned_to: null
         blocked_by: 1-4-user-login-session-management
 
-    1-6-user-profile-team-management:
+    1-7-user-profile-team-management:
         status: ready-for-dev
         assigned_to: null
         blocked_by: 1-4-user-login-session-management
