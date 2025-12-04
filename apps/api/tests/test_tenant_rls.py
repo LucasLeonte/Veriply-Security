@@ -1,4 +1,3 @@
-import pytest
 from app.models import Tenant, User
 
 def test_tenant_model_creation():
