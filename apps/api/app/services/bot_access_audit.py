@@ -4,7 +4,6 @@ Logs all bot access for compliance and security monitoring.
 """
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import insert
 from uuid import UUID, uuid4
 from datetime import datetime
 from app.models.audit_log import AuditLog
@@ -97,7 +96,7 @@ class BotAccessAudit:
             user_id=user_id,
             bot_id=bot_id,
             tenant_id=tenant_id,
-            action=action,
+            action=f"unauthorized_{action}",
             status="unauthorized",
             details={"security_event": "unauthorized_access_attempt"},
             ip_address=ip_address,

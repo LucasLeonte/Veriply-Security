@@ -1,5 +1,4 @@
-import pytest
-from app.models import User, Tenant
+from app.models import User
 from app.services.auth_service import hash_password, verify_password, generate_uuid
 
 def test_password_hashing():

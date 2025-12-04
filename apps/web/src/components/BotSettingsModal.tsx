@@ -31,7 +31,6 @@ export function BotSettingsModal({
     const {
         mutate: updateBot,
         isPending: isUpdating,
-        error: updateError,
     } = useUpdateBot(botId);
 
     const [name, setName] = useState("");
@@ -46,6 +45,7 @@ export function BotSettingsModal({
     // Initialize form with bot data
     useEffect(() => {
         if (bot) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setName(bot.name);
             setDescription(bot.description || "");
             setThreshold(bot.confidence_threshold);
@@ -116,6 +116,7 @@ export function BotSettingsModal({
         if (!bot) return;
 
         // Build update payload with only changed fields
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updates: Record<string, any> = {};
         if (name !== bot.name) updates.name = name;
         if (description !== bot.description)
@@ -197,9 +198,8 @@ export function BotSettingsModal({
                             type="text"
                             value={name}
                             onChange={(e) => handleNameChange(e.target.value)}
-                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                nameError ? "border-red-500" : "border-gray-300"
-                            }`}
+                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${nameError ? "border-red-500" : "border-gray-300"
+                                }`}
                             disabled={isUpdating}
                         />
                         {nameError && (
@@ -223,11 +223,10 @@ export function BotSettingsModal({
                             onChange={(e) =>
                                 handleDescriptionChange(e.target.value)
                             }
-                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                descriptionError
-                                    ? "border-red-500"
-                                    : "border-gray-300"
-                            }`}
+                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${descriptionError
+                                ? "border-red-500"
+                                : "border-gray-300"
+                                }`}
                             rows={3}
                             disabled={isUpdating}
                         />

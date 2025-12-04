@@ -10,7 +10,7 @@ export default function Home() {
                         Welcome to Veriply
                     </h2>
                     <p className="text-slate-600">
-                        Review and verify AI-generated responses before they're
+                        Review and verify AI-generated responses before they&apos;re
                         sent to customers.
                     </p>
                 </div>
@@ -88,11 +88,10 @@ export default function Home() {
                                     </p>
                                 </div>
                                 <div
-                                    className={`text-xs font-medium px-3 py-1 rounded-full ${
-                                        item.status === "Approved"
+                                    className={`text-xs font-medium px-3 py-1 rounded-full ${item.status === "Approved"
                                             ? "bg-emerald-100 text-emerald-700"
                                             : "bg-red-100 text-red-700"
-                                    }`}
+                                        }`}
                                 >
                                     {item.status}
                                 </div>

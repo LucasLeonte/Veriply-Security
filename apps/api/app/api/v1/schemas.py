@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime
 
@@ -33,6 +33,20 @@ class ProfileUpdateRequest(BaseModel):
     name: Optional[str] = None
     notification_frequency: Optional[str] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and len(v) < 2:
+            raise ValueError("Name must be at least 2 characters long")
+        return v
+
+    @field_validator("notification_frequency")
+    @classmethod
+    def validate_frequency(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ["daily", "weekly", "monthly"]:
+            raise ValueError("Invalid notification frequency")
+        return v
+
     class Config:
         json_schema_extra = {
             "example": {
@@ -54,6 +68,13 @@ class TeamMemberResponse(BaseModel):
 
 class RoleChangeRequest(BaseModel):
     role: str
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ["owner", "admin", "manager", "agent", "viewer"]:
+            raise ValueError("Invalid role")
+        return v
 
     class Config:
         json_schema_extra = {

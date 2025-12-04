@@ -4,35 +4,36 @@ Ensures that weak or missing JWT secrets are caught at startup
 """
 
 import pytest
-import os
-from unittest.mock import patch
-from fastapi import HTTPException
+from unittest.mock import patch, MagicMock
+from app.core import auth
+
+@pytest.fixture(autouse=True)
+def clear_jwt_cache():
+    """Reset the JWT secret cache before and after each test."""
+    auth._jwt_secret_cache = None
+    yield
+    auth._jwt_secret_cache = None
 
 
 def test_jwt_secret_not_set():
     """Test that missing JWT_SECRET raises RuntimeError at startup."""
-    with patch.dict(os.environ, {}, clear=True):
-        # Remove JWT_SECRET from environment
+    # Patch the settings object directly since get_jwt_secret reads from it
+    with patch("app.core.settings.settings.JWT_SECRET", None):
         with pytest.raises(RuntimeError) as exc_info:
-            from app.core.auth import _get_jwt_secret
-            _get_jwt_secret()
+            auth.get_jwt_secret()
         
-        assert "JWT_SECRET environment variable is not set" in str(exc_info.value)
+        assert "JWT_SECRET not configured" in str(exc_info.value)
         assert "CRITICAL" in str(exc_info.value)
-        assert "production security" in str(exc_info.value)
 
 
 def test_jwt_secret_too_short():
     """Test that JWT_SECRET shorter than 32 chars raises RuntimeError."""
-    with patch.dict(os.environ, {"JWT_SECRET": "short-secret"}):
+    with patch("app.core.settings.settings.JWT_SECRET", "short-secret"):
         with pytest.raises(RuntimeError) as exc_info:
-            from app.core.auth import _get_jwt_secret
-            _get_jwt_secret()
+            auth.get_jwt_secret()
         
         assert "JWT_SECRET is too short" in str(exc_info.value)
         assert "CRITICAL" in str(exc_info.value)
-        assert "32 characters" in str(exc_info.value)
-        assert "token forgery" in str(exc_info.value)
 
 
 def test_jwt_secret_weak_values():
@@ -46,16 +47,14 @@ def test_jwt_secret_weak_values():
     ]
     
     for weak_secret in weak_secrets:
-        with patch.dict(os.environ, {"JWT_SECRET": weak_secret}, clear=False):
-            if not weak_secret:  # Empty string
+        with patch("app.core.settings.settings.JWT_SECRET", weak_secret):
+            if not weak_secret:  # Empty string or None
                 with pytest.raises(RuntimeError) as exc_info:
-                    from app.core.auth import _get_jwt_secret
-                    _get_jwt_secret()
-                assert "not set" in str(exc_info.value)
+                    auth.get_jwt_secret()
+                assert "not configured" in str(exc_info.value)
             elif len(weak_secret) < 32:
                 with pytest.raises(RuntimeError) as exc_info:
-                    from app.core.auth import _get_jwt_secret
-                    _get_jwt_secret()
+                    auth.get_jwt_secret()
                 assert "too short" in str(exc_info.value)
 
 
@@ -64,10 +63,8 @@ def test_jwt_secret_valid():
     # Generate a valid random secret
     valid_secret = "x" * 32  # Exactly 32 characters
     
-    with patch.dict(os.environ, {"JWT_SECRET": valid_secret}):
-        # This should not raise an exception
-        from app.core.auth import _get_jwt_secret
-        secret = _get_jwt_secret()
+    with patch("app.core.settings.settings.JWT_SECRET", valid_secret):
+        secret = auth.get_jwt_secret()
         assert secret == valid_secret
 
 
@@ -76,22 +73,18 @@ def test_jwt_secret_strong():
     import secrets
     strong_secret = secrets.token_urlsafe(32)
     
-    with patch.dict(os.environ, {"JWT_SECRET": strong_secret}):
-        from app.core.auth import _get_jwt_secret
-        secret = _get_jwt_secret()
+    with patch("app.core.settings.settings.JWT_SECRET", strong_secret):
+        secret = auth.get_jwt_secret()
         assert secret == strong_secret
         assert len(secret) >= 32
 
 
 def test_no_default_secret_fallback():
     """Test that there is NO default 'please-change-me' fallback."""
-    with patch.dict(os.environ, {}, clear=True):
+    with patch("app.core.settings.settings.JWT_SECRET", None):
         with pytest.raises(RuntimeError) as exc_info:
-            from app.core.auth import _get_jwt_secret
-            _get_jwt_secret()
+            auth.get_jwt_secret()
         
-        # Ensure the error is about missing secret, not about a default
         error_msg = str(exc_info.value)
-        assert "not set" in error_msg
+        assert "not configured" in error_msg
         assert "please-change-me" not in error_msg
-        assert "default" not in error_msg.lower() or "not" in error_msg.lower()

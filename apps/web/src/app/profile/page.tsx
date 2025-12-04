@@ -1,7 +1,8 @@
 'use client';
 
+import Image from 'next/image';
+
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/DashboardLayout';
 
 interface UserProfile {
@@ -16,7 +17,6 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
-  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +140,7 @@ export default function ProfilePage() {
       }
 
       const result = await response.json();
-      
+
       // Update profile with new avatar URL from server
       if (profile && result.avatar_url) {
         setProfile({
@@ -198,10 +198,12 @@ export default function ProfilePage() {
           <div className="flex items-center gap-6">
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden">
               {profile.avatar_url ? (
-                <img
+                <Image
                   src={profile.avatar_url}
                   alt={profile.name || 'Avatar'}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  sizes="96px"
                 />
               ) : (
                 <span className="text-2xl text-gray-500">👤</span>
@@ -265,11 +267,10 @@ export default function ProfilePage() {
                 onChange={handleInputChange}
                 readOnly={!isEditing}
                 placeholder="Enter your full name"
-                className={`w-full px-3 py-2 border rounded-lg ${
-                  isEditing
-                    ? 'border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
-                    : 'bg-gray-100 border-gray-300 text-gray-600'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg ${isEditing
+                  ? 'border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                  : 'bg-gray-100 border-gray-300 text-gray-600'
+                  }`}
               />
               <p className="mt-1 text-xs text-gray-500">
                 2-100 characters
@@ -299,11 +300,10 @@ export default function ProfilePage() {
                 value={formData.notification_frequency}
                 onChange={handleInputChange}
                 disabled={!isEditing}
-                className={`w-full px-3 py-2 border rounded-lg ${
-                  isEditing
-                    ? 'border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
-                    : 'bg-gray-100 border-gray-300 text-gray-600'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg ${isEditing
+                  ? 'border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+                  : 'bg-gray-100 border-gray-300 text-gray-600'
+                  }`}
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>

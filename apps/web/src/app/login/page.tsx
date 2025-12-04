@@ -100,7 +100,7 @@ export default function LoginPage() {
       } else {
         setError('Demo login failed');
       }
-    } catch (err) {
+    } catch {
       setError('Demo login error');
     } finally {
       setLoading(false);
@@ -235,7 +235,7 @@ export default function LoginPage() {
 
           {/* Sign Up Link */}
           <p className="text-center text-slate-600 text-sm mt-6">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
               Sign up
             </a>

@@ -3,8 +3,7 @@ from app.api.v1.schemas import (
     ProfileUpdateRequest,
     UserResponse,
     TeamMemberResponse,
-    RoleChangeRequest,
-    AuditLogResponse
+    RoleChangeRequest
 )
 from app.services.profile_service import (
     get_user_profile,
@@ -17,7 +16,6 @@ from app.services.profile_service import (
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from sqlalchemy.ext.asyncio import AsyncSession
-import os
 import uuid
 from pathlib import Path
 
@@ -36,7 +34,7 @@ async def get_current_user_profile(
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_profile_by_id(
-    user_id: str,
+    user_id: uuid.UUID,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)
 ):
@@ -48,7 +46,7 @@ async def get_user_profile_by_id(
             detail="Only owners and admins can view other users' profiles"
         )
     
-    user = await get_user_profile(user_id, session)
+    user = await get_user_profile(str(user_id), session)
     return user
 
 
@@ -115,7 +113,7 @@ async def upload_avatar(
         )
     
     # Read file content
-    content = await file.read()
+    _ = await file.read()
     
     # Generate unique filename for storage
     file_extension = Path(file.filename or "avatar").suffix
@@ -156,14 +154,14 @@ async def list_team_members(
 
 @router.delete("/team/members/{user_id}")
 async def remove_team_member_endpoint(
-    user_id: str,
+    user_id: uuid.UUID,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)
 ):
     """Remove a team member from the organization."""
     await remove_team_member(
         actor_id=current_user["sub"],
-        target_user_id=user_id,
+        target_user_id=str(user_id),
         tenant_id=current_user["tenant_id"],
         session=session
     )
@@ -172,7 +170,7 @@ async def remove_team_member_endpoint(
 
 @router.put("/team/members/{user_id}/role", response_model=TeamMemberResponse)
 async def change_team_member_role_endpoint(
-    user_id: str,
+    user_id: uuid.UUID,
     role_req: RoleChangeRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)

@@ -15,7 +15,6 @@ Usage:
     jwt_secret = settings.JWT_SECRET
 """
 
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -103,10 +102,7 @@ class Settings(BaseSettings):
         return self.get_database_url().replace("postgresql+asyncpg://", "postgresql://")
     
     # Connection pooling configuration
-        user = self.DB_USER or self.POSTGRES_USER or "veriply_user"
-        password = self.DB_PASSWORD or self.POSTGRES_PASSWORD
-        
-        return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+
     
     # Database connection pool settings
     # Configured for 4 concurrent developers + production load

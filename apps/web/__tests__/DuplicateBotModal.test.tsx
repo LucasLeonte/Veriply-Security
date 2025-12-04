@@ -1,7 +1,8 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DuplicateBotModal } from "@/components/DuplicateBotModal";
+import { useDuplicateBot } from "@/hooks/useBotsQuery";
 import { Bot } from "@/types/bot";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
@@ -28,9 +29,13 @@ describe("DuplicateBotModal", () => {
         doc_count: 5,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockMutate: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockOnClose: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockOnSuccess: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockOnError: any;
 
     beforeEach(() => {
@@ -40,13 +45,11 @@ describe("DuplicateBotModal", () => {
         mockOnError = vi.fn();
 
         // Update the mock to return our mock function
-        vi.mocked(
-            require("@/hooks/useBotsQuery").useDuplicateBot
-        ).mockReturnValue({
+        vi.mocked(useDuplicateBot).mockReturnValue({
             mutate: mockMutate,
             isPending: false,
             error: null,
-        });
+        } as any); // eslint-disable-line @typescript-eslint/no-explicit-any
     });
 
     it("renders when isOpen is true", () => {

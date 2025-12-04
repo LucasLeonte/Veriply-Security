@@ -1,17 +1,12 @@
 import pytest
 import uuid
-from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
-from app.models.tenant import Tenant
 from app.services.profile_service import (
     get_user_profile,
     update_user_profile,
-    upload_avatar_url,
-    get_team_members,
     remove_team_member,
-    change_team_member_role,
-    count_owners_in_tenant
+    change_team_member_role
 )
 from fastapi import HTTPException
 

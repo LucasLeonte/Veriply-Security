@@ -3,7 +3,7 @@ Document Chunk Model
 Represents chunks/segments of a document after processing and extraction.
 """
 
-from sqlalchemy import Column, String, Uuid, ForeignKey, DateTime, Integer, Text, Index
+from sqlalchemy import Column, Uuid, ForeignKey, DateTime, Integer, Text, Index
 from datetime import datetime
 from .base import Base
 

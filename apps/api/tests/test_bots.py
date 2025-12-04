@@ -1,13 +1,14 @@
 import pytest
-from uuid import UUID, uuid4
+from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from app.models.bot import Bot, BotStatus
+from app.models.bot import BotStatus
 from app.models.tenant import Tenant, SubscriptionTier
 from app.models.user import User
 from app.schemas.bot import BotCreateRequest, BotUpdateRequest
-from app.services.bot_service import BotService
-from datetime import datetime
-import asyncio
+from app.schemas.bot import BotCreateRequest, BotUpdateRequest
+from app.services.bot_service import BotService, BOT_LIMITS
+from unittest.mock import patch
+from pydantic import ValidationError
 
 # Test fixtures
 @pytest.fixture
@@ -93,9 +94,8 @@ async def test_create_bot_valid(async_db: AsyncSession, test_tenant: Tenant, tes
 @pytest.mark.asyncio
 async def test_create_bot_invalid_name_short(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
     """Test creating a bot with name too short"""
-    bot_data = BotCreateRequest(name="A")  # Too short
-    
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
+        bot_data = BotCreateRequest(name="A")  # Too short
         await BotService.create_bot(
             db=async_db,
             tenant_id=test_tenant.id,
@@ -106,9 +106,8 @@ async def test_create_bot_invalid_name_short(async_db: AsyncSession, test_tenant
 @pytest.mark.asyncio
 async def test_create_bot_invalid_name_long(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
     """Test creating a bot with name too long"""
-    bot_data = BotCreateRequest(name="A" * 51)  # Too long
-    
-    with pytest.raises(ValueError):
+    with pytest.raises(ValidationError):
+        bot_data = BotCreateRequest(name="A" * 51)  # Too long
         await BotService.create_bot(
             db=async_db,
             tenant_id=test_tenant.id,
@@ -120,8 +119,8 @@ async def test_create_bot_invalid_name_long(async_db: AsyncSession, test_tenant:
 async def test_create_bot_invalid_threshold(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
     """Test creating a bot with invalid confidence threshold"""
     # Pydantic validation should catch this, but testing anyway
-    with pytest.raises(ValueError):
-        bot_data = BotCreateRequest(
+    with pytest.raises(ValidationError):
+        BotCreateRequest(
             name="Test Bot",
             confidence_threshold=150  # Invalid: > 100
         )
@@ -298,14 +297,15 @@ async def test_list_bots(async_db: AsyncSession, test_tenant: Tenant, test_user:
 async def test_list_bots_pagination(async_db: AsyncSession, test_tenant: Tenant, test_user: User):
     """Test pagination in bot list"""
     # Create 25 bots
-    for i in range(25):
-        bot_data = BotCreateRequest(name=f"Bot {i:02d}")
-        await BotService.create_bot(
-            db=async_db,
-            tenant_id=test_tenant.id,
-            user_id=test_user.id,
-            bot_data=bot_data,
-        )
+    with patch.dict(BOT_LIMITS, {test_tenant.subscription_tier: 100}):
+        for i in range(25):
+            bot_data = BotCreateRequest(name=f"Bot {i:02d}")
+            await BotService.create_bot(
+                db=async_db,
+                tenant_id=test_tenant.id,
+                user_id=test_user.id,
+                bot_data=bot_data,
+            )
     
     # Get first page
     page1, total = await BotService.list_bots(
@@ -487,7 +487,7 @@ async def test_update_bot_duplicate_name(async_db: AsyncSession, test_tenant: Te
     bot_data1 = BotCreateRequest(name="Bot 1")
     bot_data2 = BotCreateRequest(name="Bot 2")
     
-    bot1 = await BotService.create_bot(
+    _ = await BotService.create_bot(
         db=async_db,
         tenant_id=test_tenant.id,
         user_id=test_user.id,

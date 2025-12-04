@@ -60,7 +60,7 @@ describe('Login Page', () => {
   it('validates email format correctly', () => {
     // Test the email validation regex pattern
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
+
     expect(emailRegex.test('invalid-email')).toBe(false);
     expect(emailRegex.test('test@example.com')).toBe(true);
     expect(emailRegex.test('user@domain')).toBe(false);
@@ -85,10 +85,10 @@ describe('Login Page', () => {
 
   it('submits login form with valid credentials and calls API', async () => {
     const user = userEvent.setup();
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({ message: 'Success' }),
-    });
+    } as unknown as Response);
 
     render(<LoginPage />);
 
@@ -116,10 +116,10 @@ describe('Login Page', () => {
 
   it('displays error message when API call fails', async () => {
     const user = userEvent.setup();
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: false,
       json: async () => ({ detail: 'Invalid credentials' }),
-    });
+    } as unknown as Response);
 
     render(<LoginPage />);
 
@@ -163,7 +163,7 @@ describe('Profile Page', () => {
     await waitFor(() => {
       expect(screen.getByText(/profile settings/i)).toBeInTheDocument();
     });
-    
+
     expect(screen.getByDisplayValue(/john doe/i)).toBeInTheDocument();
     expect(screen.getByDisplayValue(/user@example\.com/i)).toBeInTheDocument();
   });
@@ -318,14 +318,14 @@ describe('Profile Page', () => {
 
   it('successfully uploads valid avatar image', async () => {
     const user = userEvent.setup();
-    (global.fetch as any).mockResolvedValue({
+    vi.mocked(global.fetch).mockResolvedValue({
       ok: true,
       json: async () => ({
         avatar_url: 'https://example.com/avatar.jpg',
         filename: 'avatar.jpg',
         size_bytes: 1024,
       }),
-    });
+    } as unknown as Response);
 
     render(<ProfilePage />);
 

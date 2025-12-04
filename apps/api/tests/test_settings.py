@@ -5,7 +5,6 @@ Tests that settings are properly loaded from root .env file and
 that all required configuration is available.
 """
 
-import pytest
 from app.core.settings import settings
 
 

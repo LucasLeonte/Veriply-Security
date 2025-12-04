@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components';
 
 interface TeamMember {
@@ -14,7 +13,6 @@ interface TeamMember {
 }
 
 export default function SettingsPage() {
-  const router = useRouter();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -198,9 +196,8 @@ export default function SettingsPage() {
                 members.map((member) => (
                   <tr
                     key={member.id}
-                    className={`border-b border-slate-200 hover:bg-slate-50 ${
-                      member.is_active === 'inactive' ? 'opacity-50' : ''
-                    }`}
+                    className={`border-b border-slate-200 hover:bg-slate-50 ${member.is_active === 'inactive' ? 'opacity-50' : ''
+                      }`}
                   >
                     <td className="px-6 py-4 text-sm text-slate-800">
                       {member.name || 'N/A'}
@@ -234,17 +231,15 @@ export default function SettingsPage() {
                                     role !== 'owner' &&
                                     ownerCount === 1
                                   }
-                                  className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 ${
-                                    member.role === role
+                                  className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 ${member.role === role
                                       ? 'bg-blue-50 font-semibold'
                                       : ''
-                                  } ${
-                                    member.role === 'owner' &&
-                                    role !== 'owner' &&
-                                    ownerCount === 1
+                                    } ${member.role === 'owner' &&
+                                      role !== 'owner' &&
+                                      ownerCount === 1
                                       ? 'opacity-50 cursor-not-allowed'
                                       : ''
-                                  }`}
+                                    }`}
                                 >
                                   {role}
                                 </button>
@@ -268,11 +263,10 @@ export default function SettingsPage() {
                         <button
                           onClick={() => handleRemoveMember(member.id)}
                           disabled={member.role === 'owner' && ownerCount === 1}
-                          className={`px-3 py-1 text-red-600 hover:bg-red-50 rounded transition ${
-                            member.role === 'owner' && ownerCount === 1
+                          className={`px-3 py-1 text-red-600 hover:bg-red-50 rounded transition ${member.role === 'owner' && ownerCount === 1
                               ? 'opacity-50 cursor-not-allowed'
                               : ''
-                          }`}
+                            }`}
                         >
                           Remove
                         </button>

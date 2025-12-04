@@ -21,9 +21,9 @@ async function fetchWithAuth(
     options: RequestInit = {}
 ): Promise<Response> {
     const token = await getAuthToken();
-    const headers: any = {
+    const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        ...options.headers,
+        ...(options.headers as Record<string, string>),
     };
 
     if (token) {

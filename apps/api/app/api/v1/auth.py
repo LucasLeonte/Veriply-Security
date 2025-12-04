@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Header
+from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.api.v1.schemas import UserRegister, UserResponse
+from app.api.v1.schemas import UserRegister
 from app.services.user_service import register_user_and_tenant, get_user_by_email
 from app.core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession

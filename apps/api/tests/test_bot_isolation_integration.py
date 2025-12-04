@@ -12,14 +12,12 @@ Tests the complete flow:
 
 import pytest
 from uuid import uuid4
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from datetime import datetime
 import json
 
 # Mock FastAPI app for testing
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException, status
 
 # Import models and services
 from app.models.bot import Bot, BotStatus
@@ -27,7 +25,6 @@ from app.models.tenant import Tenant, SubscriptionTier
 from app.models.user import User
 from app.models.document import Document
 from app.models.chunk import Chunk
-from app.models.embedding import Embedding
 from app.models.audit_log import AuditLog
 from app.core.bot_isolation import validate_bot_access, check_bot_isolation
 from app.services.bot_access_audit import BotAccessAudit
@@ -41,7 +38,7 @@ from app.services.bot_access_audit import BotAccessAudit
 async def async_engine():
     """Create in-memory database engine for testing"""
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
-    async_session_local = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
     
     from app.models.base import Base
     async with engine.begin() as conn:
@@ -321,7 +318,6 @@ class TestBotAccessValidationIntegration:
     
     async def test_user_cannot_access_cross_tenant_bot(self, async_db, setup_multi_tenant_scenario):
         """User A1 should NOT access Bot from Tenant B"""
-        from fastapi import HTTPException
         scenario = setup_multi_tenant_scenario
         
         with pytest.raises(HTTPException) as exc_info:
@@ -548,8 +544,8 @@ class TestAuditLoggingIntegration:
         assert "unauthorized" in logs[0].action.lower()
         
         details = json.loads(logs[0].details)
-        assert details["action"] == "query"
-        assert details["status"] == "failed"
+        assert details["action"] == "unauthorized_query"
+        assert details["status"] == "unauthorized"
     
     async def test_multiple_access_attempts_logged(self, async_db, setup_multi_tenant_scenario):
         """Multiple access attempts by same user are all logged"""
@@ -638,7 +634,6 @@ class TestEndToEndSecurityScenarios:
         assert len(docs) == 2
         
         # Step 3: User A1 tries to access Tenant B's Support Bot (should fail)
-        from fastapi import HTTPException
         with pytest.raises(HTTPException) as exc_info:
             await validate_bot_access(
                 db=async_db,
@@ -694,7 +689,6 @@ class TestEndToEndSecurityScenarios:
         assert len(docs_b) == 2
         
         # User A1 cannot access Tenant B bots
-        from fastapi import HTTPException
         for bot_key in ["b_support", "b_finance"]:
             with pytest.raises(HTTPException):
                 await validate_bot_access(

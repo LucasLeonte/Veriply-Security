@@ -14,14 +14,13 @@ Tests cover:
 """
 
 import pytest
-from uuid import UUID, uuid4
+from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from app.models.bot import Bot, BotStatus
 from app.models.tenant import Tenant, SubscriptionTier
 from app.models.user import User
 from app.models.document import Document
 from app.models.chunk import Chunk
-from app.models.embedding import Embedding
 from app.core.bot_isolation import validate_bot_access, check_bot_isolation
 from app.services.bot_access_audit import BotAccessAudit
 from fastapi import HTTPException, status

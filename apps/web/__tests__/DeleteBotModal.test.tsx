@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeleteBotModal } from "@/components/DeleteBotModal";
+import { useDeleteBot } from "@/hooks/useBotsQuery";
 import { Bot } from "@/types/bot";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
@@ -28,9 +29,13 @@ describe("DeleteBotModal", () => {
         doc_count: 42,
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockMutate: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockOnClose: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockOnSuccess: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let mockOnError: any;
 
     beforeEach(() => {
@@ -39,12 +44,12 @@ describe("DeleteBotModal", () => {
         mockOnSuccess = vi.fn();
         mockOnError = vi.fn();
 
-        vi.mocked(require("@/hooks/useBotsQuery").useDeleteBot).mockReturnValue(
+        vi.mocked(useDeleteBot).mockReturnValue(
             {
                 mutate: mockMutate,
                 isPending: false,
                 error: null,
-            }
+            } as any // eslint-disable-line @typescript-eslint/no-explicit-any
         );
     });
 
@@ -331,12 +336,12 @@ describe("DeleteBotModal", () => {
     });
 
     it("displays deletion status while pending", () => {
-        vi.mocked(require("@/hooks/useBotsQuery").useDeleteBot).mockReturnValue(
+        vi.mocked(useDeleteBot).mockReturnValue(
             {
                 mutate: mockMutate,
                 isPending: true,
                 error: null,
-            }
+            } as any // eslint-disable-line @typescript-eslint/no-explicit-any
         );
 
         render(

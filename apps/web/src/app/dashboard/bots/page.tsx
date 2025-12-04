@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Plus, Search, AlertCircle, Loader } from "lucide-react";
 import { BotCard } from "@/components/BotCard";
 import { CreateBotModal } from "@/components/CreateBotModal";
@@ -73,7 +73,7 @@ export default function BotsPage() {
         setIsSettingsModalOpen(true);
     };
 
-    const handleSettingsSave = (bot: Bot) => {
+    const handleSettingsSave = () => {
         showMessage(`Settings updated`, "success");
         refetch();
     };
@@ -113,7 +113,7 @@ export default function BotsPage() {
                         Bots
                     </h1>
                     <p className="text-gray-600">
-                        Manage your organization's bots and knowledge bases
+                        Manage your organization&apos;s bots and knowledge bases
                     </p>
                 </div>
 
@@ -280,11 +280,10 @@ export default function BotsPage() {
                                                 <button
                                                     key={i}
                                                     onClick={() => setPage(i)}
-                                                    className={`px-3 py-1 rounded ${
-                                                        page === i
-                                                            ? "bg-blue-600 text-white"
-                                                            : "border border-gray-300 hover:bg-gray-50"
-                                                    }`}
+                                                    className={`px-3 py-1 rounded ${page === i
+                                                        ? "bg-blue-600 text-white"
+                                                        : "border border-gray-300 hover:bg-gray-50"
+                                                        }`}
                                                 >
                                                     {i + 1}
                                                 </button>

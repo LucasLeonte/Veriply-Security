@@ -29,11 +29,12 @@ export function DeleteBotModal({
 }: DeleteBotModalProps) {
     const [confirmName, setConfirmName] = useState("");
     const [generalError, setGeneralError] = useState("");
-    const { mutate, isPending, error } = useDeleteBot();
+    const { mutate, isPending } = useDeleteBot();
 
     // Reset form when modal opens/closes
     useEffect(() => {
         if (isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setConfirmName("");
             setGeneralError("");
         }
@@ -70,7 +71,7 @@ export function DeleteBotModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <div className="sm:max-w-md w-full">
+            <DialogContent className="sm:max-w-md w-full">
                 <DialogHeader>
                     <DialogTitle>
                         <div className="flex items-center gap-2 text-red-600">
@@ -80,7 +81,7 @@ export function DeleteBotModal({
                     </DialogTitle>
                     <DialogDescription>
                         This action cannot be undone. This will permanently
-                        delete the bot "{bot.name}" and all associated data.
+                        delete the bot &quot;{bot.name}&quot; and all associated data.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -124,17 +125,16 @@ export function DeleteBotModal({
                             value={confirmName}
                             onChange={(e) => setConfirmName(e.target.value)}
                             placeholder={bot.name}
-                            className={`mt-2 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 ${
-                                confirmName && !isConfirmationValid
-                                    ? "border-red-500"
-                                    : "border-gray-300"
-                            }`}
+                            className={`mt-2 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 ${confirmName && !isConfirmationValid
+                                ? "border-red-500"
+                                : "border-gray-300"
+                                }`}
                             disabled={isPending}
                             autoFocus
                         />
                         {confirmName && !isConfirmationValid && (
                             <p className="mt-1 text-sm text-red-600">
-                                Name doesn't match. Please type exactly:{" "}
+                                Name doesn&apos;t match. Please type exactly:{" "}
                                 {bot.name}
                             </p>
                         )}
@@ -162,7 +162,7 @@ export function DeleteBotModal({
                         </button>
                     </div>
                 </form>
-            </div>
+            </DialogContent>
         </Dialog>
     );
 }

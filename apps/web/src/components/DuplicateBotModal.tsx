@@ -30,11 +30,12 @@ export function DuplicateBotModal({
     const [newName, setNewName] = useState("");
     const [nameError, setNameError] = useState("");
     const [generalError, setGeneralError] = useState("");
-    const { mutate, isPending, error } = useDuplicateBot();
+    const { mutate, isPending } = useDuplicateBot();
 
     // Reset form when modal opens/closes
     useEffect(() => {
         if (isOpen && bot) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setNewName(`${bot.name} (Copy)`);
             setNameError("");
             setGeneralError("");
@@ -91,7 +92,7 @@ export function DuplicateBotModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <div className="sm:max-w-md w-full">
+            <DialogContent className="sm:max-w-md w-full">
                 <DialogHeader>
                     <DialogTitle>
                         <div className="flex items-center gap-2">
@@ -100,7 +101,7 @@ export function DuplicateBotModal({
                         </div>
                     </DialogTitle>
                     <DialogDescription>
-                        Create a copy of "{bot.name}". The new bot will inherit
+                        Create a copy of &quot;{bot.name}&quot;. The new bot will inherit
                         the description and confidence threshold, but will start
                         empty (no documents).
                     </DialogDescription>
@@ -149,9 +150,8 @@ export function DuplicateBotModal({
                                 validateName(e.target.value);
                             }}
                             placeholder="e.g., HR Bot (Copy)"
-                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                nameError ? "border-red-500" : "border-gray-300"
-                            }`}
+                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${nameError ? "border-red-500" : "border-gray-300"
+                                }`}
                             disabled={isPending}
                             autoFocus
                         />
@@ -172,7 +172,7 @@ export function DuplicateBotModal({
                             <li>
                                 Inherit the description and confidence threshold
                             </li>
-                            <li>Start with status "Empty" (no documents)</li>
+                            <li>Start with status &quot;Empty&quot; (no documents)</li>
                             <li>Have its own separate chat history</li>
                         </ul>
                     </div>
@@ -199,7 +199,7 @@ export function DuplicateBotModal({
                         </button>
                     </div>
                 </form>
-            </div>
+            </DialogContent>
         </Dialog>
     );
 }

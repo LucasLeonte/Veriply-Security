@@ -31,7 +31,7 @@ export function CreateBotModal({
     const [nameError, setNameError] = useState("");
     const [descriptionError, setDescriptionError] = useState("");
     const [generalError, setGeneralError] = useState("");
-    const { mutate, isPending, error } = useCreateBot();
+    const { mutate, isPending } = useCreateBot();
 
     // Real-time name validation
     const validateName = (value: string) => {
@@ -128,9 +128,8 @@ export function CreateBotModal({
                                 validateName(e.target.value);
                             }}
                             placeholder="e.g., HR Bot, Sales Bot"
-                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                nameError ? "border-red-500" : "border-gray-300"
-                            }`}
+                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${nameError ? "border-red-500" : "border-gray-300"
+                                }`}
                             disabled={isPending}
                         />
                         {nameError && (
@@ -159,11 +158,10 @@ export function CreateBotModal({
                                 validateDescription(e.target.value);
                             }}
                             placeholder="Describe what this bot does..."
-                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                descriptionError
+                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${descriptionError
                                     ? "border-red-500"
                                     : "border-gray-300"
-                            }`}
+                                }`}
                             rows={3}
                             disabled={isPending}
                         />

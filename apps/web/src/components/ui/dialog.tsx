@@ -66,8 +66,9 @@ export function DialogTrigger({ children, onClick }: DialogTriggerProps) {
 // DialogContent for dialog body
 interface DialogContentProps {
     children: React.ReactNode;
+    className?: string;
 }
 
-export function DialogContent({ children }: DialogContentProps) {
-    return <div>{children}</div>;
+export function DialogContent({ children, className }: DialogContentProps) {
+    return <div className={className}>{children}</div>;
 }

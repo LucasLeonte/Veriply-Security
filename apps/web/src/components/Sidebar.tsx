@@ -10,7 +10,6 @@ import {
     BookOpen,
     Settings,
     Menu,
-    X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -19,7 +18,6 @@ import {
     SheetContent,
     SheetTrigger,
     SheetTitle,
-    SheetHeader,
 } from "./ui/sheet";
 
 const NAVIGATION_ITEMS = [

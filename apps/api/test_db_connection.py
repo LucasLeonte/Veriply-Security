@@ -58,7 +58,7 @@ async def test_connection():
             result = await conn.execute(text("SELECT version()"))
             version = result.scalar()
             
-            print(f"   ✓ Connection successful!")
+            print("   ✓ Connection successful!")
             print(f"   PostgreSQL version: {version.split(',')[0]}")
             
             # Check if pgvector extension is available
@@ -75,27 +75,27 @@ async def test_connection():
                 is_enabled = result.scalar() > 0
                 
                 if is_enabled:
-                    print(f"   ✓ pgvector extension is INSTALLED and ENABLED")
+                    print("   ✓ pgvector extension is INSTALLED and ENABLED")
                 else:
-                    print(f"   ⚠ pgvector extension is available but NOT ENABLED")
-                    print(f"     Run: CREATE EXTENSION vector;")
+                    print("   ⚠ pgvector extension is available but NOT ENABLED")
+                    print("     Run: CREATE EXTENSION vector;")
             else:
-                print(f"   ✗ pgvector extension NOT available")
-                print(f"     Install with: apt-get install postgresql-16-pgvector")
+                print("   ✗ pgvector extension NOT available")
+                print("     Install with: apt-get install postgresql-16-pgvector")
             
             # Test simple query
             result = await conn.execute(text("SELECT 1 as test"))
             test_val = result.scalar()
             assert test_val == 1
-            print(f"   ✓ Simple query works")
+            print("   ✓ Simple query works")
             
     except Exception as e:
-        print(f"   ✗ Connection FAILED!")
+        print("   ✗ Connection FAILED!")
         print(f"   Error: {e}")
-        print(f"\n   Troubleshooting:")
-        print(f"   - Verify DB_HOST is correct in .env")
-        print(f"   - Check if PostgreSQL is running")
-        print(f"   - Verify DB_USER and DB_PASSWORD are correct")
+        print("\n   Troubleshooting:")
+        print("   - Verify DB_HOST is correct in .env")
+        print("   - Check if PostgreSQL is running")
+        print("   - Verify DB_USER and DB_PASSWORD are correct")
         print(f"   - Check firewall allows port {settings.DB_PORT}")
         return False
     
