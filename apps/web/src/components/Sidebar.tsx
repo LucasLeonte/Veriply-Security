@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
     LayoutDashboard,
+    Bot,
     Inbox,
     BookOpen,
     Settings,
@@ -23,6 +24,7 @@ import {
 
 const NAVIGATION_ITEMS = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/dashboard/bots", icon: Bot, label: "Bots" },
     { href: "/inbox", icon: Inbox, label: "Inbox" },
     { href: "/knowledge-base", icon: BookOpen, label: "Knowledge Base" },
     { href: "/settings", icon: Settings, label: "Settings" },
@@ -37,7 +39,10 @@ export function Sidebar({ className }: SidebarProps) {
 
     const navItems = NAVIGATION_ITEMS.map((item) => ({
         ...item,
-        isActive: pathname.startsWith(item.href),
+        isActive:
+            pathname === item.href ||
+            (pathname.startsWith(item.href + "/") &&
+                item.href !== "/dashboard"),
     }));
 
     return (
