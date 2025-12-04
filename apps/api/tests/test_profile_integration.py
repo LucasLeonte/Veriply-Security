@@ -54,10 +54,11 @@ def create_user_override(user_id: str, tenant_id: str, role: str, email: str = "
     """
     Create a dependency override for get_current_user.
     This is the standard FastAPI pattern for testing authenticated endpoints.
+    Returns the same structure as get_current_user (with "sub" key, not "id").
     """
     async def override():
         return {
-            "id": user_id,
+            "sub": user_id,  # Must be "sub" to match get_current_user return value
             "tenant_id": tenant_id,
             "role": role,
             "email": email
@@ -65,11 +66,25 @@ def create_user_override(user_id: str, tenant_id: str, role: str, email: str = "
     return override
 
 
+async def mock_db_session():
+    """
+    Mock database session for testing without real database connection.
+    This allows testing authorization logic in isolation.
+    """
+    # Return None - tests should mock service layer if they need specific data
+    yield None
+
+
 @pytest.fixture
 def client():
     """Provide TestClient for making HTTP requests to endpoints."""
     # Clear any existing overrides before each test
     app.dependency_overrides.clear()
+    
+    # Override database dependency to avoid connecting to real database
+    from app.core.database import get_db
+    app.dependency_overrides[get_db] = mock_db_session
+    
     client = TestClient(app)
     yield client
     # Clean up overrides after test
