@@ -215,3 +215,99 @@ class BotService:
     def get_bot_limit(tier: SubscriptionTier) -> int | None:
         """Get bot limit for a subscription tier"""
         return BOT_LIMITS.get(tier, 5)
+    
+    @staticmethod
+    async def duplicate_bot(
+        db: AsyncSession,
+        source_bot_id: UUID,
+        tenant_id: UUID,
+        user_id: UUID,
+        new_name: str | None = None,
+    ) -> Bot:
+        """
+        Duplicate a bot by copying settings but NOT documents/embeddings/chat history.
+        
+        Args:
+            db: Database session
+            source_bot_id: Source bot ID
+            tenant_id: Tenant ID (for RLS check)
+            user_id: User ID (creator of new bot)
+            new_name: Optional custom name for new bot (default: "[source_name] (Copy)")
+            
+        Returns:
+            Newly created duplicate Bot object
+            
+        Raises:
+            ValueError: If source bot not found, name already exists, or bot limit reached
+        """
+        # Get source bot with RLS check
+        source_bot = await BotService.get_bot(db, source_bot_id, tenant_id)
+        if not source_bot:
+            raise ValueError(f"Bot {source_bot_id} not found or access denied")
+        
+        # Determine new bot name
+        if new_name:
+            # User provided custom name
+            name_to_use = new_name
+        else:
+            # Default: "[Original] (Copy)"
+            name_to_use = f"{source_bot.name} (Copy)"
+        
+        # Check for duplicate name
+        existing = await BotService._get_bot_by_name(db, tenant_id, name_to_use)
+        if existing:
+            raise ValueError(f"Bot name '{name_to_use}' already exists in this organization")
+        
+        # Create new bot with copied settings
+        new_bot = Bot(
+            id=__import__('uuid').uuid4(),
+            tenant_id=tenant_id,
+            name=name_to_use,
+            description=source_bot.description,
+            confidence_threshold=source_bot.confidence_threshold,
+            status=BotStatus.EMPTY,  # Always "Empty" for duplicates
+            created_by=user_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        
+        db.add(new_bot)
+        await db.flush()
+        
+        logger.info(f"Bot duplicated: source_bot_id={source_bot_id}, new_bot_id={new_bot.id}, tenant_id={tenant_id}")
+        
+        return new_bot
+    
+    @staticmethod
+    async def delete_bot(
+        db: AsyncSession,
+        bot_id: UUID,
+        tenant_id: UUID,
+    ) -> bool:
+        """
+        Delete a bot with tenant isolation (RLS).
+        Cascading deletes handle documents, chunks, embeddings, chat sessions.
+        
+        Args:
+            db: Database session
+            bot_id: Bot ID
+            tenant_id: Tenant ID (for RLS check)
+            
+        Returns:
+            True if deleted, False if not found
+            
+        Raises:
+            ValueError: If bot not found or access denied
+        """
+        # Get bot with RLS check
+        bot = await BotService.get_bot(db, bot_id, tenant_id)
+        if not bot:
+            raise ValueError(f"Bot {bot_id} not found or access denied")
+        
+        # Delete the bot (cascading deletes will handle related records)
+        await db.delete(bot)
+        await db.flush()
+        
+        logger.info(f"Bot deleted: bot_id={bot_id}, tenant_id={tenant_id}")
+        
+        return True

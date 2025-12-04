@@ -5,6 +5,8 @@ import { Plus, Search, AlertCircle, Loader } from "lucide-react";
 import { BotCard } from "@/components/BotCard";
 import { CreateBotModal } from "@/components/CreateBotModal";
 import { BotSettingsModal } from "@/components/BotSettingsModal";
+import { DuplicateBotModal } from "@/components/DuplicateBotModal";
+import { DeleteBotModal } from "@/components/DeleteBotModal";
 import { useBotsQuery } from "@/hooks/useBotsQuery";
 import { DashboardLayout } from "@/components";
 import { Bot } from "@/types/bot";
@@ -18,6 +20,10 @@ export default function BotsPage() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedBotId, setSelectedBotId] = useState<string | null>(null);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+    const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [botForDuplicate, setBotForDuplicate] = useState<Bot | null>(null);
+    const [botForDelete, setBotForDelete] = useState<Bot | null>(null);
     const [successMessage, setSuccessMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
 
@@ -73,13 +79,27 @@ export default function BotsPage() {
     };
 
     const handleDuplicate = (bot: Bot) => {
-        showMessage(`Duplicate feature coming soon`, "success");
+        setBotForDuplicate(bot);
+        setIsDuplicateModalOpen(true);
+    };
+
+    const handleDuplicateSuccess = (bot: Bot) => {
+        showMessage(`Bot duplicated: ${bot.name}`, "success");
+        setIsDuplicateModalOpen(false);
+        setBotForDuplicate(null);
+        refetch();
     };
 
     const handleDelete = (bot: Bot) => {
-        if (confirm(`Are you sure you want to delete "${bot.name}"?`)) {
-            showMessage(`Delete feature coming soon`, "success");
-        }
+        setBotForDelete(bot);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleDeleteSuccess = () => {
+        showMessage(`Bot deleted successfully`, "success");
+        setIsDeleteModalOpen(false);
+        setBotForDelete(null);
+        refetch();
     };
 
     const maxPage = data ? Math.ceil(data.total_count / ITEMS_PER_PAGE) : 0;
@@ -309,6 +329,28 @@ export default function BotsPage() {
                         onError={(error) => showMessage(error, "error")}
                     />
                 )}
+
+                <DuplicateBotModal
+                    isOpen={isDuplicateModalOpen}
+                    bot={botForDuplicate}
+                    onClose={() => {
+                        setIsDuplicateModalOpen(false);
+                        setBotForDuplicate(null);
+                    }}
+                    onSuccess={handleDuplicateSuccess}
+                    onError={(error) => showMessage(error, "error")}
+                />
+
+                <DeleteBotModal
+                    isOpen={isDeleteModalOpen}
+                    bot={botForDelete}
+                    onClose={() => {
+                        setIsDeleteModalOpen(false);
+                        setBotForDelete(null);
+                    }}
+                    onSuccess={handleDeleteSuccess}
+                    onError={(error) => showMessage(error, "error")}
+                />
             </div>
         </DashboardLayout>
     );

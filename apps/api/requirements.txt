@@ -17,3 +17,4 @@ PyJWT
 pytest
 pytest-asyncio
 pytest-mock
+aiosqlite
