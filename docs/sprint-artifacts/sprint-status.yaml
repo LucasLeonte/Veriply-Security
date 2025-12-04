@@ -16,7 +16,7 @@ team:
     developers:
         - name: Dario
             max_wip: 2
-            current_wip: 0
+            current_wip: 1
             skills: [frontend, backend, auth]
         - name: Lucas
             max_wip: 2
@@ -94,12 +94,13 @@ development_status:
 
     1-5-team-invitation-role-assignment:
         status: assigned
-        assigned_to: Soulaymane
+        assigned_to: Dario
         blocked_by: 1-4-user-login-session-management
 
     1-6-user-profile-team-management:
-        status: assigned
+        status: done
         assigned_to: Kainy
+        completed_date: 2025-12-04
         blocked_by: 1-4-user-login-session-management
 
     # Story 1.7 (CI Pipeline) - added record: implemented by Kainy
@@ -126,8 +127,8 @@ development_status:
         blocked_by: 2-1-bot-creation-configuration
 
     2-3-document-upload-api:
-        status: backlog
-        assigned_to: null
+        status: assigned
+        assigned_to: Soulaymane
         blocked_by: 2-1-bot-creation-configuration
 
     2-4-document-processing-pipeline:
