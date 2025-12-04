@@ -133,7 +133,7 @@ development_status:
 
     2-4-document-processing-pipeline:
         status: assigned
-        assigned_to: Lucas
+        assigned_to: null
         blocked_by: 2-3-document-upload-api
 
     2-5-knowledge-base-management-ui:
@@ -160,8 +160,8 @@ development_status:
 
     # Epic 3: RAG Q&A Engine
     epic-3:
-        status: backlog
-        assigned_to: null
+        status: drafted
+        assigned_to: Lucas
 
     3-1-semantic-vector-search:
         status: backlog
