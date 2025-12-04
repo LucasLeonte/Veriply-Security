@@ -62,7 +62,7 @@ development_status:
     1-5-secrets-management-and-configuration: drafted
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: drafted
     1-7-api-instrumentation-metrics-and-traces: backlog
-    2-1-bot-creation-configuration: in-progress
+    2-1-bot-creation-configuration: review
 ready_status:
     # Mark stories ready after context is generated
     1-5-secrets-management-and-configuration: ready
