@@ -1,7 +1,7 @@
 import os
 import jwt
 from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer
 
 
 def _get_jwt_secret() -> str:

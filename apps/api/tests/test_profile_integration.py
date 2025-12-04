@@ -36,6 +36,7 @@ os.environ["JWT_SECRET"] = TEST_JWT_SECRET
 
 from fastapi.testclient import TestClient
 from app.main import app
+from app.core.auth import get_current_user
 
 
 def create_token(user_id: str, tenant_id: str, role: str = "owner", expires_in_hours: int = 1) -> str:
@@ -49,10 +50,30 @@ def create_token(user_id: str, tenant_id: str, role: str = "owner", expires_in_h
     return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
 
 
+def create_user_override(user_id: str, tenant_id: str, role: str, email: str = "test@example.com"):
+    """
+    Create a dependency override for get_current_user.
+    This is the standard FastAPI pattern for testing authenticated endpoints.
+    """
+    async def override():
+        return {
+            "id": user_id,
+            "tenant_id": tenant_id,
+            "role": role,
+            "email": email
+        }
+    return override
+
+
 @pytest.fixture
 def client():
     """Provide TestClient for making HTTP requests to endpoints."""
-    return TestClient(app)
+    # Clear any existing overrides before each test
+    app.dependency_overrides.clear()
+    client = TestClient(app)
+    yield client
+    # Clean up overrides after test
+    app.dependency_overrides.clear()
 
 
 # ===== TEST SUITE 1: GET /api/v1/profile/me - Current User Profile =====
@@ -61,13 +82,14 @@ def test_get_current_user_profile_success(client):
     """Test successful retrieval of current user's profile."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    # Override get_current_user dependency
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     # Make HTTP request to /api/v1/profile/me
-    response = client.get(
-        "/api/v1/profile/me",
-        headers={"Authorization": f"Bearer {token}"}
-    )
+    response = client.get("/api/v1/profile/me")
     
     # Assert: Should authenticate successfully
     assert response.status_code in [200, 404], \
@@ -241,7 +263,10 @@ def test_update_profile_with_valid_data(client):
     """Test successful profile update with valid data."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     update_data = {
         "name": "John Doe",
@@ -250,7 +275,6 @@ def test_update_profile_with_valid_data(client):
     
     response = client.put(
         "/api/v1/profile/me",
-        headers={"Authorization": f"Bearer {token}"},
         json=update_data
     )
     
@@ -263,7 +287,10 @@ def test_update_profile_invalid_notification_frequency(client):
     """Test that invalid notification frequency is rejected."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     update_data = {
         "name": "John Doe",
@@ -272,7 +299,6 @@ def test_update_profile_invalid_notification_frequency(client):
     
     response = client.put(
         "/api/v1/profile/me",
-        headers={"Authorization": f"Bearer {token}"},
         json=update_data
     )
     
@@ -285,7 +311,10 @@ def test_update_profile_name_too_short(client):
     """Test that name shorter than 2 chars is rejected."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     update_data = {
         "name": "A",  # Too short
@@ -294,7 +323,6 @@ def test_update_profile_name_too_short(client):
     
     response = client.put(
         "/api/v1/profile/me",
-        headers={"Authorization": f"Bearer {token}"},
         json=update_data
     )
     
@@ -324,14 +352,16 @@ def test_upload_avatar_success(client):
     """Test successful avatar file upload using multipart/form-data."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     # Create a test file (in real scenario, this would be actual image bytes)
     test_file = ("avatar.jpg", b"fake JPEG data for testing", "image/jpeg")
     
     response = client.post(
         "/api/v1/profile/avatar",
-        headers={"Authorization": f"Bearer {token}"},
         files={"file": test_file}
     )
     
@@ -353,14 +383,16 @@ def test_upload_avatar_invalid_type(client):
     """Test that invalid file types are rejected."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     # Try to upload non-image file
     test_file = ("document.pdf", b"fake PDF content", "application/pdf")
     
     response = client.post(
         "/api/v1/profile/avatar",
-        headers={"Authorization": f"Bearer {token}"},
         files={"file": test_file}
     )
     
@@ -374,7 +406,10 @@ def test_upload_avatar_oversized(client):
     """Test that oversized files are rejected."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     # Create a file larger than 5MB (just the bytes, not actually creating a 5MB+ file)
     # This tests the size validation logic
@@ -383,7 +418,6 @@ def test_upload_avatar_oversized(client):
     
     response = client.post(
         "/api/v1/profile/avatar",
-        headers={"Authorization": f"Bearer {token}"},
         files={"file": test_file}
     )
     
@@ -408,12 +442,12 @@ def test_list_team_members_success(client):
     """Test successful retrieval of team members list."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
     
-    response = client.get(
-        "/api/v1/profile/team/members",
-        headers={"Authorization": f"Bearer {token}"}
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
     )
+    
+    response = client.get("/api/v1/profile/team/members")
     
     # Assert: Should return team members
     assert response.status_code == 200, \
@@ -433,12 +467,12 @@ def test_list_team_members_all_roles(client):
     
     for role in roles:
         user_id = str(uuid.uuid4())
-        token = create_token(user_id, tenant_id, role=role)
         
-        response = client.get(
-            "/api/v1/profile/team/members",
-            headers={"Authorization": f"Bearer {token}"}
+        app.dependency_overrides[get_current_user] = create_user_override(
+            user_id, tenant_id, role
         )
+        
+        response = client.get("/api/v1/profile/team/members")
         
         # Assert: All authenticated roles should have access
         assert response.status_code == 200, \
@@ -464,11 +498,12 @@ def test_remove_team_member_owner_allowed(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    owner_token = create_token(owner_id, tenant_id, role="owner")
+    app.dependency_overrides[get_current_user] = create_user_override(
+        owner_id, tenant_id, "owner"
+    )
     
     response = client.delete(
-        f"/api/v1/profile/team/members/{target_user_id}",
-        headers={"Authorization": f"Bearer {owner_token}"}
+        f"/api/v1/profile/team/members/{target_user_id}"
     )
     
     # Assert: Owner should have permission (200 if successful, may vary)
@@ -482,11 +517,12 @@ def test_remove_team_member_agent_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    agent_token = create_token(agent_id, tenant_id, role="agent")
+    app.dependency_overrides[get_current_user] = create_user_override(
+        agent_id, tenant_id, "agent"
+    )
     
     response = client.delete(
-        f"/api/v1/profile/team/members/{target_user_id}",
-        headers={"Authorization": f"Bearer {agent_token}"}
+        f"/api/v1/profile/team/members/{target_user_id}"
     )
     
     # Assert: Agent should NOT have permission
@@ -500,11 +536,12 @@ def test_remove_team_member_viewer_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    viewer_token = create_token(viewer_id, tenant_id, role="viewer")
+    app.dependency_overrides[get_current_user] = create_user_override(
+        viewer_id, tenant_id, "viewer"
+    )
     
     response = client.delete(
-        f"/api/v1/profile/team/members/{target_user_id}",
-        headers={"Authorization": f"Bearer {viewer_token}"}
+        f"/api/v1/profile/team/members/{target_user_id}"
     )
     
     # Assert: Viewer should NOT have permission
@@ -534,11 +571,12 @@ def test_change_team_member_role_owner_allowed(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    owner_token = create_token(owner_id, tenant_id, role="owner")
+    app.dependency_overrides[get_current_user] = create_user_override(
+        owner_id, tenant_id, "owner"
+    )
     
     response = client.put(
         f"/api/v1/profile/team/members/{target_user_id}/role",
-        headers={"Authorization": f"Bearer {owner_token}"},
         json={"new_role": "manager"}
     )
     
@@ -553,11 +591,12 @@ def test_change_team_member_role_invalid_role(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    owner_token = create_token(owner_id, tenant_id, role="owner")
+    app.dependency_overrides[get_current_user] = create_user_override(
+        owner_id, tenant_id, "owner"
+    )
     
     response = client.put(
         f"/api/v1/profile/team/members/{target_user_id}/role",
-        headers={"Authorization": f"Bearer {owner_token}"},
         json={"new_role": "invalid_role"}  # Not a valid role
     )
     
@@ -572,11 +611,12 @@ def test_change_team_member_role_agent_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    agent_token = create_token(agent_id, tenant_id, role="agent")
+    app.dependency_overrides[get_current_user] = create_user_override(
+        agent_id, tenant_id, "agent"
+    )
     
     response = client.put(
         f"/api/v1/profile/team/members/{target_user_id}/role",
-        headers={"Authorization": f"Bearer {agent_token}"},
         json={"new_role": "manager"}
     )
     
@@ -590,18 +630,15 @@ def test_change_team_member_role_agent_denied(client):
 def test_request_with_mismatched_tenant_id_in_different_endpoints(client):
     """Test that users are isolated by tenant (implicit in service layer)."""
     user1_id = str(uuid.uuid4())
-    user2_id = str(uuid.uuid4())
     tenant1_id = str(uuid.uuid4())
-    tenant2_id = str(uuid.uuid4())
     
-    # User 1 from Tenant 1 gets their token
-    token1 = create_token(user1_id, tenant1_id, role="owner")
+    # User 1 from Tenant 1
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user1_id, tenant1_id, "owner"
+    )
     
     # User 1 tries to access via Tenant 1 (should work or 404, but not cross-tenant data)
-    response = client.get(
-        "/api/v1/profile/team/members",
-        headers={"Authorization": f"Bearer {token1}"}
-    )
+    response = client.get("/api/v1/profile/team/members")
     
     # Assert: Should work for own tenant
     assert response.status_code == 200, \
@@ -612,13 +649,13 @@ def test_endpoint_routing_validates_uuid_format(client):
     """Test that endpoints validate user_id format."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     # Try to access with invalid UUID format
-    response = client.get(
-        "/api/v1/profile/invalid-not-a-uuid",
-        headers={"Authorization": f"Bearer {token}"}
-    )
+    response = client.get("/api/v1/profile/invalid-not-a-uuid")
     
     # Assert: Should reject invalid UUID (422 validation error)
     # Note: behavior depends on if endpoint validates UUID
@@ -630,7 +667,10 @@ def test_audit_logging_on_profile_update(client):
     """Test that profile updates are logged in audit trail (via response)."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_token(user_id, tenant_id, role="owner")
+    
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user_id, tenant_id, "owner"
+    )
     
     update_data = {
         "name": "Updated Name",
@@ -639,7 +679,6 @@ def test_audit_logging_on_profile_update(client):
     
     response = client.put(
         "/api/v1/profile/me",
-        headers={"Authorization": f"Bearer {token}"},
         json=update_data
     )
     
@@ -654,18 +693,17 @@ def test_concurrent_requests_with_different_tokens(client):
     user2_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    token1 = create_token(user1_id, tenant_id, role="owner")
-    token2 = create_token(user2_id, tenant_id, role="agent")
+    # User 1 request
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user1_id, tenant_id, "owner"
+    )
+    response1 = client.get("/api/v1/profile/me")
     
-    # Both users request their own profile
-    response1 = client.get(
-        "/api/v1/profile/me",
-        headers={"Authorization": f"Bearer {token1}"}
+    # User 2 request
+    app.dependency_overrides[get_current_user] = create_user_override(
+        user2_id, tenant_id, "agent"
     )
-    response2 = client.get(
-        "/api/v1/profile/me",
-        headers={"Authorization": f"Bearer {token2}"}
-    )
+    response2 = client.get("/api/v1/profile/me")
     
     # Assert: Both should authenticate correctly
     assert response1.status_code in [200, 404]
