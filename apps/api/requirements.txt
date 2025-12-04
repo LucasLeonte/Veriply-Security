@@ -14,3 +14,6 @@ pydantic[email]
 psycopg2-binary
 bcrypt
 PyJWT
+pytest
+pytest-asyncio
+pytest-mock
