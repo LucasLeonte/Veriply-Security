@@ -1,5 +1,5 @@
 import pytest
-from app.models import Tenant, User, Base
+from app.models import Tenant, User
 
 @pytest.mark.asyncio
 async def test_tenant_model_creation():
