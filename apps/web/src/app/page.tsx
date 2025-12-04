@@ -1,6 +1,3 @@
-"use client";
-
-import { DashboardLayout } from "@/components";
 
 export default function Home() {
     return (

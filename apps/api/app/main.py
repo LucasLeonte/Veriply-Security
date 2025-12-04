@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.core.database import get_db, init_db
+from app.core.database import init_db
 from app.core.migrations import enable_pgvector, enable_rls
 from app.api.v1 import auth
 
