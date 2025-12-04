@@ -1,16 +1,14 @@
 import pytest
 from app.models import Tenant, User
 
-@pytest.mark.asyncio
-async def test_tenant_model_creation():
+def test_tenant_model_creation():
     """Test that Tenant model can be instantiated with correct fields."""
     tenant = Tenant(id="00000000-0000-0000-0000-000000000001", name="TestTenant", plan="basic")
     assert tenant.id == "00000000-0000-0000-0000-000000000001"
     assert tenant.name == "TestTenant"
     assert tenant.plan == "basic"
 
-@pytest.mark.asyncio
-async def test_user_model_creation():
+def test_user_model_creation():
     """Test that User model can be instantiated with correct fields."""
     user = User(
         id="00000000-0000-0000-0000-000000000011",
