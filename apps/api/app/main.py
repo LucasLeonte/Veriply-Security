@@ -1,14 +1,18 @@
 from fastapi import FastAPI, Depends
-from apps.api.app.core.database import get_db, init_db
-from apps.api.app.core.migrations import enable_pgvector, enable_rls
+from contextlib import asynccontextmanager
+from app.core.database import get_db, init_db
+from app.core.migrations import enable_pgvector, enable_rls
 
-app = FastAPI(title="Veriply API")
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     await init_db()
     await enable_pgvector()
     await enable_rls()
+    yield
+    # Shutdown (optional)
+
+app = FastAPI(title="Veriply API", lifespan=lifespan)
 
 @app.get("/")
 async def root():

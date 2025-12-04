@@ -1,5 +1,5 @@
 from sqlalchemy import text
-from apps.api.app.core.database import engine
+from app.core.database import engine
 
 async def enable_pgvector():
     async with engine.begin() as conn:
