@@ -121,8 +121,8 @@ development_status:
         completed_date: 2025-12-04
 
     2-2-bot-duplication-deletion:
-        status: backlog
-        assigned_to: null
+        status: draft
+        assigned_to: Lucas
         blocked_by: 2-1-bot-creation-configuration
 
     2-3-document-upload-api:
