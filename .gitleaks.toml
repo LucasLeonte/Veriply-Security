@@ -1,0 +1,19 @@
+title = "gitleaks config"
+
+[[rules]]
+id = "AWS Access Key"
+description = "AWS Access Key ID"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+tags = ["key", "secret", "aws"]
+
+[[rules]]
+id = "Private RSA Key"
+description = "Private RSA key detection"
+regex = '''-----BEGIN RSA PRIVATE KEY-----|-----BEGIN PRIVATE KEY-----'''
+tags = ["key", "secret"]
+
+[[rules]]
+id = "High Entropy String"
+description = "Potential secret detected by high entropy"
+entropy = 5.5
+tags = ["secret", "entropy"]
