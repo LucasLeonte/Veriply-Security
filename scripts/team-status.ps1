@@ -8,15 +8,15 @@ param(
 $sprintFile = "$PSScriptRoot\..\docs\sprint-artifacts\sprint-status.yaml"
 
 if (-not (Test-Path $sprintFile)) {
-    Write-Host "❌ Sprint status file not found!" -ForegroundColor Red
+    Write-Host "[X] Sprint status file not found!" -ForegroundColor Red
     exit 1
 }
 
 $content = Get-Content $sprintFile -Raw
 $lines = $content -split "`n"
 
-Write-Host "`n🚀 VERIPLY TEAM STATUS - $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════════════════════`n" -ForegroundColor Cyan
+Write-Host "`n>> VERIPLY TEAM STATUS - $(Get-Date -Format 'yyyy-MM-dd HH:mm')" -ForegroundColor Cyan
+Write-Host "-----------------------------------------------------------`n" -ForegroundColor Cyan
 
 # Parse team info
 $inTeamSection = $false
@@ -75,12 +75,12 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
 if ($Developer) {
     $dev = $developers | Where-Object { $_.Name -eq $Developer }
     if (-not $dev) {
-        Write-Host "❌ Developer '$Developer' not found!" -ForegroundColor Red
+        Write-Host "[X] Developer '$Developer' not found!" -ForegroundColor Red
         exit 1
     }
     
-    Write-Host "👤 $($dev.Name) - WIP: $($dev.CurrentWIP)/$($dev.MaxWIP)" -ForegroundColor Yellow
-    Write-Host "─────────────────────────────────────────────────────────`n" -ForegroundColor Gray
+    Write-Host ">> $($dev.Name) - WIP: $($dev.CurrentWIP)/$($dev.MaxWIP)" -ForegroundColor Yellow
+    Write-Host "-----------------------------------------------------------`n" -ForegroundColor Gray
     
     if ($dev.Stories.Count -eq 0) {
         Write-Host "  No assigned stories" -ForegroundColor Gray
@@ -102,21 +102,21 @@ if ($Developer) {
     foreach ($dev in $developers) {
         $wipColor = if ($dev.CurrentWIP -ge $dev.MaxWIP) { 'Red' } elseif ($dev.CurrentWIP -gt 0) { 'Yellow' } else { 'Green' }
         
-        Write-Host "👤 $($dev.Name)" -ForegroundColor White -NoNewline
+        Write-Host ">> $($dev.Name)" -ForegroundColor White -NoNewline
         Write-Host " - WIP: " -NoNewline
         Write-Host "$($dev.CurrentWIP)/$($dev.MaxWIP)" -ForegroundColor $wipColor
-        Write-Host "─────────────────────────────────────────────────────────" -ForegroundColor Gray
+        Write-Host "-----------------------------------------------------------" -ForegroundColor Gray
         
         if ($dev.Stories.Count -eq 0) {
-            Write-Host "  ✓ Available for work" -ForegroundColor Green
+            Write-Host "  [OK] Available for work" -ForegroundColor Green
         } else {
             foreach ($story in $dev.Stories) {
                 $statusIcon = switch ($story.Status) {
-                    'in-progress' { '🔨' }
-                    'assigned' { '📋' }
-                    'review' { '👀' }
-                    'done' { '✅' }
-                    default { '❓' }
+                    'in-progress' { '[WIP]' }
+                    'assigned' { '[ASN]' }
+                    'review' { '[REV]' }
+                    'done' { '[OK]' }
+                    default { '[?]' }
                 }
                 $statusColor = switch ($story.Status) {
                     'in-progress' { 'Green' }
@@ -134,8 +134,8 @@ if ($Developer) {
 }
 
 # Show available work
-Write-Host "`n📋 AVAILABLE FOR ASSIGNMENT" -ForegroundColor Magenta
-Write-Host "═══════════════════════════════════════════════════════════`n" -ForegroundColor Magenta
+Write-Host "`n>> AVAILABLE FOR ASSIGNMENT" -ForegroundColor Magenta
+Write-Host "-----------------------------------------------------------`n" -ForegroundColor Magenta
 
 $availableStories = @()
 $currentStory = $null
@@ -170,9 +170,9 @@ if ($availableStories.Count -eq 0) {
     Write-Host "  No stories ready for assignment" -ForegroundColor Gray
 } else {
     foreach ($story in $availableStories) {
-        Write-Host "  ⭐ $story" -ForegroundColor Cyan
+        Write-Host "  [*] $story" -ForegroundColor Cyan
     }
 }
 
-Write-Host "`n═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "💡 Usage: .\team-status.ps1 [-Developer Dev1]`n" -ForegroundColor DarkGray
+Write-Host "`n-----------------------------------------------------------" -ForegroundColor Cyan
+Write-Host "Usage: .\team-status.ps1 [-Developer Dev1]`n" -ForegroundColor DarkGray
