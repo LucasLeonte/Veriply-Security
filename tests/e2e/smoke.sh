@@ -54,7 +54,7 @@ else
 fi
 
 echo "Smoke E2E checks completed"
-if [ "$DEBUG" = "true" ] && [ -f "$SMOKE_LOGFILE" ]; then
+if [[ "$DEBUG" == "true" && -f "$SMOKE_LOGFILE" ]]; then
   echo "--- SMOKE LOGS ---"
   cat "$SMOKE_LOGFILE"
   echo "--- END SMOKE LOGS ---"
