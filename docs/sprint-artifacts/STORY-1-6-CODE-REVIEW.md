@@ -1,16 +1,22 @@
 # Story 1.6 Senior Code Review
 **User Profile & Team Management**
 
-**Review Date:** December 4, 2025  
+**Review Date:** December 4, 2025 (Updated: Security Fixes Applied)
 **Reviewer:** Senior Developer (AI)  
 **Story Status:** ✅ APPROVED FOR MERGE  
-**Overall Quality:** ⭐⭐⭐⭐⭐ Excellent
+**Overall Quality:** ⭐⭐⭐⭐⭐ Excellent (After Security Fixes)
 
 ---
 
 ## Executive Summary
 
 Story 1.6 implementation is **comprehensive, well-structured, and production-ready**. The development demonstrates strong architectural decisions, complete acceptance criteria coverage, and thorough testing strategy. All acceptance criteria have been implemented and verified with working code.
+
+**During review, 2 critical security vulnerabilities were identified:**
+- 🔴 CRITICAL: Hardcoded JWT secret default → ✅ **FIXED**
+- 🟠 HIGH: Missing authorization check on user profile endpoint → ✅ **FIXED**
+
+All security issues have been resolved with comprehensive tests added.
 
 **Verdict:** ✅ **APPROVED - Ready for Merge to Main**
 
@@ -322,6 +328,45 @@ Quality: Good
    - Code comments where needed
    - README has quick-start instructions
    - Development summary clear
+
+### ⚠️ CRITICAL SECURITY ISSUES FOUND & FIXED ✅
+
+During code review, the following critical security vulnerabilities were identified and fixed:
+
+#### 1. **CRITICAL: Hardcoded JWT Secret Default** 🔴 NOW FIXED ✅
+   - **Issue:** Application accepted hardcoded `"please-change-me"` as default JWT secret
+   - **Risk:** Publicly known secret allows attackers to forge valid authentication tokens
+   - **Impact:** Anyone knowing this default could impersonate any user
+   - **Severity:** 🔴 CRITICAL
+   - **Fix Applied:** 
+     - ✅ Removed all hardcoded defaults
+     - ✅ Added `_get_jwt_secret()` validation function
+     - ✅ Enforces minimum 32-character secret length
+     - ✅ Application fails to start if secret not configured
+     - ✅ Clear error messages guide operators
+   - **Files Modified:**
+     - `apps/api/app/core/auth.py`
+     - `apps/api/app/api/v1/auth.py`
+     - `apps/api/.env.example`
+     - `.env.example`
+   - **Tests Added:** `apps/api/tests/test_jwt_security.py` (comprehensive test suite)
+   - **Documentation:** `docs/SECURITY-CONFIG-JWT.md` (configuration guide)
+   - **Status:** ✅ RESOLVED
+
+#### 2. **HIGH: Missing Authorization Check on GET /{user_id}** 🟠 NOW FIXED ✅
+   - **Issue:** Endpoint docstring claimed "admin/owner only" but had no authorization check
+   - **Risk:** Non-admin users could retrieve arbitrary user profiles
+   - **Impact:** Privacy violation, information disclosure
+   - **Severity:** 🟠 HIGH
+   - **Fix Applied:**
+     - ✅ Added role-based authorization validation
+     - ✅ Only owners/admins can access other users' profiles
+     - ✅ Non-admin users get 403 Forbidden response
+   - **Files Modified:** `apps/api/app/api/v1/profile.py`
+   - **Tests Added:** `test_get_user_profile_by_id_authorization` in `test_profile_integration.py`
+   - **Status:** ✅ RESOLVED
+
+---
 
 ### ⚠️ Minor Observations (Not Blockers)
 
