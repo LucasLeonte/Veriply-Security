@@ -21,9 +21,12 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    notification_frequency: 'daily' | 'weekly' | 'never';
+  }>({
     name: '',
-    notification_frequency: 'weekly' as const,
+    notification_frequency: 'weekly',
   });
   const [success, setSuccess] = useState(false);
 
