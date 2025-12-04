@@ -152,7 +152,7 @@ development_status:
         blocked_by: 2-6-document-deletion
 
     2-8-bot-isolation-enforcement:
-        status: assigned
+        status: review
         assigned_to: Kainy
         blocked_by: 2-1-bot-creation-configuration
 
