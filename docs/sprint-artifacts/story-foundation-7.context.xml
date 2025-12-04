@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context>
+  <metadata>
+    <story-id>1-7</story-id>
+    <story-title>CI Pipeline - Lint, Tests, and Smoke E2E</story-title>
+    <epic-id>1</epic-id>
+    <epic-title>Foundation & Auth</epic-title>
+    <status>ready-for-dev</status>
+    <assigned-to>Kainy</assigned-to>
+    <created-date>2025-12-04</created-date>
+  </metadata>
+
+  <functional-requirements>
+    <note>This is an infrastructure/quality story supporting all functional requirements</note>
+  </functional-requirements>
+
+  <dependencies>
+    <blocks-story id="all">Enables reliable deployment and regression testing for all epics</blocks-story>
+    <blocked-by-story id="none">No external dependencies</blocked-by-story>
+  </dependencies>
+
+  <technical-context>
+    <ci-workflow>
+      <file-location>.github/workflows/ci.yml</file-location>
+      <triggers>
+        <trigger type="push" branch="main"/>
+        <trigger type="pull-request" target-branch="main"/>
+      </triggers>
+      <jobs>
+        <job name="lint-frontend" parallel="true">
+          <description>ESLint for apps/web</description>
+          <tool>ESLint</tool>
+          <config>apps/web/eslint.config.mjs</config>
+          <command>npm run lint</command>
+          <working-directory>apps/web</working-directory>
+          <timeout>10 minutes</timeout>
+          <fail-on>any linting errors</fail-on>
+        </job>
+        <job name="lint-backend" parallel="true">
+          <description>Ruff for apps/api</description>
+          <tool>Ruff</tool>
+          <config>pyproject.toml or .ruff.toml</config>
+          <command>ruff check .</command>
+          <working-directory>apps/api</working-directory>
+          <timeout>10 minutes</timeout>
+          <fail-on>any linting errors</fail-on>
+        </job>
+        <job name="test-frontend" parallel="true" depends-on="lint-frontend">
+          <description>Vitest for apps/web</description>
+          <tool>Vitest</tool>
+          <config>apps/web/vitest.config.ts</config>
+          <command>npm test</command>
+          <working-directory>apps/web</working-directory>
+          <timeout>15 minutes</timeout>
+          <coverage-target>70% statements</coverage-target>
+          <coverage-output>apps/web/coverage/</coverage-output>
+          <fail-on>any test failures</fail-on>
+        </job>
+        <job name="test-backend" parallel="true" depends-on="lint-backend">
+          <description>Pytest for apps/api</description>
+          <tool>Pytest</tool>
+          <config>apps/api/pytest.ini</config>
+          <command>pytest --cov=app --cov-report=term --cov-report=html</command>
+          <working-directory>apps/api</working-directory>
+          <timeout>15 minutes</timeout>
+          <coverage-target>70% statements</coverage-target>
+          <coverage-output>apps/api/coverage/</coverage-output>
+          <fail-on>any test failures</fail-on>
+        </job>
+        <job name="gitleaks" parallel="true">
+          <description>Secret scanning with gitleaks</description>
+          <tool>gitleaks</tool>
+          <action>gitleaks-action (GitHub marketplace)</action>
+          <config>.gitleaks.toml</config>
+          <timeout>5 minutes</timeout>
+          <fail-on>any secrets detected</fail-on>
+        </job>
+        <job name="smoke-e2e" parallel="false" depends-on="[lint-frontend, lint-backend, test-frontend, test-backend, gitleaks]">
+          <description>Smoke E2E tests with Playwright</description>
+          <tool>Playwright</tool>
+          <framework>Docker Compose + Node</framework>
+          <config>playwright.config.ts</config>
+          <timeout>20 minutes</timeout>
+          <test-directory>tests/e2e/ or apps/web/tests/e2e/</test-directory>
+          <fail-on>any E2E test failures</fail-on>
+          <artifacts-on-failure>
+            <artifact>screenshots/</artifact>
+            <artifact>test-results/</artifact>
+            <artifact>docker logs</artifact>
+          </artifacts-on-failure>
+        </job>
+      </jobs>
+      <overall-timeout>5 minutes target (5-20 min depending on test suite size)</overall-timeout>
+      <caching>
+        <cache type="npm">
+          <key>npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}</key>
+          <path>~/.npm</path>
+          <restoreKeys>npm-${{ runner.os }}-</restoreKeys>
+        </cache>
+        <cache type="pip">
+          <key>pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}</key>
+          <path>~/.cache/pip</path>
+          <restoreKeys>pip-${{ runner.os }}-</restoreKeys>
+        </cache>
+      </caching>
+    </ci-workflow>
+
+    <linting-configuration>
+      <frontend>
+        <tool>ESLint</tool>
+        <config-file>apps/web/eslint.config.mjs</config-file>
+        <extends>
+          - @eslint/js
+          - typescript-eslint/recommended
+          - next/recommended
+        </extends>
+        <rules>
+          <rule name="no-console">warn (not error, for dev debugging)</rule>
+          <rule name="no-unused-vars">error</rule>
+          <rule name="quotes">single quotes required</rule>
+        </rules>
+        <ignore>
+          - node_modules/
+          - .next/
+          - coverage/
+          - dist/
+        </ignore>
+      </frontend>
+      <backend>
+        <tool>Ruff</tool>
+        <config-file>.ruff.toml (or pyproject.toml [tool.ruff])</config-file>
+        <linter-select>
+          - E, W (pycodestyle errors/warnings)
+          - F (Pyflakes)
+          - I (isort import sorting)
+          - N (pep8-naming)
+        </linter-select>
+        <line-length>100</line-length>
+        <ignore>
+          - E501 (line too long, handled by formatter)
+          - E731 (lambda assignment)
+        </ignore>
+      </backend>
+    </linting-configuration>
+
+    <unit-testing-configuration>
+      <frontend>
+        <test-runner>Vitest</test-runner>
+        <config-file>apps/web/vitest.config.ts</config-file>
+        <test-pattern>**/*.test.ts(x)</test-pattern>
+        <coverage-tool>v8</coverage-tool>
+        <coverage-target>70%</coverage-target>
+        <coverage-report-formats>
+          - json
+          - html
+          - lcov (for codecov)
+        </coverage-report-formats>
+        <test-timeout>30 seconds</test-timeout>
+      </frontend>
+      <backend>
+        <test-runner>Pytest</test-runner>
+        <config-file>apps/api/pytest.ini</config-file>
+        <test-pattern>tests/test_*.py</test-pattern>
+        <coverage-tool>pytest-cov</coverage-tool>
+        <coverage-target>70%</coverage-target>
+        <coverage-report-formats>
+          - term-missing (console)
+          - html
+          - xml (for codecov)
+        </coverage-report-formats>
+        <test-timeout>30 seconds per test</test-timeout>
+        <plugins>
+          - pytest-asyncio (for async tests)
+          - pytest-mock (for mocking)
+        </plugins>
+      </backend>
+    </unit-testing-configuration>
+
+    <secrets-scanning>
+      <tool>gitleaks</tool>
+      <config-file>.gitleaks.toml (root directory)</config-file>
+      <rules>
+        <rule category="API Keys">Detect AWS, Azure, GCP API keys</rule>
+        <rule category="Tokens">Detect GitHub, GitLab, npm tokens</rule>
+        <rule category="Credentials">Detect passwords, private keys, certificates</rule>
+      </rules>
+      <exceptions>
+        <exception path=".md">Exclude Markdown documentation</exception>
+        <exception path="tests/">Exclude test files</exception>
+        <exception path>.gitleaks.toml">Exclude config file itself</exception>
+      </exceptions>
+      <action>Fail CI if any secrets detected; output line number and type</action>
+    </secrets-scanning>
+
+    <smoke-e2e-tests>
+      <framework>Playwright (Node.js)</framework>
+      <browser>Chromium (headless)</browser>
+      <timeout>30 seconds per test</timeout>
+      <retries>2 automatic retries on failure</retries>
+      <test-directory>tests/e2e/ or apps/web/tests/e2e/</test-directory>
+      <config-file>playwright.config.ts (root or apps/web)</config-file>
+
+      <docker-setup>
+        <services-to-start>
+          <service name="postgres" image="postgres:15" port="5432"/>
+          <service name="api" build="./apps/api" port="8000"/>
+          <service name="web" build="./apps/web" port="3000"/>
+        </services-to-start>
+        <health-check-timeout>60 seconds total</health-check-timeout>
+        <startup-script>docker-compose up -d</startup-script>
+        <teardown-script>docker-compose down -v</teardown-script>
+      </docker-setup>
+
+      <test-scenarios>
+        <scenario name="health-check">
+          <description>Verify API health endpoint</description>
+          <endpoint>GET http://localhost:8000/healthz</endpoint>
+          <expected-status>200 OK</expected-status>
+          <expected-body>{"status": "healthy"}</expected-body>
+        </scenario>
+        <scenario name="web-frontend-loads">
+          <description>Verify web frontend loads</description>
+          <endpoint>GET http://localhost:3000/</endpoint>
+          <expected-status>200 OK</expected-status>
+          <expected-content>Page contains "Veriply" or title matches</expected-content>
+        </scenario>
+        <scenario name="basic-login-flow">
+          <description>Register user, login, verify JWT token</description>
+          <steps>
+            <step action="POST /api/auth/register" payload="email, password, org_name"/>
+            <step action="POST /api/auth/login" payload="email, password"/>
+            <step action="Verify" condition="response contains access_token and refresh_token"/>
+          </steps>
+        </scenario>
+      </test-scenarios>
+
+      <artifact-capture>
+        <on-failure>
+          <artifact type="screenshot">Capture browser screenshot</artifact>
+          <artifact type="logs">Capture browser console logs</artifact>
+          <artifact type="docker-logs">Capture Docker service logs (postgres, api, web)</artifact>
+        </on-failure>
+        <storage>Store in test-results/ directory; upload as CI artifacts</storage>
+      </artifact-capture>
+
+      <playwright-config>
+        <webServer>http://localhost:3000</webServer>
+        <baseURL>http://localhost:3000</baseURL>
+        <timeout>30000 ms per test</timeout>
+        <retries>2</retries>
+        <use>
+          <headless>true</headless>
+          <screenshot>only-on-failure</screenshot>
+          <video>retain-on-failure (optional, heavy)</video>
+        </use>
+      </playwright-config>
+    </smoke-e2e-tests>
+
+    <branch-protection>
+      <location>GitHub Settings → Branches → main</location>
+      <rules>
+        <rule name="require-status-checks">All CI jobs must pass before merge</rule>
+        <rule name="require-status-checks-strict">Require branches to be up to date before merge</rule>
+        <rule name="dismiss-stale-reviews">Dismiss PR reviews on new commits</rule>
+        <rule name="require-approvals">No (or yes, team preference)</rule>
+      </rules>
+      <required-status-checks>
+        <check>lint-frontend</check>
+        <check>lint-backend</check>
+        <check>test-frontend</check>
+        <check>test-backend</check>
+        <check>gitleaks</check>
+        <check>smoke-e2e</check>
+      </required-status-checks>
+    </branch-protection>
+
+    <documentation>
+      <readme-sections>
+        <section name="CI Badge">
+          [![CI Status](https://github.com/DarioDML/Veriply/workflows/CI/badge.svg)](https://github.com/DarioDML/Veriply/actions)
+        </section>
+        <section name="Running Tests Locally">
+          <subsection name="Frontend Tests">
+            ```bash
+            cd apps/web
+            npm install
+            npm test              # Run Vitest
+            npm run test:e2e      # Run Playwright E2E
+            ```
+          </subsection>
+          <subsection name="Backend Tests">
+            ```bash
+            cd apps/api
+            pip install -r requirements.txt
+            pytest                # Run Pytest
+            ```
+          </subsection>
+          <subsection name="Linting">
+            ```bash
+            cd apps/web && npm run lint
+            cd apps/api && ruff check .
+            ```
+          </subsection>
+        </section>
+        <section name="CI/CD Pipeline Overview">
+          <description>
+            On every PR and commit to main, the CI pipeline runs:
+            1. Lint jobs (ESLint, Ruff) - enforce code style
+            2. Unit test jobs (Vitest, Pytest) - run with coverage
+            3. Secrets scanning (gitleaks) - detect leaked credentials
+            4. Smoke E2E tests (Playwright) - verify critical paths work
+            
+            All jobs must pass before merging. View results in GitHub Actions.
+          </description>
+        </section>
+        <section name="Troubleshooting">
+          <subsection name="Linting failures">
+            Run `npm run lint` or `ruff check` locally to see detailed errors; fix and commit.
+          </subsection>
+          <subsection name="Test failures">
+            Check CI logs for failed test output; run tests locally to reproduce.
+          </subsection>
+          <subsection name="E2E failures">
+            Check Playwright screenshots/logs in CI artifacts; verify Docker services start correctly.
+          </subsection>
+          <subsection name="Secrets detected">
+            Review gitleaks output; remove secret from code and git history (using git filter-branch or similar).
+          </subsection>
+        </section>
+      </readme-sections>
+    </documentation>
+
+    <performance-optimization>
+      <caching-strategy>
+        <npm-cache>
+          <key>npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}</key>
+          <path>~/.npm</path>
+          <save-on>every successful run</save-on>
+        </npm-cache>
+        <pip-cache>
+          <key>pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}</key>
+          <path>~/.cache/pip</path>
+          <save-on>every successful run</save-on>
+        </pip-cache>
+        <docker-layer-cache>
+          <strategy>Use buildkit and cache mount for docker builds</strategy>
+        </docker-layer-cache>
+      </caching-strategy>
+      <parallel-execution>
+        <note>Jobs run in parallel where possible; E2E runs after others (sequential, depends on earlier jobs)</note>
+        <effect>Reduces total CI time from sequential to parallel</effect>
+      </parallel-execution>
+      <timeout-strategy>
+        <lint-timeout>10 minutes max</lint-timeout>
+        <test-timeout>15 minutes max</test-timeout>
+        <e2e-timeout>20 minutes max</e2e-timeout>
+        <gitleaks-timeout>5 minutes max</gitleaks-timeout>
+      </timeout-strategy>
+    </performance-optimization>
+
+    <security-considerations>
+      <secret-scanning>
+        <note>gitleaks detects and fails CI on any secrets; prevents credential leaks</note>
+      </secret-scanning>
+      <code-quality>
+        <note>Linting enforces code standards; reduces security bugs</note>
+      </code-quality>
+      <test-coverage>
+        <note>70% coverage threshold catches edge cases and regressions</note>
+      </test-coverage>
+    </security-considerations>
+  </technical-context>
+
+  <files-to-create-modify>
+    <file action="modify" path=".github/workflows/ci.yml">
+      <change>Extend existing workflow with gitleaks and smoke-e2e jobs</change>
+    </file>
+    <file action="create" path=".gitleaks.toml">
+      <change>New secrets scanning configuration</change>
+    </file>
+    <file action="create" path="tests/e2e/smoke.spec.ts">
+      <change>New Playwright smoke test suite</change>
+    </file>
+    <file action="create" path="playwright.config.ts">
+      <change>New Playwright configuration (if not exists)</change>
+    </file>
+    <file action="modify" path="README.md">
+      <change>Add CI badge, test instructions, troubleshooting</change>
+    </file>
+  </files-to-create-modify>
+
+  <acceptance-criteria-checklist>
+    <criterion id="ac-ci-1">CI workflow runs on push to main and all PRs ✓</criterion>
+    <criterion id="ac-ci-2">Lint jobs pass with zero errors (ESLint, Ruff) ✓</criterion>
+    <criterion id="ac-ci-3">Test jobs pass with coverage reports (Vitest, Pytest) ✓</criterion>
+    <criterion id="ac-ci-4">Secrets scanning (gitleaks) passes with no secrets ✓</criterion>
+    <criterion id="ac-ci-5">Smoke E2E tests verify health check, web load, basic login ✓</criterion>
+    <criterion id="ac-ci-6">All jobs run in parallel where possible; total time &lt;5 min ✓</criterion>
+    <criterion id="ac-ci-7">Failed CI blocks merging on GitHub ✓</criterion>
+    <criterion id="ac-ci-8">README updated with CI badge and test instructions ✓</criterion>
+  </acceptance-criteria-checklist>
+</story-context>
