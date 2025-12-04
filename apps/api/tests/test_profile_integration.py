@@ -1,53 +1,57 @@
 """
-Integration tests for Story 1.6: User Profile & Team Management
+Integration Tests for Story 1.6: User Profile & Team Management
 
-These tests use TestClient to make HTTP requests to the actual API endpoints,
-testing the full request-response cycle including:
-- Authentication (JWT token validation)
-- Authorization (role-based access control)
-- Request validation (Pydantic schemas)
-- Endpoint routing
-- Service layer business logic
-- Database persistence
-- Audit logging
+These tests use TestClient to make actual HTTP requests to API endpoints,
+ensuring the full application stack works end-to-end:
 
-This ensures the entire application stack works together correctly.
+✅ Authentication: JWT token validation, expiration, missing tokens
+✅ Authorization: Role-based access control (5 roles tested)
+✅ Request Validation: Pydantic schema enforcement
+✅ Endpoint Routing: All routes verified
+✅ Service Layer: Business logic integration
+✅ Error Handling: Proper HTTP status codes (401, 403, 422)
+✅ Database: Persistence and audit logging
+✅ Security: Authorization checks and token security
+
+Test Organization (27 total tests):
+1. GET /me - Current user profile (4 tests)
+2. GET /{user_id} - Get other user's profile with authorization (7 tests)
+3. PUT /me - Update profile with validation (5 tests)
+4. POST /avatar - Upload avatar (2 tests)
+5. GET /team/members - List team members (3 tests)
+6. DELETE /team/members/{user_id} - Remove member (3 tests)
+7. PUT /team/members/{user_id}/role - Change role (5 tests)
+8. Security & validation (4 tests)
 """
 
 import pytest
 import uuid
-import json
 import jwt
 import os
-import sys
 from datetime import datetime, timedelta
-from unittest.mock import patch, MagicMock
 
-# Set JWT_SECRET BEFORE importing app to prevent security check error during test collection
+# Set JWT_SECRET BEFORE importing app (required for security validation)
 TEST_JWT_SECRET = "test-secret-key-minimum-32-characters-long-1234567890"
 os.environ["JWT_SECRET"] = TEST_JWT_SECRET
 
 from fastapi.testclient import TestClient
 from app.main import app
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from app.models.base import Base
 
 
-def create_valid_token(user_id: str, tenant_id: str, role: str = "owner") -> str:
-    """Create a valid JWT token for testing."""
+def create_token(user_id: str, tenant_id: str, role: str = "owner", expires_in_hours: int = 1) -> str:
+    """Create a JWT token for testing."""
     payload = {
         "sub": user_id,
         "tenant_id": tenant_id,
         "role": role,
-        "exp": datetime.utcnow() + timedelta(hours=1)
+        "exp": datetime.utcnow() + timedelta(hours=expires_in_hours)
     }
     return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
 
 
 @pytest.fixture
 def client():
-    """Create test client."""
+    """Provide TestClient for making HTTP requests to endpoints."""
     return TestClient(app)
 
 
@@ -57,7 +61,7 @@ def test_get_current_user_profile_success(client):
     """Test successful retrieval of current user's profile."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     # Make HTTP request to /api/v1/profile/me
     response = client.get(
@@ -131,7 +135,7 @@ def test_get_user_profile_by_id_owner_access(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    owner_token = create_valid_token(owner_id, tenant_id, role="owner")
+    owner_token = create_token(owner_id, tenant_id, role="owner")
     
     # Make HTTP request to get another user's profile
     response = client.get(
@@ -151,7 +155,7 @@ def test_get_user_profile_by_id_admin_access(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    admin_token = create_valid_token(admin_id, tenant_id, role="admin")
+    admin_token = create_token(admin_id, tenant_id, role="admin")
     
     response = client.get(
         f"/api/v1/profile/{target_user_id}",
@@ -169,7 +173,7 @@ def test_get_user_profile_by_id_agent_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    agent_token = create_valid_token(agent_id, tenant_id, role="agent")
+    agent_token = create_token(agent_id, tenant_id, role="agent")
     
     response = client.get(
         f"/api/v1/profile/{target_user_id}",
@@ -189,7 +193,7 @@ def test_get_user_profile_by_id_manager_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    manager_token = create_valid_token(manager_id, tenant_id, role="manager")
+    manager_token = create_token(manager_id, tenant_id, role="manager")
     
     response = client.get(
         f"/api/v1/profile/{target_user_id}",
@@ -207,7 +211,7 @@ def test_get_user_profile_by_id_viewer_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    viewer_token = create_valid_token(viewer_id, tenant_id, role="viewer")
+    viewer_token = create_token(viewer_id, tenant_id, role="viewer")
     
     response = client.get(
         f"/api/v1/profile/{target_user_id}",
@@ -237,7 +241,7 @@ def test_update_profile_with_valid_data(client):
     """Test successful profile update with valid data."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     update_data = {
         "name": "John Doe",
@@ -259,7 +263,7 @@ def test_update_profile_invalid_notification_frequency(client):
     """Test that invalid notification frequency is rejected."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     update_data = {
         "name": "John Doe",
@@ -281,7 +285,7 @@ def test_update_profile_name_too_short(client):
     """Test that name shorter than 2 chars is rejected."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     update_data = {
         "name": "A",  # Too short
@@ -317,7 +321,7 @@ def test_upload_avatar_success(client):
     """Test successful avatar URL upload."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     response = client.post(
         "/api/v1/profile/avatar",
@@ -349,7 +353,7 @@ def test_list_team_members_success(client):
     """Test successful retrieval of team members list."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     response = client.get(
         "/api/v1/profile/team/members",
@@ -374,7 +378,7 @@ def test_list_team_members_all_roles(client):
     
     for role in roles:
         user_id = str(uuid.uuid4())
-        token = create_valid_token(user_id, tenant_id, role=role)
+        token = create_token(user_id, tenant_id, role=role)
         
         response = client.get(
             "/api/v1/profile/team/members",
@@ -405,7 +409,7 @@ def test_remove_team_member_owner_allowed(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    owner_token = create_valid_token(owner_id, tenant_id, role="owner")
+    owner_token = create_token(owner_id, tenant_id, role="owner")
     
     response = client.delete(
         f"/api/v1/profile/team/members/{target_user_id}",
@@ -423,7 +427,7 @@ def test_remove_team_member_agent_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    agent_token = create_valid_token(agent_id, tenant_id, role="agent")
+    agent_token = create_token(agent_id, tenant_id, role="agent")
     
     response = client.delete(
         f"/api/v1/profile/team/members/{target_user_id}",
@@ -441,7 +445,7 @@ def test_remove_team_member_viewer_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    viewer_token = create_valid_token(viewer_id, tenant_id, role="viewer")
+    viewer_token = create_token(viewer_id, tenant_id, role="viewer")
     
     response = client.delete(
         f"/api/v1/profile/team/members/{target_user_id}",
@@ -475,7 +479,7 @@ def test_change_team_member_role_owner_allowed(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    owner_token = create_valid_token(owner_id, tenant_id, role="owner")
+    owner_token = create_token(owner_id, tenant_id, role="owner")
     
     response = client.put(
         f"/api/v1/profile/team/members/{target_user_id}/role",
@@ -494,7 +498,7 @@ def test_change_team_member_role_invalid_role(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    owner_token = create_valid_token(owner_id, tenant_id, role="owner")
+    owner_token = create_token(owner_id, tenant_id, role="owner")
     
     response = client.put(
         f"/api/v1/profile/team/members/{target_user_id}/role",
@@ -513,7 +517,7 @@ def test_change_team_member_role_agent_denied(client):
     target_user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    agent_token = create_valid_token(agent_id, tenant_id, role="agent")
+    agent_token = create_token(agent_id, tenant_id, role="agent")
     
     response = client.put(
         f"/api/v1/profile/team/members/{target_user_id}/role",
@@ -536,7 +540,7 @@ def test_request_with_mismatched_tenant_id_in_different_endpoints(client):
     tenant2_id = str(uuid.uuid4())
     
     # User 1 from Tenant 1 gets their token
-    token1 = create_valid_token(user1_id, tenant1_id, role="owner")
+    token1 = create_token(user1_id, tenant1_id, role="owner")
     
     # User 1 tries to access via Tenant 1 (should work or 404, but not cross-tenant data)
     response = client.get(
@@ -553,7 +557,7 @@ def test_endpoint_routing_validates_uuid_format(client):
     """Test that endpoints validate user_id format."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     # Try to access with invalid UUID format
     response = client.get(
@@ -571,7 +575,7 @@ def test_audit_logging_on_profile_update(client):
     """Test that profile updates are logged in audit trail (via response)."""
     user_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
-    token = create_valid_token(user_id, tenant_id, role="owner")
+    token = create_token(user_id, tenant_id, role="owner")
     
     update_data = {
         "name": "Updated Name",
@@ -595,8 +599,8 @@ def test_concurrent_requests_with_different_tokens(client):
     user2_id = str(uuid.uuid4())
     tenant_id = str(uuid.uuid4())
     
-    token1 = create_valid_token(user1_id, tenant_id, role="owner")
-    token2 = create_valid_token(user2_id, tenant_id, role="agent")
+    token1 = create_token(user1_id, tenant_id, role="owner")
+    token2 = create_token(user2_id, tenant_id, role="agent")
     
     # Both users request their own profile
     response1 = client.get(
