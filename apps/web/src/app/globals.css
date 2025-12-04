@@ -1,26 +1,75 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Deep Ocean Theme Base Styling */
+html {
+    scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+}
+
+a {
+    color: #16a34a;
+    transition: color 0.2s;
+}
+
+a:hover {
+    color: #15803d;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: #020617;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+}
+
+h1 {
+    font-size: 1.875rem;
+}
+
+h2 {
+    font-size: 1.5rem;
+}
+
+h3 {
+    font-size: 1.25rem;
+}
+
+button,
+[role="button"] {
+    transition: all 0.2s;
+}
+
+/* Component styles */
+.deep-ocean-sidebar {
+    background-color: #020617;
+    color: #f8fafc;
+}
+
+.deep-ocean-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #cbd5e1;
+    color: #0f172a;
+}
+
+.deep-ocean-card {
+    background-color: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+}
+
+.deep-ocean-active {
+    background-color: #16a34a;
+    color: #ffffff;
 }

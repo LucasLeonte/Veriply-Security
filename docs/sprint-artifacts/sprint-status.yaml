@@ -12,24 +12,24 @@
 # TEAM CONFIGURATION:
 # ===================
 team:
-  size: 4
-  developers:
-    - name: Dario
-      max_wip: 2
-      current_wip: 0
-      skills: [frontend, backend, auth]
-    - name: Lucas
-      max_wip: 2
-      current_wip: 0
-      skills: [backend, database, api]
-    - name: Kainy
-      max_wip: 2
-      current_wip: 0
-      skills: [frontend, ui, testing]
-    - name: Soulaymane
-      max_wip: 2
-      current_wip: 0
-      skills: [fullstack, devops, integration]
+    size: 4
+    developers:
+        - name: Dario
+          max_wip: 2
+          current_wip: 0
+          skills: [frontend, backend, auth]
+        - name: Lucas
+          max_wip: 2
+          current_wip: 0
+          skills: [backend, database, api]
+        - name: Kainy
+          max_wip: 2
+          current_wip: 0
+          skills: [frontend, ui, testing]
+        - name: Soulaymane
+          max_wip: 2
+          current_wip: 0
+          skills: [fullstack, devops, integration]
 
 # STATUS DEFINITIONS:
 # ==================
@@ -67,279 +67,278 @@ tracking_system: file-system
 story_location: docs/sprint-artifacts
 
 development_status:
-  # Epic 1: Foundation & Auth
-  epic-1: 
-    status: contexted
-    assigned_to: null
-    
-  1-1-project-infrastructure-setup: 
-    status: done
-    assigned_to: Dario
-    completed_date: 2025-12-03
-    
-  1-2-database-schema-multi-tenancy-foundation: 
-    status: done
-    assigned_to: Dario
-    completed_date: 2025-12-03
-    
-  1-3-user-registration-tenant-creation: 
-    status: done
-    assigned_to: Dario
-    completed_date: 2025-12-03
-    
-  1-4-user-login-session-management: 
-    status: assigned
-    assigned_to: Lucas
-    blocked_by: null
-    
-  1-5-team-invitation-role-assignment: 
-    status: ready-for-dev
-    assigned_to: null
-    blocked_by: 1-4-user-login-session-management
-    
-  1-6-user-profile-team-management: 
-    status: ready-for-dev
-    assigned_to: null
-    blocked_by: 1-4-user-login-session-management
-    
-  epic-1-retrospective: optional
+    # Epic 1: Foundation & Auth
+    epic-1:
+        status: contexted
+        assigned_to: null
 
-  # Epic 2: Bot & Knowledge Management
-  epic-2: 
-    status: backlog
-    assigned_to: null
-    
-  2-1-bot-creation-configuration: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 1-4-user-login-session-management
-    
-  2-2-bot-duplication-deletion: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-1-bot-creation-configuration
-    
-  2-3-document-upload-api: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-1-bot-creation-configuration
-    
-  2-4-document-processing-pipeline: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-3-document-upload-api
-    
-  2-5-knowledge-base-management-ui: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-3-document-upload-api
-    
-  2-6-document-deletion: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-5-knowledge-base-management-ui
-    
-  2-7-document-reprocessing: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-5-knowledge-base-management-ui
-    
-  2-8-bot-isolation-enforcement: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-1-bot-creation-configuration
-    
-  epic-2-retrospective: optional
+    1-1-project-infrastructure-setup:
+        status: done
+        assigned_to: Dario
+        completed_date: 2025-12-03
 
-  # Epic 3: RAG Q&A Engine
-  epic-3: 
-    status: backlog
-    assigned_to: null
-    
-  3-1-semantic-vector-search: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-4-document-processing-pipeline
-    
-  3-2-context-only-answer-generation: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 3-1-semantic-vector-search
-    
-  3-3-citation-generation: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 3-2-context-only-answer-generation
-    
-  3-4-confidence-scoring-routing: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 3-2-context-only-answer-generation
-    
-  3-5-pii-redaction: 
-    status: backlog
-    assigned_to: null
-    blocked_by: null
-    
-  epic-3-retrospective: optional
+    1-2-database-schema-multi-tenancy-foundation:
+        status: done
+        assigned_to: Dario
+        completed_date: 2025-12-03
 
-  # Epic 4: Chat Experience
-  epic-4: 
-    status: backlog
-    assigned_to: null
-    
-  4-1-web-chat-interface: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 3-2-context-only-answer-generation
-    
-  4-2-conversation-context: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 4-1-web-chat-interface
-    
-  4-3-user-feedback: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 4-1-web-chat-interface
-    
-  4-4-trust-signals-display: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 4-1-web-chat-interface
-    
-  4-5-embeddable-widget-generation: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 4-1-web-chat-interface
-    
-  4-6-widget-security-responsiveness: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 4-5-embeddable-widget-generation
-    
-  epic-4-retrospective: optional
+    1-3-user-registration-tenant-creation:
+        status: done
+        assigned_to: Dario
+        completed_date: 2025-12-03
 
-  # Epic 5: HITL Verification
-  epic-5: 
-    status: backlog
-    assigned_to: null
-    
-  5-1-hitl-queue-view: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 3-4-confidence-scoring-routing
-    
-  5-2-draft-review-interface: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 5-1-hitl-queue-view
-    
-  5-3-approve-edit-flow: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 5-2-draft-review-interface
-    
-  5-4-rejection-flow: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 5-2-draft-review-interface
-    
-  5-5-keyboard-shortcuts-filtering: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 5-2-draft-review-interface
-    
-  epic-5-retrospective: optional
+    1-4-user-login-session-management:
+        status: assigned
+        assigned_to: Lucas
+        blocked_by: null
 
-  # Epic 6: Email Automation
-  epic-6: 
-    status: backlog
-    assigned_to: null
-    
-  6-1-gmail-oauth-integration: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 3-2-context-only-answer-generation
-    
-  6-2-outlook-oauth-integration: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 3-2-context-only-answer-generation
-    
-  6-3-email-monitoring-rules: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 6-1-gmail-oauth-integration
-    
-  6-4-email-draft-generation: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 6-3-email-monitoring-rules
-    
-  6-5-writing-style-matching: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 6-4-email-draft-generation
-    
-  epic-6-retrospective: optional
+    1-5-team-invitation-role-assignment:
+        status: ready-for-dev
+        assigned_to: null
+        blocked_by: 1-4-user-login-session-management
 
-  # Epic 7: Verified Knowledge Base
-  epic-7: 
-    status: backlog
-    assigned_to: null
-    
-  7-1-verified-kb-storage: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 2-4-document-processing-pipeline
-    
-  7-2-verified-kb-priority: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 7-1-verified-kb-storage
-    
-  7-3-manual-qa-entry: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 7-1-verified-kb-storage
-    
-  7-4-verified-kb-management: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 7-1-verified-kb-storage
-    
-  epic-7-retrospective: optional
+    1-6-user-profile-team-management:
+        status: ready-for-dev
+        assigned_to: null
+        blocked_by: 1-4-user-login-session-management
 
-  # Epic 8: Analytics & Compliance
-  epic-8: 
-    status: backlog
-    assigned_to: null
-    
-  8-1-analytics-dashboard: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 4-3-user-feedback
-    
-  8-2-quality-metrics: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 8-1-analytics-dashboard
-    
-  8-3-csv-export: 
-    status: backlog
-    assigned_to: null
-    blocked_by: 8-1-analytics-dashboard
-    
-  8-4-gdpr-data-controls: 
-    status: backlog
-    assigned_to: null
-    blocked_by: null
-    
-  8-5-audit-trail-ai-labeling: 
-    status: backlog
-    assigned_to: null
-    blocked_by: null
-    
-  epic-8-retrospective: optional
+    epic-1-retrospective: optional
 
+    # Epic 2: Bot & Knowledge Management
+    epic-2:
+        status: backlog
+        assigned_to: null
+
+    2-1-bot-creation-configuration:
+        status: backlog
+        assigned_to: null
+        blocked_by: 1-4-user-login-session-management
+
+    2-2-bot-duplication-deletion:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-1-bot-creation-configuration
+
+    2-3-document-upload-api:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-1-bot-creation-configuration
+
+    2-4-document-processing-pipeline:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-3-document-upload-api
+
+    2-5-knowledge-base-management-ui:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-3-document-upload-api
+
+    2-6-document-deletion:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-5-knowledge-base-management-ui
+
+    2-7-document-reprocessing:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-5-knowledge-base-management-ui
+
+    2-8-bot-isolation-enforcement:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-1-bot-creation-configuration
+
+    epic-2-retrospective: optional
+
+    # Epic 3: RAG Q&A Engine
+    epic-3:
+        status: backlog
+        assigned_to: null
+
+    3-1-semantic-vector-search:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-4-document-processing-pipeline
+
+    3-2-context-only-answer-generation:
+        status: backlog
+        assigned_to: null
+        blocked_by: 3-1-semantic-vector-search
+
+    3-3-citation-generation:
+        status: backlog
+        assigned_to: null
+        blocked_by: 3-2-context-only-answer-generation
+
+    3-4-confidence-scoring-routing:
+        status: backlog
+        assigned_to: null
+        blocked_by: 3-2-context-only-answer-generation
+
+    3-5-pii-redaction:
+        status: backlog
+        assigned_to: null
+        blocked_by: null
+
+    epic-3-retrospective: optional
+
+    # Epic 4: Chat Experience
+    epic-4:
+        status: backlog
+        assigned_to: null
+
+    4-1-web-chat-interface:
+        status: backlog
+        assigned_to: null
+        blocked_by: 3-2-context-only-answer-generation
+
+    4-2-conversation-context:
+        status: backlog
+        assigned_to: null
+        blocked_by: 4-1-web-chat-interface
+
+    4-3-user-feedback:
+        status: backlog
+        assigned_to: null
+        blocked_by: 4-1-web-chat-interface
+
+    4-4-trust-signals-display:
+        status: backlog
+        assigned_to: null
+        blocked_by: 4-1-web-chat-interface
+
+    4-5-embeddable-widget-generation:
+        status: backlog
+        assigned_to: null
+        blocked_by: 4-1-web-chat-interface
+
+    4-6-widget-security-responsiveness:
+        status: backlog
+        assigned_to: null
+        blocked_by: 4-5-embeddable-widget-generation
+
+    epic-4-retrospective: optional
+
+    # Epic 5: HITL Verification
+    epic-5:
+        status: backlog
+        assigned_to: null
+
+    5-1-hitl-queue-view:
+        status: backlog
+        assigned_to: null
+        blocked_by: 3-4-confidence-scoring-routing
+
+    5-2-draft-review-interface:
+        status: backlog
+        assigned_to: null
+        blocked_by: 5-1-hitl-queue-view
+
+    5-3-approve-edit-flow:
+        status: backlog
+        assigned_to: null
+        blocked_by: 5-2-draft-review-interface
+
+    5-4-rejection-flow:
+        status: backlog
+        assigned_to: null
+        blocked_by: 5-2-draft-review-interface
+
+    5-5-keyboard-shortcuts-filtering:
+        status: backlog
+        assigned_to: null
+        blocked_by: 5-2-draft-review-interface
+
+    epic-5-retrospective: optional
+
+    # Epic 6: Email Automation
+    epic-6:
+        status: backlog
+        assigned_to: null
+
+    6-1-gmail-oauth-integration:
+        status: backlog
+        assigned_to: null
+        blocked_by: 3-2-context-only-answer-generation
+
+    6-2-outlook-oauth-integration:
+        status: backlog
+        assigned_to: null
+        blocked_by: 3-2-context-only-answer-generation
+
+    6-3-email-monitoring-rules:
+        status: backlog
+        assigned_to: null
+        blocked_by: 6-1-gmail-oauth-integration
+
+    6-4-email-draft-generation:
+        status: backlog
+        assigned_to: null
+        blocked_by: 6-3-email-monitoring-rules
+
+    6-5-writing-style-matching:
+        status: backlog
+        assigned_to: null
+        blocked_by: 6-4-email-draft-generation
+
+    epic-6-retrospective: optional
+
+    # Epic 7: Verified Knowledge Base
+    epic-7:
+        status: backlog
+        assigned_to: null
+
+    7-1-verified-kb-storage:
+        status: backlog
+        assigned_to: null
+        blocked_by: 2-4-document-processing-pipeline
+
+    7-2-verified-kb-priority:
+        status: backlog
+        assigned_to: null
+        blocked_by: 7-1-verified-kb-storage
+
+    7-3-manual-qa-entry:
+        status: backlog
+        assigned_to: null
+        blocked_by: 7-1-verified-kb-storage
+
+    7-4-verified-kb-management:
+        status: backlog
+        assigned_to: null
+        blocked_by: 7-1-verified-kb-storage
+
+    epic-7-retrospective: optional
+
+    # Epic 8: Analytics & Compliance
+    epic-8:
+        status: backlog
+        assigned_to: null
+
+    8-1-analytics-dashboard:
+        status: backlog
+        assigned_to: null
+        blocked_by: 4-3-user-feedback
+
+    8-2-quality-metrics:
+        status: backlog
+        assigned_to: null
+        blocked_by: 8-1-analytics-dashboard
+
+    8-3-csv-export:
+        status: backlog
+        assigned_to: null
+        blocked_by: 8-1-analytics-dashboard
+
+    8-4-gdpr-data-controls:
+        status: backlog
+        assigned_to: null
+        blocked_by: null
+
+    8-5-audit-trail-ai-labeling:
+        status: backlog
+        assigned_to: null
+        blocked_by: null
+
+    epic-8-retrospective: optional
