@@ -161,33 +161,33 @@ development_status:
 
     # Epic 3: RAG Q&A Engine
     epic-3:
-        status: drafted
-        assigned_to: Lucas
+        status: contexted
+        assigned_to: null
 
     3-1-semantic-vector-search:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 2-4-document-processing-pipeline
 
     3-2-context-only-answer-generation:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 3-1-semantic-vector-search
 
     3-3-citation-generation:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 3-2-context-only-answer-generation
 
     3-4-confidence-scoring-routing:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
-        blocked_by: 3-2-context-only-answer-generation
+        blocked_by: 3-3-citation-generation
 
     3-5-pii-redaction:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
-        blocked_by: null
+        blocked_by: 3-2-context-only-answer-generation
 
     epic-3-retrospective: optional
 
