@@ -3,7 +3,34 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthCredentials
 
-JWT_SECRET = os.getenv("JWT_SECRET", "please-change-me")
+
+def _get_jwt_secret() -> str:
+    """
+    Get JWT secret from environment variable.
+    CRITICAL: Fail fast if not configured to prevent security vulnerabilities.
+    """
+    secret = os.getenv("JWT_SECRET")
+    if not secret:
+        raise RuntimeError(
+            "CRITICAL SECURITY ERROR: JWT_SECRET environment variable is not set. "
+            "This is required for production security. "
+            "Set JWT_SECRET to a strong, random value (minimum 32 characters). "
+            "Example: export JWT_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+        )
+    
+    # Warn if using default/weak secret (but allow for development only with strict conditions)
+    if len(secret) < 32:
+        raise RuntimeError(
+            f"CRITICAL SECURITY ERROR: JWT_SECRET is too short (length: {len(secret)}). "
+            "Minimum required length is 32 characters. "
+            "A weak secret exposes the application to token forgery attacks. "
+            "Use a cryptographically secure random secret."
+        )
+    
+    return secret
+
+
+JWT_SECRET = _get_jwt_secret()
 JWT_ALGORITHM = "HS256"
 
 security = HTTPBearer()
