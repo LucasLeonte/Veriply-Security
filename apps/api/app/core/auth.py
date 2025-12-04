@@ -1,21 +1,30 @@
-import os
 import jwt
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer
 
+# Cache for JWT secret
+_jwt_secret_cache = None
 
-def _get_jwt_secret() -> str:
+
+def get_jwt_secret() -> str:
     """
-    Get JWT secret from environment variable.
+    Get JWT secret from settings module (lazy-loaded).
     CRITICAL: Fail fast if not configured to prevent security vulnerabilities.
     """
-    secret = os.getenv("JWT_SECRET")
+    global _jwt_secret_cache
+    
+    if _jwt_secret_cache is not None:
+        return _jwt_secret_cache
+    
+    # Import here to avoid circular imports at module load time
+    from app.core.settings import settings
+    
+    secret = settings.JWT_SECRET
     if not secret:
         raise RuntimeError(
-            "CRITICAL SECURITY ERROR: JWT_SECRET environment variable is not set. "
+            "CRITICAL SECURITY ERROR: JWT_SECRET not configured in .env file. "
             "This is required for production security. "
-            "Set JWT_SECRET to a strong, random value (minimum 32 characters). "
-            "Example: export JWT_SECRET=$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+            "Set JWT_SECRET to a strong, random value (minimum 32 characters)."
         )
     
     # Warn if using default/weak secret (but allow for development only with strict conditions)
@@ -27,10 +36,10 @@ def _get_jwt_secret() -> str:
             "Use a cryptographically secure random secret."
         )
     
-    return secret
+    _jwt_secret_cache = secret
+    return _jwt_secret_cache
 
 
-JWT_SECRET = _get_jwt_secret()
 JWT_ALGORITHM = "HS256"
 
 security = HTTPBearer(auto_error=False)
@@ -66,7 +75,7 @@ async def get_current_user(
         )
     
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
         user_id: str = payload.get("sub")
         tenant_id: str = payload.get("tenant_id")
         role: str = payload.get("role")
