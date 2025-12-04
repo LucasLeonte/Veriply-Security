@@ -14,19 +14,19 @@
 team:
   size: 4
   developers:
-    - name: Dev1
+    - name: Dario
       max_wip: 2
       current_wip: 0
       skills: [frontend, backend, auth]
-    - name: Dev2
+    - name: Lucas
       max_wip: 2
       current_wip: 0
       skills: [backend, database, api]
-    - name: Dev3
+    - name: Kainy
       max_wip: 2
       current_wip: 0
       skills: [frontend, ui, testing]
-    - name: Dev4
+    - name: Soulaymane
       max_wip: 2
       current_wip: 0
       skills: [fullstack, devops, integration]
@@ -74,22 +74,22 @@ development_status:
     
   1-1-project-infrastructure-setup: 
     status: done
-    assigned_to: Dev4
+    assigned_to: Soulaymane
     completed_date: 2025-12-03
     
   1-2-database-schema-multi-tenancy-foundation: 
     status: done
-    assigned_to: Dev1
+    assigned_to: Dario
     completed_date: 2025-12-03
     
   1-3-user-registration-tenant-creation: 
     status: done
-    assigned_to: Dev1
+    assigned_to: Dario
     completed_date: 2025-12-03
     
   1-4-user-login-session-management: 
     status: assigned
-    assigned_to: Dev2
+    assigned_to: Lucas
     blocked_by: null
     
   1-5-team-invitation-role-assignment: 
