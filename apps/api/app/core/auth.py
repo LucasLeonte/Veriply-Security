@@ -1,7 +1,7 @@
 import os
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer
 
 
 def _get_jwt_secret() -> str:
@@ -36,7 +36,7 @@ JWT_ALGORITHM = "HS256"
 security = HTTPBearer()
 
 
-async def get_current_user(credentials: HTTPAuthCredentials = Depends(security)) -> dict:
+async def get_current_user(credentials = Depends(security)) -> dict:
     """Validate JWT token and return user info."""
     token = credentials.credentials
     
