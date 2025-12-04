@@ -8,4 +8,10 @@ async def enable_pgvector():
 async def enable_rls():
     async with engine.begin() as conn:
         await conn.execute(text("ALTER TABLE users ENABLE ROW LEVEL SECURITY;"))
-        await conn.execute(text("CREATE POLICY tenant_isolation ON users USING (tenant_id = current_setting('app.current_tenant_id')::uuid);") )
+        # Check if policy exists before creating it
+        result = await conn.execute(text("""
+            SELECT 1 FROM pg_policies 
+            WHERE tablename = 'users' AND policyname = 'tenant_isolation';
+        """))
+        if not result.scalar():
+            await conn.execute(text("CREATE POLICY tenant_isolation ON users USING (tenant_id = current_setting('app.current_tenant_id')::uuid);"))
