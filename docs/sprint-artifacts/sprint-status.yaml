@@ -28,7 +28,7 @@ team:
             skills: [frontend, ui, testing]
         - name: Soulaymane
             max_wip: 2
-            current_wip: 0
+            current_wip: 1
             skills: [fullstack, devops, integration]
 
 # STATUS DEFINITIONS:
@@ -93,8 +93,8 @@ development_status:
         completed_date: 2025-12-04
 
     1-5-team-invitation-role-assignment:
-        status: ready-for-dev
-        assigned_to: null
+        status: assigned
+        assigned_to: Soulaymane
         blocked_by: 1-4-user-login-session-management
 
     1-6-user-profile-team-management:
