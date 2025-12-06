@@ -15,5 +15,6 @@ tags = ["key", "secret"]
 [[rules]]
 id = "High Entropy String"
 description = "Potential secret detected by high entropy"
+regex = '''[a-zA-Z0-9]{20,}'''
 entropy = 5.5
 tags = ["secret", "entropy"]

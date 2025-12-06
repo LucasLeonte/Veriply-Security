@@ -91,6 +91,13 @@ jobs:
           pip install -r apps/api/requirements.txt
           pip install pytest httpx
       - name: Test with pytest
+        env:
+          JWT_SECRET: "test-secret-key-minimum-32-characters-long-1234567890"
+          POSTGRES_PASSWORD: "postgres"
+          POSTGRES_USER: "postgres"
+          POSTGRES_DB: "veriply_test"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_PORT: "5432"
         run: pytest apps/api
 
   gitleaks:
