@@ -5,7 +5,7 @@ from app.models.bot import BotStatus
 from app.models.tenant import Tenant, SubscriptionTier
 from app.models.user import User
 from app.schemas.bot import BotCreateRequest, BotUpdateRequest
-from app.schemas.bot import BotCreateRequest, BotUpdateRequest
+
 from app.services.bot_service import BotService, BOT_LIMITS
 from unittest.mock import patch
 from pydantic import ValidationError

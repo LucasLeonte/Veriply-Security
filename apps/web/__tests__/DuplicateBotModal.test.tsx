@@ -8,11 +8,11 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 
 // Mock the hook
 vi.mock("@/hooks/useBotsQuery", () => ({
-    useDuplicateBot: () => ({
+    useDuplicateBot: vi.fn(() => ({
         mutate: vi.fn(),
         isPending: false,
         error: null,
-    }),
+    })),
 }));
 
 describe("DuplicateBotModal", () => {
@@ -62,7 +62,7 @@ describe("DuplicateBotModal", () => {
             />
         );
 
-        expect(screen.getByText("Duplicate Bot")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: "Duplicate Bot" })).toBeInTheDocument();
         expect(screen.getByDisplayValue(mockBot.name)).toBeInTheDocument();
     });
 
@@ -76,7 +76,7 @@ describe("DuplicateBotModal", () => {
             />
         );
 
-        expect(container.firstChild).toBeEmptyDOMElement();
+        expect(container).toBeEmptyDOMElement();
     });
 
     it("does not render when bot is null", () => {
@@ -89,7 +89,7 @@ describe("DuplicateBotModal", () => {
             />
         );
 
-        expect(container.firstChild).toBeEmptyDOMElement();
+        expect(container).toBeEmptyDOMElement();
     });
 
     it("sets default name with (Copy) suffix", () => {

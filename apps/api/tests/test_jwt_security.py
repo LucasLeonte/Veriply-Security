@@ -4,7 +4,7 @@ Ensures that weak or missing JWT secrets are caught at startup
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from app.core import auth
 
 @pytest.fixture(autouse=True)

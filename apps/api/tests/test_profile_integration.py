@@ -31,14 +31,14 @@ import os
 from datetime import datetime, timedelta
 
 # Set JWT_SECRET BEFORE importing app (required for security validation)
-TEST_JWT_SECRET = "test-secret-key-minimum-32-characters-long-1234567890"
+TEST_JWT_SECRET = "test-secret-key-minimum-32-characters-long-1234567890"  # gitleaks:allow
 os.environ["JWT_SECRET"] = TEST_JWT_SECRET
 
 from fastapi.testclient import TestClient  # noqa: E402
-from fastapi import HTTPException, status  # noqa: E402
+from fastapi import HTTPException  # noqa: E402
 from app.main import app  # noqa: E402
 from app.core.auth import get_current_user  # noqa: E402
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock  # noqa: E402
 
 @pytest.fixture(autouse=True)
 def mock_profile_services():
@@ -53,7 +53,7 @@ def mock_profile_services():
              patch("app.api.v1.profile.update_user_profile", new_callable=AsyncMock) as mock_update, \
              patch("app.api.v1.profile.upload_avatar_url", new_callable=AsyncMock) as mock_upload, \
              patch("app.api.v1.profile.get_team_members", new_callable=AsyncMock) as mock_members, \
-             patch("app.api.v1.profile.remove_team_member", new_callable=AsyncMock) as mock_remove, \
+             patch("app.api.v1.profile.remove_team_member", new_callable=AsyncMock), \
              patch("app.api.v1.profile.change_team_member_role", new_callable=AsyncMock) as mock_change:
             
             # Simple class to mimic SQLAlchemy model behavior (attribute access)
