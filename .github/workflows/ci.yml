@@ -104,6 +104,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r apps/api/requirements.txt
           pip install pytest httpx
+      - name: Enable pgvector extension
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          PGPASSWORD=postgres psql -h localhost -U postgres -d veriply_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
       - name: Test with pytest
         env:
           JWT_SECRET: "test-secret-key-minimum-32-characters-long-1234567890"
