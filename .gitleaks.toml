@@ -18,3 +18,10 @@ description = "Potential secret detected by high entropy"
 regex = '''[a-zA-Z0-9]{20,}'''
 entropy = 5.5
 tags = ["secret", "entropy"]
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''\.bmad/''',
+    '''package-lock\.json'''
+]
