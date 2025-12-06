@@ -101,13 +101,7 @@ jobs:
         uses: zricethezav/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          # The action previously accepted 'args' but newer versions require
-          # passing config path as an argument via the 'with' input or using defaults.
-          # We'll still include the config path if supported by the runner.
-          # If the action flags this input as unexpected, the step will still run
-          # and the token will resolve the PR-scan error.
-          args: --config .gitleaks.toml
+        # The action will automatically detect .gitleaks.toml in the root
 
   smoke-e2e:
     runs-on: ubuntu-latest

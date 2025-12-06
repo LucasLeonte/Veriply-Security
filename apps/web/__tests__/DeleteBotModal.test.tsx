@@ -8,11 +8,11 @@ import { vi, describe, it, expect, beforeEach } from "vitest";
 
 // Mock the hook
 vi.mock("@/hooks/useBotsQuery", () => ({
-    useDeleteBot: () => ({
+    useDeleteBot: vi.fn(() => ({
         mutate: vi.fn(),
         isPending: false,
         error: null,
-    }),
+    })),
 }));
 
 describe("DeleteBotModal", () => {
@@ -63,7 +63,9 @@ describe("DeleteBotModal", () => {
             />
         );
 
-        expect(screen.getByText("Delete Bot")).toBeInTheDocument();
+        expect(
+            screen.getByRole("heading", { name: "Delete Bot" })
+        ).toBeInTheDocument();
         expect(
             screen.getByText(/This action cannot be undone/)
         ).toBeInTheDocument();
@@ -79,7 +81,7 @@ describe("DeleteBotModal", () => {
             />
         );
 
-        expect(container.firstChild).toBeEmptyDOMElement();
+        expect(container).toBeEmptyDOMElement();
     });
 
     it("does not render when bot is null", () => {
@@ -92,7 +94,7 @@ describe("DeleteBotModal", () => {
             />
         );
 
-        expect(container.firstChild).toBeEmptyDOMElement();
+        expect(container).toBeEmptyDOMElement();
     });
 
     it("displays bot document count in warning", () => {
