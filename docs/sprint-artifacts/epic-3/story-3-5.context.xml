@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.5</storyId>
+    <title>PII Redaction</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-3/story-3-5-pii-redaction.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>System</asA>
+    <iWant>detect and redact PII from queries before sending to LLM</iWant>
+    <soThat>sensitive data is never processed by the AI</soThat>
+    <tasks>
+      <task group="Backend - PII Detection Service">
+        <item>Create PIIRedactionService in apps/api/app/services/pii_service.py</item>
+        <item>Method: async def redact_query(query_text) -> RedactedQuery</item>
+        <item>Tier 1: Rule-based regex detection for email, phone, SSN, credit card, IP, URL</item>
+        <item>Tier 2: ML-based NER detection using Microsoft Presidio for names, context-dependent PII</item>
+        <item>Redaction markers: &lt;EMAIL&gt;, &lt;PHONE&gt;, &lt;SSN&gt;, &lt;CREDIT_CARD&gt;, &lt;PERSON&gt;, &lt;IP_ADDRESS&gt;, &lt;URL&gt;</item>
+        <item>Encrypt original query with AES-256, store separately</item>
+        <item>Return redacted query for LLM + encrypted original for audit</item>
+      </task>
+      <task group="Backend - Query Storage & Encryption">
+        <item>Store original query encrypted in database (encrypted_queries table)</item>
+        <item>Store redacted query in queries table (safe for analytics)</item>
+        <item>Link original and redacted with query_id</item>
+      </task>
+      <task group="Testing">
+        <item>Test: email addresses redacted correctly</item>
+        <item>Test: phone numbers redacted (various formats)</item>
+        <item>Test: credit cards redacted (Luhn validation)</item>
+        <item>Test: SSN redacted</item>
+        <item>Test: Names detected and redacted (Presidio NER)</item>
+        <item>Test: Mixed PII in one query handled</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>PII Types Detected</title>
+      <given>a query contains PII</given>
+      <when>redaction runs</when>
+      <then>system detects and redacts: email, phone, credit card, SSN, names, IP addresses, URLs</then>
+    </criterion>
+    <criterion id="2">
+      <title>Redaction Markers</title>
+      <given>PII is detected</given>
+      <when>redaction is applied</when>
+      <then>user@example.com → &lt;EMAIL&gt;, 555-123-4567 → &lt;PHONE&gt;, etc.</then>
+    </criterion>
+    <criterion id="3">
+      <title>Original Query Encrypted</title>
+      <given>original query stored</given>
+      <when>query is saved</when>
+      <then>original stored separately (encrypted AES-256) AND redacted version sent to LLM</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-3/story-3-5-pii-redaction.md</path>
+        <title>Complete PII redaction specification</title>
+        <section>Two-tier detection: regex + ML (Presidio)</section>
+        <snippet>Regex for structured PII (email, phone), Presidio NER for context-dependent PII (names)</snippet>
+        <relevance>Complete technical specification</relevance>
+      </artifact>
+    </docs>
+  </artifacts>
+
+  <constraints>
+    <constraint type="security">Original query encrypted at rest (AES-256)</constraint>
+    <constraint type="accuracy">High-confidence detection (99%+ for regex patterns)</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>PIIRedactionService</name>
+      <kind>Python service class</kind>
+      <signature>async def redact_query(query_text) -> RedactedQuery</signature>
+      <path>apps/api/app/services/pii_service.py (new)</path>
+      <notes>Two-tier detection: regex + Presidio NER. Returns redacted query + encrypted original.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Test all PII types detected and redacted correctly. Test encryption of original query.</standards>
+    <locations>Backend: apps/api/tests/.</locations>
+    <ideas>
+      <test acId="1">Email redacted: user@example.com → &lt;EMAIL&gt;</test>
+      <test acId="1">Phone redacted: 555-123-4567 → &lt;PHONE&gt;</test>
+      <test acId="1">SSN redacted: 123-45-6789 → &lt;SSN&gt;</test>
+      <test acId="3">Original query encrypted with AES-256</test>
+    </ideas>
+  </tests>
+</story-context>

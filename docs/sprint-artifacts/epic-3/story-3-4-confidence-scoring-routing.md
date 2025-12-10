@@ -1,9 +1,10 @@
 # Story 3.4: Confidence Scoring & Routing
 
 **Epic:** 3. RAG Q&A Engine  
-**Status:** drafted  
+**Status:** ready-for-dev  
 **Assigned to:** TBD  
 **Blocked by:** 3-3-citation-generation
+**Context:** docs/sprint-artifacts/epic-3/story-3-4.context.xml
 
 ## Story
 
@@ -18,8 +19,8 @@ so that low-confidence answers route to HITL review.
 -   [ ] Confidence score is calculated for every AI answer (0-100%)
 -   [ ] Score formula combines three factors:
     -   [ ] Retrieval confidence: Max similarity of retrieved chunks (40% weight)
-    -   [ ] Generation confidence: LLM's self-reported confidence (30% weight)
-    -   [ ] Context coverage: % of answer supported by context (30% weight)
+    -   [ ] Source consistency: Agreement between multiple retrieved sources (30% weight)
+    -   [ ] Generation confidence: LLM's self-reported confidence via logprobs (30% weight)
 -   [ ] Score is returned with every answer
 -   [ ] Score is visible to agents in HITL queue
 
@@ -49,8 +50,9 @@ so that low-confidence answers route to HITL review.
 ### Edge Cases
 
 -   [ ] No context (empty search): confidence = 0%
--   [ ] Ambiguous context (conflicting chunks): confidence < 50%
--   [ ] Out-of-domain query: confidence = 0%
+-   [ ] Contradictory sources (low consistency): confidence < 50% (automatically detected)
+-   [ ] Out-of-domain query: confidence = 0% (poor retrieval + low consistency)
+-   [ ] All sources agree (high consistency): confidence boosts even if retrieval moderate
 -   [ ] Verified KB match: confidence = 95% + (auto-send always)
 
 ## Technical Specifications
@@ -60,8 +62,8 @@ so that low-confidence answers route to HITL review.
 ```
 confidence_score = (
   (retrieval_confidence * 0.4) +
-  (generation_confidence * 0.3) +
-  (context_coverage * 0.3)
+  (source_consistency * 0.3) +
+  (generation_confidence * 0.3)
 ) * 100
 ```
 
@@ -77,37 +79,63 @@ retrieval_confidence = max(similarity_scores)
 
 Rationale: If best matching chunk has high similarity, answer likely correct.
 
-**Component 2: Generation Confidence (30% weight)**
+**Component 2: Source Consistency (30% weight)**
 
-Extract LLM's self-reported confidence via prompt:
+Measure agreement between retrieved sources using cosine similarity of embeddings:
 
+```python
+def calculate_source_consistency(retrieved_chunks):
+    """
+    Measure agreement between retrieved sources.
+    High: chunks say the same thing (low hallucination risk)
+    Low: chunks contradict or are unrelated (hallucination risk)
+    """
+    embeddings = [embed(chunk.text) for chunk in retrieved_chunks]
+
+    # Pairwise similarities between all chunks
+    similarities = []
+    for i in range(len(embeddings)):
+        for j in range(i+1, len(embeddings)):
+            sim = cosine_similarity(embeddings[i], embeddings[j])
+            similarities.append(sim)
+
+    return mean(similarities) if similarities else 0  # Average agreement
 ```
-After generating answer, ask LLM:
-"On a scale of 0-100%, how confident are you in this answer?"
+
+Example:
+
+-   Top 5 chunks: embeddings pairwise similarities = [0.92, 0.88, 0.85, 0.91, ...]
+-   source_consistency = mean = 0.89
+
+Rationale: If multiple retrieved chunks agree (high similarity), answer likely correct and not hallucinated. Contradictory sources reduce confidence.
+
+**Component 3: Generation Confidence (30% weight)**
+
+Extract LLM's uncertainty from token logprobs or infer from response structure:
+
+**Method A: Logprobs (preferred - technical)**
+
+```python
+def extract_generation_confidence(token_logprobs):
+    """
+    Calculate confidence from token probability distributions.
+    Average log probability of tokens: higher = more confident
+    """
+    avg_logprob = mean(token_logprobs)
+    # Scale from logprob space to 0-1
+    # logprob=-0.1 → 0.9, logprob=-1.0 → 0.4, logprob=-5+ → ~0.0
+    confidence = 1.0 / (1.0 + abs(avg_logprob) * 0.5)  # Sigmoid-like mapping
+    return max(0, min(1, confidence))
 ```
 
-Or infer from response structure:
+**Method B: Inference from response (fallback)**
 
 -   If answer starts with "Yes," / "Definitely,": 0.9
 -   If answer starts with "Based on...", "According to...": 0.75
--   If answer includes "I'm not sure", "This is unclear": 0.3
--   If answer is "I don't have information": 0.0
+-   If answer includes "I'm not sure", "unclear": 0.4
+-   If answer is "I don't have information": 0.1
 
-Rationale: LLM can reflect on its own answer quality.
-
-**Component 3: Context Coverage (30% weight)**
-
-Measure % of answer supported by context:
-
-```
-context_coverage = (cited_sentences / total_sentences)
-
-# Example:
-# Answer has 5 sentences, 4 are cited
-# context_coverage = 4/5 = 0.8
-```
-
-Rationale: Unsupported sentences indicate synthesis/hallucination.
+Rationale: Token probability reflects model uncertainty. High average logprobs indicate confident token selection.
 
 ### Confidence Thresholds
 
@@ -140,8 +168,8 @@ CREATE TABLE confidence_logs (
 
   -- Components
   retrieval_confidence DECIMAL(3,2),  -- 0.00-1.00
+  source_consistency DECIMAL(3,2),
   generation_confidence DECIMAL(3,2),
-  context_coverage DECIMAL(3,2),
 
   -- Result
   overall_confidence DECIMAL(3,2),
@@ -183,10 +211,10 @@ POST /api/bots/{bot_id}/query
         "overall_score": 85,
         "components": {
             "retrieval_confidence": 0.89,
-            "generation_confidence": 0.85,
-            "context_coverage": 0.8
+            "source_consistency": 0.87,
+            "generation_confidence": 0.83
         },
-        "reasoning": "Good retrieval match, well-cited answer, mostly from context"
+        "reasoning": "Excellent retrieval match, high agreement between sources, strong model confidence"
     },
     "routing": {
         "decision": "auto_send",
@@ -205,10 +233,10 @@ POST /api/bots/{bot_id}/query
         "overall_score": 35,
         "components": {
             "retrieval_confidence": 0.42,
-            "generation_confidence": 0.3,
-            "context_coverage": 0.25
+            "source_consistency": 0.35,
+            "generation_confidence": 0.28
         },
-        "reasoning": "Poor retrieval match, weak context coverage, LLM uncertain"
+        "reasoning": "Poor retrieval match, sources disagree/contradictory, LLM uncertain (low logprobs)"
     },
     "routing": {
         "decision": "hitl",
@@ -226,10 +254,10 @@ POST /api/bots/{bot_id}/query
 1. **Confidence Calculator Service:**
 
     - Extract retrieval confidence (max similarity from chunks)
-    - Extract generation confidence (parse LLM response or prompt LLM)
-    - Calculate context coverage (citation analysis)
-    - Combine components with weighting
-    - Store in confidence_logs table
+    - Calculate source consistency (average pairwise chunk similarity via embeddings)
+    - Extract generation confidence (from token logprobs or response inference)
+    - Combine components with weighting (40/30/30)
+    - Store all components in confidence_logs table
 
 2. **Confidence Calculation:**
 
@@ -237,27 +265,28 @@ POST /api/bots/{bot_id}/query
     def calculate_confidence(
         context_chunks,
         generated_answer,
-        citations
+        token_logprobs
     ) -> ConfidenceResult:
         # Retrieval: max similarity
         retrieval_conf = max([c.similarity for c in context_chunks]) if context_chunks else 0
 
-        # Generation: ask LLM or infer from response
-        gen_conf = infer_generation_confidence(generated_answer)
+        # Source Consistency: agreement between chunks
+        consistency = calculate_source_consistency(context_chunks)
 
-        # Coverage: cited sentences / total sentences
-        total_sents = count_sentences(generated_answer)
-        cited_sents = len(set(c.sentence_id for c in citations))
-        coverage = cited_sents / total_sents if total_sents > 0 else 0
+        # Generation: extract from logprobs or infer from response
+        if token_logprobs:
+            gen_conf = extract_generation_confidence(token_logprobs)
+        else:
+            gen_conf = infer_generation_confidence(generated_answer)
 
-        # Combine
-        overall = (retrieval_conf * 0.4 + gen_conf * 0.3 + coverage * 0.3)
+        # Combine: 40% retrieval + 30% consistency + 30% generation
+        overall = (retrieval_conf * 0.4 + consistency * 0.3 + gen_conf * 0.3)
 
         return ConfidenceResult(
             overall=overall,
             retrieval=retrieval_conf,
-            generation=gen_conf,
-            coverage=coverage
+            source_consistency=consistency,
+            generation=gen_conf
         )
     ```
 

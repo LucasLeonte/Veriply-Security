@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.1</storyId>
+    <title>Web Chat Interface</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-4/story-4-1-web-chat-interface.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>End-user</asA>
+    <iWant>interact with a bot via a web-based chat interface</iWant>
+    <soThat>I can get answers to my questions</soThat>
+    <tasks>
+      <task group="Frontend - Chat Component &amp; Layout">
+        <item>Create Next.js page: apps/web/src/app/chat/[botId]/page.tsx</item>
+        <item>Server component to fetch bot metadata and public settings</item>
+        <item>Client component for interactive chat UI</item>
+        <item>Verify bot is public/enabled before rendering</item>
+        <item>Build ChatWindow component with header (bot name, avatar), message container, loading skeleton</item>
+        <item>Build MessageInput component with Enter-to-send, Shift+Enter for newline, disabled state</item>
+        <item>Apply shadcn/ui styling (Card, Input, Button) with Cool Slate theme from UX spec</item>
+      </task>
+      <task group="Frontend - Streaming Response Display">
+        <item>Create MessageStreaming component with SSE event listener</item>
+        <item>Buffer tokens and update DOM efficiently (batch every 100ms)</item>
+        <item>Integrate react-markdown for safe markdown parsing (bold, italic, lists, code blocks)</item>
+        <item>Render citations inline with pattern: [Source: Document Name]</item>
+        <item>Handle edge cases: long responses (>5000 chars), rapid token arrival, network interruption</item>
+      </task>
+      <task group="Frontend - Session &amp; History Management">
+        <item>Implement session storage in localStorage: key = chat_session_${botId}_${timestamp}</item>
+        <item>Store ChatMessage objects: {id, role, content, timestamp, citations?}</item>
+        <item>Persist messages on each add/receive, clear on page unload</item>
+        <item>Implement "Start New Conversation" button to manually clear history</item>
+      </task>
+      <task group="Frontend - Error Handling &amp; User Feedback">
+        <item>Add error boundary component that catches rendering errors</item>
+        <item>Implement retry mechanism (max 3 retries) for failed messages</item>
+        <item>Show friendly error messages (not technical details)</item>
+        <item>Add loading and empty states (skeleton loader, "Waiting for response...")</item>
+      </task>
+      <task group="API - Chat Query Endpoint">
+        <item>Create endpoint: POST /api/v1/bots/:bot_id/chat/query</item>
+        <item>Accept: {query: string, context?: string[]}</item>
+        <item>Return: Server-Sent Events (SSE) stream with response tokens</item>
+        <item>Validate: Bot exists and is public, query length 0-5000 chars, no special characters</item>
+        <item>Integrate with RAG pipeline: call /api/v1/bots/:bot_id/search for context, pass to LLM</item>
+        <item>Stream tokens via SSE, parse citations, return structured response</item>
+      </task>
+      <task group="API - Public Bot Metadata Endpoint">
+        <item>Create endpoint: GET /api/v1/bots/:bot_id/public</item>
+        <item>Return: name, avatar, welcome_message, is_public</item>
+        <item>Cache response with 5 min TTL</item>
+        <item>Does NOT require authentication (public access)</item>
+      </task>
+      <task group="Backend - SSE Response Streaming">
+        <item>Implement SSE streaming in FastAPI with async event generator</item>
+        <item>Handle connection drops gracefully with proper cleanup</item>
+        <item>Set proper CORS headers for public endpoint (allow all origins)</item>
+        <item>Implement timeout: 5 min max response time per query</item>
+      </task>
+      <task group="Testing - Component Tests">
+        <item>Test ChatWindow: renders welcome message, displays user message, shows typing indicator, streams tokens, error handling</item>
+        <item>Test MessageInput: Enter sends, Shift+Enter newline, send button disabled when empty, input cleared after send</item>
+        <item>Test MessageStreaming: buffers tokens correctly, renders markdown, handles interruption</item>
+        <item>Use Vitest + React Testing Library</item>
+      </task>
+      <task group="Testing - API Tests">
+        <item>Test GET /api/v1/bots/:bot_id/public: 200 for valid public bot, 404 for invalid, 403 if not public</item>
+        <item>Test POST /api/v1/bots/:bot_id/chat/query: streams tokens, validates query, error handling, LLM timeout</item>
+        <item>Test SSE connection: tokens arrive in order, response completes correctly</item>
+        <item>Use pytest + FastAPI TestClient</item>
+      </task>
+      <task group="Integration - SSE Connection">
+        <item>Verify Next.js EventSource API works with FastAPI endpoint</item>
+        <item>Verify CORS allows public access (no authentication required)</item>
+        <item>End-to-end test: send message → verify tokens stream → verify response displays</item>
+        <item>Manual E2E test with Playwright</item>
+      </task>
+      <task group="Documentation &amp; Deployment">
+        <item>Add JSDoc comments to all React components</item>
+        <item>Document API endpoint schema in OpenAPI/Swagger</item>
+        <item>Add usage examples in README</item>
+        <item>Verify performance on slow networks (3G throttle in DevTools)</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Chat Interface Display - Public Access</title>
+      <given>I navigate to a bot's public chat URL (/chat/:bot_id)</given>
+      <when>the page loads</when>
+      <then>I see: Chat window with bot name and avatar in header, Welcome message configured by bot owner (max 500 chars), Input field with placeholder "Ask a question...", Send button (enabled/disabled based on input), Clean responsive layout (mobile-first design)</then>
+    </criterion>
+    <criterion id="2">
+      <title>Chat Interface Display - Loading State</title>
+      <given>the chat interface is loading</given>
+      <when>data is being fetched</when>
+      <then>I see a loading skeleton instead of broken layout AND no errors are displayed to user (logged server-side)</then>
+    </criterion>
+    <criterion id="3">
+      <title>Message Sending - Optimistic Update</title>
+      <given>I type a question and press Enter or click Send</given>
+      <when>the request is submitted</when>
+      <then>my message appears in chat immediately (optimistic update) AND typing indicator appears below my message AND input field is cleared and disabled</then>
+    </criterion>
+    <criterion id="4">
+      <title>Response Streaming - Token Display</title>
+      <given>the AI response is being generated</given>
+      <when>tokens stream in via Server-Sent Events (SSE)</when>
+      <then>I see response appear token-by-token (streaming display) AND response is formatted with markdown support (bold, lists, code blocks) AND citations appear inline with format: [Source: Document Name]</then>
+    </criterion>
+    <criterion id="5">
+      <title>Response Completion - Re-enable Input</title>
+      <given>the response is complete</given>
+      <when>streaming finishes</when>
+      <then>typing indicator disappears AND input field is re-enabled AND focus returns to input for next question</then>
+    </criterion>
+    <criterion id="6">
+      <title>Error Handling - User Friendly Messages</title>
+      <given>an error occurs during response generation</given>
+      <when>the error is received</when>
+      <then>I see friendly error message: "Sorry, I encountered an issue. Please try again." AND message includes retry button AND full error details logged server-side (not shown to user)</then>
+    </criterion>
+    <criterion id="7">
+      <title>Error Handling - Bot Not Found</title>
+      <given>the bot is not found</given>
+      <when>I navigate to invalid bot URL</when>
+      <then>I see: "Bot not found or is not available" AND offered to return to home or contact support</then>
+    </criterion>
+    <criterion id="8">
+      <title>Session History - Session Persistence</title>
+      <given>I am in a chat session</given>
+      <when>I send multiple messages</when>
+      <then>all messages persist in chat window for session duration AND chat history stored in browser localStorage (session-based) AND messages survive page refresh within same session</then>
+    </criterion>
+    <criterion id="9">
+      <title>Session History - Session Clearing</title>
+      <given>I close chat window or leave the page</given>
+      <when>I return later</when>
+      <then>chat history is cleared (session-based, not persistent) AND I start fresh conversation</then>
+    </criterion>
+    <criterion id="10">
+      <title>Responsiveness - Mobile Touch Targets</title>
+      <given>I am using a mobile browser</given>
+      <when>chat interface loads</when>
+      <then>all elements are touch-friendly (44x44px minimum) AND keyboard is not blocked by chat window AND scrolling works smoothly</then>
+    </criterion>
+    <criterion id="11">
+      <title>Accessibility - Screen Reader Support</title>
+      <given>I am using a screen reader</given>
+      <when>I interact with chat</when>
+      <then>messages announced with proper ARIA labels AND button roles are clear AND focus managed correctly (WCAG 2.1 AA)</then>
+    </criterion>
+    <criterion id="12">
+      <title>Performance - Slow Network Resilience</title>
+      <given>I am on slow network connection</given>
+      <when>I send a message</when>
+      <then>UI responds immediately (optimistic update) AND streaming begins within 2 seconds AND chat doesn't freeze or stutter</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic & Story Breakdown</title>
+        <section>Epic 4: Chat Experience, Story 4.1: Web Chat Interface</section>
+        <snippet>As an End-user, I want to interact with a bot via a web-based chat interface, so that I can get answers to my questions. Chat displays AI responses with source citations. Chat maintains conversation context for follow-ups.</snippet>
+        <relevance>Complete specification and acceptance criteria for chat interface functionality</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Frontend: Next.js 14, Backend: FastAPI, Vector Store: PostgreSQL + pgvector, Embeddings: Ollama</section>
+        <snippet>Frontend: Next.js 14 (App Router) — apps/web present. Backend: FastAPI (uvicorn) — apps/api present. Streaming patterns recommended for real-time token delivery to chat interfaces.</snippet>
+        <relevance>Architecture confirms Next.js frontend and FastAPI backend, provides streaming patterns for SSE implementation</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Frontend Stack: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui. Backend: FastAPI with Ollama integration</section>
+        <snippet>Frontend: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui. Backend: FastAPI (Python 3.11+). LLM: Ollama with Qwen 2.5 or llama3. Component library: shadcn/ui + Tailwind CSS.</snippet>
+        <relevance>Confirms tech stack for chat components and styling conventions</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/ux-design-specification.md</path>
+        <title>UX Design Specification</title>
+        <section>Chat Interface Design: Cool Slate theme, responsive layout, accessibility standards (WCAG 2.1 AA)</section>
+        <snippet>Cool Slate color theme with high contrast for accessibility. Mobile-first responsive design. 44x44px minimum touch targets for mobile. ARIA labels for screen readers.</snippet>
+        <relevance>Defines visual design system, color theme (Cool Slate), and accessibility requirements for chat interface</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-3/story-3-2-context-only-answer-generation.md</path>
+        <title>Context-Only Answer Generation</title>
+        <section>RAG Integration: Retrieves context, generates answers, provides citations</section>
+        <snippet>Story 3.2 provides the LLM endpoint that returns streamed responses with citations. Chat interface depends on this being completed first.</snippet>
+        <relevance>Blocker story that provides the RAG/LLM integration required for chat responses</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-2/story-2-8-bot-isolation-enforcement.md</path>
+        <title>Bot Isolation Enforcement</title>
+        <section>Bot Authorization Patterns: BotService.get_bot() for bot lookup and isolation</section>
+        <snippet>BotService.get_bot() validates bot ownership and applies RLS filtering. Reuse this pattern for public bot lookup in chat interface (check is_public flag instead of ownership).</snippet>
+        <relevance>Provides reusable bot service patterns and authorization logic for public bot access</relevance>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>apps/api/app/services/bot_service.py</path>
+        <kind>service</kind>
+        <symbol>BotService.get_bot()</symbol>
+        <reason>Reuse for public bot metadata lookup. Already implements bot retrieval with RLS filtering. Extend or create variant for public access (no ownership check, check is_public flag).</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/bot.py</path>
+        <kind>model</kind>
+        <symbol>Bot, BotConfig</symbol>
+        <reason>Bot model already exists from Story 2-1. Ensure is_public, welcome_message, and avatar_url fields are present. If not, add them.</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/components/DeleteBotModal.tsx</path>
+        <kind>component</kind>
+        <symbol>ErrorBoundary, error handling patterns</symbol>
+        <lines>N/A</lines>
+        <reason>Reference error handling and user feedback patterns used in existing bot management modals</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/api/routes/bots.py</path>
+        <kind>controller</kind>
+        <symbol>bot routes, validation patterns</symbol>
+        <reason>Existing API patterns for bot endpoints. Follow same structure for /api/v1/bots/:bot_id/public and /api/v1/bots/:bot_id/chat/query</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/lib/api</path>
+        <kind>directory</kind>
+        <symbol>API client utilities</symbol>
+        <reason>Existing API client library. Create chat.ts in this directory for SSE chat API integration</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/next.config.ts</path>
+        <kind>config</kind>
+        <symbol>Next.js configuration</symbol>
+        <reason>May need CORS headers for SSE public endpoint. Verify configuration supports streaming responses.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <frontend>
+        <package name="next">version: 14.x (from package.json)</package>
+        <package name="react">version: 18.x (from package.json)</package>
+        <package name="react-markdown">Install for markdown rendering in chat responses</package>
+        <package name="tailwindcss">version: from apps/web/package.json (already installed)</package>
+        <package name="@radix-ui/react-*">shadcn/ui components (dependencies via @radix-ui)</package>
+      </frontend>
+      <backend>
+        <package name="fastapi">version: from apps/api/requirements.txt</package>
+        <package name="pydantic">version: from apps/api/requirements.txt (for validation)</package>
+        <package name="sqlalchemy">version: from apps/api/requirements.txt (async ORM)</package>
+        <package name="langchain">version: from apps/api/requirements.txt (for LLM integration)</package>
+        <package name="redis">Optional: for caching bot metadata (5 min TTL)</package>
+      </backend>
+      <infrastructure>
+        <package name="postgres">version: 16 (from docker-compose.yml)</package>
+        <package name="pgvector">extension (from docker/postgres/init-db)</package>
+        <package name="ollama">version: latest (from docker-compose.yml)</package>
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architecture">Public API endpoint requires NO authentication, but must validate bot is public (is_public=true) before allowing chat queries</constraint>
+    <constraint type="architecture">Session history stored client-side in localStorage only (not persistent server-side). Clear on page unload or explicit "Start New Conversation"</constraint>
+    <constraint type="architecture">All responses streamed via Server-Sent Events (SSE), not WebSocket. Simpler, works with existing HTTP infrastructure.</constraint>
+    <constraint type="security">XSS Prevention: Sanitize markdown input via react-markdown with safe defaults. Never render raw HTML.</constraint>
+    <constraint type="security">Rate limiting: Consider limiting /chat/query endpoint (e.g., 10 req/min per IP) to prevent abuse</constraint>
+    <constraint type="security">Bot isolation: All API endpoints must validate bot_id and check authorization (public access or ownership)</constraint>
+    <constraint type="performance">SSE tokens must be buffered and batched (every 100ms) to avoid excessive DOM updates on fast GPUs</constraint>
+    <constraint type="performance">UI must respond immediately to user message (optimistic update) before waiting for API response</constraint>
+    <constraint type="accessibility">All interactive elements must be 44x44px minimum (WCAG touch target size)</constraint>
+    <constraint type="accessibility">Chat interface must work with screen readers (ARIA labels, focus management, semantic HTML)</constraint>
+    <constraint type="accessibility">Contrast ratio >= 4.5:1 for text (WCAG AA standard)</constraint>
+    <constraint type="responsiveness">Mobile-first design: works on 320px width (iPhone SE) up to desktop (1920px)</constraint>
+    <constraint type="responsiveness">Keyboard on mobile must not block send button or input field</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>GET /api/v1/bots/:bot_id/public</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/bots/{bot_id}/public -> 200 { name: str, avatar_url?: str, welcome_message: str, is_public: bool }</signature>
+      <path>apps/api/app/api/routes/bots.py (create new or extend)</path>
+      <notes>No authentication required. Returns 404 if bot not found. Returns 403 if is_public=false.</notes>
+    </interface>
+    <interface>
+      <name>POST /api/v1/bots/:bot_id/chat/query</name>
+      <kind>REST endpoint (SSE streaming)</kind>
+      <signature>POST /api/v1/bots/{bot_id}/chat/query { query: str, context?: str[] } -> 200 text/event-stream</signature>
+      <path>apps/api/app/api/routes/chat.py (create new)</path>
+      <notes>Streams response tokens as SSE events. Each event: data: {"token": "..."}\n\n. No authentication required.</notes>
+    </interface>
+    <interface>
+      <name>ChatMessage (Frontend)</name>
+      <kind>TypeScript interface</kind>
+      <signature>interface ChatMessage { id: string; role: "user" | "assistant"; content: string; timestamp: number; citations?: Array&lt;{source: string; url?: string}&gt;; }</signature>
+      <path>apps/web/src/types/chat.ts (create new)</path>
+      <notes>Used for session storage in localStorage and state management</notes>
+    </interface>
+    <interface>
+      <name>useChat() Hook</name>
+      <kind>React hook</kind>
+      <signature>useChat(botId: string) -> { messages: ChatMessage[]; loading: bool; error?: string; sendMessage(query: str): void; clearHistory(): void; }</signature>
+      <path>apps/web/src/hooks/useChat.ts (create new)</path>
+      <notes>Manages chat state, localStorage persistence, API calls via EventSource</notes>
+    </interface>
+    <interface>
+      <name>ChatWindow Component</name>
+      <kind>React component</kind>
+      <signature>&lt;ChatWindow botId={string} botName={string} botAvatar={string} welcomeMessage={string} /&gt;</signature>
+      <path>apps/web/src/components/ChatWindow.tsx (create new)</path>
+      <notes>Main chat display component. Handles message rendering, auto-scroll, loading/error states</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Follow test patterns from Story 2-2 (bot operations) and Story 2-8 (bot isolation). Unit tests isolate components with mocks. Integration tests verify API endpoints work correctly. E2E tests verify end-to-end workflow: navigate to chat → send message → stream tokens → verify display. Test frameworks: Vitest + React Testing Library (frontend), pytest + FastAPI TestClient (backend). All tests must verify accessibility (ARIA labels, focus management) and mobile responsiveness (44px touch targets).
+    </standards>
+    <locations>
+      Frontend tests: apps/web/__tests__/ (Vitest discovers .test.tsx files). Backend tests: apps/api/tests/ (pytest discovers test_*.py files). E2E tests: apps/e2e/ (Playwright).
+    </locations>
+    <ideas>
+      <test acId="1">ChatWindow renders welcome message on initial load</test>
+      <test acId="3">User message appears immediately in chat after send (optimistic update)</test>
+      <test acId="3">Typing indicator shows below user message while response pending</test>
+      <test acId="4">SSE tokens stream and appear in response one-by-one</test>
+      <test acId="4">Markdown formatting applies to response (bold, italic, lists, code)</test>
+      <test acId="4">Citations render inline with [Source: Document] format</test>
+      <test acId="5">Typing indicator disappears when streaming completes</test>
+      <test acId="5">Input field re-enabled and focused after response completes</test>
+      <test acId="6">Error message displays friendly text (not stack trace)</test>
+      <test acId="6">Retry button present in error message</test>
+      <test acId="7">Invalid bot URL shows "Bot not found" message</test>
+      <test acId="8">Messages persist in localStorage during session</test>
+      <test acId="8">Page refresh within same session restores messages</test>
+      <test acId="9">Closing browser tab and returning clears history</test>
+      <test acId="10">Mobile: All buttons are 44x44px minimum touch targets</test>
+      <test acId="10">Mobile: Keyboard doesn't block send button</test>
+      <test acId="10">Mobile: Scrolling is smooth without jank</test>
+      <test acId="11">Screen reader announces messages with role="article" or similar</test>
+      <test acId="11">Focus management: Tab moves through send button → input field logically</test>
+      <test acId="12">Slow network (3G throttle): UI responds immediately to send, response begins within 2s</test>
+      <testAPI>GET /api/v1/bots/:bot_id/public returns 200 with bot metadata for public bot</testAPI>
+      <testAPI>GET /api/v1/bots/:bot_id/public returns 404 for invalid bot_id</testAPI>
+      <testAPI>GET /api/v1/bots/:bot_id/public returns 403 if is_public=false</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/chat/query streams tokens as SSE events</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/chat/query validates query length (0-5000 chars)</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/chat/query returns error if bot not found</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/chat/query handles LLM timeout gracefully (&lt;5 min)</testAPI>
+    </ideas>
+  </tests>
+</story-context>

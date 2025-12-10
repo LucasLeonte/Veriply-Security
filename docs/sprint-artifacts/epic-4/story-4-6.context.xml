@@ -1,0 +1,1049 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Story 4.6: Widget Security & Responsiveness - Developer Context
+  
+  Generated: 2025-12-10
+  Epic: 4. Chat Experience
+  Story: Widget Security & Responsiveness
+  
+  Purpose: Provide comprehensive context for developers implementing domain whitelisting security
+           and mobile responsiveness for embeddable widgets.
+  
+  This context includes:
+  - Domain whitelist UI and validation
+  - Server-side origin verification with wildcard support
+  - Mobile responsive design (320px+) with touch-friendly UI
+  - Keyboard handling for iOS/Android devices
+  - WCAG AA accessibility standards for mobile
+  - Browser compatibility testing (Chrome, Firefox, Safari, Edge)
+  - Performance optimization for mobile networks
+-->
+
+<story-context>
+  <story-header>
+    <story-id>4-6-widget-security-responsiveness</story-id>
+    <epic-id>4</epic-id>
+    <epic-title>Chat Experience</epic-title>
+    <story-title>Widget Security & Responsiveness</story-title>
+    <status>drafted</status>
+    <assigned-to>Unassigned</assigned-to>
+    <blocked-by>
+      <dependency story-id="4-5">Embeddable Widget Generation - Need widget infrastructure</dependency>
+    </blocked-by>
+  </story-header>
+
+  <story-overview>
+    <user-story>
+      As a User,
+      I want to restrict which domains can use my widget,
+      so that my bot isn't embedded on unauthorized sites.
+    </user-story>
+    
+    <business-value>
+      Domain whitelisting prevents unauthorized use of chatbots on unintended websites, protecting
+      brand reputation and preventing abuse. Mobile responsiveness ensures widget works seamlessly
+      on smartphones and tablets (>60% of web traffic). Together, these features enable secure,
+      accessible deployment across all devices and controlled distribution.
+    </business-value>
+
+    <technical-summary>
+      Extend WidgetSettings with domain whitelist UI supporting exact and wildcard domains (*.example.com).
+      Implement server-side origin verification middleware checking Origin/Referer headers against
+      whitelist. Support graceful degradation (empty whitelist = no restrictions). Build mobile-first
+      responsive CSS with touch-friendly UI (44x44px minimum touch targets). Handle mobile keyboard
+      appearance using visualViewport API. Ensure WCAG AA accessibility (4.5:1 contrast, ARIA labels).
+      Test on iOS/Android devices and major browsers (Chrome, Firefox, Safari, Edge). Optimize for
+      3G networks (< 50KB bundle, minimized requests).
+    </technical-summary>
+
+    <key-functional-requirements>
+      <requirement id="FR35">Widget supports domain whitelisting</requirement>
+      <requirement id="FR36">Widget works on desktop and mobile browsers</requirement>
+    </key-functional-requirements>
+  </story-overview>
+
+  <acceptance-criteria>
+    <group name="Domain Whitelist Configuration">
+      <ac id="AC1">
+        <given>I am on the widget settings page</given>
+        <when>I look for domain restrictions</when>
+        <then>
+          - I see a "Allowed Domains" section
+          - An input field to add domains
+        </then>
+      </ac>
+
+      <ac id="AC2">
+        <given>I enter "example.com" in the allowed domains field</given>
+        <when>I click Add or press Enter</when>
+        <then>
+          - "example.com" is added to the list
+          - It appears as a tag/chip in the list
+        </then>
+      </ac>
+
+      <ac id="AC3">
+        <given>I enter "*.example.com" (wildcard)</given>
+        <when>I save the configuration</when>
+        <then>
+          - The wildcard is saved
+          - It allows the widget to load on any subdomain
+        </then>
+      </ac>
+
+      <ac id="AC4">
+        <given>I have multiple domains in the list</given>
+        <when>I look at the whitelist</when>
+        <then>
+          I see all domains listed with:
+          - Domain name
+          - Edit button (edit the domain)
+          - Delete button (remove the domain)
+        </then>
+      </ac>
+
+      <ac id="AC5">
+        <given>I want to remove a domain</given>
+        <when>I click the delete button</when>
+        <then>
+          - The domain is removed from the whitelist
+          - The updated config is saved
+        </then>
+      </ac>
+    </group>
+
+    <group name="Domain Validation">
+      <ac id="AC6">
+        <given>I try to add an invalid domain: "not a domain!@#"</given>
+        <when>I submit</when>
+        <then>
+          - An error appears: "Invalid domain format"
+          - The domain is NOT added to the whitelist
+        </then>
+      </ac>
+
+      <ac id="AC7">
+        <given>I try to add "localhost" (for testing)</given>
+        <when>I submit</when>
+        <then>
+          - It's accepted (valid for testing)
+          - Added to the whitelist
+        </then>
+      </ac>
+
+      <ac id="AC8">
+        <given>I try to add a domain twice</given>
+        <when>I submit</when>
+        <then>
+          An error appears: "Domain already in whitelist"
+        </then>
+      </ac>
+    </group>
+
+    <group name="Widget Loading Enforcement">
+      <ac id="AC9">
+        <given>A website embeds my widget code</given>
+        <when>The widget loads on "allowed-domain.com"</when>
+        <then>
+          - The widget initializes normally
+          - The chat interface appears
+        </then>
+      </ac>
+
+      <ac id="AC10">
+        <given>A website embeds my widget code</given>
+        <when>The widget tries to load on "unauthorized-domain.com"</when>
+        <then>
+          - The widget does NOT load
+          - User sees message: "This widget is not authorized for this domain"
+          - NO chat interface is displayed
+        </then>
+      </ac>
+
+      <ac id="AC11">
+        <given>The domain whitelist is empty (no restrictions)</given>
+        <when>Anyone embeds the widget</when>
+        <then>
+          - The widget loads on ANY domain (backward compatible)
+          - A warning appears in bot settings: "No domain restrictions. Widget is publicly accessible."
+        </then>
+      </ac>
+    </group>
+
+    <group name="Server-Side Verification">
+      <ac id="AC12">
+        <given>The widget makes a request to load chat</given>
+        <when>The request arrives at the server</when>
+        <then>
+          The server checks:
+          - Origin header or Referer header
+          - Match against configured whitelist
+          - If not in whitelist (and whitelist not empty): return 403 Forbidden
+          - If in whitelist: return 200 OK with chat page
+        </then>
+      </ac>
+
+      <ac id="AC13">
+        <given>A user manually edits widget code to bypass domain check</given>
+        <when>The iframe tries to load chat</when>
+        <then>
+          - The server validates Origin/Referer (not trusting client)
+          - Blocks unauthorized requests
+        </then>
+      </ac>
+    </group>
+
+    <group name="Mobile Responsiveness">
+      <ac id="AC14">
+        <given>The widget is embedded on a mobile website</given>
+        <when>I view the widget on iPhone/Android</when>
+        <then>
+          - The chat interface is fully responsive
+          - Text is readable (no zoom required)
+          - Input field is touch-friendly (44px minimum)
+        </then>
+      </ac>
+
+      <ac id="AC15">
+        <given>I interact with the chat on a mobile device</given>
+        <when>Keyboard appears (iOS/Android)</when>
+        <then>
+          The chat window adjusts:
+          - Shifts up to stay visible above keyboard
+          - Message list scrolls properly
+          - Input remains accessible
+        </then>
+      </ac>
+
+      <ac id="AC16">
+        <given>The widget is on a small mobile screen (360px width)</given>
+        <when>The widget loads</when>
+        <then>
+          - The chat interface scales appropriately
+          - No horizontal scrolling is needed
+        </then>
+      </ac>
+
+      <ac id="AC17">
+        <given>I rotate my mobile device (portrait ↔ landscape)</given>
+        <when>The device rotates</when>
+        <then>
+          - The widget adapts to new dimensions
+          - No layout breaks occur
+        </then>
+      </ac>
+    </group>
+
+    <group name="Touch-Friendly Interface">
+      <ac id="AC18">
+        <given>I'm using the widget on a mobile device</given>
+        <when>I look at interactive elements</when>
+        <then>
+          - All buttons and inputs meet 44x44px minimum (WCAG guideline)
+          - Spacing between clickable elements is >= 8px
+        </then>
+      </ac>
+
+      <ac id="AC19">
+        <given>I'm typing a message on mobile</given>
+        <when>I use the send button</when>
+        <then>
+          The button is large enough (44px) for accurate touch
+        </then>
+      </ac>
+    </group>
+
+    <group name="Accessibility">
+      <ac id="AC20">
+        <given>I'm using a screen reader on mobile</given>
+        <when>I interact with the widget</when>
+        <then>
+          - All ARIA labels are present and correct
+          - Focus management is logical
+          - Widget works with keyboard navigation
+        </then>
+      </ac>
+
+      <ac id="AC21">
+        <given>I'm on a low-vision mobile setting</given>
+        <when>I view the widget</when>
+        <then>
+          - Text contrast ratios meet WCAG AA (4.5:1)
+          - Font sizes are readable (min 14px)
+        </then>
+      </ac>
+    </group>
+
+    <group name="Browser Compatibility">
+      <ac id="AC22">
+        <given>I embed the widget in various browsers</given>
+        <when>The page loads</when>
+        <then>
+          The widget works on:
+          - Chrome/Edge (latest 2 versions)
+          - Firefox (latest 2 versions)
+          - Safari (latest 2 versions, desktop & mobile)
+          - Safari on iOS 14+
+        </then>
+      </ac>
+
+      <ac id="AC23">
+        <given>I use the widget on an older browser (IE11)</given>
+        <when>The widget loads</when>
+        <then>
+          - Graceful degradation: widget doesn't crash
+          - Fallback message: "This browser is not fully supported"
+        </then>
+      </ac>
+    </group>
+
+    <group name="Performance on Mobile">
+      <ac id="AC24">
+        <given>I load the widget on a slow 3G connection</given>
+        <when>The page loads</when>
+        <then>
+          - The widget loads within 3 seconds
+          - Chat interface appears (possibly with placeholder)
+          - User can start typing while chat connects
+        </then>
+      </ac>
+
+      <ac id="AC25">
+        <given>I'm on a mobile device with limited data</given>
+        <when>The widget runs</when>
+        <then>
+          - Network requests are minimized
+          - Bundle size is optimized (&lt; 50KB gzipped)
+        </then>
+      </ac>
+    </group>
+  </acceptance-criteria>
+
+  <task-breakdown>
+    <task-group name="Frontend - Domain Whitelist UI" priority="high">
+      <task id="4.6.1">
+        <title>Add Domain Whitelist Section to WidgetSettings</title>
+        <description>
+          Extend WidgetSettings component with "Allowed Domains" section including input field
+          and domain list display.
+        </description>
+        <acceptance>
+          - "Allowed Domains" section added to WidgetSettings
+          - Text input: "Enter domain (e.g., example.com, *.example.com)"
+          - Add button or on-Enter handler
+          - Error message area for validation errors
+          - Domain list component showing all whitelisted domains as tags/chips
+          - Each tag has delete (X) button
+          - Hover states and smooth animations
+        </acceptance>
+        <files>
+          <file action="modify">apps/web/src/components/WidgetSettings.tsx</file>
+        </files>
+      </task>
+
+      <task id="4.6.2">
+        <title>Implement Domain Validation Function</title>
+        <description>
+          Create validation function for domain format checking with regex or URL parsing.
+        </description>
+        <acceptance>
+          - Validate domain format (regex or URL parsing)
+          - Accept: example.com, *.example.com, localhost, 127.0.0.1
+          - Reject: invalid formats, special characters
+          - Reject duplicates (check against existing list)
+          - Show validation errors inline
+        </acceptance>
+        <code-example>
+          <![CDATA[
+function validateDomain(domain: string, existingDomains: string[]): string | null {
+  // Check for duplicates
+  if (existingDomains.includes(domain)) {
+    return 'Domain already in whitelist';
+  }
+  
+  // Validate format
+  const domainRegex = /^(\*\.)?[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  const localhostRegex = /^(localhost|127\.0\.0\.1)$/;
+  
+  if (!domainRegex.test(domain) && !localhostRegex.test(domain)) {
+    return 'Invalid domain format';
+  }
+  
+  return null; // Valid
+}
+          ]]>
+        </code-example>
+      </task>
+
+      <task id="4.6.3">
+        <title>Add Empty Whitelist Warning Banner</title>
+        <description>
+          Display warning when whitelist is empty indicating widget is publicly accessible.
+        </description>
+        <acceptance>
+          - Show yellow/amber banner when whitelist is empty
+          - Message: "⚠️ No domain restrictions. Widget is publicly accessible on ANY website."
+          - Use shadcn/ui Alert component
+          - Include link to documentation on why to restrict domains
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Backend - Domain Whitelist Storage" priority="high">
+      <task id="4.6.4">
+        <title>Update WidgetConfig Model with Domain Field</title>
+        <description>
+          Add allowed_domains field to WidgetConfig model as JSON array.
+        </description>
+        <acceptance>
+          - Add field: allowed_domains: List[str] (JSON array)
+          - PostgreSQL native JSON support
+          - Max 50 domains per bot
+        </acceptance>
+        <files>
+          <file action="modify">apps/api/app/models/widget_config.py</file>
+        </files>
+        <database-migration>
+          <![CDATA[
+ALTER TABLE widget_configs 
+ADD COLUMN allowed_domains JSONB DEFAULT '[]'::jsonb;
+          ]]>
+        </database-migration>
+      </task>
+
+      <task id="4.6.5">
+        <title>Update Widget Config Endpoints</title>
+        <description>
+          Extend PUT endpoint to accept and validate allowed_domains array.
+        </description>
+        <acceptance>
+          - PUT /api/v1/bots/:bot_id/widget/config accepts allowed_domains: List[str]
+          - Validate each domain: valid format, no duplicates
+          - Max 50 domains per bot
+          - Store in database as JSON array
+          - Return updated config with domains list
+        </acceptance>
+        <files>
+          <file action="modify">apps/api/app/api/routes/widget.py</file>
+        </files>
+      </task>
+    </task-group>
+
+    <task-group name="Backend - Server-Side Domain Verification" priority="high">
+      <task id="4.6.6">
+        <title>Create Origin Verification Middleware</title>
+        <description>
+          Implement middleware to verify Origin/Referer header against domain whitelist.
+        </description>
+        <acceptance>
+          - Middleware: @verify_widget_origin decorator
+          - Extract Origin or Referer header from request
+          - Load bot's allowed_domains from database
+          - If list empty: allow all (no restrictions)
+          - If list not empty: check if Origin/Referer matches whitelist
+          - Support wildcard matching: *.example.com matches api.example.com
+          - Return 403 Forbidden if not matched
+          - Apply to chat query endpoints
+        </acceptance>
+        <files>
+          <file action="create">apps/api/app/services/domain_whitelist_service.py</file>
+        </files>
+      </task>
+
+      <task id="4.6.7">
+        <title>Implement Domain Matching Logic</title>
+        <description>
+          Create function to match origin against whitelist with wildcard support.
+        </description>
+        <acceptance>
+          - Function: matches_whitelist(origin, allowed_domains) returns bool
+          - Support exact matching: example.com matches example.com
+          - Support wildcard: *.example.com matches api.example.com, test.example.com
+          - Wildcard does NOT match base domain (*.example.com doesn't match example.com)
+          - Case-insensitive matching
+          - Handle both Origin and Referer headers
+        </acceptance>
+        <code-example>
+          <![CDATA[
+def matches_whitelist(origin: str, allowed_domains: List[str]) -> bool:
+    """
+    Check if origin matches any allowed domain.
+    Supports wildcards: *.example.com matches api.example.com
+    """
+    from urllib.parse import urlparse
+    
+    parsed = urlparse(origin)
+    domain = parsed.netloc.lower()
+    
+    for allowed in allowed_domains:
+        if allowed.startswith('*.'):
+            # Wildcard matching
+            base = allowed[2:].lower()
+            if domain.endswith('.' + base) or domain == base:
+                return True
+        else:
+            # Exact matching
+            if domain == allowed.lower():
+                return True
+    
+    return False
+          ]]>
+        </code-example>
+      </task>
+    </task-group>
+
+    <task-group name="Frontend - Mobile Responsive CSS" priority="high">
+      <task id="4.6.8">
+        <title>Update Widget CSS for Mobile</title>
+        <description>
+          Add mobile-first responsive CSS with proper breakpoints and touch-friendly sizing.
+        </description>
+        <acceptance>
+          - Chat window scales to device width (max 100vw)
+          - Font sizes responsive: 14px on mobile, 16px on desktop
+          - Button sizes: 44x44px minimum (WCAG touch target guideline)
+          - Spacing: 8px minimum between clickable elements
+          - Use CSS media queries or Tailwind responsive prefixes
+          - Support 320px minimum width (iPhone SE)
+        </acceptance>
+        <files>
+          <file action="modify">apps/web/widget/widget.ts</file>
+          <file action="modify">apps/web/src/app/chat/[botId]/page.tsx</file>
+        </files>
+      </task>
+
+      <task id="4.6.9">
+        <title>Implement Mobile Keyboard Handling</title>
+        <description>
+          Handle mobile keyboard appearance using visualViewport API to adjust chat window.
+        </description>
+        <acceptance>
+          - Use visualViewport API to detect keyboard presence
+          - On keyboard show: scroll chat up so send button visible
+          - On keyboard hide: reset scroll
+          - Alternative: use window.innerHeight / window.visualViewport.height
+          - Test on real iOS/Android devices
+        </acceptance>
+        <code-example>
+          <![CDATA[
+// Handle mobile keyboard
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', () => {
+    const viewport = window.visualViewport;
+    const keyboardHeight = window.innerHeight - viewport.height;
+    
+    if (keyboardHeight > 0) {
+      // Keyboard is visible - adjust chat window
+      chatContainer.style.marginBottom = `${keyboardHeight}px`;
+    } else {
+      // Keyboard hidden - reset
+      chatContainer.style.marginBottom = '0';
+    }
+  });
+}
+          ]]>
+        </code-example>
+      </task>
+
+      <task id="4.6.10">
+        <title>Add Viewport Meta Tag</title>
+        <description>
+          Ensure proper viewport meta tag for responsive behavior on mobile devices.
+        </description>
+        <acceptance>
+          - HTML has viewport meta tag: &lt;meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"&gt;
+          - Applied to both main website and widget iframe
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - Component Tests" priority="medium">
+      <task id="4.6.11">
+        <title>Test Domain Whitelist UI</title>
+        <description>
+          Unit test domain whitelist UI: add, validate, delete domains.
+        </description>
+        <acceptance>
+          - Test: add valid domain (example.com)
+          - Test: add wildcard domain (*.example.com)
+          - Test: reject invalid format
+          - Test: reject duplicate
+          - Test: delete domain from list
+          - Test: empty whitelist warning shown
+        </acceptance>
+        <files>
+          <file action="create">apps/web/__tests__/WidgetDomainWhitelist.test.tsx</file>
+        </files>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - API Tests" priority="high">
+      <task id="4.6.12">
+        <title>Test Domain Validation Endpoint</title>
+        <description>
+          Test PUT endpoint validates domains correctly.
+        </description>
+        <acceptance>
+          - Test: valid domains accepted
+          - Test: invalid formats rejected
+          - Test: duplicates rejected
+          - Test: max domain limit enforced (50 domains)
+        </acceptance>
+      </task>
+
+      <task id="4.6.13">
+        <title>Test Origin Verification</title>
+        <description>
+          Test server-side origin verification with various scenarios.
+        </description>
+        <acceptance>
+          - Test: request from allowed domain → 200 OK
+          - Test: request from unauthorized domain → 403 Forbidden
+          - Test: wildcard matching works (*.example.com)
+          - Test: empty whitelist allows all origins
+          - Test: Referer header fallback (when Origin missing)
+        </acceptance>
+        <files>
+          <file action="create">apps/api/tests/test_widget_domain_security.py</file>
+        </files>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - Mobile Responsiveness" priority="high">
+      <task id="4.6.14">
+        <title>Manual Testing on Real Devices</title>
+        <description>
+          Test widget on real iOS and Android devices in portrait and landscape.
+        </description>
+        <acceptance>
+          - Test on iPhone 12/13/14 (various sizes)
+          - Test on Android device (Samsung, Pixel)
+          - Test in portrait and landscape
+          - Check: no horizontal scrolling
+          - Check: text readable without zoom
+          - Check: buttons touch-friendly (tap and verify hit areas)
+          - Check: keyboard interactions work
+        </acceptance>
+      </task>
+
+      <task id="4.6.15">
+        <title>Automated Mobile Testing</title>
+        <description>
+          Automated viewport tests using Playwright at mobile sizes.
+        </description>
+        <acceptance>
+          - Playwright viewport tests: 375x667 (iPhone SE), 412x915 (Pixel 5), 768x1024 (iPad)
+          - Check: no horizontal scrolling
+          - Check: all elements visible and accessible
+          - Check: responsive at all breakpoints
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - Accessibility" priority="medium">
+      <task id="4.6.16">
+        <title>Screen Reader Testing on Mobile</title>
+        <description>
+          Test with VoiceOver (iOS) and TalkBack (Android).
+        </description>
+        <acceptance>
+          - VoiceOver on iOS: ARIA labels announced correctly
+          - TalkBack on Android: ARIA labels announced correctly
+          - Focus management logical
+          - Navigation works with screen reader gestures
+        </acceptance>
+      </task>
+
+      <task id="4.6.17">
+        <title>Contrast Testing</title>
+        <description>
+          Verify color contrast meets WCAG AA standards (4.5:1).
+        </description>
+        <acceptance>
+          - Use WebAIM contrast checker
+          - Verify 4.5:1 for text on mobile
+          - Check in both light and dark modes (if applicable)
+          - axe-core automated testing
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - Browser Compatibility" priority="medium">
+      <task id="4.6.18">
+        <title>Cross-Browser Testing</title>
+        <description>
+          Test widget on major browsers and versions.
+        </description>
+        <acceptance>
+          - Chrome 100+ (Linux, Windows, macOS)
+          - Firefox 100+ (Linux, Windows, macOS)
+          - Safari 14+ (macOS, iOS)
+          - Edge 100+
+          - Graceful degradation on IE11 (optional fallback)
+          - Use BrowserStack or local testing
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Documentation" priority="low">
+      <task id="4.6.19">
+        <title>Create Domain Whitelist Guide</title>
+        <description>
+          Document domain whitelisting with examples and best practices.
+        </description>
+        <acceptance>
+          - How to add allowed domains
+          - Why domain restrictions are important
+          - Wildcard vs exact domain matching
+          - Examples and common use cases
+        </acceptance>
+      </task>
+
+      <task id="4.6.20">
+        <title>Add Mobile Testing Guide</title>
+        <description>
+          Document mobile testing procedures and common issues.
+        </description>
+        <acceptance>
+          - How to test on iOS/Android
+          - Common mobile issues and fixes
+          - Performance testing on slow networks
+        </acceptance>
+      </task>
+    </task-group>
+  </task-breakdown>
+
+  <technical-specifications>
+    <domain-whitelisting>
+      <title>Domain Whitelist Configuration</title>
+      <description>
+        Store allowed domains as JSON array in widget_configs table. Support exact and wildcard
+        matching. Server-side verification prevents client-side bypass.
+      </description>
+      <storage>
+        <field>allowed_domains</field>
+        <type>JSONB</type>
+        <max-domains>50</max-domains>
+        <default>[] (empty = no restrictions)</default>
+      </storage>
+      <validation>
+        <rule>Domain format: valid FQDN or localhost</rule>
+        <rule>Wildcard format: *.example.com (matches subdomains)</rule>
+        <rule>No duplicates allowed</rule>
+        <rule>Max 50 domains per bot</rule>
+      </validation>
+    </domain-whitelisting>
+
+    <origin-verification>
+      <title>Server-Side Origin Verification</title>
+      <description>
+        Middleware checks Origin or Referer header against whitelist before serving chat page.
+        Prevents unauthorized embedding even if client code is modified.
+      </description>
+      <headers>
+        <header priority="1">Origin (preferred, always present in CORS requests)</header>
+        <header priority="2">Referer (fallback for non-CORS requests)</header>
+      </headers>
+      <matching-logic>
+        <exact>example.com matches example.com</exact>
+        <wildcard>*.example.com matches api.example.com, test.example.com</wildcard>
+        <wildcard-base>*.example.com does NOT match example.com (must add separately)</wildcard-base>
+        <case-insensitive>Matching is case-insensitive</case-insensitive>
+      </matching-logic>
+      <responses>
+        <allowed>200 OK - Serve chat page</allowed>
+        <blocked>403 Forbidden - Display "Widget not authorized for this domain"</blocked>
+        <empty-whitelist>Allow all domains (backward compatible)</empty-whitelist>
+      </responses>
+    </origin-verification>
+
+    <mobile-responsiveness>
+      <title>Mobile-First Responsive Design</title>
+      <description>
+        Widget adapts to mobile screens from 320px width. Touch-friendly UI with 44px minimum
+        touch targets. Handles mobile keyboard appearance with visualViewport API.
+      </description>
+      <breakpoints>
+        <mobile>320px - 767px</mobile>
+        <tablet>768px - 1023px</tablet>
+        <desktop>1024px+</desktop>
+      </breakpoints>
+      <touch-targets>
+        <minimum>44x44px (WCAG 2.1 Level AAA guideline)</minimum>
+        <spacing>8px minimum between interactive elements</spacing>
+      </touch-targets>
+      <typography>
+        <mobile-font-size>14px minimum (body text)</mobile-font-size>
+        <desktop-font-size>16px (body text)</desktop-font-size>
+        <line-height>1.5</line-height>
+      </typography>
+      <keyboard-handling>
+        <api>visualViewport API</api>
+        <behavior>Adjust chat window margin when keyboard appears</behavior>
+        <fallback>window.innerHeight comparison for older browsers</fallback>
+      </keyboard-handling>
+    </mobile-responsiveness>
+
+    <accessibility>
+      <title>WCAG AA Accessibility Standards</title>
+      <contrast-ratio>4.5:1 minimum for text</contrast-ratio>
+      <touch-targets>44x44px minimum (WCAG 2.1 AAA)</touch-targets>
+      <aria-labels>All interactive elements have descriptive ARIA labels</aria-labels>
+      <screen-readers>
+        <ios>VoiceOver support</ios>
+        <android>TalkBack support</android>
+      </screen-readers>
+      <keyboard-navigation>Full keyboard accessibility</keyboard-navigation>
+    </accessibility>
+
+    <browser-compatibility>
+      <title>Supported Browsers</title>
+      <supported>
+        <browser>Chrome 100+ (desktop and mobile)</browser>
+        <browser>Firefox 100+ (desktop and mobile)</browser>
+        <browser>Safari 14+ (desktop and iOS)</browser>
+        <browser>Edge 100+</browser>
+      </supported>
+      <graceful-degradation>
+        <browser>IE11 (fallback message, no full support)</browser>
+      </graceful-degradation>
+    </browser-compatibility>
+
+    <performance>
+      <title>Mobile Performance Optimization</title>
+      <bundle-size>&lt; 50KB gzipped</bundle-size>
+      <load-time>&lt; 3 seconds on 3G connection</load-time>
+      <network-requests>Minimized (batch requests, caching)</network-requests>
+      <async-loading>Non-blocking script tag (async attribute)</async-loading>
+    </performance>
+  </technical-specifications>
+
+  <interfaces-and-types>
+    <typescript-interfaces>
+      <interface name="WidgetConfigWithDomains">
+        <![CDATA[
+interface WidgetConfigWithDomains extends WidgetConfig {
+  allowedDomains: string[]; // Max 50 domains
+}
+        ]]>
+      </interface>
+
+      <interface name="DomainValidationResult">
+        <![CDATA[
+interface DomainValidationResult {
+  isValid: boolean;
+  error?: string; // "Invalid format", "Duplicate", etc.
+}
+        ]]>
+      </interface>
+    </typescript-interfaces>
+
+    <python-models>
+      <model name="WidgetConfig (Updated)">
+        <![CDATA[
+from sqlalchemy import Column, ARRAY, String
+from sqlalchemy.dialects.postgresql import JSONB
+
+class WidgetConfig(Base):
+    __tablename__ = "widget_configs"
+    
+    # ... existing fields ...
+    allowed_domains = Column(JSONB, default=list)  # JSON array, max 50 domains
+        ]]>
+      </model>
+    </python-models>
+  </interfaces-and-types>
+
+  <api-endpoints>
+    <endpoint method="PUT" path="/api/v1/bots/{bot_id}/widget/config">
+      <description>Update widget configuration including domain whitelist</description>
+      <request>
+        <![CDATA[
+{
+  "position": "bottom-right",
+  "primaryColor": "#3B82F6",
+  "welcomeMessage": "Hi! How can I help?",
+  "autoOpen": false,
+  "allowedDomains": ["example.com", "*.subdomain.com", "localhost"]
+}
+        ]]>
+      </request>
+      <validation>
+        <rule>allowedDomains: max 50 domains</rule>
+        <rule>Each domain: valid format (FQDN or localhost)</rule>
+        <rule>No duplicates in array</rule>
+      </validation>
+      <response>
+        <![CDATA[
+{
+  "botId": "uuid",
+  "position": "bottom-right",
+  "primaryColor": "#3B82F6",
+  "welcomeMessage": "Hi! How can I help?",
+  "autoOpen": false,
+  "allowedDomains": ["example.com", "*.subdomain.com", "localhost"]
+}
+        ]]>
+      </response>
+    </endpoint>
+  </api-endpoints>
+
+  <integration-points>
+    <integration with="Story 4.5 - Embeddable Widget Generation">
+      <description>
+        Extends Story 4.5 widget infrastructure with domain whitelisting. WidgetSettings component
+        extended with domain management UI. Server-side middleware added to verify origin before
+        serving chat page.
+      </description>
+    </integration>
+
+    <integration with="Epic 1 - Foundation">
+      <description>
+        Reuse bot authorization patterns for widget config access control. Use existing error/alert
+        messaging components for domain validation errors.
+      </description>
+    </integration>
+  </integration-points>
+
+  <testing-strategy>
+    <unit-tests>
+      <test-group name="Domain Validation">
+        <test>Accept valid domain: example.com</test>
+        <test>Accept wildcard domain: *.example.com</test>
+        <test>Accept localhost for testing</test>
+        <test>Reject invalid format: not a domain!@#</test>
+        <test>Reject duplicate domains</test>
+      </test-group>
+
+      <test-group name="Domain Whitelist UI">
+        <test>Add domain to list</test>
+        <test>Delete domain from list</test>
+        <test>Show validation errors</test>
+        <test>Show empty whitelist warning</test>
+      </test-group>
+    </unit-tests>
+
+    <api-tests>
+      <test-group name="Domain Whitelist Endpoints">
+        <test>PUT accepts valid domains array</test>
+        <test>PUT rejects invalid domain formats</test>
+        <test>PUT rejects > 50 domains</test>
+        <test>PUT rejects duplicates</test>
+      </test-group>
+
+      <test-group name="Origin Verification">
+        <test>Allowed domain → 200 OK</test>
+        <test>Unauthorized domain → 403 Forbidden</test>
+        <test>Wildcard matching works (*.example.com)</test>
+        <test>Empty whitelist allows all domains</test>
+        <test>Referer header fallback works</test>
+      </test-group>
+    </api-tests>
+
+    <integration-tests>
+      <test-group name="Mobile Responsiveness">
+        <test>Widget responsive on 375x667 (iPhone SE)</test>
+        <test>Widget responsive on 412x915 (Pixel 5)</test>
+        <test>Widget responsive on 768x1024 (iPad)</test>
+        <test>No horizontal scrolling on mobile</test>
+        <test>Touch targets >= 44x44px</test>
+        <test>Keyboard handling works (iOS/Android)</test>
+      </test-group>
+
+      <test-group name="Browser Compatibility">
+        <test>Chrome 100+ (desktop, mobile)</test>
+        <test>Firefox 100+ (desktop, mobile)</test>
+        <test>Safari 14+ (desktop, iOS)</test>
+        <test>Edge 100+</test>
+        <test>IE11 graceful degradation</test>
+      </test-group>
+
+      <test-group name="Accessibility">
+        <test>VoiceOver (iOS) announces correctly</test>
+        <test>TalkBack (Android) announces correctly</test>
+        <test>Contrast ratio >= 4.5:1 (WCAG AA)</test>
+        <test>Keyboard navigation works</test>
+      </test-group>
+    </integration-tests>
+  </testing-strategy>
+
+  <dependencies>
+    <blocks>
+      <dependency story-id="4-5" story-title="Embeddable Widget Generation">
+        Need widget infrastructure (WidgetSettings, widget.js, iframe) to extend with security and responsiveness
+      </dependency>
+    </blocks>
+
+    <integrates-with>
+      <dependency epic-id="1" epic-title="Foundation">
+        Reuse authorization patterns and error messaging components
+      </dependency>
+    </integrates-with>
+  </dependencies>
+
+  <reference-materials>
+    <architecture>
+      <document>docs/architecture.md</document>
+      <sections>
+        <section>Widget Security (Domain Whitelisting)</section>
+        <section>Mobile-First Responsive Design</section>
+      </sections>
+    </architecture>
+
+    <product-requirements>
+      <document>docs/prd.md</document>
+      <sections>
+        <section>FR35: Widget supports domain whitelisting</section>
+        <section>FR36: Widget works on desktop and mobile browsers</section>
+      </sections>
+    </product-requirements>
+
+    <related-stories>
+      <story id="4-5">Embeddable Widget Generation - Widget infrastructure to extend</story>
+      <story id="1-5">Secrets Management - Security patterns for API keys</story>
+    </related-stories>
+  </reference-materials>
+
+  <dev-notes>
+    <note type="security">
+      Domain whitelisting MUST be enforced server-side (Origin/Referer check). Client-side checking
+      is insufficient as users can modify widget code. Empty whitelist = no restrictions (backward
+      compatible with Story 4.5).
+    </note>
+
+    <note type="mobile">
+      Use visualViewport API for mobile keyboard handling. Fallback to window.innerHeight comparison
+      for older browsers. Test on real iOS/Android devices as simulators don't accurately reflect
+      keyboard behavior.
+    </note>
+
+    <note type="accessibility">
+      All touch targets MUST be >= 44x44px (WCAG 2.1 AAA guideline). Spacing between interactive
+      elements >= 8px. Contrast ratios >= 4.5:1 (WCAG AA). Test with VoiceOver (iOS) and TalkBack
+      (Android).
+    </note>
+
+    <note type="performance">
+      Keep widget.js bundle < 50KB gzipped. Minimize network requests on mobile (batch, cache).
+      Widget should load within 3 seconds on 3G connection.
+    </note>
+  </dev-notes>
+
+  <completion-checklist>
+    <item>Domain whitelist UI works (add, validate, delete)</item>
+    <item>Domain validation prevents invalid entries</item>
+    <item>Duplicate prevention works</item>
+    <item>Server-side origin verification working</item>
+    <item>Wildcard domain matching works (*.example.com)</item>
+    <item>Widget responsive on mobile devices (320px+)</item>
+    <item>Keyboard behavior correct (viewport adjustment)</item>
+    <item>Touch targets 44x44px minimum</item>
+    <item>Accessibility standards met (WCAG AA)</item>
+    <item>Browser compatibility tested (Chrome, Firefox, Safari, Edge)</item>
+    <item>Performance optimized (&lt; 50KB bundle, &lt; 3s load)</item>
+    <item>All unit tests passing</item>
+    <item>All integration tests passing</item>
+    <item>Mobile testing complete (iOS, Android)</item>
+    <item>Accessibility testing complete (VoiceOver, TalkBack)</item>
+  </completion-checklist>
+</story-context>

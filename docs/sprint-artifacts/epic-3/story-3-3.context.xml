@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.3</storyId>
+    <title>Citation Generation</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-3/story-3-3-citation-generation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>User</asA>
+    <iWant>every AI answer to include source citations</iWant>
+    <soThat>I can verify the information myself</soThat>
+    <tasks>
+      <task group="Backend - Citation Post-Processing Service">
+        <item>Create CitationService in apps/api/app/services/citation_service.py</item>
+        <item>Method: async def add_citations(answer_text, context_chunks) -> AnnotatedAnswer</item>
+        <item>Split answer into sentences using NLP library (spacy)</item>
+        <item>For each sentence: calculate semantic similarity with context chunks (threshold 0.7)</item>
+        <item>Match sentence to source chunks: primary source (highest similarity) + co-sources (>0.6)</item>
+        <item>Generate citation markup: inline format [Source: doc, section] or footnote format [1]</item>
+        <item>Return annotated answer with citation references embedded</item>
+      </task>
+      <task group="Backend - Citation Data Structure">
+        <item>Create Citation model: {sentence_id, chunk_id, document_name, section, similarity}</item>
+        <item>Store citations in database for analytics and verification</item>
+        <item>Link citations to Answer record for traceability</item>
+      </task>
+      <task group="Frontend - Citation UI Components">
+        <item>Create Citation component: clickable citation link with tooltip</item>
+        <item>Inline format: "According to [Returns Policy, Section 2.1]..."</item>
+        <item>Footnote format: "...30-day refund.[1]" with reference list below</item>
+        <item>Click handler: opens source chunk in side panel or modal</item>
+        <item>Tooltip: shows full source and similarity score on hover</item>
+        <item>Style: blue underlined text for citations (distinct visual)</item>
+      </task>
+      <task group="Frontend - Source Viewer Panel">
+        <item>Create SourceViewerPanel component: displays full context chunk when citation clicked</item>
+        <item>Show: document title, section, page number, full chunk text, similarity score</item>
+        <item>Highlight sentence in chunk that matches citation</item>
+      </task>
+      <task group="Testing - Citation Accuracy Tests">
+        <item>Test: every factual statement has citation</item>
+        <item>Test: citation text matches actual chunk text</item>
+        <item>Test: multiple chunks supporting statement → all cited</item>
+        <item>Test: synthesized statements flagged (no valid citation)</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Citation Inclusion</title>
+      <given>an AI answer is generated</given>
+      <when>I review the response</when>
+      <then>every factual statement includes a citation to source</then>
+    </criterion>
+    <criterion id="2">
+      <title>Citation Format</title>
+      <given>citations are added</given>
+      <when>I see the answer</when>
+      <then>citation format is clear and clickable AND citations link to actual source document chunk</then>
+    </criterion>
+    <criterion id="3">
+      <title>Citation Metadata</title>
+      <given>a citation exists</given>
+      <when>I examine it</when>
+      <then>citation includes: document name, section (if available), page number (if PDF)</then>
+    </criterion>
+    <criterion id="4">
+      <title>Inline Citation Format</title>
+      <given>citation uses inline format</given>
+      <when>I read the answer</when>
+      <then>format is: "According to [Returns Policy, Section 2.1]..."</then>
+    </criterion>
+    <criterion id="5">
+      <title>Footnote Citation Format</title>
+      <given>citation uses footnote format</given>
+      <when>I read the answer</when>
+      <then>format is: "...30-day refund window.[1]" with "[1] Returns Policy.pdf, Page 3" below</then>
+    </criterion>
+    <criterion id="6">
+      <title>Hover Tooltip</title>
+      <given>I hover over a citation</given>
+      <when>tooltip appears</when>
+      <then>tooltip shows full source and relevance score (similarity %)</then>
+    </criterion>
+    <criterion id="7">
+      <title>Citation Accuracy</title>
+      <given>a citation is generated</given>
+      <when>I verify the source</when>
+      <then>citation text matches the actual chunk text AND citation source matches the document metadata</then>
+    </criterion>
+    <criterion id="8">
+      <title>Multiple Source Citations</title>
+      <given>multiple chunks support a statement</given>
+      <when>citation is generated</when>
+      <then>ALL supporting chunks are cited (not just the top one)</then>
+    </criterion>
+    <criterion id="9">
+      <title>Clickable Citations</title>
+      <given>a citation is displayed</given>
+      <when>I click on it</when>
+      <then>source chunk opens in side panel or new tab AND I can read full source context</then>
+    </criterion>
+    <criterion id="10">
+      <title>Citation Visual Style</title>
+      <given>an answer contains citations</given>
+      <when>I view the text</when>
+      <then>citation color is distinct (blue, underlined) for clear identification</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic 3: Story 3.3 - Citation Generation</title>
+        <section>FR22: Citations for every answer</section>
+        <snippet>System provides citations (source + section) for every answer. Citations link to actual chunks.</snippet>
+        <relevance>Functional requirement for citation feature</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-3/story-3-2-context-only-answer-generation.md</path>
+        <title>Context-Only Answer Generation</title>
+        <section>Answer structure and source tracking</section>
+        <snippet>LLM generates answer from context chunks. Citation service must match answer sentences to source chunks.</snippet>
+        <relevance>Upstream dependency providing answer text for citation post-processing</relevance>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>apps/api/app/services/answer_service.py</path>
+        <kind>service</kind>
+        <symbol>AnswerGenerationService</symbol>
+        <reason>Extend to call CitationService after answer generation</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/components/ChatWindow.tsx</path>
+        <kind>component</kind>
+        <symbol>ChatWindow</symbol>
+        <reason>Extend to render citations with clickable links</reason>
+      </artifact>
+    </code>
+  </artifacts>
+
+  <constraints>
+    <constraint type="accuracy">Citation must match actual chunk text (no fabricated sources)</constraint>
+    <constraint type="usability">Citations must be clickable and open source context</constraint>
+    <constraint type="performance">Citation post-processing adds &lt;200ms to answer generation</constraint>
+    <constraint type="architecture">Use semantic similarity (threshold 0.7) to match sentences to chunks</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>CitationService</name>
+      <kind>Python service class</kind>
+      <signature>async def add_citations(answer_text, context_chunks) -> AnnotatedAnswer</signature>
+      <path>apps/api/app/services/citation_service.py (new)</path>
+      <notes>Post-processes answer to add citation markup. Matches sentences to source chunks using semantic similarity.</notes>
+    </interface>
+    <interface>
+      <name>Citation Component</name>
+      <kind>React component</kind>
+      <signature>&lt;Citation chunkId={string} document={string} section={string} similarity={number} /&gt;</signature>
+      <path>apps/web/src/components/Citation.tsx (new)</path>
+      <notes>Renders clickable citation link with tooltip. Opens source viewer on click.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Test citation accuracy: every factual statement cited. Test citation UI: clickable, opens source. Test semantic matching: sentences correctly matched to chunks. Frameworks: pytest (backend), Vitest (frontend).</standards>
+    <locations>Backend: apps/api/tests/. Frontend: apps/web/__tests__/.</locations>
+    <ideas>
+      <test acId="1">Every factual statement has citation</test>
+      <test acId="7">Citation text matches chunk text</test>
+      <test acId="8">Multiple chunks cited if they support statement</test>
+      <test acId="9">Click citation opens source viewer</test>
+      <testE2E>Generate answer → verify citations present → click citation → verify source displayed</testE2E>
+    </ideas>
+  </tests>
+</story-context>

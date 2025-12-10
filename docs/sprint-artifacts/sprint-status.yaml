@@ -133,7 +133,7 @@ development_status:
         blocked_by: 2-1-bot-creation-configuration
 
     2-4-document-processing-pipeline:
-        status: assigned
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 2-3-document-upload-api
 
@@ -162,7 +162,7 @@ development_status:
     # Epic 3: RAG Q&A Engine
     epic-3:
         status: contexted
-        assigned_to: null
+        assigned_to: Lucas
 
     3-1-semantic-vector-search:
         status: ready-for-dev
@@ -193,36 +193,36 @@ development_status:
 
     # Epic 4: Chat Experience
     epic-4:
-        status: backlog
-        assigned_to: null
+        status: contexted
+        assigned_to: Lucas
 
     4-1-web-chat-interface:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 3-2-context-only-answer-generation
 
     4-2-conversation-context:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 4-1-web-chat-interface
 
     4-3-user-feedback:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 4-1-web-chat-interface
 
     4-4-trust-signals-display:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 4-1-web-chat-interface
 
     4-5-embeddable-widget-generation:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 4-1-web-chat-interface
 
     4-6-widget-security-responsiveness:
-        status: backlog
+        status: ready-for-dev
         assigned_to: null
         blocked_by: 4-5-embeddable-widget-generation
 

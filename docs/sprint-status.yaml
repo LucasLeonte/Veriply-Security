@@ -64,9 +64,25 @@ development_status:
     1-7-api-instrumentation-metrics-and-traces: backlog
     2-1-bot-creation-configuration: done
     2-2-bot-duplication-deletion: done
+    3-1-semantic-vector-search: drafted
+    3-2-context-only-answer-generation: drafted
+    3-3-citation-generation: drafted
+    3-4-confidence-scoring-routing: drafted
+    3-5-pii-redaction: drafted
+    4-4-trust-signals-display: drafted
+    4-5-embeddable-widget-generation: drafted
+    4-6-widget-security-responsiveness: drafted
 ready_status:
     # Mark stories ready after context is generated
     1-5-secrets-management-and-configuration: ready
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: ready
     2-1-bot-creation-configuration: ready
     2-2-bot-duplication-deletion: ready
+    3-1-semantic-vector-search: ready-for-dev
+    3-2-context-only-answer-generation: ready-for-dev
+    3-3-citation-generation: ready-for-dev
+    3-4-confidence-scoring-routing: ready-for-dev
+    3-5-pii-redaction: ready-for-dev
+    4-4-trust-signals-display: ready-for-dev
+    4-5-embeddable-widget-generation: ready-for-dev
+    4-6-widget-security-responsiveness: ready-for-dev

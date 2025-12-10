@@ -1,9 +1,10 @@
 # Story 3.2: Context-Only Answer Generation
 
 **Epic:** 3. RAG Q&A Engine  
-**Status:** drafted  
+**Status:** ready-for-dev  
 **Assigned to:** TBD  
 **Blocked by:** 3-1-semantic-vector-search
+**Context:** docs/sprint-artifacts/epic-3/story-3-2.context.xml
 
 ## Story
 

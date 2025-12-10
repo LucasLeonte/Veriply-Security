@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.1</storyId>
+    <title>Semantic Vector Search</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-3/story-3-1-semantic-vector-search.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>System</asA>
+    <iWant>retrieve relevant document chunks for a user query</iWant>
+    <soThat>the LLM has accurate context to generate answers</soThat>
+    <tasks>
+      <task group="Backend - Embedding Service">
+        <item>Create EmbeddingService class in apps/api/app/services/embedding_service.py</item>
+        <item>Integrate with Ollama API (http://localhost:11434) for nomic-embed-text model</item>
+        <item>Method: async def embed_query(text: str) -> List[float] with 1024 dimensions</item>
+        <item>Normalize embedding vector (unit norm for cosine similarity)</item>
+        <item>Handle query preprocessing: truncate if >500 tokens, handle special chars</item>
+        <item>Implement retry logic with exponential backoff (3 attempts)</item>
+        <item>Fallback to OpenAI Embedding API if Ollama unavailable (optional)</item>
+        <item>Log embedding latency for monitoring (target: 20ms per embedding)</item>
+      </task>
+      <task group="Database - Vector Schema & Indexing">
+        <item>Create Alembic migration for chunks table with pgvector extension</item>
+        <item>Add embedding column: vector(1024) type to chunks table</item>
+        <item>Create HNSW index: CREATE INDEX idx_chunks_embedding_hnsw ON chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)</item>
+        <item>Create composite filter index: CREATE INDEX idx_chunks_bot_tenant ON chunks(bot_id, tenant_id)</item>
+        <item>Enable pgvector extension: CREATE EXTENSION IF NOT EXISTS vector</item>
+        <item>Add chunk metadata columns: position INT, metadata JSONB</item>
+      </task>
+      <task group="Backend - Vector Search Service">
+        <item>Create VectorSearchService class in apps/api/app/services/vector_search_service.py</item>
+        <item>Method: async def search(bot_id, tenant_id, query, k=5, threshold=0.5) -> List[SearchResult]</item>
+        <item>Embed query using EmbeddingService</item>
+        <item>Execute pgvector cosine similarity search with RLS enforcement</item>
+        <item>SQL: SELECT * FROM chunks WHERE bot_id = $1 AND tenant_id = $2 ORDER BY embedding &lt;=&gt; $3 LIMIT $4</item>
+        <item>Calculate similarity score: 1 - cosine_distance for each result</item>
+        <item>Filter results below similarity threshold (default 0.5)</item>
+        <item>Return SearchResult with chunk text, document name, section, similarity, metadata</item>
+        <item>Handle empty results gracefully (return empty list, no error)</item>
+        <item>Log search latency (target: &lt;200ms p95)</item>
+      </task>
+      <task group="API - Search Endpoint">
+        <item>Create endpoint: POST /api/v1/bots/:bot_id/search</item>
+        <item>Accept: {query: str, k: int (default 5), similarity_threshold: float (default 0.5)}</item>
+        <item>Validate: User authenticated, Bot exists and belongs to user's tenant, Query length &lt; 1000 chars</item>
+        <item>Call VectorSearchService.search() with RLS parameters</item>
+        <item>Return: {query, results: [...], search_latency_ms}</item>
+        <item>Handle errors: 404 if bot not found, 400 if invalid k or threshold, 401 if unauthenticated</item>
+        <item>Include timing in response for performance monitoring</item>
+      </task>
+      <task group="Backend - SQLAlchemy Integration">
+        <item>Update Chunk model in apps/api/app/models/chunk.py with embedding column</item>
+        <item>Add pgvector operations: cosine_distance, cosine_similarity methods</item>
+        <item>Implement query builder: select().where().order_by(embedding.cosine_distance()).limit()</item>
+        <item>Add relationship to Document model for document name retrieval</item>
+        <item>Ensure RLS enforcement in all queries (tenant_id, bot_id filters)</item>
+      </task>
+      <task group="Testing - Unit Tests">
+        <item>Test EmbeddingService: embed_query returns 1024-dim vector</item>
+        <item>Test EmbeddingService: handles truncation for long queries (>500 tokens)</item>
+        <item>Test EmbeddingService: retry logic works on Ollama failure</item>
+        <item>Test VectorSearchService: search returns top-K chunks with similarity scores</item>
+        <item>Test VectorSearchService: filters results below threshold</item>
+        <item>Test VectorSearchService: enforces RLS (bot_id, tenant_id)</item>
+        <item>Test VectorSearchService: handles empty search results gracefully</item>
+        <item>Use pytest + TestClient + mock Ollama API</item>
+      </task>
+      <task group="Testing - Integration Tests">
+        <item>E2E test: Upload document → process → embed → search → verify results</item>
+        <item>E2E test: Search returns only chunks from correct bot (RLS enforcement)</item>
+        <item>E2E test: Search with no results returns empty array</item>
+        <item>E2E test: Search latency &lt;200ms p95 with 1000 chunks</item>
+        <item>E2E test: Similarity scores are accurate (verify cosine calculation)</item>
+        <item>E2E test: HNSW index provides correct approximate results</item>
+        <item>Use Playwright + seeded test database</item>
+      </task>
+      <task group="Performance Optimization">
+        <item>Tune HNSW index parameters: m=16, ef_construction=64, ef_search=40</item>
+        <item>Monitor embedding latency: ensure &lt;20ms per query</item>
+        <item>Monitor search latency: ensure &lt;200ms p95</item>
+        <item>Add caching for frequently searched queries (optional, rare in practice)</item>
+        <item>Implement batch embedding for bulk operations (future optimization)</item>
+      </task>
+      <task group="Documentation & Deployment">
+        <item>Document API endpoint in OpenAPI/Swagger spec</item>
+        <item>Document HNSW tuning parameters in README</item>
+        <item>Document pgvector setup instructions</item>
+        <item>Add monitoring alerts for search latency degradation</item>
+        <item>Create migration rollback plan for chunks table changes</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Query Embedding with nomic-embed-text</title>
+      <given>I have a user query string</given>
+      <when>the query is embedded</when>
+      <then>the system uses nomic-embed-text model (same as documents) AND returns a 1024-dimensional vector AND normalizes the vector for cosine similarity</then>
+    </criterion>
+    <criterion id="2">
+      <title>Vector Search Retrieves Top-K Chunks</title>
+      <given>I have an embedded query vector</given>
+      <when>I execute vector search</when>
+      <then>pgvector cosine similarity search retrieves top-K chunks (K=5 default) AND results are filtered by tenant_id AND bot_id (RLS enforcement)</then>
+    </criterion>
+    <criterion id="3">
+      <title>Search Results Include Metadata</title>
+      <given>vector search completes successfully</given>
+      <when>I receive results</when>
+      <then>each result includes: chunk text content, document name (source), section/page reference (if available), similarity score (0-1 scale), chunk metadata (document_id, chunk_id, position)</then>
+    </criterion>
+    <criterion id="4">
+      <title>Search Performance Under 200ms</title>
+      <given>I have a typical knowledge base with 1000 chunks</given>
+      <when>I execute 10 concurrent searches</when>
+      <then>search latency is &lt;200ms (p95) AND pgvector HNSW index enables fast approximate search</then>
+    </criterion>
+    <criterion id="5">
+      <title>HNSW Index Configuration</title>
+      <given>the chunks table exists with embeddings</given>
+      <when>HNSW index is created</when>
+      <then>index includes tenant_id and bot_id for query filtering AND uses parameters: m=16, ef_construction=64</then>
+    </criterion>
+    <criterion id="6">
+      <title>No Results Handling</title>
+      <given>no relevant chunks exist (all similarity &lt; 0.5)</given>
+      <when>I execute search</when>
+      <then>empty result set is returned AND no error is thrown AND downstream RAG pipeline can handle gracefully</then>
+    </criterion>
+    <criterion id="7">
+      <title>Short Query Handling</title>
+      <given>I have a very short query (1-2 words)</given>
+      <when>the query is embedded</when>
+      <then>the embedding is still meaningful and produces valid search results</then>
+    </criterion>
+    <criterion id="8">
+      <title>Long Query Truncation</title>
+      <given>I have a very long query (>500 tokens)</given>
+      <when>the query is embedded</when>
+      <then>the query is truncated before embedding AND search still produces relevant results</then>
+    </criterion>
+    <criterion id="9">
+      <title>Special Characters Handling</title>
+      <given>I have a query with special characters and non-ASCII text</given>
+      <when>the query is processed</when>
+      <then>special characters are handled correctly AND search results are accurate</then>
+    </criterion>
+    <criterion id="10">
+      <title>Deterministic Search Results</title>
+      <given>I execute the same query twice</given>
+      <when>I compare results</when>
+      <then>identical queries return identical results (deterministic behavior)</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic & Story Breakdown</title>
+        <section>Epic 3: RAG Q&A Engine, Story 3.1: Semantic Vector Search</section>
+        <snippet>System retrieves relevant document chunks using semantic vector search with pgvector. Embeddings generated by nomic-embed-text model, stored in PostgreSQL with HNSW indexing for fast approximate search.</snippet>
+        <relevance>Complete story specification and functional requirements for vector search</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>RAG Pipeline, Vector Search, pgvector Setup</section>
+        <snippet>PostgreSQL 16 with pgvector extension, HNSW indexing for approximate nearest neighbor search, cosine similarity for semantic matching.</snippet>
+        <relevance>Defines vector database architecture and indexing strategy</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Embeddings: nomic-embed-text via Ollama, Vector Store: pgvector</section>
+        <snippet>Ollama for local inference (nomic-embed-text model), 1024 dimensions, pgvector with HNSW indexing for fast search.</snippet>
+        <relevance>Defines embedding model and vector database technology choices</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-2/story-2-4-document-processing-pipeline.md</path>
+        <title>Document Processing Pipeline</title>
+        <section>Embedding Generation and Storage</section>
+        <snippet>Documents are chunked, embedded with nomic-embed-text, and stored in chunks table with pgvector. Each chunk has embedding vector for semantic search.</snippet>
+        <relevance>Upstream story that creates embeddings for vector search to consume</relevance>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>apps/api/app/models/chunk.py</path>
+        <kind>model</kind>
+        <symbol>Chunk</symbol>
+        <reason>Create or extend Chunk model with embedding vector(1024) column and pgvector operations</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/document.py</path>
+        <kind>model</kind>
+        <symbol>Document</symbol>
+        <reason>Relationship to Chunk model for retrieving document name in search results</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/services</path>
+        <kind>directory</kind>
+        <symbol>Service layer</symbol>
+        <reason>Create EmbeddingService and VectorSearchService for business logic separation</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/api/routes</path>
+        <kind>directory</kind>
+        <symbol>API endpoints</symbol>
+        <reason>Create search.py for POST /api/v1/bots/:bot_id/search endpoint</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/alembic</path>
+        <kind>directory</kind>
+        <symbol>Database migrations</symbol>
+        <reason>Create migration for chunks table with pgvector extension and HNSW index</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <backend>
+        <package name="fastapi">version: from apps/api/requirements.txt</package>
+        <package name="sqlalchemy">version: from apps/api/requirements.txt (async ORM)</package>
+        <package name="pgvector">version: 0.2.x (PostgreSQL extension client)</package>
+        <package name="ollama">version: latest (Python client for Ollama API)</package>
+        <package name="numpy">For vector normalization operations</package>
+      </backend>
+      <infrastructure>
+        <package name="postgres">version: 16 with pgvector extension</package>
+        <package name="ollama">Ollama service running nomic-embed-text model</package>
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="performance">Search latency must be &lt;200ms (p95) for typical knowledge bases (1000+ chunks)</constraint>
+    <constraint type="performance">Embedding latency must be &lt;20ms per query using local Ollama service</constraint>
+    <constraint type="security">RLS enforcement: All searches filtered by tenant_id AND bot_id (no cross-tenant leakage)</constraint>
+    <constraint type="architecture">Use nomic-embed-text model (same as document processing) for consistent embedding space</constraint>
+    <constraint type="architecture">HNSW index parameters: m=16, ef_construction=64, ef_search=40 for recall/speed balance</constraint>
+    <constraint type="data">Vector dimensions: 1024 (nomic-embed-text output) - enforce consistency across all embeddings</constraint>
+    <constraint type="usability">Empty search results return gracefully (no error) - downstream RAG handles no-context case</constraint>
+    <constraint type="scalability">HNSW index supports approximate search for large knowledge bases (10K+ chunks)</constraint>
+    <constraint type="reliability">Retry logic with exponential backoff for Ollama API failures (3 attempts)</constraint>
+    <constraint type="reliability">Optional fallback to OpenAI Embedding API if Ollama unavailable</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/bots/:bot_id/search</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/bots/{bot_id}/search { query: str, k: int, similarity_threshold: float } -> 200 { query: str, results: [...], search_latency_ms: int }</signature>
+      <path>apps/api/app/api/routes/search.py (new)</path>
+      <notes>Requires authentication. User must own bot. Returns top-K chunks with similarity scores, document names, sections.</notes>
+    </interface>
+    <interface>
+      <name>EmbeddingService</name>
+      <kind>Python service class</kind>
+      <signature>async embed_query(text: str) -> List[float]</signature>
+      <path>apps/api/app/services/embedding_service.py (new)</path>
+      <notes>Integrates with Ollama API for nomic-embed-text. Returns normalized 1024-dim vector. Handles truncation, retries, fallback.</notes>
+    </interface>
+    <interface>
+      <name>VectorSearchService</name>
+      <kind>Python service class</kind>
+      <signature>async search(bot_id, tenant_id, query, k, threshold) -> List[SearchResult]</signature>
+      <path>apps/api/app/services/vector_search_service.py (new)</path>
+      <notes>Executes pgvector cosine similarity search with RLS. Returns chunks with metadata and similarity scores. Handles empty results.</notes>
+    </interface>
+    <interface>
+      <name>Chunk Model with pgvector</name>
+      <kind>SQLAlchemy model</kind>
+      <signature>class Chunk(Base): embedding = Column(Vector(1024))</signature>
+      <path>apps/api/app/models/chunk.py (extend)</path>
+      <notes>Add embedding column with pgvector type. Include cosine_distance and cosine_similarity operations for queries.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Unit tests isolate services with mocked Ollama API and database. Integration tests verify end-to-end search with real embeddings. Performance tests validate &lt;200ms p95 latency. Test frameworks: pytest + FastAPI TestClient (backend). All tests must verify RLS enforcement and similarity score accuracy.
+    </standards>
+    <locations>
+      Backend tests: apps/api/tests/ (pytest discovers test_*.py files). Integration tests: apps/api/tests/integration/ (E2E search flow). Performance tests: apps/api/tests/performance/ (latency benchmarks).
+    </locations>
+    <ideas>
+      <test acId="1">EmbeddingService.embed_query returns 1024-dimensional vector</test>
+      <test acId="1">Embedding vector is normalized (unit norm) for cosine similarity</test>
+      <test acId="2">VectorSearchService.search retrieves top-K chunks ordered by similarity</test>
+      <test acId="2">Search enforces RLS: only returns chunks with matching bot_id and tenant_id</test>
+      <test acId="3">Search result includes chunk text, document name, section, similarity score, metadata</test>
+      <test acId="4">Search completes in &lt;200ms p95 with 1000 chunks in database</test>
+      <test acId="4">Concurrent searches (10 simultaneous) maintain &lt;200ms p95 latency</test>
+      <test acId="5">HNSW index is created with correct parameters (m=16, ef_construction=64)</test>
+      <test acId="5">Composite index on (bot_id, tenant_id) speeds up RLS filtering</test>
+      <test acId="6">Search with no relevant chunks (all similarity &lt;0.5) returns empty array</test>
+      <test acId="6">Empty result set does not throw error</test>
+      <test acId="7">Short query (1-2 words) produces valid embedding and search results</test>
+      <test acId="8">Long query (>500 tokens) is truncated before embedding</test>
+      <test acId="8">Truncated query still produces relevant search results</test>
+      <test acId="9">Query with special characters (!@#$%^&*) processes correctly</test>
+      <test acId="9">Query with non-ASCII text (UTF-8) processes correctly</test>
+      <test acId="10">Identical queries return identical results (deterministic)</test>
+      <test acId="10">Cosine similarity scores are consistent across multiple runs</test>
+      <testAPI>POST /api/v1/bots/:bot_id/search requires authentication (401 if missing)</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/search returns 404 for invalid bot_id</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/search returns 400 for invalid k or threshold values</testAPI>
+      <testAPI>Search enforces RLS: user cannot search bots from other tenants</testAPI>
+      <testAPI>Search response includes search_latency_ms field for monitoring</testAPI>
+      <testE2E>Upload document → process → embed → search → verify top result matches query semantically</testE2E>
+      <testE2E>Create 2 bots in same tenant → upload doc to bot A → search bot B → verify no results (RLS)</testE2E>
+      <testE2E>Search with query not in knowledge base → verify empty results returned</testE2E>
+      <testE2E>Performance: 1000 chunks, 10 concurrent searches, all &lt;200ms p95</testE2E>
+      <testE2E>Ollama service down → verify retry logic works → verify fallback if configured</testE2E>
+    </ideas>
+  </tests>
+</story-context>

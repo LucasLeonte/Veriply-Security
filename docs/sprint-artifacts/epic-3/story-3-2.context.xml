@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.2</storyId>
+    <title>Context-Only Answer Generation</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-3/story-3-2-context-only-answer-generation.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>System</asA>
+    <iWant>generate answers based ONLY on retrieved context</iWant>
+    <soThat>the AI never hallucinates from general knowledge</soThat>
+    <tasks>
+      <task group="Backend - LLM Integration Service">
+        <item>Create LLMService class in apps/api/app/services/llm_service.py</item>
+        <item>Integrate with Ollama API for Qwen 2.5 14B model</item>
+        <item>Method: async def generate_answer(query, context_chunks, conversation_history) -> AsyncIterator[str]</item>
+        <item>Build structured prompt with system instructions enforcing context-only behavior</item>
+        <item>Format context chunks with clear boundaries and source labels</item>
+        <item>Configure LLM parameters: temperature=0.1, top_p=0.95, max_tokens=512</item>
+        <item>Implement streaming response using Server-Sent Events (SSE)</item>
+        <item>Handle first token latency target: &lt;500ms</item>
+      </task>
+      <task group="Backend - Prompt Engineering">
+        <item>Create system prompt enforcing CRITICAL RULES: Answer ONLY from context, never hallucinate, cite sources</item>
+        <item>Format user prompt template: Context sections with separators + User question</item>
+        <item>Add context formatting: [Source: Document Name - Section] + chunk text + separator</item>
+        <item>Include conversation history in prompt for follow-up context</item>
+        <item>Handle insufficient context case: LLM responds "I don't have information about that in the knowledge base."</item>
+      </task>
+      <task group="Backend - Answer Generation Service">
+        <item>Create AnswerGenerationService in apps/api/app/services/answer_service.py</item>
+        <item>Method: async def generate(bot_id, query, k=5) -> AsyncIterator[str]</item>
+        <item>Step 1: Call VectorSearchService.search() to retrieve context chunks</item>
+        <item>Step 2: Format chunks into structured prompt</item>
+        <item>Step 3: Call LLMService.generate_answer() with streaming</item>
+        <item>Step 4: Yield tokens as they arrive (SSE streaming)</item>
+        <item>Handle empty context gracefully: return "I don't have information..."</item>
+        <item>Log generation latency and token count</item>
+      </task>
+      <task group="API - Query Endpoint with Streaming">
+        <item>Create endpoint: POST /api/v1/bots/:bot_id/query with SSE streaming support</item>
+        <item>Accept: {query: str, conversation_history: [...], stream: bool}</item>
+        <item>Validate: User authenticated, Bot exists and belongs to tenant, Query not empty</item>
+        <item>If stream=true: Return Server-Sent Events stream with token events</item>
+        <item>If stream=false: Return complete answer as JSON</item>
+        <item>Include metadata: tokens_generated, latency_ms, model name</item>
+        <item>Handle errors: 404 if bot not found, 400 if invalid query, 500 if LLM fails</item>
+      </task>
+      <task group="Backend - Streaming Implementation">
+        <item>Implement SSE response format: event: token, data: "token text"</item>
+        <item>Send first token within 500ms (first token latency target)</item>
+        <item>Stream tokens as they arrive from LLM (~10-15ms per token)</item>
+        <item>Send final event: event: done, data: {tokens, latency_ms}</item>
+        <item>Handle connection errors and client disconnects gracefully</item>
+        <item>Add timeout: max 30 seconds for full response</item>
+      </task>
+      <task group="Testing - Unit Tests">
+        <item>Test LLMService: generate_answer with mock Ollama API</item>
+        <item>Test prompt formatting: context chunks correctly formatted with source labels</item>
+        <item>Test insufficient context handling: LLM returns "I don't have information..."</item>
+        <item>Test streaming: tokens yielded as async iterator</item>
+        <item>Test AnswerGenerationService: integrates VectorSearchService + LLMService</item>
+        <item>Use pytest + TestClient + mocked Ollama/vector search</item>
+      </task>
+      <task group="Testing - Integration Tests">
+        <item>E2E test: Query → vector search → answer generation → verify context-only response</item>
+        <item>E2E test: Query with no relevant context → verify "I don't have information..." response</item>
+        <item>E2E test: Streaming response → verify first token &lt;500ms, full response &lt;3s</item>
+        <item>E2E test: Verify LLM never uses outside knowledge (test with out-of-domain query)</item>
+        <item>E2E test: Conversation history included in prompt for follow-up questions</item>
+        <item>Use Playwright + seeded knowledge base</item>
+      </task>
+      <task group="Performance Optimization">
+        <item>Monitor first token latency: ensure &lt;500ms</item>
+        <item>Monitor full response latency: ensure &lt;3s for typical answers (~200 tokens)</item>
+        <item>Tune LLM parameters if hallucination detected (lower temperature)</item>
+        <item>Implement request timeout (30s max) to prevent hanging</item>
+      </task>
+      <task group="Documentation & Deployment">
+        <item>Document API endpoint with SSE streaming format in OpenAPI spec</item>
+        <item>Document prompt engineering approach and context-only enforcement</item>
+        <item>Document LLM configuration parameters and rationale</item>
+        <item>Add monitoring for generation latency and token counts</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Context-Only Prompt Structure</title>
+      <given>LLM receives a query with context</given>
+      <when>the prompt is built</when>
+      <then>prompt contains structured sections: Instructions to answer only from context, Retrieved context chunks with clear boundaries, Original user query, Example format for responses</then>
+    </criterion>
+    <criterion id="2">
+      <title>No Outside Knowledge</title>
+      <given>LLM generates an answer</given>
+      <when>the response is evaluated</when>
+      <then>LLM never references outside knowledge or general facts AND response stays within the scope of provided documents</then>
+    </criterion>
+    <criterion id="3">
+      <title>Insufficient Context Handling</title>
+      <given>context chunks don't answer the query</given>
+      <when>LLM generates response</when>
+      <then>LLM responds: "I don't have information about that in the knowledge base." AND no error is thrown AND query is marked for HITL review (low confidence)</then>
+    </criterion>
+    <criterion id="4">
+      <title>Clear and Structured Response</title>
+      <given>context is sufficient</given>
+      <when>LLM generates answer</when>
+      <then>response is clear, concise, and well-structured AND includes relevant details from context</then>
+    </criterion>
+    <criterion id="5">
+      <title>Token Streaming with SSE</title>
+      <given>a query is processed</given>
+      <when>streaming is enabled</when>
+      <then>response is streamed token-by-token using Server-Sent Events</then>
+    </criterion>
+    <criterion id="6">
+      <title>First Token Latency</title>
+      <given>streaming response starts</given>
+      <when>first token is generated</when>
+      <then>first token appears within 500ms</then>
+    </criterion>
+    <criterion id="7">
+      <title>Full Response Latency</title>
+      <given>a typical query is processed</given>
+      <when>full response is generated</when>
+      <then>full response completes within 3 seconds</then>
+    </criterion>
+    <criterion id="8">
+      <title>Reasonable Response Length</title>
+      <given>LLM generates an answer</given>
+      <when>response is returned</when>
+      <then>response length is reasonable (50-500 words typical) AND max_tokens enforced at 512</then>
+    </criterion>
+    <criterion id="9">
+      <title>Empty Context Handling</title>
+      <given>no search results are returned</given>
+      <when>answer generation is attempted</when>
+      <then>empty context is handled gracefully AND response is "I don't have information..."</then>
+    </criterion>
+    <criterion id="10">
+      <title>Contradictory Context Handling</title>
+      <given>context chunks contain contradictory information</given>
+      <when>LLM generates answer</when>
+      <then>generation doesn't break AND response acknowledges multiple viewpoints or sources</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic & Story Breakdown</title>
+        <section>Epic 3: RAG Q&A Engine, Story 3.2: Context-Only Answer Generation</section>
+        <snippet>System generates answers based ONLY on retrieved context. LLM never hallucinates. Uses structured prompt with context-only enforcement. Handles insufficient context gracefully.</snippet>
+        <relevance>Complete story specification for context-only answer generation</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-3/story-3-1-semantic-vector-search.md</path>
+        <title>Semantic Vector Search</title>
+        <section>Search results structure and context retrieval</section>
+        <snippet>Vector search returns top-K chunks with text, document name, section, similarity score. These chunks become context for answer generation.</snippet>
+        <relevance>Upstream dependency providing context chunks for LLM prompt</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>LLM: Qwen 2.5 14B via Ollama, Streaming: Server-Sent Events</section>
+        <snippet>Ollama for local LLM inference. Qwen 2.5 14B model for instruction-following. SSE for token streaming. Temperature 0.1 for determinism.</snippet>
+        <relevance>Defines LLM technology choice and streaming architecture</relevance>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>apps/api/app/services/vector_search_service.py</path>
+        <kind>service</kind>
+        <symbol>VectorSearchService</symbol>
+        <reason>Dependency: provides context chunks for answer generation</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/services</path>
+        <kind>directory</kind>
+        <symbol>Service layer</symbol>
+        <reason>Create LLMService and AnswerGenerationService for business logic</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/api/routes</path>
+        <kind>directory</kind>
+        <symbol>API endpoints</symbol>
+        <reason>Create query.py for POST /api/v1/bots/:bot_id/query with SSE streaming</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <backend>
+        <package name="fastapi">SSE streaming support via StreamingResponse</package>
+        <package name="ollama">Python client for Ollama LLM API</package>
+        <package name="langchain">Optional: for prompt templating and LLM orchestration</package>
+      </backend>
+      <infrastructure>
+        <package name="ollama">Ollama service running Qwen 2.5 14B model</package>
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="accuracy">Context-only enforcement: LLM must NEVER use outside knowledge or hallucinate facts not in context</constraint>
+    <constraint type="performance">First token latency &lt;500ms for responsive user experience</constraint>
+    <constraint type="performance">Full response latency &lt;3s for typical answers (~200 tokens)</constraint>
+    <constraint type="architecture">Temperature=0.1 for deterministic, low-hallucination responses</constraint>
+    <constraint type="architecture">Max tokens=512 to prevent overly long responses</constraint>
+    <constraint type="usability">Insufficient context handled gracefully: "I don't have information..." (no error)</constraint>
+    <constraint type="reliability">Timeout after 30 seconds to prevent hanging connections</constraint>
+    <constraint type="streaming">SSE format for real-time token streaming to client</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/bots/:bot_id/query</name>
+      <kind>REST endpoint with SSE streaming</kind>
+      <signature>POST /api/v1/bots/{bot_id}/query { query: str, conversation_history: [...], stream: bool } -> SSE stream or JSON</signature>
+      <path>apps/api/app/api/routes/query.py (new)</path>
+      <notes>Streaming via Server-Sent Events if stream=true. Returns complete JSON if stream=false. Requires authentication.</notes>
+    </interface>
+    <interface>
+      <name>LLMService</name>
+      <kind>Python service class</kind>
+      <signature>async def generate_answer(query, context_chunks, conversation_history) -> AsyncIterator[str]</signature>
+      <path>apps/api/app/services/llm_service.py (new)</path>
+      <notes>Integrates with Ollama API. Builds structured prompt. Streams tokens. Enforces context-only behavior.</notes>
+    </interface>
+    <interface>
+      <name>AnswerGenerationService</name>
+      <kind>Python service class</kind>
+      <signature>async def generate(bot_id, query, k) -> AsyncIterator[str]</signature>
+      <path>apps/api/app/services/answer_service.py (new)</path>
+      <notes>Orchestrates vector search + LLM generation. Handles empty context. Yields streaming tokens.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Unit tests isolate LLM service with mocked Ollama API. Integration tests verify end-to-end query → context → answer flow. Hallucination tests verify context-only enforcement. Test frameworks: pytest + FastAPI TestClient. All tests must verify streaming latency and no outside knowledge usage.
+    </standards>
+    <locations>
+      Backend tests: apps/api/tests/. Integration tests: apps/api/tests/integration/. Performance tests: apps/api/tests/performance/.
+    </locations>
+    <ideas>
+      <test acId="1">Prompt includes system instructions for context-only behavior</test>
+      <test acId="1">Context chunks formatted with [Source: ...] labels</test>
+      <test acId="2">LLM response contains only facts from provided context</test>
+      <test acId="2">Out-of-domain query returns "I don't have information..." (no hallucination)</test>
+      <test acId="3">Insufficient context triggers "I don't have information..." response</test>
+      <test acId="4">Response is clear, structured, and includes context details</test>
+      <test acId="5">Streaming response uses SSE format (event: token, data: ...)</test>
+      <test acId="6">First token arrives within 500ms</test>
+      <test acId="7">Full response (200 tokens) completes within 3 seconds</test>
+      <test acId="8">Response length is 50-500 words typical, enforced at 512 tokens max</test>
+      <test acId="9">Empty context (no search results) handled gracefully</test>
+      <test acId="10">Contradictory context chunks don't break generation</test>
+      <testAPI>POST /api/v1/bots/:bot_id/query requires authentication</testAPI>
+      <testAPI>Streaming response format correct: event: token, data: text</testAPI>
+      <testAPI>Non-streaming response returns complete JSON with answer</testAPI>
+      <testE2E>Query with good context → verify answer based only on context</testE2E>
+      <testE2E>Query with no context → verify "I don't have information..." response</testE2E>
+      <testE2E>Out-of-domain query → verify LLM doesn't use general knowledge</testE2E>
+      <testE2E>Streaming latency: first token &lt;500ms, full response &lt;3s</testE2E>
+    </ideas>
+  </tests>
+</story-context>

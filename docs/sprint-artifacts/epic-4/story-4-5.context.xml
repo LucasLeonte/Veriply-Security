@@ -1,0 +1,1065 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Story 4.5: Embeddable Widget Generation - Developer Context
+  
+  Generated: 2025-12-10
+  Epic: 4. Chat Experience
+  Story: Embeddable Widget Generation
+  
+  Purpose: Provide comprehensive context for developers implementing embeddable chat widget
+           functionality with code generation, live preview, and iframe-based deployment.
+  
+  This context includes:
+  - Widget code generation with data-* attribute configuration
+  - Widget customization UI (position, color, welcome message, auto-open)
+  - Live preview component showing real-time widget appearance
+  - widget.js bundle creation and CDN deployment
+  - Iframe-based chat embedding with sandbox isolation
+  - Widget configuration storage and API endpoints
+-->
+
+<story-context>
+  <story-header>
+    <story-id>4-5-embeddable-widget-generation</story-id>
+    <epic-id>4</epic-id>
+    <epic-title>Chat Experience</epic-title>
+    <story-title>Embeddable Widget Generation</story-title>
+    <status>drafted</status>
+    <assigned-to>Unassigned</assigned-to>
+    <blocked-by>
+      <dependency story-id="4-1">Web Chat Interface - Need chat page for iframe embedding</dependency>
+    </blocked-by>
+    <blocks>
+      <story story-id="4-6">Widget Security & Responsiveness - Domain whitelisting extends this story</story>
+    </blocks>
+  </story-header>
+
+  <story-overview>
+    <user-story>
+      As a User,
+      I want to generate an embeddable widget for my bot,
+      so that I can add the chat to my website.
+    </user-story>
+    
+    <business-value>
+      Embeddable widgets are critical for Veriply's value proposition: allowing customers to deploy
+      AI-powered chat on their own websites without building infrastructure. Widget generation with
+      customization (position, color, welcome message) enables brand alignment. Iframe isolation
+      ensures security while simple script tag embedding ensures easy deployment.
+    </business-value>
+
+    <technical-summary>
+      Implement widget code generator in bot settings that produces HTML script tag with data-*
+      attributes for configuration (position, color, welcome message, auto-open). Create widget.js
+      bundle that reads attributes, creates sandboxed iframe, and loads chat page in embedded mode.
+      Build live preview component showing widget appearance with real-time updates. Store widget
+      config in database with GET/PUT endpoints. Deploy widget.js to CDN with caching for fast
+      global delivery. Ensure iframe sandbox prevents XSS and parent window access.
+    </technical-summary>
+
+    <key-functional-requirements>
+      <requirement id="FR33">Users can generate embeddable JavaScript snippet</requirement>
+      <requirement id="FR34">Widget customizable: colors, position, welcome message</requirement>
+      <requirement id="FR36">Widget works on desktop and mobile browsers</requirement>
+    </key-functional-requirements>
+  </story-overview>
+
+  <acceptance-criteria>
+    <group name="Widget Code Generation">
+      <ac id="AC1">
+        <given>I am on a bot's Settings page</given>
+        <when>I click "Get Widget Code"</when>
+        <then>
+          I see a code snippet in a text area:
+          ```html
+          &lt;script src="https://veriply.io/widget.js" 
+                  data-bot-id="550e8400-e29b-41d4-a716-446655440000" 
+                  data-position="bottom-right"
+                  data-primary-color="#3B82F6"
+                  data-welcome-message="Hi! How can I help?"&gt;
+          &lt;/script&gt;
+          ```
+        </then>
+      </ac>
+
+      <ac id="AC2">
+        <given>I see the code snippet</given>
+        <when>I look at the options</when>
+        <then>
+          - I see a "Copy to Clipboard" button
+          - Clicking it copies the code and shows: "Copied!"
+        </then>
+      </ac>
+    </group>
+
+    <group name="Widget Customization">
+      <ac id="AC3">
+        <given>I want to customize the widget appearance</given>
+        <when>I look at the settings</when>
+        <then>
+          I see customization options:
+          - Position: Dropdown (bottom-right, bottom-left, top-right, top-left)
+          - Primary Color: Color picker input (default: #3B82F6)
+          - Welcome Message: Text field (max 200 chars)
+          - Auto-open: Toggle switch (on/off, default: off)
+        </then>
+      </ac>
+
+      <ac id="AC4">
+        <given>I change the position to "bottom-left"</given>
+        <when>I update the setting</when>
+        <then>
+          The code snippet updates immediately: data-position="bottom-left"
+        </then>
+      </ac>
+
+      <ac id="AC5">
+        <given>I select a new primary color (e.g., #FF6B6B)</given>
+        <when>The color is selected</when>
+        <then>
+          The code snippet updates: data-primary-color="#FF6B6B"
+        </then>
+      </ac>
+
+      <ac id="AC6">
+        <given>I enter a welcome message: "Welcome to Support!"</given>
+        <when>I update the field</when>
+        <then>
+          The code snippet updates: data-welcome-message="Welcome to Support!"
+        </then>
+      </ac>
+
+      <ac id="AC7">
+        <given>I enable "Auto-open"</given>
+        <when>The toggle is ON</when>
+        <then>
+          The code snippet updates: data-auto-open="true"
+        </then>
+      </ac>
+    </group>
+
+    <group name="Widget Preview">
+      <ac id="AC8">
+        <given>I customize the widget settings</given>
+        <when>I look at the preview area</when>
+        <then>
+          I see a live preview of the widget with:
+          - Correct position on screen (bottom-right, etc.)
+          - Primary color applied to buttons and accents
+          - Welcome message displayed
+          - Widget appears to expand/collapse based on auto-open setting
+        </then>
+      </ac>
+
+      <ac id="AC9">
+        <given>I click on the preview widget</given>
+        <when>The widget opens in the preview</when>
+        <then>
+          It shows the chat interface (not fully functional, just UI preview)
+        </then>
+      </ac>
+    </group>
+
+    <group name="Widget Implementation">
+      <ac id="AC10">
+        <given>A website owner embeds the widget code on their site</given>
+        <when>The page loads</when>
+        <then>
+          - The widget script (widget.js) loads asynchronously
+          - The widget appears in the specified position
+          - The widget loads the chat interface in an iframe
+        </then>
+      </ac>
+
+      <ac id="AC11">
+        <given>The widget loads with data-bot-id parameter</given>
+        <when>Initialization completes</when>
+        <then>
+          - The widget fetches bot metadata (name, welcome message)
+          - Displays the configured welcome message
+        </then>
+      </ac>
+    </group>
+
+    <group name="Security & Isolation">
+      <ac id="AC12">
+        <given>The widget loads on a website</given>
+        <when>The iframe initializes</when>
+        <then>
+          - It loads from https://veriply.io/chat/:bot_id
+          - The iframe is sandboxed: sandbox="allow-same-origin allow-forms allow-popups allow-scripts"
+          - No access to parent window data (XSS protection)
+        </then>
+      </ac>
+
+      <ac id="AC13">
+        <given>A website embeds the widget</given>
+        <when>The user interacts with the chat</when>
+        <then>
+          - The chat data is isolated to the iframe
+          - No bot data leaks to parent window
+        </then>
+      </ac>
+    </group>
+
+    <group name="Responsive Design">
+      <ac id="AC14">
+        <given>The widget is embedded on a desktop website</given>
+        <when>I interact with the chat</when>
+        <then>
+          The widget is responsive and works at all breakpoints
+        </then>
+      </ac>
+
+      <ac id="AC15">
+        <given>The widget is embedded on a mobile website</given>
+        <when>I rotate the device</when>
+        <then>
+          - The widget adapts to the new screen size
+          - Chat remains fully functional
+        </then>
+      </ac>
+    </group>
+
+    <group name="Error Handling">
+      <ac id="AC16">
+        <given>The widget code is embedded incorrectly (wrong script tag)</given>
+        <when>The page loads</when>
+        <then>
+          - NO error is shown to end-user
+          - The widget silently fails to load (graceful degradation)
+        </then>
+      </ac>
+
+      <ac id="AC17">
+        <given>The bot is disabled or deleted</given>
+        <when>Someone visits the embedded widget</when>
+        <then>
+          - The widget shows: "This bot is no longer available"
+          - No error is exposed
+        </then>
+      </ac>
+    </group>
+  </acceptance-criteria>
+
+  <task-breakdown>
+    <task-group name="Frontend - Widget Settings Panel" priority="high">
+      <task id="4.5.1">
+        <title>Create Widget Customization UI</title>
+        <description>
+          Build WidgetSettings component in bot settings page showing code snippet and customization
+          form (position, color, welcome message, auto-open).
+        </description>
+        <acceptance>
+          - WidgetSettings.tsx component created
+          - Display current widget code snippet (readonly textarea)
+          - "Copy to Clipboard" button (shadcn/ui)
+          - Position dropdown: bottom-right, bottom-left, top-right, top-left
+          - Color picker for primary color (shadcn/ui Popover + color input)
+          - Welcome message text field (max 200 chars, counter)
+          - Auto-open toggle switch
+          - Real-time code generation on setting changes
+        </acceptance>
+        <files>
+          <file action="create">apps/web/src/components/WidgetSettings.tsx</file>
+          <file action="create">apps/web/src/lib/widget/generator.ts</file>
+        </files>
+      </task>
+
+      <task id="4.5.2">
+        <title>Implement Code Generation Function</title>
+        <description>
+          Create generateWidgetCode() function that produces HTML script tag with data-* attributes
+          based on widget configuration.
+        </description>
+        <acceptance>
+          - Function: generateWidgetCode(settings) returns HTML string
+          - Includes data-bot-id, data-position, data-primary-color, data-welcome-message, data-auto-open
+          - Script src: https://veriply.io/widget.js (or CDN URL)
+          - Properly escaped attributes
+          - Real-time updates when settings change
+        </acceptance>
+        <code-example>
+          <![CDATA[
+function generateWidgetCode(settings: WidgetSettings): string {
+  return `<script src="https://veriply.io/widget.js"
+        data-bot-id="${settings.botId}"
+        data-position="${settings.position}"
+        data-primary-color="${settings.primaryColor}"
+        data-welcome-message="${escapeHtml(settings.welcomeMessage)}"
+        ${settings.autoOpen ? 'data-auto-open="true"' : ''}>
+</script>`;
+}
+          ]]>
+        </code-example>
+      </task>
+
+      <task id="4.5.3">
+        <title>Implement Copy to Clipboard</title>
+        <description>
+          Add copy-to-clipboard functionality with success toast notification.
+        </description>
+        <acceptance>
+          - Use navigator.clipboard.writeText(code)
+          - Show success toast: "Copied to clipboard!"
+          - Fallback for older browsers (copy to input, user select/Ctrl+C)
+          - Toast disappears after 3 seconds
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Frontend - Widget Preview" priority="medium">
+      <task id="4.5.4">
+        <title>Create WidgetPreview Component</title>
+        <description>
+          Build live preview component showing widget in different positions with customized styling.
+        </description>
+        <acceptance>
+          - WidgetPreview.tsx component created
+          - Render preview widget in specified position (CSS positioning)
+          - Show widget button with specified color
+          - Embed live chat preview (non-functional, just UI)
+          - Split-screen: customization form left, preview right
+          - Real-time updates on setting changes
+        </acceptance>
+        <files>
+          <file action="create">apps/web/src/components/WidgetPreview.tsx</file>
+        </files>
+      </task>
+
+      <task id="4.5.5">
+        <title>Implement Live Preview Updates</title>
+        <description>
+          Subscribe to setting changes and update preview widget in real-time.
+        </description>
+        <acceptance>
+          - On position change: move preview widget to new position
+          - On color change: update button color in preview
+          - On message change: update welcome text in preview
+          - On auto-open change: show expanded/collapsed state
+          - Smooth animations (CSS transitions)
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Frontend - Widget Bundle (widget.js)" priority="high">
+      <task id="4.5.6">
+        <title>Create widget.js Entry Point</title>
+        <description>
+          Build widget.js bundle that reads data-* attributes from script tag and initializes widget.
+        </description>
+        <acceptance>
+          - Widget entry file: apps/web/widget/widget.ts
+          - Read data-* attributes from script tag
+          - Create iframe element with src: /chat/:bot_id?embedded=true
+          - Apply positioning and styling based on attributes
+          - Append to document body
+          - Handle errors gracefully (bot not found, network errors)
+        </acceptance>
+        <files>
+          <file action="create">apps/web/widget/widget.ts</file>
+        </files>
+        <code-example>
+          <![CDATA[
+// Widget initialization logic
+(function() {
+  const script = document.currentScript as HTMLScriptElement;
+  const botId = script.dataset.botId;
+  const position = script.dataset.position || 'bottom-right';
+  const primaryColor = script.dataset.primaryColor || '#3B82F6';
+  const welcomeMessage = script.dataset.welcomeMessage || 'Hi! How can I help?';
+  const autoOpen = script.dataset.autoOpen === 'true';
+
+  // Create widget container
+  const container = document.createElement('div');
+  container.id = 'veriply-widget';
+  container.className = `veriply-widget veriply-widget-${position}`;
+  
+  // Create iframe
+  const iframe = document.createElement('iframe');
+  iframe.src = `https://veriply.io/chat/${botId}?embedded=true`;
+  iframe.sandbox = 'allow-same-origin allow-forms allow-popups allow-scripts';
+  iframe.style.border = 'none';
+  iframe.style.width = '100%';
+  iframe.style.height = '100%';
+  
+  container.appendChild(iframe);
+  document.body.appendChild(container);
+  
+  // Apply custom styling
+  container.style.setProperty('--primary-color', primaryColor);
+  
+  if (autoOpen) {
+    container.classList.add('veriply-widget-open');
+  }
+})();
+          ]]>
+        </code-example>
+      </task>
+
+      <task id="4.5.7">
+        <title>Bundle widget.js with Build Tool</title>
+        <description>
+          Configure esbuild or webpack to bundle widget.js into minimal, optimized file (&lt;50KB gzipped).
+        </description>
+        <acceptance>
+          - Bundled with esbuild (or webpack)
+          - Output: apps/web/public/widget.js
+          - Bundle size &lt; 50KB gzipped
+          - Tree-shaking to remove unused code
+          - Minification enabled
+          - Source maps for debugging (optional)
+        </acceptance>
+        <files>
+          <file action="modify">apps/web/next.config.ts</file>
+        </files>
+      </task>
+
+      <task id="4.5.8">
+        <title>Implement Widget DOM Structure</title>
+        <description>
+          Define widget HTML/CSS structure with proper positioning and responsive design.
+        </description>
+        <acceptance>
+          - Widget container with fixed positioning
+          - Support positions: bottom-right, bottom-left, top-right, top-left
+          - Iframe with sandbox attributes
+          - CSS for open/closed states
+          - Responsive design (adapts to mobile)
+        </acceptance>
+        <dom-structure>
+          <![CDATA[
+<div id="veriply-widget" class="veriply-widget veriply-widget-bottom-right">
+  <iframe src="https://veriply.io/chat/:bot_id?embedded=true" 
+          sandbox="allow-same-origin allow-forms allow-popups allow-scripts"
+          style="border: none; width: 100%; height: 100%;">
+  </iframe>
+</div>
+          ]]>
+        </dom-structure>
+      </task>
+    </task-group>
+
+    <task-group name="Frontend - Chat Page Embedded Mode" priority="high">
+      <task id="4.5.9">
+        <title>Add Embedded Mode Detection to Chat Page</title>
+        <description>
+          Update chat page to detect embedded mode via URL query param and adjust layout accordingly.
+        </description>
+        <acceptance>
+          - Check URL query param: ?embedded=true
+          - If embedded: hide header/footer, keep compact layout
+          - Adjust styling for iframe constraints (no full-screen layouts)
+          - Ensure responsive within iframe
+          - Optional: post messages to parent window for analytics
+        </acceptance>
+        <files>
+          <file action="modify">apps/web/src/app/chat/[botId]/page.tsx</file>
+        </files>
+      </task>
+    </task-group>
+
+    <task-group name="Backend - Widget Config Storage" priority="high">
+      <task id="4.5.10">
+        <title>Create WidgetConfig Model</title>
+        <description>
+          Create SQLAlchemy model for storing widget configuration per bot.
+        </description>
+        <acceptance>
+          - WidgetConfig model created
+          - Fields: id, bot_id, position, primary_color, welcome_message, auto_open, created_at, updated_at
+          - Cascade delete: when bot deleted → widget config deleted
+          - Unique constraint: one config per bot
+        </acceptance>
+        <files>
+          <file action="create">apps/api/app/models/widget_config.py</file>
+        </files>
+        <database-schema>
+          <![CDATA[
+CREATE TABLE widget_configs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+    position VARCHAR(20) DEFAULT 'bottom-right',
+    primary_color VARCHAR(7) DEFAULT '#3B82F6',
+    welcome_message VARCHAR(200),
+    auto_open BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(bot_id)
+);
+          ]]>
+        </database-schema>
+      </task>
+
+      <task id="4.5.11">
+        <title>Create Widget Config Endpoints</title>
+        <description>
+          Implement GET/PUT endpoints for widget configuration.
+        </description>
+        <acceptance>
+          - GET /api/v1/bots/:bot_id/widget/config - Return widget config
+          - PUT /api/v1/bots/:bot_id/widget/config - Update widget settings
+          - Validation: color is valid hex, position in enum, message length &lt; 200
+          - Authorization: only bot owner can access/update
+          - Return updated config after PUT
+        </acceptance>
+        <files>
+          <file action="create">apps/api/app/api/routes/widget.py</file>
+          <file action="create">apps/api/app/services/widget_service.py</file>
+          <file action="modify">apps/api/app/main.py</file>
+        </files>
+        <api-spec>
+          <endpoint method="GET" path="/api/v1/bots/{bot_id}/widget/config">
+            <description>Get widget configuration for bot</description>
+            <response>
+              <![CDATA[
+{
+  "botId": "uuid",
+  "position": "bottom-right",
+  "primaryColor": "#3B82F6",
+  "welcomeMessage": "Hi! How can I help?",
+  "autoOpen": false
+}
+              ]]>
+            </response>
+          </endpoint>
+          <endpoint method="PUT" path="/api/v1/bots/{bot_id}/widget/config">
+            <description>Update widget configuration</description>
+            <request>
+              <![CDATA[
+{
+  "position": "bottom-left",
+  "primaryColor": "#FF6B6B",
+  "welcomeMessage": "Welcome to Support!",
+  "autoOpen": true
+}
+              ]]>
+            </request>
+            <response>
+              <![CDATA[
+{
+  "botId": "uuid",
+  "position": "bottom-left",
+  "primaryColor": "#FF6B6B",
+  "welcomeMessage": "Welcome to Support!",
+  "autoOpen": true
+}
+              ]]>
+            </response>
+          </endpoint>
+        </api-spec>
+      </task>
+    </task-group>
+
+    <task-group name="Deployment - Widget CDN" priority="medium">
+      <task id="4.5.12">
+        <title>Setup CDN Serving for widget.js</title>
+        <description>
+          Configure CDN or web server to serve widget.js with appropriate caching headers.
+        </description>
+        <acceptance>
+          - Option A: Serve from S3 + CloudFront
+          - Option B: Serve from Veriply web server with caching headers
+          - Set Cache-Control: max-age=86400 (1 day)
+          - Versioned URL: /widget/v1/widget.js (for future updates)
+          - CORS headers: Access-Control-Allow-Origin: *
+          - Bundle served with gzip compression
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - Component Tests" priority="medium">
+      <task id="4.5.13">
+        <title>Test WidgetSettings Component</title>
+        <description>
+          Unit test WidgetSettings component: code generation, clipboard, customization.
+        </description>
+        <acceptance>
+          - Test: code snippet renders with correct bot_id
+          - Test: copy to clipboard button works
+          - Test: position dropdown changes code
+          - Test: color picker changes code
+          - Test: message field changes code
+          - Test: auto-open toggle changes code
+        </acceptance>
+        <files>
+          <file action="create">apps/web/__tests__/WidgetSettings.test.tsx</file>
+        </files>
+      </task>
+
+      <task id="4.5.14">
+        <title>Test WidgetPreview Component</title>
+        <description>
+          Unit test WidgetPreview component: positioning, styling, real-time updates.
+        </description>
+        <acceptance>
+          - Test: preview widget appears in correct position
+          - Test: colors applied to preview
+          - Test: message displayed in preview
+          - Test: responsive at different screen sizes
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - Widget Integration Tests" priority="high">
+      <task id="4.5.15">
+        <title>Test Widget Loading and Initialization</title>
+        <description>
+          Integration test: embed widget code on test HTML page, verify it loads correctly.
+        </description>
+        <acceptance>
+          - Create test HTML page that embeds widget
+          - Test: script tag loads successfully
+          - Test: iframe created and inserted into DOM
+          - Test: iframe loads chat page
+          - Test: chat interface appears in widget
+        </acceptance>
+      </task>
+
+      <task id="4.5.16">
+        <title>Test Widget Positioning and Styling</title>
+        <description>
+          Test widget appears in all positions with correct styling.
+        </description>
+        <acceptance>
+          - Test: bottom-right, bottom-left, top-right, top-left all work
+          - Test: widget doesn't overlap viewport edges excessively
+          - Test: primary color applied
+          - Test: welcome message shows
+          - Test: auto-open works (widget opens on page load)
+        </acceptance>
+      </task>
+
+      <task id="4.5.17">
+        <title>Test Iframe Sandbox Isolation</title>
+        <description>
+          Verify iframe sandbox prevents access to parent window data.
+        </description>
+        <acceptance>
+          - Test: no access to parent window (test postMessage)
+          - Test: chat data doesn't leak to parent
+          - Test: sandbox attributes correctly set
+          - Test: XSS prevention working
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Testing - API Tests" priority="medium">
+      <task id="4.5.18">
+        <title>Test Widget Config Endpoints</title>
+        <description>
+          Test GET/PUT endpoints for widget configuration.
+        </description>
+        <acceptance>
+          - Test: GET returns correct config
+          - Test: PUT updates config correctly
+          - Test: validation rejects invalid color, position, message length
+          - Test: authorization: only bot owner can update
+        </acceptance>
+      </task>
+
+      <task id="4.5.19">
+        <title>Test widget.js CDN Serving</title>
+        <description>
+          Verify widget.js is accessible, properly sized, and cached.
+        </description>
+        <acceptance>
+          - Test: file exists and is accessible
+          - Test: file size &lt; 50KB gzipped
+          - Test: cache headers set correctly
+          - Test: CORS headers present
+        </acceptance>
+      </task>
+    </task-group>
+
+    <task-group name="Documentation" priority="low">
+      <task id="4.5.20">
+        <title>Create Widget Installation Guide</title>
+        <description>
+          Document how to embed widget code on websites with customization examples.
+        </description>
+        <acceptance>
+          - Instructions for embedding widget code
+          - Examples with different customizations
+          - Troubleshooting section
+          - Browser compatibility notes
+        </acceptance>
+      </task>
+
+      <task id="4.5.21">
+        <title>Document Widget API</title>
+        <description>
+          Document available data-* attributes and configuration options.
+        </description>
+        <acceptance>
+          - List all data-* attributes
+          - Configuration options explained
+          - Browser compatibility (modern browsers)
+          - Bundle size and performance notes
+        </acceptance>
+      </task>
+    </task-group>
+  </task-breakdown>
+
+  <technical-specifications>
+    <widget-configuration>
+      <title>Widget Configuration Options</title>
+      <option name="position">
+        <type>enum</type>
+        <values>bottom-right, bottom-left, top-right, top-left</values>
+        <default>bottom-right</default>
+        <description>Widget placement on page</description>
+      </option>
+      <option name="primary-color">
+        <type>string</type>
+        <format>hex color (#RRGGBB)</format>
+        <default>#3B82F6</default>
+        <description>Primary color for widget buttons and accents</description>
+      </option>
+      <option name="welcome-message">
+        <type>string</type>
+        <max-length>200</max-length>
+        <default>Hi! How can I help?</default>
+        <description>Initial message shown to users</description>
+      </option>
+      <option name="auto-open">
+        <type>boolean</type>
+        <default>false</default>
+        <description>Whether widget opens automatically on page load</description>
+      </option>
+    </widget-configuration>
+
+    <widget-script-tag>
+      <example>
+        <![CDATA[
+<script src="https://veriply.io/widget.js" 
+        data-bot-id="550e8400-e29b-41d4-a716-446655440000" 
+        data-position="bottom-right"
+        data-primary-color="#3B82F6"
+        data-welcome-message="Hi! How can I help?"
+        data-auto-open="false">
+</script>
+        ]]>
+      </example>
+    </widget-script-tag>
+
+    <iframe-sandbox>
+      <title>Iframe Sandbox Security</title>
+      <description>
+        Widget chat runs in sandboxed iframe to prevent XSS and protect parent window data.
+      </description>
+      <sandbox-attributes>
+        <attribute>allow-same-origin</attribute>
+        <attribute>allow-forms</attribute>
+        <attribute>allow-popups</attribute>
+        <attribute>allow-scripts</attribute>
+      </sandbox-attributes>
+      <security-benefits>
+        <benefit>No access to parent window DOM</benefit>
+        <benefit>No access to parent window cookies</benefit>
+        <benefit>No access to parent window localStorage</benefit>
+        <benefit>Prevents XSS attacks from widget to host page</benefit>
+      </security-benefits>
+    </iframe-sandbox>
+
+    <widget-bundle>
+      <title>widget.js Bundle Specifications</title>
+      <bundle-size>&lt; 50KB gzipped</bundle-size>
+      <build-tool>esbuild</build-tool>
+      <output-location>apps/web/public/widget.js</output-location>
+      <cdn-url>https://veriply.io/widget/v1/widget.js</cdn-url>
+      <cache-control>max-age=86400 (1 day)</cache-control>
+      <cors>Access-Control-Allow-Origin: *</cors>
+    </widget-bundle>
+
+    <embedded-mode>
+      <title>Chat Page Embedded Mode</title>
+      <description>
+        Chat page detects embedded mode via ?embedded=true query param and adjusts layout for iframe.
+      </description>
+      <adjustments>
+        <adjustment>Hide header and footer</adjustment>
+        <adjustment>Remove full-screen layouts</adjustment>
+        <adjustment>Compact spacing and margins</adjustment>
+        <adjustment>Responsive within iframe constraints</adjustment>
+      </adjustments>
+    </embedded-mode>
+  </technical-specifications>
+
+  <interfaces-and-types>
+    <typescript-interfaces>
+      <interface name="WidgetSettings">
+        <![CDATA[
+interface WidgetSettings {
+  botId: string;
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  primaryColor: string; // hex color
+  welcomeMessage: string; // max 200 chars
+  autoOpen: boolean;
+}
+        ]]>
+      </interface>
+
+      <interface name="WidgetConfig">
+        <![CDATA[
+interface WidgetConfig {
+  id: string;
+  botId: string;
+  position: string;
+  primaryColor: string;
+  welcomeMessage: string;
+  autoOpen: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+        ]]>
+      </interface>
+    </typescript-interfaces>
+
+    <python-models>
+      <model name="WidgetConfig">
+        <![CDATA[
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Enum
+from uuid import uuid4
+
+class WidgetConfig(Base):
+    __tablename__ = "widget_configs"
+    
+    id = Column(UUID, primary_key=True, default=uuid4)
+    bot_id = Column(UUID, ForeignKey("bots.id", ondelete="CASCADE"), nullable=False, unique=True)
+    position = Column(Enum('bottom-right', 'bottom-left', 'top-right', 'top-left'), default='bottom-right')
+    primary_color = Column(String(7), default='#3B82F6')
+    welcome_message = Column(String(200), nullable=True)
+    auto_open = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        ]]>
+      </model>
+    </python-models>
+  </interfaces-and-types>
+
+  <api-endpoints>
+    <endpoint method="GET" path="/api/v1/bots/{bot_id}/widget/config">
+      <description>Get widget configuration for bot</description>
+      <authorization>Bot owner only</authorization>
+      <response>
+        <![CDATA[
+{
+  "botId": "550e8400-e29b-41d4-a716-446655440000",
+  "position": "bottom-right",
+  "primaryColor": "#3B82F6",
+  "welcomeMessage": "Hi! How can I help?",
+  "autoOpen": false
+}
+        ]]>
+      </response>
+    </endpoint>
+
+    <endpoint method="PUT" path="/api/v1/bots/{bot_id}/widget/config">
+      <description>Update widget configuration</description>
+      <authorization>Bot owner only</authorization>
+      <request>
+        <![CDATA[
+{
+  "position": "bottom-left",
+  "primaryColor": "#FF6B6B",
+  "welcomeMessage": "Welcome to Support!",
+  "autoOpen": true
+}
+        ]]>
+      </request>
+      <validation>
+        <rule>position must be in enum: bottom-right, bottom-left, top-right, top-left</rule>
+        <rule>primaryColor must be valid hex color (#RRGGBB)</rule>
+        <rule>welcomeMessage max length 200 characters</rule>
+        <rule>autoOpen must be boolean</rule>
+      </validation>
+      <response>
+        <![CDATA[
+{
+  "botId": "550e8400-e29b-41d4-a716-446655440000",
+  "position": "bottom-left",
+  "primaryColor": "#FF6B6B",
+  "welcomeMessage": "Welcome to Support!",
+  "autoOpen": true
+}
+        ]]>
+      </response>
+    </endpoint>
+  </api-endpoints>
+
+  <integration-points>
+    <integration with="Story 4.1 - Web Chat Interface">
+      <description>
+        Embed chat page in iframe with ?embedded=true query param. Chat page adjusts layout for
+        iframe display (hide header/footer, compact spacing).
+      </description>
+    </integration>
+
+    <integration with="Epic 2 - Bot Management">
+      <description>
+        Reuse bot public metadata endpoint for fetching bot name and welcome message. Use bot
+        authorization patterns for widget config access control.
+      </description>
+    </integration>
+
+    <integration with="Story 4.6 - Widget Security">
+      <description>
+        Story 4.6 extends this story with domain whitelisting for restricting which websites can
+        embed the widget. Server-side origin verification prevents unauthorized embedding.
+      </description>
+    </integration>
+  </integration-points>
+
+  <testing-strategy>
+    <unit-tests>
+      <test-group name="WidgetSettings Component">
+        <test>Code snippet renders with correct bot_id</test>
+        <test>Copy to clipboard button works</test>
+        <test>Position dropdown changes code</test>
+        <test>Color picker changes code</test>
+        <test>Message field changes code</test>
+        <test>Auto-open toggle changes code</test>
+      </test-group>
+
+      <test-group name="WidgetPreview Component">
+        <test>Preview widget appears in correct position</test>
+        <test>Colors applied to preview</test>
+        <test>Message displayed in preview</test>
+        <test>Responsive at different screen sizes</test>
+      </test-group>
+    </unit-tests>
+
+    <integration-tests>
+      <test-group name="Widget Loading">
+        <test>Script tag loads successfully</test>
+        <test>Iframe created and inserted</test>
+        <test>Iframe loads chat page</test>
+        <test>Chat interface appears in widget</test>
+      </test-group>
+
+      <test-group name="Widget Positioning">
+        <test>bottom-right position works</test>
+        <test>bottom-left position works</test>
+        <test>top-right position works</test>
+        <test>top-left position works</test>
+        <test>Widget doesn't overlap viewport edges</test>
+      </test-group>
+
+      <test-group name="Widget Styling">
+        <test>Primary color applied to buttons</test>
+        <test>Welcome message displayed</test>
+        <test>Auto-open works (widget opens on load)</test>
+      </test-group>
+
+      <test-group name="Iframe Sandbox">
+        <test>No access to parent window</test>
+        <test>Chat data isolated to iframe</test>
+        <test>Sandbox attributes correctly set</test>
+      </test-group>
+    </integration-tests>
+
+    <api-tests>
+      <test-group name="Widget Config Endpoints">
+        <test>GET returns correct config</test>
+        <test>PUT updates config correctly</test>
+        <test>Validation rejects invalid color</test>
+        <test>Validation rejects invalid position</test>
+        <test>Validation rejects message > 200 chars</test>
+        <test>Authorization: only bot owner can update</test>
+      </test-group>
+
+      <test-group name="widget.js CDN">
+        <test>File exists and is accessible</test>
+        <test>File size < 50KB gzipped</test>
+        <test>Cache headers set correctly</test>
+        <test>CORS headers present</test>
+      </test-group>
+    </api-tests>
+  </testing-strategy>
+
+  <dependencies>
+    <blocks>
+      <dependency story-id="4-1" story-title="Web Chat Interface">
+        Need chat page to embed in iframe with embedded mode
+      </dependency>
+    </blocks>
+
+    <blocked-by>
+      <dependency story-id="4-6" story-title="Widget Security & Responsiveness">
+        Story 4.6 extends this story with domain whitelisting and mobile responsiveness
+      </dependency>
+    </blocked-by>
+
+    <integrates-with>
+      <dependency epic-id="2" epic-title="Bot Management">
+        Use bot public metadata endpoint for fetching bot information
+      </dependency>
+      <dependency epic-id="8" epic-title="Analytics">
+        Optional: widget usage metrics and analytics
+      </dependency>
+    </integrates-with>
+  </dependencies>
+
+  <reference-materials>
+    <architecture>
+      <document>docs/architecture.md</document>
+      <sections>
+        <section>Embeddable Widget Architecture</section>
+        <section>Iframe Sandbox Security</section>
+      </sections>
+    </architecture>
+
+    <product-requirements>
+      <document>docs/prd.md</document>
+      <sections>
+        <section>FR33: Users can generate embeddable JavaScript snippet</section>
+        <section>FR34: Widget customizable: colors, position, welcome message</section>
+        <section>FR36: Widget works on desktop and mobile browsers</section>
+      </sections>
+    </product-requirements>
+
+    <related-stories>
+      <story id="4-1">Web Chat Interface - Chat page for iframe embedding</story>
+      <story id="4-6">Widget Security & Responsiveness - Domain whitelisting and mobile design</story>
+      <story id="2-1">Bot Creation - Bot metadata for widget initialization</story>
+    </related-stories>
+  </reference-materials>
+
+  <dev-notes>
+    <note type="architecture">
+      Widget uses iframe isolation for security: chat runs in sandboxed iframe, preventing XSS
+      attacks and protecting parent window data. Widget.js reads data-* attributes from script
+      tag and creates iframe with embedded chat page. Simple deployment: single script tag.
+    </note>
+
+    <note type="performance">
+      Keep widget.js bundle < 50KB gzipped to minimize impact on host pages. Use async script
+      loading to avoid blocking page render. CDN caching (1 day TTL) ensures fast global delivery.
+    </note>
+
+    <note type="security">
+      Iframe sandbox prevents widget from accessing parent window DOM, cookies, or localStorage.
+      Future Story 4.6 adds domain whitelisting for server-side origin verification.
+    </note>
+
+    <note type="ux">
+      Live preview in widget settings shows real-time updates as user customizes position, color,
+      and welcome message. Copy-to-clipboard button simplifies deployment process.
+    </note>
+  </dev-notes>
+
+  <completion-checklist>
+    <item>Widget settings UI renders correctly</item>
+    <item>Code snippet generated with correct format</item>
+    <item>Copy to clipboard works</item>
+    <item>Live preview updates on setting changes</item>
+    <item>Widget config stored in database</item>
+    <item>widget.js bundle created and deployed</item>
+    <item>Widget loads and displays chat</item>
+    <item>Iframe sandbox isolation working</item>
+    <item>All unit tests passing</item>
+    <item>All integration tests passing</item>
+    <item>Widget documentation complete</item>
+  </completion-checklist>
+</story-context>

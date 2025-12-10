@@ -1,0 +1,471 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.3</storyId>
+    <title>User Feedback</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-4/story-4-3-user-feedback.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>End-user</asA>
+    <iWant>provide feedback on AI answers</iWant>
+    <soThat>the system can learn from my input and prevent sabotage</soThat>
+    <tasks>
+      <task group="Frontend - Feedback UI Component">
+        <item>Create FeedbackBar component to render below each AI message</item>
+        <item>Show thumbs-up and thumbs-down icons using shadcn/ui Button/Icon</item>
+        <item>Implement icon states: Outlined (default), Filled (selected), Pending (semi-transparent), Disabled (grayed out)</item>
+        <item>Style: 16px icons, 8px spacing, Cool Slate colors from UX spec</item>
+        <item>Add shadcn/ui Tooltip component for hover text: "Helpful" / "Not helpful"</item>
+      </task>
+      <task group="Frontend - Feedback Form Modal">
+        <item>Create FeedbackReasonModal component that shows on thumbs-down click</item>
+        <item>Modal with title: "What was wrong?"</item>
+        <item>Use shadcn/ui RadioGroup for reason selection:</item>
+        <item>Options: "Incorrect information", "Not helpful / Irrelevant", "Incomplete answer", "Harmful or unsafe", "Other"</item>
+        <item>Conditional text field for "Other" with max 500 chars and character counter</item>
+        <item>Submit button: "Send Feedback", Cancel button</item>
+        <item>Form validation: at least one reason required, "Other" requires min 10 chars</item>
+      </task>
+      <task group="Frontend - Feedback State Management">
+        <item>Update useChat hook with feedbackState: { [messageId]: { type, reason, timestamp } }</item>
+        <item>Implement submitFeedback(messageId, type, reason) function</item>
+        <item>Implement removeFeedback(messageId) function to allow changing feedback</item>
+        <item>Store feedback in sessionStorage: feedback_${botId}_${sessionId}</item>
+        <item>Prevent duplicate feedback: check feedbackState before allowing second feedback</item>
+        <item>Allow changing feedback: remove old, add new when opposite icon clicked</item>
+        <item>Implement rate limiting: max 20 feedback items per 5 minutes per session</item>
+        <item>Show cooldown timer if rate limited: "Please wait before providing more feedback"</item>
+      </task>
+      <task group="API - Feedback Submission Endpoint">
+        <item>Create endpoint: POST /api/v1/bots/:bot_id/feedback</item>
+        <item>Accept: {answer_id, message_id, type, reason?, additional_notes?}</item>
+        <item>Extract from request context: user_id (from JWT), session_id, ip_address (X-Forwarded-For or remote_addr)</item>
+        <item>Validate: User authenticated, Bot exists and belongs to user's tenant, Answer ID valid, Type valid enum</item>
+        <item>If negative: reason required. Character limit on additional_notes (500).</item>
+        <item>Create audit log entry with user_id, timestamp, action</item>
+        <item>Return: { success: true, feedback_id: UUID }</item>
+        <item>REQUIRES AUTHENTICATION (JWT token in Authorization header)</item>
+      </task>
+      <task group="Backend - Feedback Data Model">
+        <item>Create Feedback SQLAlchemy model in apps/api/app/models/feedback.py</item>
+        <item>Fields: id, tenant_id, bot_id, user_id, answer_id, type, reason, additional_notes, session_id, ip_address, created_at</item>
+        <item>Add index on (bot_id, user_id, created_at) for user feedback history</item>
+        <item>Add index on (bot_id, type, created_at) for aggregate stats</item>
+        <item>Add index on (user_id, created_at) for abuse detection</item>
+        <item>Enable RLS: tenant_id = current_setting('app.current_tenant_id')::uuid</item>
+      </task>
+      <task group="Backend - Feedback Service">
+        <item>Create FeedbackService class in apps/api/app/services/feedback_service.py</item>
+        <item>Method: async def record_feedback(user_id, bot_id, answer_id, type, reason, notes, session_id, ip_address)</item>
+        <item>Validate user exists and belongs to tenant, bot exists and belongs to tenant, answer_id valid</item>
+        <item>Store feedback in database with user tracking info</item>
+        <item>Create audit log entry: action="feedback_submitted", user_id, details</item>
+        <item>Publish feedback event to analytics service</item>
+        <item>Check for "Harmful" feedback: alert moderation with user info</item>
+        <item>Check user abuse pattern: if 5+ "Harmful" feedbacks in 1 hour, flag account</item>
+        <item>Log abuse detection event and alert admin for investigation</item>
+      </task>
+      <task group="Backend - Audit Service Integration">
+        <item>Create AuditService.log_feedback() method</item>
+        <item>Log user_id, feedback_id, type, timestamp, ip_address, session_id</item>
+        <item>Create entry in audit_logs table for compliance</item>
+        <item>Enable full traceability for sabotage investigation</item>
+      </task>
+      <task group="Backend - Analytics Integration">
+        <item>Create FeedbackAnalyticsService in apps/api/app/services/feedback_analytics_service.py</item>
+        <item>Method: async def aggregate_stats(bot_id, time_window: str)</item>
+        <item>Compute: total feedback count, positive/negative ratio, top negative reasons (grouped), "Harmful" feedback count</item>
+        <item>Cache results with 1 hour TTL</item>
+        <item>Endpoint: GET /api/v1/bots/:bot_id/feedback/stats (requires bot owner auth)</item>
+        <item>Returns aggregate stats (no individual feedback, privacy preserved in summary)</item>
+      </task>
+      <task group="Backend - Moderation Alerts &amp; Abuse Detection">
+        <item>Implement alert system for critical feedback</item>
+        <item>On "Harmful" feedback: check count for answer (sliding 24h window)</item>
+        <item>If >= 3 "Harmful" in 24h: create ModerationAlert with bot_id, answer content, feedback count, user_id list</item>
+        <item>Endpoint: GET /api/v1/moderation/alerts (bot owners + admins)</item>
+        <item>Implement user abuse detection: track feedback submissions by user per 1-hour window</item>
+        <item>Flag if same user submits 5+ "Harmful" feedbacks in 1 hour as UserAbuseSuspicion</item>
+        <item>Create abuse alert with user_id, ip_address, feedback_ids</item>
+        <item>Endpoint: GET /api/v1/moderation/user-abuse (admins only) with full investigation details</item>
+      </task>
+      <task group="Testing - Component Tests">
+        <item>Test FeedbackBar: renders thumbs-up and thumbs-down icons</item>
+        <item>Test FeedbackBar: icons clickable and change state (outlined to filled)</item>
+        <item>Test FeedbackBar: tooltips display on hover ("Helpful" / "Not helpful")</item>
+        <item>Test FeedbackBar: rate limiting disables icons after 20 feedback</item>
+        <item>Test FeedbackReasonModal: shows on thumbs-down click</item>
+        <item>Test FeedbackReasonModal: radio buttons functional for reason selection</item>
+        <item>Test FeedbackReasonModal: text field appears and validates for "Other"</item>
+        <item>Test FeedbackReasonModal: form validates before submit (reason required)</item>
+        <item>Test FeedbackReasonModal: submit button sends feedback, cancel button closes</item>
+        <item>Use Vitest + React Testing Library</item>
+      </task>
+      <task group="Testing - API Tests">
+        <item>Test feedback submission: valid positive feedback recorded with user_id</item>
+        <item>Test feedback submission: valid negative feedback with reason recorded</item>
+        <item>Test feedback submission: additional notes saved (max 500 chars)</item>
+        <item>Test feedback submission: unauthenticated request returns 401</item>
+        <item>Test feedback submission: invalid reason rejected (400)</item>
+        <item>Test feedback submission: invalid bot rejected (404)</item>
+        <item>Test feedback submission: rate limiting enforced (429 after 20/5min)</item>
+        <item>Test audit logging: feedback submission creates audit log entry with user_id</item>
+        <item>Test analytics endpoint: returns aggregate stats (no individual feedback)</item>
+        <item>Test analytics endpoint: stats are cached (1 hour TTL)</item>
+        <item>Test moderation alerts: 3 "Harmful" creates alert with user details</item>
+        <item>Test moderation alerts: &lt;3 "Harmful" does not create alert</item>
+        <item>Test abuse detection: 5+ "Harmful" in 1 hour creates UserAbuseSuspicion alert</item>
+        <item>Use pytest + TestClient</item>
+      </task>
+      <task group="Testing - Integration Tests">
+        <item>E2E with Playwright: send message → get response</item>
+        <item>E2E: click thumbs-up → verify feedback submitted with user_id in audit log</item>
+        <item>E2E: click thumbs-down → see reason form</item>
+        <item>E2E: select reason → submit feedback → verify logged</item>
+        <item>E2E: verify icon remains filled after feedback</item>
+        <item>E2E: click opposite icon → change feedback and reason</item>
+        <item>E2E: rate limit test - submit 25 feedback → verify cooldown message</item>
+        <item>E2E: verify feedback appears in bot owner's analytics dashboard</item>
+        <item>E2E: verify "Harmful" feedback triggers moderation alert with user info</item>
+        <item>E2E: verify abuse pattern (5+ "Harmful"/hour) triggers UserAbuseSuspicion alert</item>
+      </task>
+      <task group="Documentation &amp; Deployment">
+        <item>Add JSDoc comments to FeedbackBar, FeedbackReasonModal components</item>
+        <item>Add JSDoc to FeedbackService, AuditService methods</item>
+        <item>Document feedback API in OpenAPI/Swagger spec</item>
+        <item>Document analytics calculations in README</item>
+        <item>Create moderation guide for handling alerts and abuse suspicions</item>
+        <item>Document user tracking in privacy/compliance documentation</item>
+        <item>Add audit logging requirements to compliance guide</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Feedback UI - Icons Display</title>
+      <given>I received an AI answer in the chat</given>
+      <when>I look at the message</when>
+      <then>I see two feedback icons below the response: Thumbs up icon (outlined initially) AND Thumbs down icon (outlined initially)</then>
+    </criterion>
+    <criterion id="2">
+      <title>Feedback UI - Tooltips</title>
+      <given>I hover over the thumbs up icon</given>
+      <when>I look at the tooltip</when>
+      <then>I see: "Helpful response"</then>
+    </criterion>
+    <criterion id="3">
+      <title>Feedback UI - Tooltips Down</title>
+      <given>I hover over the thumbs down icon</given>
+      <when>I look at the tooltip</when>
+      <then>I see: "Not helpful"</then>
+    </criterion>
+    <criterion id="4">
+      <title>Positive Feedback - Submission</title>
+      <given>I clicked the thumbs up icon</given>
+      <when>the click is processed</when>
+      <then>the icon fills in (solid state) AND a success toast appears: "Thank you for the feedback!" AND the feedback is recorded with type: "positive" AND user_id is logged for audit trail</then>
+    </criterion>
+    <criterion id="5">
+      <title>Negative Feedback - Form Display</title>
+      <given>I clicked the thumbs down icon</given>
+      <when>the click is processed</when>
+      <then>the icon fills in (solid state) AND a feedback form appears with the question: "What was wrong?" AND options are provided: Incorrect information, Not helpful/Irrelevant, Incomplete answer, Harmful or unsafe, Other (optional text)</then>
+    </criterion>
+    <criterion id="6">
+      <title>Negative Feedback - Reason Selection</title>
+      <given>I selected a reason from the list</given>
+      <when>I confirm or submit</when>
+      <then>the feedback is recorded with: type: "negative", reason: selected option, additional_notes: optional text if "Other" selected, AND user_id, session_id, ip_address logged for audit trail</then>
+    </criterion>
+    <criterion id="7">
+      <title>Negative Feedback - Other Text Field</title>
+      <given>I selected "Other"</given>
+      <when>I see the form</when>
+      <then>a text field appears with placeholder: "Tell us more..." AND character count shows 0/500 chars</then>
+    </criterion>
+    <criterion id="8">
+      <title>Feedback Persistence - Icon State</title>
+      <given>I provided feedback (thumbs up or down)</given>
+      <when>I look at the message again</when>
+      <then>the icon remains filled AND I cannot provide feedback twice for the same message AND I can change my feedback (click opposite icon to switch)</then>
+    </criterion>
+    <criterion id="9">
+      <title>Feedback Change - Update Feedback</title>
+      <given>I change my mind and click the opposite icon</given>
+      <when>the change is processed</when>
+      <then>the old feedback is replaced with the new feedback AND a new reason form appears (if clicking down) AND previous reason is cleared AND change is logged in audit trail</then>
+    </criterion>
+    <criterion id="10">
+      <title>Feedback Logging - User Tracking</title>
+      <given>I provide feedback</given>
+      <when>the feedback is recorded</when>
+      <then>the feedback is logged with my user account information AND timestamp and user_id are recorded AND session_id and IP address are captured for audit trail AND all feedback is traceable to prevent sabotage</then>
+    </criterion>
+    <criterion id="11">
+      <title>Harmful Feedback - Alert with User Info</title>
+      <given>I provide negative feedback with "Harmful"</given>
+      <when>the feedback is recorded</when>
+      <then>it is flagged for urgent review (logged as critical event) AND the system alerts moderation team with user info AND a full audit trail is created for investigation</then>
+    </criterion>
+    <criterion id="12">
+      <title>Error Handling - Retry Mechanism</title>
+      <given>the feedback submission fails (network error)</given>
+      <when>the user sees the result</when>
+      <then>a retry button appears AND the icon remains in a pending state (semi-filled) AND max 3 automatic retries before showing error</then>
+    </criterion>
+    <criterion id="13">
+      <title>Error Handling - Rate Limiting</title>
+      <given>feedback submission encounters rate limiting</given>
+      <when>the user tries again</when>
+      <then>a message appears: "Please wait before providing more feedback" AND icons are disabled for cooldown period</then>
+    </criterion>
+    <criterion id="14">
+      <title>Analytics Integration - Feedback Aggregation</title>
+      <given>feedback has been collected</given>
+      <when>the analytics system processes it</when>
+      <then>the feedback contributes to: Answer quality metrics, Bot confidence calibration, Trust Score calculation, Aggregate statistics (shown in analytics dashboard)</then>
+    </criterion>
+    <criterion id="15">
+      <title>Moderation - Harmful Pattern Detection</title>
+      <given>a specific AI response has 3 "Harmful" feedback items</given>
+      <when>the system detects this pattern</when>
+      <then>an alert is created for moderation review with user_id list AND timestamp of each feedback AND ability to investigate abusers</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic & Story Breakdown</title>
+        <section>Epic 4: Chat Experience, Story 4.3: User Feedback</section>
+        <snippet>End-user provides feedback on AI answers (thumbs up/down) with reason form for negative feedback. Feedback is logged and tracked to prevent sabotage and enable learning. Harmful feedback triggers moderation alerts.</snippet>
+        <relevance>Complete story specification and acceptance criteria for feedback functionality</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-4/story-4-1-web-chat-interface.md</path>
+        <title>Web Chat Interface</title>
+        <section>Chat Message Structure and Message Display</section>
+        <snippet>AI messages rendered in chat window with metadata. FeedbackBar component attaches below each message. Message structure includes messageId for feedback tracking.</snippet>
+        <relevance>Provides message structure and UI component patterns for feedback integration</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-3/story-3-2-context-only-answer-generation.md</path>
+        <title>Context-Only Answer Generation</title>
+        <section>Answer Response Structure and Confidence Scoring</section>
+        <snippet>Each AI response has answer_id and confidence score. Feedback helps calibrate confidence. Harmful feedback can trigger low-confidence routing.</snippet>
+        <relevance>Provides answer_id structure and confidence integration patterns for feedback</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Security, Compliance, and Audit Logging</section>
+        <snippet>System logs all AI actions and human approvals for compliance. User tracking enables fraud detection and sabotage prevention. Audit trail required for regulatory requirements.</snippet>
+        <relevance>Defines compliance and audit logging requirements that feedback system must follow</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Security, User Tracking, and Analytics</section>
+        <snippet>User tracking enables fraud detection and abuse prevention. Audit trails required for all user actions. Analytics system aggregates feedback for insights.</snippet>
+        <relevance>Defines architecture patterns for user tracking, audit logging, and analytics integration</relevance>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>apps/web/src/components/ChatWindow.tsx</path>
+        <kind>component</kind>
+        <symbol>ChatWindow, message rendering</symbol>
+        <reason>Created in Story 4.1. Extend to render FeedbackBar component below each AI message (after message content)</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/hooks/useChat.ts</path>
+        <kind>hook</kind>
+        <symbol>useChat, state management</symbol>
+        <reason>Created in Story 4.1. Extend with feedbackState object and submitFeedback/removeFeedback methods for feedback state management and rate limiting</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models</path>
+        <kind>directory</kind>
+        <symbol>SQLAlchemy models</symbol>
+        <reason>Create new Feedback model (feedback.py). Reuse User, Bot, Bot models for foreign keys and isolation</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/services/bot_service.py</path>
+        <kind>service</kind>
+        <symbol>BotService</symbol>
+        <reason>Created in Story 2-1. Reuse get_bot() for bot validation in feedback endpoint</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/services</path>
+        <kind>directory</kind>
+        <symbol>Service layer</symbol>
+        <reason>Create FeedbackService, AuditService, FeedbackAnalyticsService for business logic separation</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/api/routes</path>
+        <kind>directory</kind>
+        <symbol>API endpoints</symbol>
+        <reason>Create feedback.py for POST /api/v1/bots/:bot_id/feedback and GET /api/v1/bots/:bot_id/feedback/stats endpoints</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models/audit_logs.py</path>
+        <kind>model</kind>
+        <symbol>AuditLog</symbol>
+        <reason>Likely already exists from Epic 1. Extend to log feedback submissions with user_id, ip_address, action details</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <frontend>
+        <package name="next">version: 14.x (from package.json)</package>
+        <package name="react">version: 18.x (from package.json)</package>
+        <package name="react-hot-toast">For success/error notifications: "Thank you for the feedback!"</package>
+        <package name="tailwindcss">version: from apps/web/package.json (already installed)</package>
+        <package name="@radix-ui/react-*">shadcn/ui components (Button, Tooltip, RadioGroup, Dialog)</package>
+      </frontend>
+      <backend>
+        <package name="fastapi">version: from apps/api/requirements.txt</package>
+        <package name="pydantic">version: from apps/api/requirements.txt (for validation)</package>
+        <package name="sqlalchemy">version: from apps/api/requirements.txt (async ORM)</package>
+        <package name="python-jose">For JWT authentication verification (already in use from Epic 1)</package>
+      </backend>
+      <infrastructure>
+        <package name="postgres">version: 16 (from docker-compose.yml)</package>
+        <package name="redis">Optional: for caching analytics stats (1 hour TTL)</package>
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="security">User Tracking Enabled: Feedback is logged with user_id, session_id, IP address to prevent sabotage. NO anonymous feedback.</constraint>
+    <constraint type="security">Audit Trail Required: All feedback submissions create audit log entries with user_id, timestamp, action for compliance and investigation.</constraint>
+    <constraint type="security">Abuse Detection: User patterns monitored to identify feedback spam or coordinated sabotage. 5+ "Harmful" in 1 hour = flagged.</constraint>
+    <constraint type="security">Authentication Required: Feedback endpoint requires JWT token in Authorization header. Unauthenticated requests return 401.</constraint>
+    <constraint type="security">Tenant Isolation: Feedback must be scoped to tenant_id (RLS enforced). No cross-tenant feedback leakage.</constraint>
+    <constraint type="security">Data Minimization: Only store necessary feedback fields (user_id, feedback data, audit info). No additional PII beyond user_id.</constraint>
+    <constraint type="performance">Rate Limiting: Max 20 feedback items per 5 minutes per session to prevent spam. 1-minute cooldown enforced per user.</constraint>
+    <constraint type="performance">Analytics Caching: Aggregate stats cached with 1 hour TTL to reduce database load. Cache invalidated on each feedback submission.</constraint>
+    <constraint type="usability">Icon State Persistence: Filled icon remains after feedback submission. User can change feedback by clicking opposite icon.</constraint>
+    <constraint type="usability">Reason Form Modal: Shows only on thumbs-down click. Allows changing reason if user changes feedback.</constraint>
+    <constraint type="compliance">Audit Logging: All feedback submissions logged in audit_logs table with user_id, timestamp, ip_address for regulatory compliance (GDPR, data access requests).</constraint>
+    <constraint type="compliance">Moderation Alerts: "Harmful" feedback triggers alerts with user identification for investigation. No anonymous harmful feedback allowed.</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/bots/:bot_id/feedback</name>
+      <kind>REST endpoint</kind>
+      <signature>POST /api/v1/bots/{bot_id}/feedback { answer_id: UUID, message_id: str, type: "positive"|"negative", reason?: str, additional_notes?: str } -> 200 { success: bool, feedback_id: UUID }</signature>
+      <path>apps/api/app/api/routes/feedback.py (new)</path>
+      <notes>Requires authentication (JWT token). Extracts user_id from token, session_id and ip_address from request. Creates audit log entry. Rate limited: 20/5min per session.</notes>
+    </interface>
+    <interface>
+      <name>GET /api/v1/bots/:bot_id/feedback/stats</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/bots/{bot_id}/feedback/stats -> 200 { total: int, positive_count: int, negative_count: int, negative_reasons: {...}, harmful_count: int }</signature>
+      <path>apps/api/app/api/routes/feedback.py (new)</path>
+      <notes>Requires bot owner authentication. Returns aggregate stats (no individual feedback). 1 hour cache TTL. Cache invalidated on new feedback.</notes>
+    </interface>
+    <interface>
+      <name>GET /api/v1/moderation/alerts</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/moderation/alerts -> 200 { alerts: [{ bot_id, answer_content, feedback_count, user_id_list, created_at }] }</signature>
+      <path>apps/api/app/api/routes/feedback.py (new)</path>
+      <notes>Bot owners see alerts for their bots. Admins see all alerts. Includes user_id list for investigation.</notes>
+    </interface>
+    <interface>
+      <name>GET /api/v1/moderation/user-abuse</name>
+      <kind>REST endpoint</kind>
+      <signature>GET /api/v1/moderation/user-abuse -> 200 { suspicions: [{ user_id, feedback_count_1h, harmful_count, ip_addresses, feedback_ids, created_at }] }</signature>
+      <path>apps/api/app/api/routes/feedback.py (new)</path>
+      <notes>Admins only. Shows suspicious users with pattern analysis (5+ "Harmful" in 1 hour). Includes IP addresses and feedback IDs for investigation.</notes>
+    </interface>
+    <interface>
+      <name>FeedbackBar Component</name>
+      <kind>React component</kind>
+      <signature>&lt;FeedbackBar messageId={string} onSubmit={(type, reason) => void} /&gt;</signature>
+      <path>apps/web/src/components/FeedbackBar.tsx (new)</path>
+      <notes>Renders below each AI message. Shows thumbs-up/down icons. Handles click events and state management.</notes>
+    </interface>
+    <interface>
+      <name>FeedbackReasonModal Component</name>
+      <kind>React component</kind>
+      <signature>&lt;FeedbackReasonModal isOpen={bool} onSubmit={(reason, notes) => void} onCancel={() => void} /&gt;</signature>
+      <path>apps/web/src/components/FeedbackReasonModal.tsx (new)</path>
+      <notes>Modal for negative feedback reason selection. Shows radio buttons for reasons and text field for "Other" option.</notes>
+    </interface>
+    <interface>
+      <name>FeedbackService</name>
+      <kind>Python service class</kind>
+      <signature>async record_feedback(user_id, bot_id, answer_id, type, reason, notes, session_id, ip_address) -> feedback_id</signature>
+      <path>apps/api/app/services/feedback_service.py (new)</path>
+      <notes>Handles feedback submission, validation, storage, audit logging, and moderation alerts. Detects abuse patterns.</notes>
+    </interface>
+    <interface>
+      <name>AuditService</name>
+      <kind>Python service class</kind>
+      <signature>async log_feedback(user_id, feedback_id, type, ip_address, session_id, details) -> audit_log_id</signature>
+      <path>apps/api/app/services/audit_service.py (extend)</path>
+      <notes>Creates audit log entries for feedback submissions with full traceability (user_id, timestamp, ip, session).</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Follow test patterns from Story 4.1 (chat interface). Unit tests isolate components with mocks. Integration tests verify feedback is submitted with correct user tracking. E2E tests verify end-to-end feedback flow: submit positive/negative → verify logged → verify audit trail created. Test frameworks: Vitest + React Testing Library (frontend), pytest + FastAPI TestClient (backend). All tests must verify user tracking (user_id in logs), authentication enforcement, and abuse pattern detection.
+    </standards>
+    <locations>
+      Frontend tests: apps/web/__tests__/ (Vitest discovers .test.tsx files). Backend tests: apps/api/tests/ (pytest discovers test_*.py files). E2E tests: apps/e2e/ (Playwright).
+    </locations>
+    <ideas>
+      <test acId="1">FeedbackBar renders thumbs-up and thumbs-down icons below message</test>
+      <test acId="2">Hovering thumbs-up shows tooltip "Helpful response"</test>
+      <test acId="3">Hovering thumbs-down shows tooltip "Not helpful"</test>
+      <test acId="4">Clicking thumbs-up icon fills it and shows success toast "Thank you for the feedback!"</test>
+      <test acId="4">Positive feedback recorded with type="positive" and user_id logged in audit trail</test>
+      <test acId="5">Clicking thumbs-down icon fills it and shows FeedbackReasonModal</test>
+      <test acId="5">Modal title shows "What was wrong?"</test>
+      <test acId="5">Modal shows 5 reason options (Incorrect, Not helpful, Incomplete, Harmful, Other)</test>
+      <test acId="6">Selecting reason and clicking submit records feedback with user_id and session_id</test>
+      <test acId="7">Selecting "Other" shows text input with "Tell us more..." placeholder and char counter</test>
+      <test acId="8">Icon remains filled after feedback submitted</test>
+      <test acId="8">Clicking same icon twice doesn't submit duplicate feedback</test>
+      <test acId="8">Clicking opposite icon allows changing feedback (removes old, adds new)</test>
+      <test acId="9">Changing feedback: old feedback replaced, new reason form shown if changing to negative</test>
+      <test acId="10">Feedback logged with user_id, timestamp, session_id, ip_address in database</test>
+      <test acId="10">Audit log entry created for each feedback submission</test>
+      <test acId="11">"Harmful" feedback triggers moderation alert with user_id list after 3 in 24h</test>
+      <test acId="11">Moderation alert includes full audit information for investigation</test>
+      <test acId="12">Feedback submission failure shows retry button, icon in pending state</test>
+      <test acId="12">Max 3 automatic retries before showing error message to user</test>
+      <test acId="13">Rate limit after 20 feedback/5min: shows "Please wait" message and disables icons</test>
+      <test acId="13">Cooldown timer shown to user (1 minute before icons re-enabled)</test>
+      <test acId="14">Feedback contributes to analytics: positive/negative ratio, top reasons, "Harmful" count</test>
+      <test acId="14">Analytics stats endpoint returns aggregate data (no individual feedback exposed)</test>
+      <test acId="15">3+ "Harmful" feedbacks for same answer creates ModerationAlert with user_id list</test>
+      <test acId="15">&lt;3 "Harmful" feedbacks does NOT create alert</test>
+      <testAPI>POST /api/v1/bots/:bot_id/feedback requires JWT authentication (401 if missing)</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/feedback returns 404 for invalid bot_id</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/feedback returns 400 for invalid type or missing reason (negative)</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/feedback records user_id, session_id, ip_address in feedback table</testAPI>
+      <testAPI>Audit log entry created with feedback_id, user_id, timestamp for each submission</testAPI>
+      <testAPI>Rate limiting enforced: 429 after 20 feedback/5min per session</testAPI>
+      <testAPI>GET /api/v1/bots/:bot_id/feedback/stats returns aggregate stats (no individual feedback)</testAPI>
+      <testAPI>GET /api/v1/moderation/alerts returns alerts with user_id list (admins + bot owners)</testAPI>
+      <testAPI>GET /api/v1/moderation/user-abuse returns suspicious users (5+ "Harmful"/1h) with investigation details (admins only)</testAPI>
+      <testE2E>User submits positive feedback. Verify icon fills, toast shows, user_id logged in audit trail.</testE2E>
+      <testE2E>User submits negative feedback with reason "Incorrect information". Verify logged with reason and user_id.</testE2E>
+      <testE2E>User changes feedback from thumbs-up to thumbs-down. Verify old feedback replaced, new feedback logged.</testE2E>
+      <testE2E>User submits 25 feedback items. Verify rate limit after 20 (429) and cooldown message shown.</testE2E>
+      <testE2E>Same user submits 5+ "Harmful" feedbacks in 1 hour. Verify UserAbuseSuspicion alert created with user_id and ip_address.</testE2E>
+      <testE2E>Bot owner views feedback stats. Verify aggregate data shown (no individual feedback exposed).</testE2E>
+      <testE2E>Admin reviews moderation alerts. Verify alerts with user_id list and ability to investigate abusers.</testE2E>
+    </ideas>
+  </tests>
+</story-context>

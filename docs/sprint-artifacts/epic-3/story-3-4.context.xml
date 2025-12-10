@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>3</epicId>
+    <storyId>3.4</storyId>
+    <title>Confidence Scoring & Routing</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-3/story-3-4-confidence-scoring-routing.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>System</asA>
+    <iWant>calculate a confidence score for each answer</iWant>
+    <soThat>low-confidence answers route to HITL review</soThat>
+    <tasks>
+      <task group="Backend - Confidence Scoring Service">
+        <item>Create ConfidenceScoringService in apps/api/app/services/confidence_service.py</item>
+        <item>Method: async def calculate_score(context_chunks, answer, token_logprobs) -> ConfidenceResult</item>
+        <item>Component 1 (40%): Retrieval Confidence = max(similarity_scores) from context chunks</item>
+        <item>Component 2 (30%): Source Consistency = avg pairwise cosine similarity of top-5 chunk embeddings</item>
+        <item>Component 3 (30%): Generation Confidence = extract from token logprobs or infer from response structure</item>
+        <item>Formula: score = (retrieval * 0.4 + consistency * 0.3 + generation * 0.3) * 100</item>
+        <item>Return: ConfidenceResult with overall score + component breakdown</item>
+      </task>
+      <task group="Backend - Routing Logic">
+        <item>Create RoutingService in apps/api/app/services/routing_service.py</item>
+        <item>Method: async def route_answer(bot_id, confidence_score, threshold) -> RoutingDecision</item>
+        <item>If confidence >= threshold (default 80%): decision = "auto_send"</item>
+        <item>If confidence &lt; threshold: decision = "hitl", add to HITL queue</item>
+        <item>Log routing decision with confidence components</item>
+      </task>
+      <task group="Database - Confidence Logging">
+        <item>Create confidence_logs table: bot_id, query_id, retrieval_confidence, source_consistency, generation_confidence, overall_confidence, routing_decision</item>
+        <item>Store all components for analytics and calibration</item>
+        <item>Add indexes for analytics queries</item>
+      </task>
+      <task group="Testing">
+        <item>Test confidence calculation with various input combinations</item>
+        <item>Test routing: high confidence → auto-send, low → HITL</item>
+        <item>Test source consistency: agreeing chunks → high, contradictory → low</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Three-Component Confidence Score</title>
+      <given>an answer is generated</given>
+      <when>confidence is calculated</when>
+      <then>score combines: Retrieval confidence (40%), Source consistency (30%), Generation confidence (30%)</then>
+    </criterion>
+    <criterion id="2">
+      <title>High Confidence Auto-Send</title>
+      <given>confidence >= threshold (default 80%)</given>
+      <when>routing decision is made</when>
+      <then>answer is sent directly to end-user AND marked as "Auto-responded"</then>
+    </criterion>
+    <criterion id="3">
+      <title>Low Confidence HITL Routing</title>
+      <given>confidence &lt; threshold</given>
+      <when>routing decision is made</when>
+      <then>answer routes to HITL queue AND user sees "I'm checking with the team..."</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-3/story-3-4-confidence-scoring-routing.md</path>
+        <title>Complete confidence scoring specification</title>
+        <section>Updated formula with Source Consistency</section>
+        <snippet>40% retrieval + 30% source consistency + 30% generation confidence</snippet>
+        <relevance>Complete technical specification for confidence scoring</relevance>
+      </artifact>
+    </docs>
+  </artifacts>
+
+  <constraints>
+    <constraint type="accuracy">Source consistency detects contradictory chunks (reduces hallucination risk)</constraint>
+    <constraint type="architecture">Threshold default 80%, configurable per bot</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>ConfidenceScoringService</name>
+      <kind>Python service class</kind>
+      <signature>async def calculate_score(context_chunks, answer, token_logprobs) -> ConfidenceResult</signature>
+      <path>apps/api/app/services/confidence_service.py (new)</path>
+      <notes>Calculates multi-component confidence score. Returns overall + breakdown.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>Test confidence formula accuracy. Test routing logic threshold. Test source consistency calculation.</standards>
+    <locations>Backend: apps/api/tests/.</locations>
+    <ideas>
+      <test acId="1">Confidence calculated with correct weights (40/30/30)</test>
+      <test acId="2">High confidence (>=80%) routes to auto-send</test>
+      <test acId="3">Low confidence (&lt;80%) routes to HITL</test>
+    </ideas>
+  </tests>
+</story-context>

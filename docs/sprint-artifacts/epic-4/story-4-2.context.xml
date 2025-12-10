@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>4</epicId>
+    <storyId>4.2</storyId>
+    <title>Conversation Context</title>
+    <status>ready-for-dev</status>
+    <generatedAt>2025-12-10</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-4/story-4-2-conversation-context.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>End-user</asA>
+    <iWant>the chat to remember our conversation</iWant>
+    <soThat>I can ask follow-up questions naturally</soThat>
+    <tasks>
+      <task group="Frontend - Context State Management">
+        <item>Update useChat hook to maintain conversation history array</item>
+        <item>Store each message: {id, role, content, timestamp, citations}</item>
+        <item>Implement addMessage() to append messages to history</item>
+        <item>Implement clearContext() to reset conversation</item>
+        <item>Store full history in localStorage with key chat_history_${botId}_${sessionId}</item>
+        <item>Compute context window from bot settings (configurable, default 10)</item>
+        <item>Filter last N messages for inclusion in next query</item>
+        <item>Clear localStorage on session end (page unload)</item>
+      </task>
+      <task group="Frontend - Context Display">
+        <item>Add visual indicator showing context size above message input</item>
+        <item>Show "Context: 5 messages" text</item>
+        <item>Optional: Collapsible "View Context" to see summarized history</item>
+        <item>Implement "Start New Conversation" button in chat header</item>
+        <item>Show confirmation dialog when "Start New" clicked</item>
+        <item>Call clearContext() and refresh UI on confirmation</item>
+      </task>
+      <task group="Frontend - Context Summary Display">
+        <item>Create ContextSummary component for older messages summary</item>
+        <item>Display summarized version if more than context_window messages</item>
+        <item>Format: "Previous messages: You asked about X, assistant explained Y..."</item>
+        <item>Make component collapsible (hidden by default in compact mode)</item>
+        <item>Add toggle to show/hide summary</item>
+      </task>
+      <task group="API - Context Injection Endpoint">
+        <item>Create endpoint: POST /api/v1/bots/:bot_id/chat/query-with-context</item>
+        <item>Accept: {query: string, context: ChatMessage[], context_window: int}</item>
+        <item>Or extend existing POST /api/v1/bots/:bot_id/chat/query with optional context array</item>
+        <item>Validate context contains only messages from current session</item>
+        <item>Validate context_window > 0 and < 100</item>
+      </task>
+      <task group="Backend - Context Preparation Service">
+        <item>Create ContextService.prepare_context() in chat_service.py</item>
+        <item>Extract last N messages (context_window parameter)</item>
+        <item>If total messages > context_window: summarize older messages</item>
+        <item>Return formatted context string for prompt injection</item>
+        <item>Format messages as role-based pairs (User/Assistant)</item>
+        <item>Include assistant citations in context string</item>
+        <item>Preserve message order in output</item>
+      </task>
+      <task group="Backend - Summarization Logic">
+        <item>Implement message summarization strategy (simple or smart)</item>
+        <item>Option A (Simple): Extract unique topics and counts from messages</item>
+        <item>Example: "User asked about refunds (2 times), assistant explained 30-day policy and exceptions"</item>
+        <item>Option B (Smart): Use small LLM call to generate summary (more expensive)</item>
+        <item>Cache summaries in session memory (not persistent database)</item>
+        <item>Recompute summary on each new message</item>
+        <item>Test edge cases: single message, exactly context_window, 2x context_window</item>
+      </task>
+      <task group="Backend - LLM Prompt Structuring">
+        <item>Update chat_service.py with build_prompt_with_context(query, context)</item>
+        <item>Structure prompt as:</item>
+        <item># System Prompt: You are a helpful customer service AI...</item>
+        <item># Conversation Context (if provided): [previous messages summary or full messages]</item>
+        <item># Current Question: [user query]</item>
+        <item>Pass structured prompt to Ollama API for response generation</item>
+        <item>Test that context improves response relevance</item>
+      </task>
+      <task group="Backend - Session Isolation">
+        <item>Ensure conversation context NOT persisted across sessions</item>
+        <item>Store context only in-flight (not in database)</item>
+        <item>Each session gets fresh context window</item>
+        <item>No user tracking across sessions (privacy-friendly design)</item>
+        <item>Clear context on session end</item>
+      </task>
+      <task group="Testing - Component Tests">
+        <item>Test useChat hook: addMessage() appends to history</item>
+        <item>Test useChat: history persists in localStorage</item>
+        <item>Test useChat: clearContext() empties history</item>
+        <item>Test useChat: context window size respected</item>
+        <item>Test ContextSummary: displays only if > context_window messages</item>
+        <item>Test ContextSummary: shows friendly summary text</item>
+        <item>Test ContextSummary: collapsible toggle works</item>
+        <item>Use Vitest + React Testing Library</item>
+      </task>
+      <task group="Testing - API Tests">
+        <item>Test context injection: query with context produces contextual response</item>
+        <item>Test context injection: query without context treated as standalone</item>
+        <item>Test context injection: summarization doesn't break response</item>
+        <item>Test context injection: large context (100 messages) handled gracefully</item>
+        <item>Test context validation: rejects context_window > 100</item>
+        <item>Test context validation: rejects context with wrong bot_id</item>
+        <item>Use pytest + FastAPI TestClient</item>
+      </task>
+      <task group="Testing - Integration Tests">
+        <item>E2E test with Playwright: send initial question</item>
+        <item>E2E test: send follow-up that requires context</item>
+        <item>E2E test: verify response uses context (check content relevance)</item>
+        <item>E2E test: click "Start New Conversation"</item>
+        <item>E2E test: send same follow-up → verify treated as standalone</item>
+        <item>E2E test: verify context not persisted across sessions</item>
+        <item>E2E test on slow network (ensure no timeout)</item>
+      </task>
+      <task group="Performance Optimization">
+        <item>Benchmark context preparation: 50, 100, 200 message histories</item>
+        <item>Target: < 500ms for context preparation</item>
+        <item>Optimize summarization if too slow</item>
+        <item>Implement lazy summarization: only on query submission</item>
+        <item>Cache summary for reuse in same session</item>
+        <item>Monitor LLM response time with context injection</item>
+        <item>Target: streaming start within 2s (same as no context)</item>
+      </task>
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    <criterion id="1">
+      <title>Context Awareness - Follow-up Understanding</title>
+      <given>I asked "What is your refund policy?" AND the system responded with information about 30-day refunds</given>
+      <when>I ask "What about after 30 days?"</when>
+      <then>AI understands this refers to the refund policy (not a generic question) AND provides context-aware answer about extended refund terms AND I don't have to repeat the topic</then>
+    </criterion>
+    <criterion id="2">
+      <title>Context Window Management - Last 10 Messages</title>
+      <given>I am in an active chat conversation</given>
+      <when>new messages arrive</when>
+      <then>system maintains context from the last 10 messages AND older messages are progressively de-emphasized (not deleted) AND context window size is configurable per bot (default: 10)</then>
+    </criterion>
+    <criterion id="3">
+      <title>Context Window Management - Summarization</title>
+      <given>the conversation has more than 10 messages</given>
+      <when>a new query is submitted</when>
+      <then>system summarizes older messages into a brief context paragraph AND passes both the summary + last 10 messages to the LLM AND the user doesn't see the summarization process</then>
+    </criterion>
+    <criterion id="4">
+      <title>Context Reset - Start New Conversation</title>
+      <given>I click "Start New Conversation"</given>
+      <when>the action is confirmed</when>
+      <then>conversation history is cleared AND a new empty chat window appears AND the next message is treated as a fresh query (no prior context)</then>
+    </criterion>
+    <criterion id="5">
+      <title>Context Reset - Session Isolation</title>
+      <given>I close and reopen the chat window</given>
+      <when>I return to the same bot</when>
+      <then>the previous conversation context is NOT retained (session-based) AND I start fresh in a new session AND conversation history is cleared from storage</then>
+    </criterion>
+    <criterion id="6">
+      <title>LLM Integration - Context Prepending</title>
+      <given>I submit a follow-up question</given>
+      <when>the query is sent to the LLM</when>
+      <then>system prepends previous messages to the prompt in structure: ## Conversation Context\nUser: [msg]\nAssistant: [response]\n\n## Current Question\nUser: [query] AND the LLM uses this structure to generate contextual responses</then>
+    </criterion>
+    <criterion id="7">
+      <title>LLM Integration - Citation Relevance</title>
+      <given>context is being used for a query</given>
+      <when>the response is generated</when>
+      <then>citations reference the current query context (not prior context) AND the user sees citations relevant to their latest question</then>
+    </criterion>
+    <criterion id="8">
+      <title>Performance - Large Context Handling</title>
+      <given>a conversation has accumulated 50+ messages</given>
+      <when>a new query is processed</when>
+      <then>system efficiently summarizes without delays AND LLM response time is not degraded (< 3s for streaming start)</then>
+    </criterion>
+    <criterion id="9">
+      <title>Performance - File Attachment References</title>
+      <given>a message contains a file attachment or image (future feature)</given>
+      <when>context is summarized</when>
+      <then>file references are preserved in the summary AND the LLM can reference them</then>
+    </criterion>
+    <criterion id="10">
+      <title>Error Handling - Graceful Fallback</title>
+      <given>the context retrieval fails</given>
+      <when>the user sends a message</when>
+      <then>system falls back to treating it as a standalone query AND a warning is logged (not shown to user) AND the chat continues normally</then>
+    </criterion>
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <artifact>
+        <path>docs/epics.md</path>
+        <title>Epic & Story Breakdown</title>
+        <section>Epic 4: Chat Experience, Story 4.2: Conversation Context</section>
+        <snippet>End-user wants the chat to remember conversation so they can ask follow-up questions naturally. Conversation context is passed to RAG pipeline. Context window is limited to last 10 messages. Clearing conversation resets context.</snippet>
+        <relevance>Complete story specification and acceptance criteria for context management</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-4/story-4-1-web-chat-interface.md</path>
+        <title>Web Chat Interface</title>
+        <section>Story 4.1 Chat Interface and Session History</section>
+        <snippet>Chat history is stored in browser localStorage (session-based). Messages survive page refresh within same session. Chat history is cleared when closing browser tab.</snippet>
+        <relevance>Provides foundation for message storage and session management that Story 4.2 extends</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/sprint-artifacts/epic-3/story-3-2-context-only-answer-generation.md</path>
+        <title>Context-Only Answer Generation</title>
+        <section>LLM Integration and Prompt Structuring</section>
+        <snippet>LLM enforces context-only answers with structured prompts. Temperature set to 0.1 for determinism. Response streamed token-by-token. Response time < 3s for first token.</snippet>
+        <relevance>Provides LLM integration patterns that context service must work with</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Frontend: Next.js 14, Backend: FastAPI, Streaming Patterns</section>
+        <snippet>Frontend: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui. Backend: FastAPI with async patterns. SSE streaming for real-time token delivery.</snippet>
+        <relevance>Architecture confirms tech stack and streaming patterns for context-aware responses</relevance>
+      </artifact>
+      <artifact>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Frontend Stack and Backend Integration</section>
+        <snippet>Frontend: Next.js 14 (App Router), TypeScript. Backend: FastAPI (Python 3.11+). LLM: Ollama with Qwen 2.5. Streaming via SSE.</snippet>
+        <relevance>Confirms tech stack for hooks, components, and LLM integration patterns</relevance>
+      </artifact>
+    </docs>
+    <code>
+      <artifact>
+        <path>apps/web/src/hooks/useChat.ts</path>
+        <kind>hook</kind>
+        <symbol>useChat(), addMessage(), clearContext()</symbol>
+        <reason>Created in Story 4.1. Extend with message history array, context window calculation, and localStorage persistence for conversation context</reason>
+      </artifact>
+      <artifact>
+        <path>apps/web/src/components/ChatWindow.tsx</path>
+        <kind>component</kind>
+        <symbol>ChatWindow, message rendering</symbol>
+        <reason>Created in Story 4.1. Extend with "Start New Conversation" button and context size indicator display</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/services/chat_service.py</path>
+        <kind>service</kind>
+        <symbol>ChatService, query handling</symbol>
+        <reason>Extend with new build_prompt_with_context() method that formats context for LLM prompt injection</reason>
+      </artifact>
+      <artifact>
+        <path>apps/api/app/models</path>
+        <kind>directory</kind>
+        <symbol>ChatMessage model structure</symbol>
+        <reason>May need ChatMessage Pydantic model for request validation. Coordinate with Story 4.1 MessageInput structure.</reason>
+      </artifact>
+    </code>
+    <dependencies>
+      <frontend>
+        <package name="next">version: 14.x (from package.json)</package>
+        <package name="react">version: 18.x (from package.json)</package>
+        <package name="react-markdown">For rendering context summaries (already in use from Story 4.1)</package>
+        <package name="zustand">OR recoil: Optional state management if useChat hook becomes complex</package>
+      </frontend>
+      <backend>
+        <package name="fastapi">version: from apps/api/requirements.txt</package>
+        <package name="pydantic">version: from apps/api/requirements.txt (for validation)</package>
+        <package name="sqlalchemy">version: from apps/api/requirements.txt (async ORM)</package>
+        <package name="langchain">version: from apps/api/requirements.txt (for LLM integration and summarization)</package>
+      </backend>
+      <infrastructure>
+        <package name="postgres">version: 16 (from docker-compose.yml, for session storage if needed)</package>
+        <package name="ollama">version: latest (from docker-compose.yml, for LLM integration)</package>
+      </infrastructure>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    <constraint type="architecture">Context stored only in-flight (in-memory session) and client-side localStorage. NO persistent database storage of conversation context (privacy-first design).</constraint>
+    <constraint type="architecture">Context window default 10 messages, configurable per bot (max 100). Context summarization only triggered when > context_window.</constraint>
+    <constraint type="architecture">Summarization strategy can be simple (topic extraction) or smart (LLM-based). Start with simple, upgrade to smart if needed.</constraint>
+    <constraint type="security">Context isolation: Ensure context is never shared across users, bots, or tenants. Always filter by tenant_id and bot_id.</constraint>
+    <constraint type="security">Injection prevention: Sanitize context before passing to LLM. Escape special characters that could break prompt structure.</constraint>
+    <constraint type="security">Session isolation: Clear context on session end. No cross-session context leakage (session-based only).</constraint>
+    <constraint type="security">Rate limiting: Per-user rate limit applies to context queries (same as Story 4.1).</constraint>
+    <constraint type="performance">Context preparation must complete within 500ms for optimal UX. Lazy summarization (only on query submission) helps.</constraint>
+    <constraint type="performance">LLM response time must not degrade due to context injection. Target: streaming start within 2s (same as non-context queries).</constraint>
+    <constraint type="performance">Large context (100+ messages) must be handled gracefully. Aggressive summarization if needed.</constraint>
+    <constraint type="usability">User should not see summarization process. All processing is transparent (possibly with subtle "thinking..." indicator).</constraint>
+    <constraint type="usability">Context clearing ("Start New Conversation") requires explicit user confirmation to prevent accidental data loss.</constraint>
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>POST /api/v1/bots/:bot_id/chat/query</name>
+      <kind>REST endpoint (Extended from Story 4.1)</kind>
+      <signature>POST /api/v1/bots/{bot_id}/chat/query { query: str, context?: ChatMessage[], context_window?: int } -> 200 text/event-stream</signature>
+      <path>apps/api/app/api/routes/chat.py (extend existing)</path>
+      <notes>Add optional context array and context_window parameters. If context provided, use it; otherwise treat as standalone query. If context_window provided, override bot default.</notes>
+    </interface>
+    <interface>
+      <name>ChatMessage (Frontend)</name>
+      <kind>TypeScript interface</kind>
+      <signature>interface ChatMessage { id: string; role: "user" | "assistant"; content: string; timestamp: number; citations?: Array&lt;{source: string; url?: string}&gt;; }</signature>
+      <path>apps/web/src/types/chat.ts (from Story 4.1)</path>
+      <notes>Same structure used for both session storage and context injection</notes>
+    </interface>
+    <interface>
+      <name>useChat() Hook (Extended)</name>
+      <kind>React hook</kind>
+      <signature>useChat(botId: string) -> { messages: ChatMessage[]; contextSize: number; loading: bool; error?: string; sendMessage(query: str): void; clearContext(): void; }</signature>
+      <path>apps/web/src/hooks/useChat.ts (extend Story 4.1)</path>
+      <notes>Add contextSize computed property showing messages in current context window. Add clearContext() function.</notes>
+    </interface>
+    <interface>
+      <name>ContextService.prepare_context()</name>
+      <kind>Python service method</kind>
+      <signature>async prepare_context(messages: List[ChatMessage], context_window: int) -> str</signature>
+      <path>apps/api/app/services/chat_service.py (new method)</path>
+      <notes>Returns formatted context string for prompt injection. Summarizes older messages if needed.</notes>
+    </interface>
+    <interface>
+      <name>ContextSummary Component</name>
+      <kind>React component</kind>
+      <signature>&lt;ContextSummary messages={ChatMessage[]} isCollapsed={bool} onToggle={fn} /&gt;</signature>
+      <path>apps/web/src/components/ContextSummary.tsx (new component)</path>
+      <notes>Displays summarized version of context for user awareness. Collapsible. Hidden by default.</notes>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Follow test patterns from Story 4.1 (chat interface). Unit tests isolate hooks with mocks. Integration tests verify context is passed to LLM correctly. E2E tests verify end-to-end context flow: send question → send follow-up → verify context used → verify response is contextual. Test frameworks: Vitest + React Testing Library (frontend), pytest + FastAPI TestClient (backend). All tests must verify context isolation (no cross-session leakage) and performance (summarization &lt; 500ms).
+    </standards>
+    <locations>
+      Frontend tests: apps/web/__tests__/ (Vitest discovers .test.tsx files). Backend tests: apps/api/tests/ (pytest discovers test_*.py files). E2E tests: apps/e2e/ (Playwright).
+    </locations>
+    <ideas>
+      <test acId="1">Follow-up question produces contextual response (references previous exchange)</test>
+      <test acId="2">Context window maintains last 10 messages in query</test>
+      <test acId="2">Context window is configurable per bot</test>
+      <test acId="2">Messages older than context_window are de-emphasized (not deleted)</test>
+      <test acId="3">Conversation with >10 messages triggers summarization</test>
+      <test acId="3">Summary + recent messages both sent to LLM</test>
+      <test acId="3">Summarization is transparent to user (no "summarizing..." message)</test>
+      <test acId="4">"Start New Conversation" clears history and resets context</test>
+      <test acId="4">Clicking "Start New Conversation" shows confirmation dialog</test>
+      <test acId="4">Subsequent messages after clear are treated as standalone queries</test>
+      <test acId="5">Closing browser tab clears conversation context</test>
+      <test acId="5">Reopening chat starts fresh (no context from previous session)</test>
+      <test acId="5">Context NOT persisted in database (session-only)</test>
+      <test acId="6">Context is prepended to LLM prompt in ## Conversation Context section</test>
+      <test acId="6">Context format preserves message order (chronological)</test>
+      <test acId="7">Citations in contextual response reference current question (not prior context)</test>
+      <test acId="8">Context preparation completes in < 500ms (even with 50 messages)</test>
+      <test acId="8">LLM response time unaffected by context injection (< 3s streaming start)</test>
+      <test acId="9">File attachment references preserved in summarized context (future)</test>
+      <test acId="10">Context retrieval failure: system falls back to standalone query</test>
+      <test acId="10">Context failure is logged (not shown to user)</test>
+      <testAPI>POST /api/v1/bots/:bot_id/chat/query with context produces contextual response</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/chat/query without context treated as standalone</testAPI>
+      <testAPI>POST /api/v1/bots/:bot_id/chat/query with context_window=5 limits context to last 5 messages</testAPI>
+      <testAPI>Summarization doesn't break response generation (response quality maintained)</testAPI>
+      <testAPI>Large context (100 messages) handled without timeout</testAPI>
+      <testAPI>Context validation rejects context_window > 100</testAPI>
+      <testE2E>User sends "What is refund policy?" → AI answers. User sends "What about after 30 days?" → AI uses context to answer about extended terms.</testE2E>
+      <testE2E>User sends 15 messages (>context_window=10). System summarizes first 5. LLM generates response using summary+last 10.</testE2E>
+      <testE2E>User clicks "Start New Conversation". Chat clears. User asks same follow-up question. AI treats it as standalone (no context).</testE2E>
+    </ideas>
+  </tests>
+</story-context>
