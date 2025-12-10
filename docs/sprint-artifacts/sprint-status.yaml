@@ -236,7 +236,6 @@ development_status:
         assigned_to: Lucas
         blocked_by: 3-4-confidence-scoring-routing
 
-
     5-2-draft-review-interface:
         status: ready-for-dev
         assigned_to: Lucas
@@ -261,7 +260,7 @@ development_status:
 
     # Epic 6: Email Automation
     epic-6:
-        status: backlog
+        status: contexted
         assigned_to: Lucas
 
     6-1-gmail-oauth-integration:

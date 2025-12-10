@@ -5,7 +5,7 @@ import {
     PaginatedBotsResponse,
 } from "@/types/bot";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const BOTS_ENDPOINT = `${API_BASE_URL}/api/v1/bots`;
 
 async function getAuthToken(): Promise<string | null> {

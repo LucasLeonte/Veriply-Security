@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 # ============================================================================
 # Veriply Docker Compose Configuration
@@ -18,76 +18,74 @@ version: '3.8'
 # ============================================================================
 
 services:
-  # PostgreSQL with pgvector extension
-  # NOTE: For centralized DB setup, this service runs ONLY on the Ubuntu server.
-  #       Developer machines connect to the remote DB via DB_HOST in .env
-  db:
-    image: pgvector/pgvector:pg16
-    ports:
-      - "${DB_PORT:-5432}:5432"
-    environment:
-      # Use DB_* variables from .env, fall back to POSTGRES_* for compatibility
-      - POSTGRES_USER=${DB_USER:-${POSTGRES_USER:-user}}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-${POSTGRES_PASSWORD:-pass}}
-      - POSTGRES_DB=${DB_NAME:-${POSTGRES_DB:-veriply}}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - veriply-network
+    # PostgreSQL with pgvector extension
+    # NOTE: COMMENTED OUT - Using external database at 10.2.160.214
+    #       If you need a local database, uncomment this service
+    # db:
+    #   image: pgvector/pgvector:pg16
+    #   ports:
+    #     - "${DB_PORT:-5432}:5432"
+    #   environment:
+    #     - POSTGRES_USER=${DB_USER:-veriply_user}
+    #     - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+    #     - POSTGRES_DB=${DB_NAME:-veriply_dev}
+    #   volumes:
+    #     - postgres_data:/var/lib/postgresql/data
+    #   healthcheck:
+    #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-veriply_user}"]
+    #     interval: 10s
+    #     timeout: 5s
+    #     retries: 5
+    #   networks:
+    #     - veriply-network
 
-  # Redis for caching and sessions
-  redis:
-    image: redis:alpine
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    command: >
-      sh -c "if [ -n \"${REDIS_PASSWORD}\" ]; then
-        redis-server --requirepass ${REDIS_PASSWORD};
-      else
-        redis-server;
-      fi"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - veriply-network
+    # Redis for caching and sessions
+    redis:
+        image: redis:alpine
+        ports:
+            - "${REDIS_PORT:-6379}:6379"
+        command: >
+            sh -c "if [ -n \"${REDIS_PASSWORD}\" ]; then
+              redis-server --requirepass ${REDIS_PASSWORD};
+            else
+              redis-server;
+            fi"
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - veriply-network
 
-  # Ollama for LLM inference
-  ollama:
-    build:
-      context: ./docker/ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - veriply-network
-    # Uncomment if you have an NVIDIA GPU
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+    # Ollama for LLM inference
+    ollama:
+        build:
+            context: ./docker/ollama
+        ports:
+            - "11434:11434"
+        volumes:
+            - ollama_data:/root/.ollama
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+        networks:
+            - veriply-network
+        # Uncomment if you have an NVIDIA GPU
+        # deploy:
+        #   resources:
+        #     reservations:
+        #       devices:
+        #         - driver: nvidia
+        #           count: 1
+        #           capabilities: [gpu]
 
 volumes:
-  postgres_data:
-  ollama_data:
+    postgres_data:
+    ollama_data:
 
 networks:
-  veriply-network:
-    driver: bridge
-
+    veriply-network:
+        driver: bridge

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.api.v1.schemas import UserRegister
 from app.services.user_service import register_user_and_tenant, get_user_by_email
+from app.services.auth_service import verify_password
 from app.core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -122,4 +123,37 @@ async def register(req: UserRegister):
         "token_type": "bearer",
         "user_id": result["user_id"],
         "tenant_id": result["tenant_id"]
+    }
+
+@router.post("/login", response_model=dict)
+async def login(req: UserRegister):
+    """Login an existing user."""
+    user = await get_user_by_email(req.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Verify password
+    if not verify_password(req.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Generate JWT token
+    token_payload = {
+        "sub": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "role": user.role,
+        "exp": datetime.utcnow() + timedelta(hours=24)
+    }
+    token = jwt.encode(token_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id)
     }

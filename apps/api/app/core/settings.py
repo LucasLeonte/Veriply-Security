@@ -152,7 +152,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "info"
     
     # CORS Configuration
-    CORS_ORIGINS: str = "http://localhost:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
     
     @property
     def CORS_ORIGINS_LIST(self) -> list[str]:
