@@ -18,8 +18,8 @@ export function Pagination({
     totalItems,
     itemsPerPage,
 }: PaginationProps) {
-    const canGoPrevious = currentPage > 0;
-    const canGoNext = currentPage < totalPages - 1;
+    const canGoPrevious = currentPage > 1;
+    const canGoNext = currentPage < totalPages;
 
     const getPageNumbers = () => {
         const pages: (number | string)[] = [];
@@ -27,23 +27,23 @@ export function Pagination({
 
         if (totalPages <= maxVisible) {
             // Show all pages if total is small
-            for (let i = 0; i < totalPages; i++) {
+            for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
             }
         } else {
             // Show first, last, and pages around current
-            pages.push(0);
+            pages.push(1);
 
-            let start = Math.max(1, currentPage - 1);
-            let end = Math.min(totalPages - 2, currentPage + 1);
+            let start = Math.max(2, currentPage - 1);
+            let end = Math.min(totalPages - 1, currentPage + 1);
 
-            if (currentPage <= 2) {
-                end = 3;
-            } else if (currentPage >= totalPages - 3) {
-                start = totalPages - 4;
+            if (currentPage <= 3) {
+                end = 4;
+            } else if (currentPage >= totalPages - 2) {
+                start = totalPages - 3;
             }
 
-            if (start > 1) {
+            if (start > 2) {
                 pages.push("...");
             }
 
@@ -51,11 +51,11 @@ export function Pagination({
                 pages.push(i);
             }
 
-            if (end < totalPages - 2) {
+            if (end < totalPages - 1) {
                 pages.push("...");
             }
 
-            pages.push(totalPages - 1);
+            pages.push(totalPages);
         }
 
         return pages;
@@ -66,28 +66,32 @@ export function Pagination({
     const pages = getPageNumbers();
 
     return (
-        <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+        <nav 
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-slate-200 pt-4" 
+            role="navigation"
+            aria-label="Pagination"
+        >
             {/* Info */}
-            <div className="text-sm text-slate-600">
+            <div className="text-sm text-slate-600 order-2 sm:order-1 w-full sm:w-auto" aria-live="polite" aria-atomic="true">
                 {totalItems !== undefined && itemsPerPage !== undefined && (
                     <span>
-                        Showing {currentPage * itemsPerPage + 1} -{" "}
-                        {Math.min((currentPage + 1) * itemsPerPage, totalItems)} of{" "}
+                        Showing {(currentPage - 1) * itemsPerPage + 1} -{" "}
+                        {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
                         {totalItems}
                     </span>
                 )}
             </div>
 
             {/* Pagination Controls */}
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 order-1 sm:order-2 w-full sm:w-auto overflow-x-auto pb-2 sm:pb-0">\n                {/* Previous Button */}
                 {/* Previous Button */}
                 <button
                     onClick={() => onPageChange(currentPage - 1)}
                     disabled={!canGoPrevious}
-                    className="p-2 text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     aria-label="Previous page"
                 >
-                    <ChevronLeft size={16} />
+                    <ChevronLeft size={16} aria-hidden="true" />
                 </button>
 
                 {/* Page Numbers */}
@@ -110,15 +114,15 @@ export function Pagination({
                         <button
                             key={pageNumber}
                             onClick={() => onPageChange(pageNumber)}
-                            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                            className={`px-3 py-2 min-h-[44px] text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors ${
                                 isActive
                                     ? "bg-emerald-600 text-white"
                                     : "text-slate-700 hover:bg-slate-50 border border-slate-300"
                             }`}
-                            aria-label={`Page ${pageNumber + 1}`}
+                            aria-label={`Page ${pageNumber}`}
                             aria-current={isActive ? "page" : undefined}
                         >
-                            {pageNumber + 1}
+                            {pageNumber}
                         </button>
                     );
                 })}
@@ -127,12 +131,12 @@ export function Pagination({
                 <button
                     onClick={() => onPageChange(currentPage + 1)}
                     disabled={!canGoNext}
-                    className="p-2 text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     aria-label="Next page"
                 >
-                    <ChevronRight size={16} />
+                    <ChevronRight size={16} aria-hidden="true" />
                 </button>
             </div>
-        </div>
+        </nav>
     );
 }

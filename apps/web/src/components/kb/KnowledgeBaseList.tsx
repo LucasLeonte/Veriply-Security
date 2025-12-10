@@ -17,6 +17,10 @@ interface KnowledgeBaseListProps {
     onReprocess: (documentId: string) => Promise<void>;
     documents: Document[];
     totalCount: number;
+    currentPage: number;
+    totalPages: number;
+    onPageChange: (page: number) => void;
+    onSearchChange?: (search: string) => void;
     isLoading: boolean;
     error?: string | null;
 }
@@ -30,26 +34,27 @@ export function KnowledgeBaseList({
     onReprocess,
     documents,
     totalCount,
+    currentPage,
+    totalPages,
+    onPageChange,
+    onSearchChange,
     isLoading,
     error,
 }: KnowledgeBaseListProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
-    const [currentPage, setCurrentPage] = useState(0);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Debounce search
+    // Debounce search and notify parent
     useEffect(() => {
         const timer = setTimeout(() => {
-            setDebouncedSearch(searchQuery);
-            setCurrentPage(0); // Reset to first page on search
+            onSearchChange?.(searchQuery);
         }, 300);
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, onSearchChange]);
 
     const handleViewDocument = (document: Document) => {
         router.push(`/dashboard/bots/${botId}/knowledge-base/${document.id}`);
@@ -83,13 +88,6 @@ export function KnowledgeBaseList({
         }
     };
 
-    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-    const filteredDocuments = debouncedSearch
-        ? documents.filter((doc) =>
-              doc.filename.toLowerCase().includes(debouncedSearch.toLowerCase())
-          )
-        : documents;
-
     return (
         <div className="space-y-6">
             {/* Header Section */}
@@ -112,9 +110,7 @@ export function KnowledgeBaseList({
             {/* Document Count */}
             {!isLoading && (
                 <div className="text-sm text-slate-600">
-                    {filteredDocuments.length === totalCount
-                        ? `Showing ${totalCount} document${totalCount !== 1 ? "s" : ""}`
-                        : `Showing ${filteredDocuments.length} of ${totalCount} documents`}
+                    Showing {documents.length} of {totalCount} document{totalCount !== 1 ? "s" : ""}
                 </div>
             )}
 
@@ -133,7 +129,7 @@ export function KnowledgeBaseList({
             )}
 
             {/* Empty State */}
-            {!isLoading && !error && filteredDocuments.length === 0 && (
+            {!isLoading && !error && documents.length === 0 && (
                 <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
                     <FileText size={48} className="text-slate-300 mx-auto mb-4" />
                     {searchQuery ? (
@@ -166,9 +162,9 @@ export function KnowledgeBaseList({
             )}
 
             {/* Document List */}
-            {!isLoading && !error && filteredDocuments.length > 0 && (
+            {!isLoading && !error && documents.length > 0 && (
                 <div className="space-y-4">
-                    {filteredDocuments.map((document) => (
+                    {documents.map((document) => (
                         <DocumentCard
                             key={document.id}
                             document={document}
@@ -185,7 +181,7 @@ export function KnowledgeBaseList({
                 <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
-                    onPageChange={setCurrentPage}
+                    onPageChange={onPageChange}
                     totalItems={totalCount}
                     itemsPerPage={ITEMS_PER_PAGE}
                 />

@@ -174,7 +174,7 @@ export function DocumentDetail({
                                 <div>
                                     <p className="text-sm text-slate-500 mb-1">Uploaded</p>
                                     <p className="text-sm font-medium text-slate-900">
-                                        {formatDate(document.uploaded_at)}
+                                        {formatDate(document.created_at)}
                                     </p>
                                 </div>
                                 <div>
@@ -191,19 +191,11 @@ export function DocumentDetail({
                                     </p>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-slate-500 mb-1">Embeddings</p>
+                                    <p className="text-sm text-slate-500 mb-1">Last updated</p>
                                     <p className="text-sm font-medium text-slate-900">
-                                        {document.embedding_count} vectors indexed
+                                        {formatDate(document.updated_at)}
                                     </p>
                                 </div>
-                                {document.processed_at && (
-                                    <div>
-                                        <p className="text-sm text-slate-500 mb-1">Processed</p>
-                                        <p className="text-sm font-medium text-slate-900">
-                                            {formatDate(document.processed_at)}
-                                        </p>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>

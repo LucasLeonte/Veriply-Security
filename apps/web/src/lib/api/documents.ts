@@ -57,13 +57,13 @@ export const documentsApi = {
      */
     async listDocuments(
         botId: string,
-        limit: number = 20,
-        offset: number = 0,
+        page: number = 1,
+        pageSize: number = 20,
         search?: string
     ): Promise<PaginatedDocumentsResponse> {
         const params = new URLSearchParams({
-            limit: limit.toString(),
-            offset: offset.toString(),
+            page: page.toString(),
+            page_size: pageSize.toString(),
         });
 
         if (search) {
@@ -92,7 +92,7 @@ export const documentsApi = {
     async uploadDocuments(
         botId: string,
         files: File[]
-    ): Promise<{ documents: Document[] }> {
+    ): Promise<{ id: string; document_id: string; status: string; queued: boolean }> {
         const formData = new FormData();
         
         files.forEach((file) => {
@@ -106,7 +106,7 @@ export const documentsApi = {
                 body: formData,
             }
         );
-        return handleResponse<{ documents: Document[] }>(response);
+        return handleResponse<{ id: string; document_id: string; status: string; queued: boolean }>(response);
     },
 
     /**
@@ -127,33 +127,26 @@ export const documentsApi = {
     /**
      * Trigger reprocessing of a document
      */
-    async reprocessDocument(documentId: string): Promise<Document> {
+    async reprocessDocument(documentId: string): Promise<{ id: string; status: string; queued: boolean }> {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}/reprocess`,
             {
                 method: "POST",
             }
         );
-        return handleResponse<Document>(response);
+        return handleResponse<{ id: string; status: string; queued: boolean }>(response);
     },
 
     /**
      * Get chunks for a specific document
      */
     async getDocumentChunks(
-        documentId: string,
-        limit: number = 50,
-        offset: number = 0
-    ): Promise<{ chunks: DocumentChunk[]; total_count: number }> {
-        const params = new URLSearchParams({
-            limit: limit.toString(),
-            offset: offset.toString(),
-        });
-
+        documentId: string
+    ): Promise<{ chunks: DocumentChunk[]; total: number }> {
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}/chunks?${params.toString()}`
+            `${API_BASE_URL}/api/v1/documents/${documentId}/chunks`
         );
-        return handleResponse<{ chunks: DocumentChunk[]; total_count: number }>(
+        return handleResponse<{ chunks: DocumentChunk[]; total: number }>(
             response
         );
     },

@@ -55,8 +55,13 @@ async def upload_document(
             raise HTTPException(status_code=415, detail=f"Unsupported file type: {ext}")
 
         content = await file.read()
+        
+        # Enforce file size limit on backend
         if len(content) > settings.MAX_UPLOAD_SIZE_BYTES:
-            raise HTTPException(status_code=413, detail=f"File {file.filename} too large")
+            raise HTTPException(
+                status_code=413, 
+                detail=f"File {file.filename} exceeds maximum size of {settings.MAX_UPLOAD_SIZE_BYTES} bytes"
+            )
 
         safe_filename = os.path.basename(file.filename or "")
 
@@ -140,12 +145,25 @@ async def list_bot_documents(
     result = await db.execute(query)
     documents = result.scalars().all()
     
-    # Get chunk counts for each document
+    # Get chunk counts for all documents in a single query (fix N+1 problem)
+    if documents:
+        doc_ids = [doc.id for doc in documents]
+        chunk_counts_query = select(
+            Chunk.document_id,
+            func.count(Chunk.id).label('chunk_count')
+        ).where(
+            Chunk.document_id.in_(doc_ids)
+        ).group_by(Chunk.document_id)
+        
+        chunk_counts_result = await db.execute(chunk_counts_query)
+        chunk_count_map = {row.document_id: row.chunk_count for row in chunk_counts_result}
+    else:
+        chunk_count_map = {}
+    
+    # Build response objects
     doc_responses = []
     for doc in documents:
-        chunk_count_query = select(func.count()).where(Chunk.document_id == doc.id)
-        chunk_result = await db.execute(chunk_count_query)
-        chunk_count = chunk_result.scalar() or 0
+        chunk_count = chunk_count_map.get(doc.id, 0)
         
         doc_responses.append(DocumentResponse(
             id=doc.id,

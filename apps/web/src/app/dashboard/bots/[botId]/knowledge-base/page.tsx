@@ -16,17 +16,16 @@ import {
 export default function BotKnowledgeBasePage() {
     const params = useParams();
     const botId = params.botId as string;
-    const [currentPage, setCurrentPage] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1); // Pages are 1-indexed
     const [searchQuery, setSearchQuery] = useState("");
 
     const ITEMS_PER_PAGE = 10;
-    const offset = currentPage * ITEMS_PER_PAGE;
 
     // Fetch documents with pagination and search
     const { data, isLoading, error, refetch } = useDocumentsQuery(
         botId,
+        currentPage,
         ITEMS_PER_PAGE,
-        offset,
         searchQuery || undefined
     );
 
@@ -97,7 +96,11 @@ export default function BotKnowledgeBasePage() {
                 <KnowledgeBaseList
                     botId={botId}
                     documents={data?.documents || []}
-                    totalCount={data?.total_count || 0}
+                    totalCount={data?.total || 0}
+                    currentPage={currentPage}
+                    totalPages={data?.total_pages || 0}
+                    onPageChange={setCurrentPage}
+                    onSearchChange={setSearchQuery}
                     isLoading={isLoading}
                     error={error?.message}
                     onUpload={handleUpload}

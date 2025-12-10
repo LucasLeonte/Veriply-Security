@@ -142,10 +142,10 @@ export function UploadModal({
                         <button
                             onClick={handleClose}
                             disabled={isUploading}
-                            className="text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
-                            aria-label="Close"
+                            className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 rounded transition-colors disabled:opacity-50"
+                            aria-label="Close upload dialog"
                         >
-                            <X size={20} />
+                            <X size={20} aria-hidden="true" />
                         </button>
                     </div>
 

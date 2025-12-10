@@ -22,7 +22,7 @@ export default function DocumentDetailPage() {
     const { data: documentData, isLoading, refetch } = useDocumentQuery(documentId);
     
     // Fetch chunks
-    const { data: chunksData } = useDocumentChunks(documentId, 50, 0);
+    const { data: chunksData } = useDocumentChunks(documentId);
 
     const { mutate: deleteDocument } = useDeleteDocument();
     const { mutate: reprocessDocument } = useReprocessDocument();

@@ -6,14 +6,15 @@ export interface Document {
     filename: string;
     file_size: number;
     status: DocumentStatus;
+    chunk_count: number;
+    created_at: string;
+    updated_at: string;
+    title?: string;
+    mime_type?: string;
+    storage_path?: string;
+    // Optional frontend-only fields for UI
     processing_progress?: number;
     error_message?: string;
-    chunk_count: number;
-    embedding_count: number;
-    uploaded_at: string;
-    processed_at?: string;
-    uploaded_by: string;
-    tenant_id: string;
 }
 
 export interface DocumentChunk {
@@ -21,7 +22,7 @@ export interface DocumentChunk {
     document_id: string;
     content: string;
     chunk_index: number;
-    embedding?: number[];
+    page_number?: number;
     created_at: string;
 }
 
@@ -32,9 +33,10 @@ export interface UploadDocumentInput {
 
 export interface PaginatedDocumentsResponse {
     documents: Document[];
-    total_count: number;
+    total: number;
     page: number;
     page_size: number;
+    total_pages: number;
 }
 
 export interface DocumentDetailResponse extends Document {

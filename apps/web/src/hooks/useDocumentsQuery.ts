@@ -11,8 +11,8 @@ import { documentsApi } from "@/lib/api/documents";
  */
 export function useDocumentsQuery(
     botId: string,
-    limit: number = 20,
-    offset: number = 0,
+    page: number = 1,
+    pageSize: number = 20,
     search?: string
 ) {
     const [data, setData] = useState<PaginatedDocumentsResponse | null>(null);
@@ -27,8 +27,8 @@ export function useDocumentsQuery(
         try {
             const result = await documentsApi.listDocuments(
                 botId,
-                limit,
-                offset,
+                page,
+                pageSize,
                 search
             );
             setData(result);
@@ -41,7 +41,7 @@ export function useDocumentsQuery(
         } finally {
             setIsLoading(false);
         }
-    }, [botId, limit, offset, search]);
+    }, [botId, page, pageSize, search]);
 
     useEffect(() => {
         refetch();
@@ -95,7 +95,7 @@ export function useUploadDocuments() {
         async (
             botId: string,
             files: File[]
-        ): Promise<{ documents: Document[] }> => {
+        ): Promise<{ id: string; document_id: string; status: string; queued: boolean }> => {
             setIsPending(true);
             setError(null);
             try {
@@ -152,7 +152,7 @@ export function useReprocessDocument() {
     const [isPending, setIsPending] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    const mutate = useCallback(async (documentId: string): Promise<Document> => {
+    const mutate = useCallback(async (documentId: string): Promise<{ id: string; status: string; queued: boolean }> => {
         setIsPending(true);
         setError(null);
         try {
@@ -176,14 +176,10 @@ export function useReprocessDocument() {
 /**
  * Hook to fetch document chunks
  */
-export function useDocumentChunks(
-    documentId: string,
-    limit: number = 50,
-    offset: number = 0
-) {
+export function useDocumentChunks(documentId: string) {
     const [data, setData] = useState<{
         chunks: any[];
-        total_count: number;
+        total: number;
     } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<Error | null>(null);
@@ -194,11 +190,7 @@ export function useDocumentChunks(
         setIsLoading(true);
         setError(null);
         try {
-            const result = await documentsApi.getDocumentChunks(
-                documentId,
-                limit,
-                offset
-            );
+            const result = await documentsApi.getDocumentChunks(documentId);
             setData(result);
         } catch (err) {
             setError(
@@ -209,7 +201,7 @@ export function useDocumentChunks(
         } finally {
             setIsLoading(false);
         }
-    }, [documentId, limit, offset]);
+    }, [documentId]);
 
     useEffect(() => {
         refetch();
