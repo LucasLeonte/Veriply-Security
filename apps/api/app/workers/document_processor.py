@@ -8,6 +8,9 @@ from app.models.document import Document
 from app.models.chunk import Chunk
 from datetime import datetime
 import uuid
+import io
+import asyncio
+import inspect
 
 logger = logging.getLogger(__name__)
 
@@ -18,24 +21,19 @@ def _simple_text_extractor(file_bytes: bytes, filename: str | None, mime: str | 
     This is intentionally conservative: it only uses optional libraries if present.
     """
     # PDF
-    if mime and "pdf" in mime.lower() or (filename and filename.lower().endswith(".pdf")):
+    if (mime and "pdf" in mime.lower()) or (filename and filename.lower().endswith(".pdf")):
         try:
             from PyPDF2 import PdfReader
-            reader = PdfReader(fileobj=None)
+            reader = PdfReader(io.BytesIO(file_bytes))
+            texts: List[str] = []
+            for p in reader.pages:
+                try:
+                    texts.append(p.extract_text() or "")
+                except Exception:
+                    texts.append("")
+            return "\n\n".join(texts)
         except Exception:
-            # Try reading with PdfReader from bytes
-            try:
-                from PyPDF2 import PdfReader
-                reader = PdfReader(io.BytesIO(file_bytes))
-                texts: List[str] = []
-                for p in reader.pages:
-                    try:
-                        texts.append(p.extract_text() or "")
-                    except Exception:
-                        texts.append("")
-                return "\n\n".join(texts)
-            except Exception:
-                logger.warning("PyPDF2 not available or failed to parse PDF; falling back to binary decode")
+            logger.warning("PyPDF2 not available or failed to parse PDF; falling back to binary decode")
 
     # DOCX
     if filename and filename.lower().endswith(".docx"):
@@ -92,8 +90,15 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
     except Exception:
         doc_uuid = document_id
 
-    # Load document row
+    # Load document row (with a brief retry window to tolerate visibility races)
     doc = await db_session.get(Document, doc_uuid)
+    if not doc:
+        # retry a few times with small delay (caller should enqueue after commit, but be defensive)
+        for _ in range(3):
+            await asyncio.sleep(0.2)
+            doc = await db_session.get(Document, doc_uuid)
+            if doc:
+                break
     if not doc:
         logger.error("Document %s not found", document_id)
         return {"document_id": document_id, "status": "not_found"}
@@ -102,14 +107,22 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
     doc.status = "processing"
     doc.updated_at = datetime.utcnow()
     await db_session.flush()
-
-    # Download bytes
     try:
-        file_bytes = storage.download_bytes(doc.storage_path)
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+
+    # Download bytes (run blocking I/O in threadpool)
+    try:
+        file_bytes = await asyncio.to_thread(storage.download_bytes, doc.storage_path)
     except Exception as e:
         logger.exception("Failed to download document %s: %s", document_id, e)
         doc.status = "error"
         await db_session.flush()
+        try:
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
         return {"document_id": document_id, "status": "download_failed", "error": str(e)}
 
     # Extract text
@@ -132,9 +145,20 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
         for idx, chunk_text in enumerate(chunks):
             vec = None
             try:
-                vec = embed_fn(chunk_text)
+                if inspect.iscoroutinefunction(embed_fn):
+                    vec = await embed_fn(chunk_text)
+                else:
+                    vec = await asyncio.to_thread(embed_fn, chunk_text)
             except Exception:
                 logger.exception("Embedding failed for document %s chunk %d", document_id, idx)
+
+            # Normalize embedding to a plain Python list (pgvector/sqlalchemy accepts lists)
+            try:
+                if vec is not None and not isinstance(vec, (list, tuple)):
+                    # attempt to coerce (e.g., pgvector.Vector supports list())
+                    vec = list(vec)
+            except Exception:
+                logger.warning("Failed to normalize embedding vector for document %s chunk %d", document_id, idx)
 
             chunk = Chunk(
                 document_id=doc.id,
@@ -156,10 +180,18 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
         doc.status = "processed"
         doc.updated_at = datetime.utcnow()
         await db_session.flush()
+        try:
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
     except Exception as e:
         logger.exception("Failed persisting chunks for document %s: %s", document_id, e)
         doc.status = "error"
         await db_session.flush()
+        try:
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
         return {"document_id": document_id, "status": "persist_failed", "error": str(e)}
 
     return {"document_id": document_id, "status": "processed", "chunks_created": created}

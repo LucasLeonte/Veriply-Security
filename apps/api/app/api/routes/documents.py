@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.models.document import Document
 from typing import Optional
 import os
+import inspect
 
 router = APIRouter(prefix="/bots", tags=["documents"])
 
@@ -59,9 +60,23 @@ async def upload_document(
     except Exception:
         await db.rollback()
         raise HTTPException(status_code=500, detail="Failed to save document")
+    # After commit, enqueue processing so background sessions can see the row
+    queued_after = False
+    try:
+        from app.tasks import enqueue_document_processing  # type: ignore
+    except Exception:
+        queued_after = False
+    else:
+        try:
+            if inspect.iscoroutinefunction(enqueue_document_processing):
+                queued_after = await enqueue_document_processing(str(doc.id))
+            else:
+                queued_after = enqueue_document_processing(str(doc.id))
+        except Exception:
+            queued_after = False
 
     # Return both `id` (primary) and `document_id` for backward compatibility
-    return {"id": str(doc.id), "document_id": str(doc.id), "status": doc.status, "queued": bool(queued)}
+    return {"id": str(doc.id), "document_id": str(doc.id), "status": doc.status, "queued": bool(queued_after)}
 
 
 

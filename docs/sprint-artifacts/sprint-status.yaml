@@ -130,17 +130,16 @@ development_status:
     2-3-document-upload-api:
         status: done
         assigned_to: Soulaymane
-        blocked_by: 2-1-bot-creation-configuration
+        completed_date: 2025-12-10
 
     2-4-document-processing-pipeline:
-        status: ready-for-dev
+        status: done
         assigned_to: Soulaymane
-        blocked_by: 2-3-document-upload-api
+        completed_date: 2025-12-10
 
     2-5-knowledge-base-management-ui:
         status: ready-for-dev
         assigned_to: null
-        blocked_by: 2-4-document-processing-pipeline
 
     2-6-document-deletion:
         status: ready-for-dev
@@ -167,7 +166,6 @@ development_status:
     3-1-semantic-vector-search:
         status: ready-for-dev
         assigned_to: null
-        blocked_by: 2-4-document-processing-pipeline
 
     3-2-context-only-answer-generation:
         status: ready-for-dev
@@ -301,7 +299,6 @@ development_status:
     7-1-verified-kb-storage:
         status: backlog
         assigned_to: null
-        blocked_by: 2-4-document-processing-pipeline
 
     7-2-verified-kb-priority:
         status: backlog

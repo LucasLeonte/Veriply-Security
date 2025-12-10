@@ -18,3 +18,5 @@ pytest
 pytest-asyncio
 pytest-mock
 aiosqlite
+PyPDF2
+python-docx

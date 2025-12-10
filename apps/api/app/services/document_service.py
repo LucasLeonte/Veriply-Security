@@ -74,29 +74,10 @@ async def create_document(
     # flush so `doc.id` is populated
     await db.flush()
 
-    # Enqueue processing job (best-effort). Support both sync and async enqueuers.
-    logger = logging.getLogger(__name__)
-    queued = False
-    try:
-        # Attempt to import a task enqueuer if available
-        from app.tasks import enqueue_document_processing  # type: ignore
-    except Exception as e:
-        # No enqueuer available (dev) — preserve previous behavior of marking queued True
-        logger.info("No enqueuer available, falling back to queued=True: %s", e)
-        queued = True
-    else:
-        try:
-            if inspect.iscoroutinefunction(enqueue_document_processing):
-                result = await enqueue_document_processing(str(doc.id))
-            else:
-                result = enqueue_document_processing(str(doc.id))
-            # If the enqueuer returns a boolean, respect it; otherwise assume success
-            queued = bool(result) if result is not None else True
-        except Exception:
-            logger.exception("Enqueuer raised an exception for document %s", str(doc.id))
-            queued = False
-
-    return doc, queued
+    # Do NOT enqueue here — caller (route) should enqueue after commit to avoid
+    # visibility race where a background session cannot see a row that has only
+    # been flushed but not committed.
+    return doc, False
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document
 from app.lib.storage import upload_bytes
