@@ -1,185 +1,173 @@
 # Story 2.5: Knowledge Base Management UI
 
 **Epic:** 2. Bot & Knowledge Management  
-**Status:** drafted  
-**Assigned to:** null  
+**Status:** drafted → ready-for-review  
+**Assigned to:** Soulaymane  
 **Blocked by:** 2-4-document-processing-pipeline
 
-## Story
+## Summary
 
-As a User,  
-I want to view and manage my bot's documents,  
-so that I can maintain an accurate knowledge base.
+As a product user (bot owner), I need a single-page UI to view, search, filter, sort and manage my bot's uploaded documents and extracted chunks so I can keep the bot's knowledge base accurate and quickly fix extraction issues.
 
-## Acceptance Criteria
+## Personas
 
-### Knowledge Base List View
+- Product Owner / Content Manager: uploads documents, inspects chunk previews and reprocesses when needed.
+- Support Engineer: investigates processing failures via logs and triggers reprocessing.
 
--   [ ] User can navigate to a bot's Knowledge Base page
--   [ ] Page displays a table/list of all documents with columns:
-    -   Document name (clickable)
-    -   Type (PDF/DOCX/TXT/MD/CSV)
-    -   Size (human-readable: 1.2MB, 500KB, etc.)
-    -   Status (Processing/Ready/Failed)
-    -   Chunk count (number of chunks created)
-    -   Upload date (formatted: "Dec 4, 2025")
-    -   Actions (View, Delete, Reprocess)
--   [ ] Status badges are color-coded:
-    -   Yellow/warning: Processing
-    -   Green/success: Ready
-    -   Red/error: Failed
--   [ ] Empty state message appears when no documents: "No documents uploaded. Upload your first document to get started."
--   [ ] Pagination: 20 documents per page with page navigation
+## Background & Motivation
 
-### Document Search & Filtering
+The document processing pipeline produces searchable chunks used by the bot. Users need a clear UI to understand what documents are present, their processing status, and whether reprocessing or deletion is required. This reduces support load and improves bot quality.
 
--   [ ] User can search documents by name (case-insensitive, live search)
--   [ ] User can filter documents by status (All, Processing, Ready, Failed)
--   [ ] Search and filters work together
--   [ ] Clear button appears when search/filter is active
+## Acceptance Criteria (condensed & testable)
 
-### Document Sorting
+1) Knowledge Base List View
+- User can open the Knowledge Base page for a bot at `/bots/:bot_id/documents`.
+- Page lists documents in a table or responsive card list with columns: Name (clickable), Type, Size, Status, Chunk count, Upload date, Actions (View, Delete, Reprocess).
+- Status badges use colors: Processing (yellow), Ready (green), Failed (red).
+- Empty state: "No documents uploaded. Upload your first document to get started." shown when zero documents.
+- Pagination: default 20 documents per page with next/prev and page numbers.
 
--   [ ] User can sort by any column:
-    -   Name (A-Z, Z-A)
-    -   Type
-    -   Size (small to large, large to small)
-    -   Status (Processing → Ready → Failed)
-    -   Chunk count (ascending/descending)
-    -   Upload date (newest first, oldest first)
--   [ ] Default sort: newest uploaded first
--   [ ] Sort indicator (arrow or icon) shows active column and direction
+2) Search, Filter & Sort
+- Live search by name (case-insensitive) with debounce (250ms).
+- Filter by status (All, Processing, Ready, Failed) and combined with search.
+- Sortable columns: name, type, size, status (Processing → Ready → Failed), chunk_count, upload_date. Default: upload_date desc (newest first).
 
-### Document Detail View
+3) Document Detail View
+- Clicking name opens a modal/slide-out with metadata, chunk count, first N chunk previews (truncate at 200 chars), and processing logs if Failed.
+- Actions: Delete (confirm), Reprocess (confirm), Close.
 
--   [ ] User can click on a document name to view details
--   [ ] Detail view shows:
-    -   Document name
-    -   Type and file size
-    -   Upload date
-    -   Status
-    -   Chunk count and breakdown (if available)
-    -   Processing logs (if failed)
-    -   Preview of first N chunks (with truncation)
-    -   Back button or modal close
--   [ ] User can view chunk content to verify extraction quality
--   [ ] If processing failed, error message and retry option are visible
+4) Real-time Updates
+- Document statuses update live via WebSocket events or polling fallback every 2s. UI updates only for changed documents.
+- Show spinner/progress for documents in Processing state.
 
-### Real-time Status Updates
+5) Responsive
+- Desktop: full table. Mobile: collapse to essential columns (Name, Status, Size, Actions) with card layout.
 
--   [ ] Document statuses update in real-time:
-    -   Initially: Processing
-    -   After completion: Ready (with chunk count)
-    -   On error: Failed (with error message)
--   [ ] Updates via polling (every 2 seconds) or WebSocket
--   [ ] User doesn't need to refresh page to see status changes
--   [ ] Spinner/progress indicator shows while processing
+6) Security & Multi-tenant
+- All endpoints enforce tenant isolation and bot ownership. Users only see documents they own or have access to.
 
-### Responsive Design
+## Definition of Done
 
--   [ ] List view works on desktop, tablet, and mobile
--   [ ] On mobile: show essential columns (name, status, size, actions)
--   [ ] Swipe or tap to access additional actions on mobile
--   [ ] Detail view is mobile-friendly
+- Frontend components implemented under `apps/web/src/components/knowledge-base/` with unit tests.
+- Backend endpoints implemented and covered by API tests in `apps/api/tests/test_documents.py`.
+- End-to-end happy-path test for upload → processing → Ready status visible in UI.
+- Accessibility: table and controls keyboard-navigable and labelled.
 
-## Tasks / Subtasks
+## API Contracts (examples)
 
-### 1) Frontend - Knowledge Base List Component
+1) GET /api/v1/bots/:bot_id/documents
+Request query params: `?page=1&limit=20&search=invoice&status=Ready&sort_by=upload_date&sort_order=desc`
+Response 200:
+```
+{
+    "items": [
+        {"id":"uuid","name":"Q4_report.pdf","type":"pdf","size":1234567,"status":"Ready","chunk_count":42,"upload_date":"2025-12-04T10:22:00Z"}
+    ],
+    "page":1,"limit":20,"total":57
+}
+```
 
--   [ ] Create `KnowledgeBaseList` component with:
-    -   Document table/list rendering
-    -   Column headers with sort indicators
-    -   Search input field
-    -   Status filter dropdown
-    -   Pagination controls
--   [ ] Implement client-side sorting for columns
--   [ ] Implement client-side search filtering
--   [ ] Implement client-side status filtering
--   [ ] Add "Upload Document" button (CTA)
--   [ ] Display empty state when no documents
+2) GET /api/v1/documents/:doc_id
+Response 200:
+```
+{
+    "id":"uuid",
+    "name":"Q4_report.pdf",
+    "type":"pdf",
+    "size":1234567,
+    "status":"Ready",
+    "chunk_count":42,
+    "upload_date":"2025-12-04T10:22:00Z",
+    "chunks": [ {"id":"c1","page_num":1,"preview":"First 200 chars..."} ],
+    "processing_logs": null
+}
+```
 
-### 2) Frontend - Status Badge Component
+Errors: 401/403 if unauthorized, 404 if doc not found, 400 for invalid params.
 
--   [ ] Create reusable `StatusBadge` component
--   [ ] Support colors: yellow (processing), green (ready), red (failed)
--   [ ] Optional tooltip showing extended status info
--   [ ] Animation for processing state
+## Acceptance Tests (Gherkin)
 
-### 3) Frontend - Real-time Updates
+Scenario: List documents and see processing updates
+    Given bot "B1" has 3 documents, one in Processing
+    When I open `/bots/B1/documents`
+    Then I see 3 rows and a yellow badge for the Processing document
+    And after processing completes the badge turns green and chunk count > 0
 
--   [ ] Implement polling mechanism:
-    -   Every 2 seconds, fetch document list status
-    -   Compare with local state
-    -   Update only changed documents
--   [ ] Alternative: implement WebSocket listener for document status events
--   [ ] Show loading indicator during fetch
--   [ ] Handle errors gracefully (retry logic)
+Scenario: Search & Filter
+    Given documents named "invoice", "policy" exist
+    When I search for "invoice"
+    Then only "invoice" appears in the list
 
-### 4) Frontend - Document Detail Modal/Page
+Scenario: View document details and reprocess
+    Given a document in Failed state with logs
+    When I open details
+    Then I see processing logs and a Reprocess button
+    When I click Reprocess and confirm
+    Then document status becomes Processing and logs clear
 
--   [ ] Create `DocumentDetail` component
--   [ ] Fetch and display full document metadata
--   [ ] Display chunk list with preview (truncate at 200 chars)
--   [ ] Show processing logs if status is Failed
--   [ ] Add action buttons: Delete, Reprocess, Close
--   [ ] Responsive modal or slide-out panel
+## UI Components & File Paths
 
-### 5) Backend - GET `/api/v1/bots/:bot_id/documents` API
+- `KnowledgeBaseList` — `apps/web/src/components/knowledge-base/KnowledgeBaseList.tsx`
+- `DocumentRow` / `DocumentCard` — render single document
+- `StatusBadge` — `apps/web/src/components/StatusBadge/StatusBadge.tsx`
+- `DocumentDetail` modal — `apps/web/src/components/knowledge-base/DocumentDetail.tsx`
+- Styles and tests next to components.
 
--   [ ] Fetch all documents for a bot with pagination (20 per page)
--   [ ] Return fields: id, name, type, size, status, chunk_count, upload_date
--   [ ] Support query params: page, limit, sort_by, sort_order, search, status_filter
--   [ ] Enforce tenant isolation and bot ownership
--   [ ] Validate input parameters
+## Backend Implementation Notes
 
-### 6) Backend - GET `/api/v1/documents/:doc_id` API
+- Routes: `apps/api/app/routes/documents.py` add handlers for list and detail endpoints.
+- Models: `apps/api/app/models/document.py`, `apps/api/app/models/chunk.py` include necessary fields.
+- DB queries should support filtering, full-text search on name, and sorting.
+- Pagination: use limit/offset; return total count.
+- Real-time: publish status events to WebSocket topic `bot:{bot_id}:documents` when processing finishes/errors.
 
--   [ ] Fetch full document details
--   [ ] Return: id, name, type, size, status, chunk_count, upload_date, chunks (paginated), processing_logs (if failed)
--   [ ] Return chunk list with id, content, page_num (if PDF)
--   [ ] Enforce tenant isolation and document ownership
+## Tasks / Subtasks (developer-ready)
 
-### 7) Frontend - Responsive Design & Mobile Optimization
+1) Backend - Documents list API (2d)
+- Implement `/api/v1/bots/:bot_id/documents` with query params, validation, tenant checks, pagination, and unit tests.
 
--   [ ] Test on mobile devices (iPhone, Android)
--   [ ] Collapse secondary columns on mobile (type, size)
--   [ ] Show essential info: name, status, actions
--   [ ] Add horizontal scroll for table or switch to card layout
--   [ ] Touch-friendly action buttons
+2) Backend - Document detail API (1.5d)
+- Implement `/api/v1/documents/:doc_id` returning chunk previews and processing logs, with ownership checks.
 
-## Dev Notes
+3) Frontend - KnowledgeBaseList (3d)
+- Build table with search, filters, sort, pagination; wire to API; add unit tests.
 
-- Real-time updates should gracefully degrade if WebSocket isn't available (fall back to polling)
-- Consider infinite scroll as alternative to pagination for better UX
-- Chunk preview should handle long text with ellipsis or truncation
-- Error messages from failed processing should be user-friendly (not raw stack traces)
-- Consider adding a "bulk select" feature for multi-document operations (future)
+4) Frontend - DocumentDetail (2d)
+- Modal/slide-out with chunk previews, logs, delete and reprocess actions.
 
-### Project Structure Notes
+5) Frontend - Real-time updates (1.5d)
+- Implement WebSocket listener + polling fallback, update only changed documents.
 
-- Frontend components: `apps/web/src/components/knowledge-base/`
-- API endpoints: `apps/api/app/routes/documents.py`
-- Database models: `apps/api/app/models/document.py`, `apps/api/app/models/chunk.py`
-- Tests: `apps/web/__tests__/knowledge-base.test.tsx`, `apps/api/tests/test_documents.py`
+6) QA & E2E (2d)
+- Add Playwright or Cypress tests for main flows: list, search, view detail, reprocess.
 
-### References
+Estimates are rough; pair with backend/frontend owners when scheduling.
 
-- [Epic 2 Specification: Story 2.5](../epics.md#story-25-knowledge-base-management-ui)
-- [Story 2.4: Document Processing Pipeline](./story-2-4-document-processing-pipeline.md)
-- [Architecture: Knowledge Base Data Model](../architecture.md)
+## Test Data & Debugging
+
+- Provide sample documents in test fixtures under `apps/api/tests/fixtures/`.
+- For local testing, use `scripts/init-test-data.sh` or a small Python script to create documents with statuses Processing/Ready/Failed.
+
+## Notes & Risks
+
+- Real-time via WebSocket requires small server-side publisher; if not available, polling every 2s may increase load—implement exponential backoff on errors.
+- Chunk previews must truncate safely to avoid leaking PII; use configured sanitizer.
+
+## References
+
+- `docs/architecture.md` — data model and chunking behavior
+- `docs/story-2-4-document-processing-pipeline.md` — processing pipeline and statuses
 
 ## Dev Agent Record
 
 ### Context Reference
-
-<!-- Path(s) to story context XML will be added here by context workflow -->
+Path(s) to story context XML will be added here by context workflow.
 
 ### Agent Model Used
+Generated by internal agent (story draft automation).
 
-Claude Haiku 4.5
-
-### Debug Log References
-
-### Completion Notes List
+### Completion Notes
+- Draft updated to include API contracts, Gherkin scenarios, DoD, and developer tasks.
 
 ### File List
+This story file (updated). 
