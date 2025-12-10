@@ -1,0 +1,27 @@
+<context>
+  <story id="5-5-keyboard-shortcuts-filtering" status="drafted">
+    <summary>Enable agents to process HITL queue efficiently using keyboard shortcuts and filters. Shortcut help modal, filter dropdowns, persistent filter state, filtered count in header. [Source: 5-5-keyboard-shortcuts-filtering.md]</summary>
+    <requirements>
+      <requirement>Keyboard shortcuts: A=Approve, R=Reject, E=Edit, N=Next, ←/→=Navigate, ?=Show shortcut help.</requirement>
+      <requirement>Filter UI: bot dropdown, date range picker, status dropdown; filter state persists in URL.</requirement>
+      <requirement>Filtered count shows in header; shortcut help modal displays all shortcuts.</requirement>
+    </requirements>
+    <acceptanceCriteria>
+      <criterion>Keyboard shortcuts for approve, reject, edit, next, navigation, help modal.</criterion>
+      <criterion>Filter UI with bot, date, status; persistent filter state in URL.</criterion>
+      <criterion>Filtered count in header; shortcut help modal displays all shortcuts.</criterion>
+    </acceptanceCriteria>
+    <structure>
+      <backend>API to list queue items with filters; support shortcut actions.</backend>
+      <frontend>Keyboard shortcut listeners, filter UI, shortcut help modal, persistent filter state, filtered count.</frontend>
+      <sharedTypes>Filter DTO in shared package.</sharedTypes>
+    </structure>
+    <references>
+      <ref>docs/epics.md#story-55-keyboard-shortcuts-filtering</ref>
+      <ref>docs/prd.md</ref>
+      <ref>docs/architecture.md</ref>
+      <ref>docs/tech-spec.md</ref>
+      <ref>docs/ux-design-specification.md</ref>
+    </references>
+  </story>
+</context>

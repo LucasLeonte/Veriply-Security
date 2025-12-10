@@ -1,0 +1,29 @@
+<context>
+  <story id="5-4-rejection-flow" status="drafted">
+    <summary>Allow agents to reject poor AI drafts with a reason, log analytics, and optionally write a correct answer. Rejection reasons feed analytics; manual correction option; auto-load next item. [Source: 5-4-rejection-flow.md]</summary>
+    <requirements>
+      <requirement>Rejection modal with reason options; agent selects reason and confirms.</requirement>
+      <requirement>Item removed from queue, reason logged, optional manual answer.</requirement>
+      <requirement>Rejection reasons feed analytics; alert triggers on high rejection rate.</requirement>
+      <requirement>Auto-load next item after rejection.</requirement>
+    </requirements>
+    <acceptanceCriteria>
+      <criterion>Rejection modal with reason options; agent selects and confirms.</criterion>
+      <criterion>Item removed, reason logged, manual answer optional.</criterion>
+      <criterion>Analytics fed by rejection reasons; alert on high rejection rate.</criterion>
+      <criterion>Auto-load next item after rejection.</criterion>
+    </acceptanceCriteria>
+    <structure>
+      <backend>API for rejection flow: log reason, manual answer, dequeue item, trigger alert.</backend>
+      <frontend>Rejection UI: modal, reason selection, manual answer field, auto-load next item, alerting.</frontend>
+      <sharedTypes>Rejection DTO in shared package.</sharedTypes>
+    </structure>
+    <references>
+      <ref>docs/epics.md#story-54-rejection-flow</ref>
+      <ref>docs/prd.md</ref>
+      <ref>docs/architecture.md</ref>
+      <ref>docs/tech-spec.md</ref>
+      <ref>docs/ux-design-specification.md</ref>
+    </references>
+  </story>
+</context>

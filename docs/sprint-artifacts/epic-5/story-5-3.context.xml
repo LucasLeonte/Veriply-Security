@@ -1,0 +1,27 @@
+<context>
+  <story id="5-3-approve-edit-flow" status="drafted">
+    <summary>Allow agents to approve or edit AI drafts before sending, ensuring only accurate answers reach users. Approve triggers response send and KB update; edits tracked. [Source: 5-3-approve-edit-flow.md]</summary>
+    <requirements>
+      <requirement>Approve button sends response, updates KB, removes item, auto-loads next.</requirement>
+      <requirement>Edit field allows agent to modify draft; system records diff.</requirement>
+      <requirement>Approve button disabled until >3s review; success toast.</requirement>
+    </requirements>
+    <acceptanceCriteria>
+      <criterion>Approve button triggers response send, KB update, dequeue, auto-load next.</criterion>
+      <criterion>Edit field supports draft modification, diff tracking.</criterion>
+      <criterion>Approve button disabled for >3s review, success toast on send.</criterion>
+    </acceptanceCriteria>
+    <structure>
+      <backend>API for approve/edit, send response, update KB, dequeue, record diff.</backend>
+      <frontend>Approve/edit UI, approve button, edit field, diff view, success toast, auto-load next.</frontend>
+      <sharedTypes>Approve/edit DTO in shared package.</sharedTypes>
+    </structure>
+    <references>
+      <ref>docs/epics.md#story-53-approve-edit-flow</ref>
+      <ref>docs/prd.md</ref>
+      <ref>docs/architecture.md</ref>
+      <ref>docs/tech-spec.md</ref>
+      <ref>docs/ux-design-specification.md</ref>
+    </references>
+  </story>
+</context>

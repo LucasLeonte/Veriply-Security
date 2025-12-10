@@ -1,0 +1,28 @@
+<context>
+  <story id="5-1-hitl-queue-view" status="drafted">
+    <summary>Build agent dashboard queue for pending low-confidence items, showing query preview, bot name, confidence %, and wait time, sorted oldest-first. Real-time updates via WebSocket/SSE, fallback to polling. Multi-tenancy enforced. [Source: 5-1-hitl-queue-view.md]</summary>
+    <requirements>
+      <requirement>Queue view shows item count badge, sorted list, each item with query preview, bot name, confidence %, time waiting.</requirement>
+      <requirement>Real-time updates (WebSocket/SSE), fallback polling.</requirement>
+      <requirement>Empty state: "No items pending review. Nice work!"</requirement>
+      <requirement>Multi-tenancy: tenant_id/bot_id filters, RLS enforced.</requirement>
+    </requirements>
+    <acceptanceCriteria>
+      <criterion>Queue shows item count badge and sorted list (oldest-first).</criterion>
+      <criterion>Real-time updates without manual refresh.</criterion>
+      <criterion>Empty state message when queue is empty.</criterion>
+    </acceptanceCriteria>
+    <structure>
+      <backend>API/handler for queue, WebSocket/SSE, RLS, review_queue schema.</backend>
+      <frontend>Dashboard queue view, badge, list, empty state, WebSocket client.</frontend>
+      <sharedTypes>Queue item DTO in shared package.</sharedTypes>
+    </structure>
+    <references>
+      <ref>docs/epics.md#epic-5-hitl-verification</ref>
+      <ref>docs/prd.md</ref>
+      <ref>docs/architecture.md</ref>
+      <ref>docs/tech-spec.md</ref>
+      <ref>docs/ux-design-specification.md</ref>
+    </references>
+  </story>
+</context>

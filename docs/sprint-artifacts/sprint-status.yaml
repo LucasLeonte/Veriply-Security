@@ -230,32 +230,33 @@ development_status:
 
     # Epic 5: HITL Verification
     epic-5:
-        status: backlog
-        assigned_to: null
+        status: contexted
+        assigned_to: Lucas
 
     5-1-hitl-queue-view:
-        status: backlog
-        assigned_to: null
+        status: ready-for-dev
+        assigned_to: Lucas
         blocked_by: 3-4-confidence-scoring-routing
 
+
     5-2-draft-review-interface:
-        status: backlog
-        assigned_to: null
+        status: ready-for-dev
+        assigned_to: Lucas
         blocked_by: 5-1-hitl-queue-view
 
     5-3-approve-edit-flow:
-        status: backlog
-        assigned_to: null
+        status: ready-for-dev
+        assigned_to: Lucas
         blocked_by: 5-2-draft-review-interface
 
     5-4-rejection-flow:
-        status: backlog
-        assigned_to: null
+        status: ready-for-dev
+        assigned_to: Lucas
         blocked_by: 5-2-draft-review-interface
 
     5-5-keyboard-shortcuts-filtering:
-        status: backlog
-        assigned_to: null
+        status: ready-for-dev
+        assigned_to: Lucas
         blocked_by: 5-2-draft-review-interface
 
     epic-5-retrospective: optional

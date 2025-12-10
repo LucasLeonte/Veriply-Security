@@ -1,0 +1,27 @@
+<context>
+  <story id="5-2-draft-review-interface" status="drafted">
+    <summary>Enable agents to review AI draft responses with full context, confidence score, and editing capability. Split view: query/context left, draft right. [Source: 5-2-draft-review-interface.md]</summary>
+    <requirements>
+      <requirement>Split view: left (query/context chunks), right (editable AI draft), top bar (confidence, bot name, time in queue).</requirement>
+      <requirement>Context chunks expandable/collapsible, sources clickable.</requirement>
+      <requirement>Draft supports rich text editing, citation highlighting.</requirement>
+    </requirements>
+    <acceptanceCriteria>
+      <criterion>Split view with all required fields.</criterion>
+      <criterion>Expandable/collapsible context chunks, clickable sources.</criterion>
+      <criterion>Rich text editor with citation highlighting.</criterion>
+    </acceptanceCriteria>
+    <structure>
+      <backend>API for queue item details, update draft.</backend>
+      <frontend>Review page, split view, context chunk list, editable draft, confidence badge, citation highlighting.</frontend>
+      <sharedTypes>Queue item DTO in shared package.</sharedTypes>
+    </structure>
+    <references>
+      <ref>docs/epics.md#story-52-draft-review-interface</ref>
+      <ref>docs/prd.md</ref>
+      <ref>docs/architecture.md</ref>
+      <ref>docs/tech-spec.md</ref>
+      <ref>docs/ux-design-specification.md</ref>
+    </references>
+  </story>
+</context>
