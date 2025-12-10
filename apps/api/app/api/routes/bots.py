@@ -7,6 +7,11 @@ from app.schemas.bot import BotCreateRequest, BotUpdateRequest, BotResponse, Bot
 from app.services.bot_service import BotService
 from app.models.user import User
 import logging
+from fastapi import UploadFile, File, BackgroundTasks, status
+from app.models.document import Document
+from app.lib import storage
+from io import BytesIO
+import os
 
 logger = logging.getLogger(__name__)
 

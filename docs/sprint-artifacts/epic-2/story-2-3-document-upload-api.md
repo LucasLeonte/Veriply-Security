@@ -3,7 +3,7 @@ title: "2-3 Document Upload API"
 id: 2-3-document-upload-api
 epic: epic-2
 status: drafted
-assigned_to: null
+assigned_to: Soulaymane
 blocked_by: 2-1-bot-creation-configuration
 estimate: 3d
 created_by: sm
@@ -81,11 +81,20 @@ Implementation Tasks
 Testing Notes
     - Provide an integration test using a small test file, assert DB row created and object exists in test MinIO bucket (or mocked client).
 
+Example curl (local dev)
+```bash
+curl -X POST "http://localhost:8000/api/v1/bots/<bot_id>/documents" \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@/path/to/sample.pdf" \
+  -F "name=Sample Document"
+```
+
 Dependencies
     - 2-1-bot-creation-configuration (bot exists with tenant)
     - MinIO (object storage)
     - Background queue service
 
 Owner / Suggested Assignee
-    - Suggested: backend dev (Lucas)
+  - Assigned: Soulaymane
+  - Suggested: backend dev (Lucas)
 
