@@ -134,7 +134,7 @@ development_status:
 
     2-4-document-processing-pipeline:
         status: ready-for-dev
-        assigned_to: null
+        assigned_to: Soulaymane
         blocked_by: 2-3-document-upload-api
 
     2-5-knowledge-base-management-ui:
