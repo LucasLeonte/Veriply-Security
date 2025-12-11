@@ -24,7 +24,7 @@ team:
             skills: [backend, database, api]
         - name: Kainy
             max_wip: 2
-            current_wip: 1
+            current_wip: 0
             skills: [frontend, ui, testing]
         - name: Soulaymane
             max_wip: 2
@@ -164,8 +164,9 @@ development_status:
         assigned_to: Lucas
 
     3-1-semantic-vector-search:
-        status: in-progress
+        status: done
         assigned_to: Kainy
+        completed_date: 2025-12-11
 
     3-2-context-only-answer-generation:
         status: ready-for-dev
