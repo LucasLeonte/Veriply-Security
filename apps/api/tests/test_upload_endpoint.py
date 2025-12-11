@@ -13,9 +13,16 @@ class FakeUser:
 
 class FakeAsyncSession:
     async def flush(self):
+        # Simulate flush by setting ID on the last added object
+        if hasattr(self, '_last') and hasattr(self._last, 'id') and self._last.id is None:
+            from uuid import uuid4
+            self._last.id = uuid4()
         return None
 
     async def commit(self):
+        return None
+    
+    async def rollback(self):
         return None
 
     def add(self, obj):
@@ -54,9 +61,9 @@ def test_upload_endpoint_monkeypatched(monkeypatch):
 
     client = TestClient(app)
 
-    # create a sample file
+    # create a sample file - use 'files' as the field name matching the endpoint parameter
     file_content = b"hello world"
-    files = {"file": ("test.txt", io.BytesIO(file_content), "text/plain")}
+    files = [("files", ("test.txt", io.BytesIO(file_content), "text/plain"))]
 
     # Use a random bot_id (BotService.get_bot is used to validate bot; patch it to return truthy)
     async def _fake_get_bot(db, bot_id, tenant_id):

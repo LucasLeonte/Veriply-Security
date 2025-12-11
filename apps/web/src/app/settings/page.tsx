@@ -161,10 +161,10 @@ export default function SettingsPage() {
         )}
 
         {/* Team Members Table */}
-        <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+        <div className="bg-white rounded-lg border border-slate-200 overflow-visible">
           <table className="w-full">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="px-6 py-3 text-left text-sm font-semibold text-slate-800">
                   Name
                 </th>
@@ -205,48 +205,56 @@ export default function SettingsPage() {
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {member.email}
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-6 py-4 text-sm relative">
                       {canManageTeam ? (
-                        <div className="relative inline-block">
+                        <>
                           <button
-                            onClick={() =>
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setShowRoleMenu(
                                 showRoleMenu === member.id ? null : member.id
-                              )
-                            }
+                              );
+                            }}
                             className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm hover:bg-blue-200 transition"
                           >
                             {member.role}
                           </button>
                           {showRoleMenu === member.id && (
-                            <div className="absolute z-10 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg">
-                              {roleOptions.map((role) => (
-                                <button
-                                  key={role}
-                                  onClick={() =>
-                                    handleChangeRole(member.id, role)
-                                  }
-                                  disabled={
-                                    member.role === 'owner' &&
-                                    role !== 'owner' &&
-                                    ownerCount === 1
-                                  }
-                                  className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 ${member.role === role
-                                      ? 'bg-blue-50 font-semibold'
-                                      : ''
-                                    } ${member.role === 'owner' &&
+                            <>
+                              <div 
+                                className="fixed inset-0 z-40 cursor-default" 
+                                onClick={() => setShowRoleMenu(null)}
+                              />
+                              <div className="absolute left-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-xl z-50">
+                                {roleOptions.map((role) => (
+                                  <button
+                                    key={role}
+                                    onClick={() => {
+                                      handleChangeRole(member.id, role);
+                                      setShowRoleMenu(null);
+                                    }}
+                                    disabled={
+                                      member.role === 'owner' &&
                                       role !== 'owner' &&
                                       ownerCount === 1
-                                      ? 'opacity-50 cursor-not-allowed'
-                                      : ''
+                                    }
+                                    className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 first:rounded-t-lg last:rounded-b-lg ${
+                                      member.role === role ? 'bg-blue-50 font-semibold text-blue-700' : 'text-slate-700'
+                                    } ${
+                                      member.role === 'owner' &&
+                                      role !== 'owner' &&
+                                      ownerCount === 1
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : ''
                                     }`}
-                                >
-                                  {role}
-                                </button>
-                              ))}
-                            </div>
+                                  >
+                                    {role}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
                           )}
-                        </div>
+                        </>
                       ) : (
                         <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm capitalize">
                           {member.role}
