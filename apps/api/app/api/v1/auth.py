@@ -2,20 +2,24 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.api.v1.schemas import UserRegister
 from app.services.user_service import register_user_and_tenant, get_user_by_email
+from app.services.auth_service import verify_password
 from app.core.database import get_db
+from app.core.settings import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.user import User
 import jwt
-import os
 from datetime import datetime, timedelta
 from uuid import UUID
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 security = HTTPBearer()
 
-JWT_SECRET = os.getenv("JWT_SECRET", "please-change-me")
 JWT_ALGORITHM = "HS256"
+
+def get_jwt_secret() -> str:
+    """Get JWT secret from settings."""
+    return settings.JWT_SECRET
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -28,7 +32,7 @@ async def get_current_user(
     token = credentials.credentials
     
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise HTTPException(
@@ -71,7 +75,7 @@ async def get_current_tenant(
     token = credentials.credentials
     
     try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
         tenant_id: str = payload.get("tenant_id")
         if tenant_id is None:
             raise HTTPException(
@@ -115,11 +119,44 @@ async def register(req: UserRegister):
         "role": "owner",
         "exp": datetime.utcnow() + timedelta(hours=24)
     }
-    token = jwt.encode(token_payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    token = jwt.encode(token_payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
     
     return {
         "access_token": token,
         "token_type": "bearer",
         "user_id": result["user_id"],
         "tenant_id": result["tenant_id"]
+    }
+
+@router.post("/login", response_model=dict)
+async def login(req: UserRegister):
+    """Login an existing user."""
+    user = await get_user_by_email(req.email)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Verify password
+    if not verify_password(req.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password"
+        )
+    
+    # Generate JWT token
+    token_payload = {
+        "sub": str(user.id),
+        "tenant_id": str(user.tenant_id),
+        "role": user.role,
+        "exp": datetime.utcnow() + timedelta(hours=24)
+    }
+    token = jwt.encode(token_payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": str(user.id),
+        "tenant_id": str(user.tenant_id)
     }

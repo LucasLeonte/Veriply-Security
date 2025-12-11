@@ -6,6 +6,8 @@ from app.api.v1.auth import get_current_user, get_current_tenant
 
 from app.schemas.bot import BotCreateRequest, BotUpdateRequest, BotResponse, BotListResponse, BotDuplicateRequest
 from app.services.bot_service import BotService
+from app.services.embedding_service import EmbeddingService, EmbeddingError
+from app.services.vector_search_service import VectorSearchService, SearchResult
 from app.models.user import User
 import logging
 from fastapi import UploadFile, File, BackgroundTasks, status
@@ -13,6 +15,8 @@ from app.models.document import Document
 from app.lib import storage
 from io import BytesIO
 import os
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -219,3 +223,119 @@ async def delete_bot(
         await db.rollback()
         logger.exception(f"Error deleting bot: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete bot")
+
+
+# ==================== SEARCH ENDPOINT ====================
+
+
+class SearchRequest(BaseModel):
+    """Request body for semantic search."""
+
+    query: str = Field(..., min_length=1, max_length=1000, description="Search query text")
+    k: int = Field(5, ge=1, le=20, description="Number of top results to return")
+    similarity_threshold: float = Field(
+        0.5, ge=0.0, le=1.0, description="Minimum similarity score (0-1)"
+    )
+
+
+class SearchResultItem(BaseModel):
+    """Individual search result."""
+
+    chunk_id: str
+    document_id: str
+    document_name: str
+    section: Optional[str] = None
+    text: str
+    similarity: float
+    position: int
+    page_number: Optional[int] = None
+
+
+class SearchResponse(BaseModel):
+    """Search response with results and metadata."""
+
+    query: str
+    results: List[SearchResultItem]
+    search_latency_ms: int
+
+
+@router.post("/{bot_id}/search", response_model=SearchResponse)
+async def search_bot_documents(
+    bot_id: UUID,
+    request: SearchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """
+    Perform semantic vector search across bot's knowledge base.
+
+    Retrieves relevant document chunks using pgvector cosine similarity search.
+    Results are filtered by bot_id and tenant_id (RLS enforcement).
+
+    - **query**: Search query text (1-1000 chars)
+    - **k**: Number of top results (1-20, default 5)
+    - **similarity_threshold**: Minimum similarity score (0-1, default 0.5)
+
+    Returns chunks sorted by relevance with similarity scores, document names,
+    and section references.
+    """
+    try:
+        # Verify bot exists and belongs to tenant
+        bot = await BotService.get_bot(db=db, bot_id=bot_id, tenant_id=tenant_id)
+        if not bot:
+            raise HTTPException(
+                status_code=404, detail=f"Bot {bot_id} not found or not accessible"
+            )
+
+        # Initialize services
+        embedding_service = EmbeddingService()
+        search_service = VectorSearchService(embedding_service)
+
+        try:
+            # Perform search
+            results, latency_ms = await search_service.search(
+                db=db,
+                bot_id=bot_id,
+                tenant_id=tenant_id,
+                query=request.query,
+                k=request.k,
+                similarity_threshold=request.similarity_threshold,
+            )
+
+            # Convert to response format
+            result_items = [
+                SearchResultItem(
+                    chunk_id=r.chunk_id,
+                    document_id=r.document_id,
+                    document_name=r.document_name,
+                    section=r.section,
+                    text=r.text,
+                    similarity=r.similarity,
+                    position=r.position,
+                    page_number=r.page_number,
+                )
+                for r in results
+            ]
+
+            return SearchResponse(
+                query=request.query,
+                results=result_items,
+                search_latency_ms=latency_ms,
+            )
+
+        except EmbeddingError as e:
+            logger.error(f"Embedding failed for query '{request.query}': {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Embedding service temporarily unavailable. Please try again.",
+            )
+        finally:
+            # Clean up async resources
+            await embedding_service.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error during search: {e}")
+        raise HTTPException(status_code=500, detail="Search failed unexpectedly")

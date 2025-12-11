@@ -103,10 +103,9 @@ describe('Login Page', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/v1/auth/register',
+        expect.stringMatching(/\/api\/v1\/auth\/(login|register)$/),
         expect.objectContaining({
           method: 'POST',
-          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: expect.stringContaining('test@example.com'),
         })

@@ -1,278 +1,380 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
+    const router = useRouter();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(false);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setSuccess(false);
 
-    // Validate inputs
-    if (!email) {
-      setError('Email is required');
-      return;
-    }
+        // Validate inputs
+        if (!email) {
+            setError("Email is required");
+            return;
+        }
 
-    if (!password) {
-      setError('Password is required');
-      return;
-    }
+        if (!password) {
+            setError("Password is required");
+            return;
+        }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            setError("Please enter a valid email address");
+            return;
+        }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      return;
-    }
+        if (password.length < 8) {
+            setError("Password must be at least 8 characters");
+            return;
+        }
 
-    try {
-      setLoading(true);
+        try {
+            setLoading(true);
 
-      // Call registration/login API endpoint
-      // The backend sets a secure httpOnly cookie (not accessible to JavaScript)
-      // This prevents XSS attacks from stealing the token
-      const response = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        credentials: 'include', // Include cookies in request
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          tenant_name: email.split('@')[0], // Use email prefix as default tenant name
-        }),
-      });
+            // Call login API endpoint first
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            console.log("Attempting login to:", `${apiUrl}/api/v1/auth/login`);
+            console.log("Email:", email);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Login failed');
-        return;
-      }
+            let response = await fetch(`${apiUrl}/api/v1/auth/login`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email,
+                    password,
+                    tenant_name: email.split("@")[0], // Not used for login, but included for schema compatibility
+                }),
+            });
 
-      setSuccess(true);
+            console.log("Login response status:", response.status);
 
-      // Redirect to dashboard after brief delay
-      // The secure httpOnly cookie is automatically sent with requests
-      setTimeout(() => {
-        router.push('/');
-      }, 500);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+            // If login fails with 401, try registration (new user)
+            if (response.status === 401) {
+                console.log("Login failed, trying registration...");
+                response = await fetch(`${apiUrl}/api/v1/auth/register`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                        tenant_name: email.split("@")[0],
+                    }),
+                });
+                console.log("Registration response status:", response.status);
+            }
 
-  const handleDemoLogin = async () => {
-    // Quick demo login using the registration endpoint
-    setLoading(true);
-    try {
-      const response = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: 'demo@example.com',
-          password: 'demo123456',
-          tenant_name: 'Demo Tenant',
-        }),
-      });
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.log("Login/Registration failed:", errorData);
+                setError(errorData.detail || "Login failed");
+                return;
+            }
 
-      if (response.ok) {
-        router.push('/');
-      } else {
-        setError('Demo login failed');
-      }
-    } catch {
-      setError('Demo login error');
-    } finally {
-      setLoading(false);
-    }
-  };
+            // Extract token from response and store in localStorage
+            const data = await response.json();
+            console.log("Response data:", data);
+            console.log("Access token present:", !!data.access_token);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center p-4">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-green-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
+            if (data.access_token) {
+                console.log("Storing token in localStorage...");
+                localStorage.setItem("access_token", data.access_token);
+                console.log("Token stored. Length:", data.access_token.length);
 
-      {/* Login Card */}
-      <div className="relative w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-slate-900 mb-2">Veriply</h1>
-          <p className="text-slate-600">Sign in to your account</p>
+                // Verify it was stored
+                const storedToken = localStorage.getItem("access_token");
+                console.log(
+                    "Token verification - stored successfully:",
+                    !!storedToken
+                );
+                console.log(
+                    "Stored token matches:",
+                    storedToken === data.access_token
+                );
+            } else {
+                console.error("No access_token in response!");
+            }
+
+            setSuccess(true);
+
+            // Redirect to dashboard after brief delay
+            setTimeout(() => {
+                console.log("Redirecting to dashboard...");
+                router.push("/");
+            }, 500);
+        } catch (err) {
+            console.error("Login error:", err);
+            setError(err instanceof Error ? err.message : "Login failed");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDemoLogin = async () => {
+        // Quick demo login using the registration endpoint
+        setLoading(true);
+        try {
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            console.log(
+                "Demo login attempt to:",
+                `${apiUrl}/api/v1/auth/register`
+            );
+
+            const response = await fetch(`${apiUrl}/api/v1/auth/register`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    email: "demo@example.com",
+                    password: "demo123456",
+                    tenant_name: "Demo Tenant",
+                }),
+            });
+
+            console.log("Demo response status:", response.status);
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Demo response data:", data);
+                console.log("Demo access token present:", !!data.access_token);
+
+                if (data.access_token) {
+                    console.log("Storing demo token...");
+                    localStorage.setItem("access_token", data.access_token);
+                    console.log(
+                        "Demo token stored. Length:",
+                        data.access_token.length
+                    );
+
+                    // Verify it was stored
+                    const storedToken = localStorage.getItem("access_token");
+                    console.log(
+                        "Demo token verification - stored successfully:",
+                        !!storedToken
+                    );
+                }
+                router.push("/");
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                console.log("Demo login failed:", errorData);
+                setError("Demo login failed");
+            }
+        } catch (error) {
+            console.error("Demo login error:", error);
+            setError("Demo login error");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center p-4">
+            {/* Background decoration */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-green-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+                <div className="absolute top-1/2 left-1/2 w-80 h-80 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+            </div>
+
+            {/* Login Card */}
+            <div className="relative w-full max-w-md">
+                {/* Header */}
+                <div className="text-center mb-8">
+                    <h1 className="text-4xl font-bold text-slate-900 mb-2">
+                        Veriply
+                    </h1>
+                    <p className="text-slate-600">Sign in to your account</p>
+                </div>
+
+                {/* Form Card */}
+                <div className="bg-white rounded-lg shadow-lg border border-slate-200 p-8 backdrop-blur-sm bg-white/90">
+                    {/* Error Message */}
+                    {error && (
+                        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+                            <p className="font-medium">{error}</p>
+                        </div>
+                    )}
+
+                    {/* Success Message */}
+                    {success && (
+                        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                            <p className="font-medium">
+                                Login successful! Redirecting...
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Login Form */}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Email Field */}
+                        <div>
+                            <label
+                                htmlFor="email"
+                                className="block text-sm font-medium text-slate-700 mb-2"
+                            >
+                                Email Address
+                            </label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                                <input
+                                    type="email"
+                                    id="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="you@example.com"
+                                    disabled={loading}
+                                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Password Field */}
+                        <div>
+                            <label
+                                htmlFor="password"
+                                className="block text-sm font-medium text-slate-700 mb-2"
+                            >
+                                Password
+                            </label>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    id="password"
+                                    value={password}
+                                    onChange={(e) =>
+                                        setPassword(e.target.value)
+                                    }
+                                    placeholder="••••••••"
+                                    disabled={loading}
+                                    className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPassword(!showPassword)
+                                    }
+                                    disabled={loading}
+                                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition disabled:opacity-50"
+                                >
+                                    {showPassword ? (
+                                        <EyeOff className="w-5 h-5" />
+                                    ) : (
+                                        <Eye className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Remember Me & Forgot Password */}
+                        <div className="flex items-center justify-between text-sm">
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                                    disabled={loading}
+                                />
+                                <span className="text-slate-700">
+                                    Remember me
+                                </span>
+                            </label>
+                            <a
+                                href="#"
+                                className="text-blue-600 hover:text-blue-700 font-medium"
+                            >
+                                Forgot password?
+                            </a>
+                        </div>
+
+                        {/* Submit Button */}
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6 shadow-md hover:shadow-lg"
+                        >
+                            {loading ? "Signing in..." : "Sign in"}
+                        </button>
+                    </form>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-4 my-6">
+                        <div className="flex-1 h-px bg-slate-300"></div>
+                        <span className="text-slate-500 text-sm font-medium">
+                            OR
+                        </span>
+                        <div className="flex-1 h-px bg-slate-300"></div>
+                    </div>
+
+                    {/* Demo Login Button */}
+                    <button
+                        onClick={handleDemoLogin}
+                        disabled={loading}
+                        className="w-full border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-medium py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        Try Demo (demo@example.com)
+                    </button>
+
+                    {/* Sign Up Link */}
+                    <p className="text-center text-slate-600 text-sm mt-6">
+                        Don&apos;t have an account?{" "}
+                        <a
+                            href="#"
+                            className="text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                            Sign up
+                        </a>
+                    </p>
+                </div>
+
+                {/* Footer Info */}
+                <div className="mt-8 text-center text-slate-500 text-xs">
+                    <p>Protected by enterprise security</p>
+                </div>
+            </div>
+
+            <style jsx>{`
+                @keyframes blob {
+                    0%,
+                    100% {
+                        transform: translate(0, 0) scale(1);
+                    }
+                    33% {
+                        transform: translate(30px, -50px) scale(1.1);
+                    }
+                    66% {
+                        transform: translate(-20px, 20px) scale(0.9);
+                    }
+                }
+
+                .animate-blob {
+                    animation: blob 7s infinite;
+                }
+
+                .animation-delay-2000 {
+                    animation-delay: 2s;
+                }
+
+                .animation-delay-4000 {
+                    animation-delay: 4s;
+                }
+            `}</style>
         </div>
-
-        {/* Form Card */}
-        <div className="bg-white rounded-lg shadow-lg border border-slate-200 p-8 backdrop-blur-sm bg-white/90">
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-              <p className="font-medium">{error}</p>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {success && (
-            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-              <p className="font-medium">Login successful! Redirecting...</p>
-            </div>
-          )}
-
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  disabled={loading}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  disabled={loading}
-                  className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 transition disabled:opacity-50"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                  disabled={loading}
-                />
-                <span className="text-slate-700">Remember me</span>
-              </label>
-              <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-                Forgot password?
-              </a>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6 shadow-md hover:shadow-lg"
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-slate-300"></div>
-            <span className="text-slate-500 text-sm font-medium">OR</span>
-            <div className="flex-1 h-px bg-slate-300"></div>
-          </div>
-
-          {/* Demo Login Button */}
-          <button
-            onClick={handleDemoLogin}
-            disabled={loading}
-            className="w-full border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-medium py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Try Demo (demo@example.com)
-          </button>
-
-          {/* Sign Up Link */}
-          <p className="text-center text-slate-600 text-sm mt-6">
-            Don&apos;t have an account?{' '}
-            <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">
-              Sign up
-            </a>
-          </p>
-        </div>
-
-        {/* Footer Info */}
-        <div className="mt-8 text-center text-slate-500 text-xs">
-          <p>Protected by enterprise security</p>
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes blob {
-          0%, 100% {
-            transform: translate(0, 0) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-        }
-        
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
-    </div>
-  );
+    );
 }
