@@ -29,7 +29,25 @@ const nextConfig: NextConfig = {
 
     // Image optimization
     images: {
-        domains: ["localhost", "api.dicebear.com"],
+        unoptimized: process.env.NODE_ENV === "development",
+        remotePatterns: [
+            {
+                protocol: "http",
+                hostname: "localhost",
+                port: "8000",
+                pathname: "/avatars/**",
+            },
+            {
+                protocol: "http",
+                hostname: "127.0.0.1",
+                port: "8000",
+                pathname: "/avatars/**",
+            },
+            {
+                protocol: "https",
+                hostname: "api.dicebear.com",
+            },
+        ],
     },
 
     // Experimental features

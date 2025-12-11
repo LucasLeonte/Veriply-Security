@@ -117,6 +117,9 @@ class Settings(BaseSettings):
     
     OLLAMA_HOST: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama2"
+
+    # Public base URL for building absolute links (used for avatar URLs)
+    PUBLIC_BASE_URL: str = "http://127.0.0.1:8000"
     
     # ========================================================================
     # REDIS CONFIGURATION

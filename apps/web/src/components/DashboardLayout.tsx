@@ -15,8 +15,8 @@ interface DashboardLayoutProps {
 export function DashboardLayout({
     children,
     className,
-    userInitials = "JD",
-    userName = "John Doe",
+    userInitials,
+    userName,
 }: DashboardLayoutProps) {
     return (
         <div className={cn("min-h-screen bg-slate-100", className)}>

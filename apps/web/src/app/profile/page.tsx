@@ -40,7 +40,6 @@ export default function ProfilePage() {
             const token = localStorage.getItem("access_token");
 
             if (!token) {
-                console.log("No token found, redirecting to login");
                 setError("Not authenticated. Please log in.");
                 setLoading(false);
                 setTimeout(() => {
@@ -49,25 +48,8 @@ export default function ProfilePage() {
                 return;
             }
 
-            console.log("Token found:", token.substring(0, 50) + "...");
-            console.log("Token length:", token.length);
-
-            // Try to decode the token to see its contents (client-side only for debugging)
-            try {
-                const tokenParts = token.split(".");
-                if (tokenParts.length === 3) {
-                    const payload = JSON.parse(atob(tokenParts[1]));
-                    console.log("Token payload:", payload);
-                    console.log("Token expires:", new Date(payload.exp * 1000));
-                    console.log("Current time:", new Date());
-                }
-            } catch (e) {
-                console.log("Could not decode token:", e);
-            }
-
             const apiUrl =
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-            console.log("Fetching from:", `${apiUrl}/api/v1/profile/me`);
 
             const response = await fetch(`${apiUrl}/api/v1/profile/me`, {
                 method: "GET",
@@ -77,17 +59,8 @@ export default function ProfilePage() {
                 },
             });
 
-            console.log("Profile API response status:", response.status);
-
             if (!response.ok) {
                 if (response.status === 401) {
-                    console.log("401 Unauthorized - token invalid or expired");
-                    const errorData = await response.json().catch(() => ({}));
-                    console.log("Error details:", errorData);
-                    console.log(
-                        "Token that failed:",
-                        token.substring(0, 100) + "..."
-                    );
                     setError(
                         "Your session is invalid. This usually happens when the server was restarted. Please log in again."
                     );
@@ -95,20 +68,17 @@ export default function ProfilePage() {
                     return;
                 }
                 const errorData = await response.json();
-                console.log("API error:", errorData);
                 setError(errorData.detail || "Failed to load profile");
                 return;
             }
 
             const data = await response.json();
-            console.log("Profile data loaded successfully");
             setProfile(data);
             setFormData({
                 name: data.name || "",
                 notification_frequency: data.notification_frequency || "weekly",
             });
         } catch (err) {
-            console.error("Profile fetch error:", err);
             setError(err instanceof Error ? err.message : "An error occurred");
         } finally {
             setLoading(false);

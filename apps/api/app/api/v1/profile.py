@@ -15,6 +15,7 @@ from app.services.profile_service import (
 )
 from app.core.database import get_db
 from app.core.auth import get_current_user
+from app.core.settings import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from pathlib import Path
@@ -103,26 +104,30 @@ async def upload_avatar(
             detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}"
         )
     
-    # Validate file size
+    # Read file content and validate size
+    content = await file.read()
+    file_size = len(content)
     max_size = 5 * 1024 * 1024  # 5MB
-    file_size = file.size or 0
     if file_size > max_size:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File size must be less than 5MB. Received: {file_size / 1024 / 1024:.2f}MB"
         )
     
-    # Read file content
-    _ = await file.read()
-    
     # Generate unique filename for storage
     file_extension = Path(file.filename or "avatar").suffix
     unique_filename = f"avatar_{current_user['sub']}_{uuid.uuid4()}{file_extension}"
     
-    # TODO: In production, upload to S3 or cloud storage
-    # For now, generate a storage path reference
-    # Example: s3://avatars-bucket/{unique_filename}
-    avatar_url = f"/avatars/{unique_filename}"
+    # Persist file to local storage folder served at /avatars
+    project_root = Path(__file__).resolve().parents[5]  # Go up to project root
+    avatars_dir = project_root / "storage" / "avatars"
+    avatars_dir.mkdir(parents=True, exist_ok=True)
+
+    (avatars_dir / unique_filename).write_bytes(content)
+
+    # Build an absolute URL so frontend can load directly from the API origin
+    public_base = settings.__dict__.get("PUBLIC_BASE_URL") or "http://127.0.0.1:8000"
+    avatar_url = f"{public_base.rstrip('/')}/avatars/{unique_filename}"
     
     # Save avatar URL to database
     user = await upload_avatar_url(

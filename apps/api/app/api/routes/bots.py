@@ -332,9 +332,6 @@ async def search_bot_documents(
         finally:
             # Clean up async resources
             await embedding_service.close()
-            )
-        finally:
-            await embedding_service.close()
 
     except HTTPException:
         raise

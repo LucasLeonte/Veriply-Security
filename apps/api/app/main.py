@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.core.database import init_db
@@ -23,6 +25,11 @@ app = FastAPI(
     lifespan=lifespan,
     debug=settings.DEBUG,
 )
+
+# Serve avatars from local storage for development/local use
+avatars_dir = Path(__file__).resolve().parents[3] / "storage" / "avatars"
+avatars_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/avatars", StaticFiles(directory=str(avatars_dir)), name="avatars")
 
 # Configure CORS from settings
 app.add_middleware(
