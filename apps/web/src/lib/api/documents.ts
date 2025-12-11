@@ -3,8 +3,10 @@ import {
     PaginatedDocumentsResponse,
     DocumentDetailResponse,
 } from "@/types/document";
+import { mockDocumentsApi } from "./mockDocuments";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
 async function getAuthToken(): Promise<string | null> {
     // Only access localStorage on client-side
@@ -60,6 +62,10 @@ export const documentsApi = {
         pageSize: number = 20,
         search?: string
     ): Promise<PaginatedDocumentsResponse> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.listDocuments(botId, page, pageSize, search);
+        }
+
         const params = new URLSearchParams({
             page: page.toString(),
             page_size: pageSize.toString(),
@@ -79,6 +85,10 @@ export const documentsApi = {
      * Get document details including chunks
      */
     async getDocument(documentId: string): Promise<DocumentDetailResponse> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.getDocument(documentId);
+        }
+
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}`
         );
@@ -92,6 +102,10 @@ export const documentsApi = {
         botId: string,
         files: File[]
     ): Promise<{ id: string; document_id: string; status: string; queued: boolean }> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.uploadDocuments(botId, files);
+        }
+
         const formData = new FormData();
         
         files.forEach((file) => {
@@ -112,6 +126,10 @@ export const documentsApi = {
      * Delete a document and all associated chunks/embeddings
      */
     async deleteDocument(documentId: string): Promise<void> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.deleteDocument(documentId);
+        }
+
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}`,
             {
@@ -127,6 +145,10 @@ export const documentsApi = {
      * Trigger reprocessing of a document
      */
     async reprocessDocument(documentId: string): Promise<{ id: string; status: string; queued: boolean }> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.reprocessDocument(documentId);
+        }
+
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}/reprocess`,
             {
@@ -142,6 +164,10 @@ export const documentsApi = {
     async getDocumentChunks(
         documentId: string
     ): Promise<{ chunks: DocumentChunk[]; total: number }> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.getDocumentChunks(documentId);
+        }
+
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}/chunks`
         );
