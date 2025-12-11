@@ -164,7 +164,7 @@ development_status:
         assigned_to: Lucas
 
     3-1-semantic-vector-search:
-        status: assigned
+        status: in-progress
         assigned_to: Kainy
 
     3-2-context-only-answer-generation:
