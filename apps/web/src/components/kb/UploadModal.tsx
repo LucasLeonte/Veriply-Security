@@ -2,19 +2,11 @@
 
 import React, { useState, useCallback } from "react";
 import { Upload, X, FileText, AlertCircle } from "lucide-react";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-} from "@/components/ui/dialog";
 
 interface UploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     onUpload: (files: File[]) => Promise<void>;
-    botId: string;
 }
 
 const ALLOWED_EXTENSIONS = [".pdf", ".txt", ".docx", ".md"];
@@ -24,7 +16,6 @@ export function UploadModal({
     isOpen,
     onClose,
     onUpload,
-    botId,
 }: UploadModalProps) {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [isDragging, setIsDragging] = useState(false);
@@ -136,7 +127,7 @@ export function UploadModal({
                                 Upload Documents
                             </h2>
                             <p className="text-sm text-slate-600 mt-1">
-                                Add documents to your bot's knowledge base
+                                Add documents to your bot&apos;s knowledge base
                             </p>
                         </div>
                         <button

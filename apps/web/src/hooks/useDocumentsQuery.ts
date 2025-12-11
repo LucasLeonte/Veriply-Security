@@ -178,7 +178,7 @@ export function useReprocessDocument() {
  */
 export function useDocumentChunks(documentId: string) {
     const [data, setData] = useState<{
-        chunks: any[];
+        chunks: unknown[];
         total: number;
     } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
