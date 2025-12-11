@@ -28,7 +28,7 @@ team:
             skills: [frontend, ui, testing]
         - name: Soulaymane
             max_wip: 2
-            current_wip: 1
+            current_wip: 2
             skills: [fullstack, devops, integration]
 
 # STATUS DEFINITIONS:
@@ -138,12 +138,13 @@ development_status:
         completed_date: 2025-12-10
 
     2-5-knowledge-base-management-ui:
-        status: assigned
+        status: done
         assigned_to: Soulaymane
+        completed_date: 2025-12-11
 
     2-6-document-deletion:
-        status: ready-for-dev
-        assigned_to: null
+        status: assigned
+        assigned_to: Soulaymane
         blocked_by: 2-5-knowledge-base-management-ui
 
     2-7-document-reprocessing:
