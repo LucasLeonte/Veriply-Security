@@ -13,9 +13,16 @@ class FakeUser:
 
 class FakeAsyncSession:
     async def flush(self):
+        # Simulate flush by setting ID on the last added object
+        if hasattr(self, '_last') and hasattr(self._last, 'id') and self._last.id is None:
+            from uuid import uuid4
+            self._last.id = uuid4()
         return None
 
     async def commit(self):
+        return None
+    
+    async def rollback(self):
         return None
 
     def add(self, obj):

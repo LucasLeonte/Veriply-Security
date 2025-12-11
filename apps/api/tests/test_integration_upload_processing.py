@@ -30,14 +30,24 @@ async def setup_test_data():
         if not t:
             t = Tenant(id=tenant_id, name='test-tenant', plan='dev')
             session.add(t)
-        # create user
-        user_id = uuid.uuid4()
-        u = User(id=user_id, email='test@example.com', password_hash='x', tenant_id=tenant_id, role='agent')
-        session.add(u)
-        # create bot
+            await session.flush()
+        
+        # create user if not exists
+        from sqlalchemy import select
+        user_stmt = select(User).where(User.email == 'test@example.com')
+        result = await session.execute(user_stmt)
+        existing_user = result.scalars().first()
+        
+        if not existing_user:
+            user_id = uuid.uuid4()
+            u = User(id=user_id, email='test@example.com', password_hash='x', tenant_id=tenant_id, role='agent')
+            session.add(u)
+            await session.flush()
+        
+        # create bot if not exists
         bot = await session.get(Bot, bot_id)
         if not bot:
-            b = Bot(id=bot_id, tenant_id=tenant_id, name='test-bot', created_by=user_id)
+            b = Bot(id=bot_id, tenant_id=tenant_id, name='test-bot', created_by=existing_user.id if existing_user else user_id)
             session.add(b)
         await session.commit()
     
@@ -48,7 +58,7 @@ async def setup_test_data():
 
 async def test_upload_and_background_processing(setup_test_data):
     """End-to-end (async): upload a small text file and assert chunks are created."""
-    bot_id, tenant_id = await setup_test_data
+    bot_id, tenant_id = setup_test_data
     
     # Monkeypatch auth dependency to allow upload without real JWT
     def _fake_user():

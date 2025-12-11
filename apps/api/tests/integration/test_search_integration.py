@@ -386,6 +386,7 @@ async def bot_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
         headers=authenticated_headers,
         json={"name": "Test Search Bot", "description": "Bot for search tests"},
     )
+    assert response.status_code == 201, f"Bot creation failed: {response.status_code} - {response.text}"
     return UUID(response.json()["id"])
 
 
@@ -397,6 +398,7 @@ async def bot_a_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
         headers=authenticated_headers,
         json={"name": "Bot A", "description": "First bot"},
     )
+    assert response.status_code == 201, f"Bot A creation failed: {response.status_code} - {response.text}"
     return UUID(response.json()["id"])
 
 
@@ -408,6 +410,7 @@ async def bot_b_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
         headers=authenticated_headers,
         json={"name": "Bot B", "description": "Second bot"},
     )
+    assert response.status_code == 201, f"Bot B creation failed: {response.status_code} - {response.text}"
     return UUID(response.json()["id"])
 
 
