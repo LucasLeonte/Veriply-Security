@@ -54,16 +54,21 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export const documentsApi = {
     /**
-     * List documents for a specific bot
+     * List documents for a specific group
      */
     async listDocuments(
-        botId: string,
+        groupId: string,
         page: number = 1,
         pageSize: number = 20,
         search?: string
     ): Promise<PaginatedDocumentsResponse> {
         if (USE_MOCK_DATA) {
-            return mockDocumentsApi.listDocuments(botId, page, pageSize, search);
+            return mockDocumentsApi.listDocuments(
+                groupId,
+                page,
+                pageSize,
+                search
+            );
         }
 
         const params = new URLSearchParams({
@@ -76,7 +81,7 @@ export const documentsApi = {
         }
 
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/bots/${botId}/documents?${params.toString()}`
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents?${params.toString()}`
         );
         return handleResponse<PaginatedDocumentsResponse>(response);
     },
@@ -96,42 +101,57 @@ export const documentsApi = {
     },
 
     /**
-     * Upload one or more documents to a bot's knowledge base
+     * Upload one or more documents to a group's knowledge base
      */
     async uploadDocuments(
-        botId: string,
-        files: File[]
-    ): Promise<{ id: string; document_id: string; status: string; queued: boolean }> {
+        groupId: string,
+        files: File[],
+        botId?: string
+    ): Promise<{
+        id: string;
+        document_id: string;
+        status: string;
+        queued: boolean;
+    }> {
         if (USE_MOCK_DATA) {
-            return mockDocumentsApi.uploadDocuments(botId, files);
+            return mockDocumentsApi.uploadDocuments(groupId, files);
         }
 
         const formData = new FormData();
-        
+
         files.forEach((file) => {
             formData.append("files", file);
         });
 
+        if (botId) {
+            formData.append("bot_id", botId);
+        }
+
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/bots/${botId}/documents`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents`,
             {
                 method: "POST",
                 body: formData,
             }
         );
-        return handleResponse<{ id: string; document_id: string; status: string; queued: boolean }>(response);
+        return handleResponse<{
+            id: string;
+            document_id: string;
+            status: string;
+            queued: boolean;
+        }>(response);
     },
 
     /**
      * Delete a document and all associated chunks/embeddings
      */
-    async deleteDocument(documentId: string): Promise<void> {
+    async deleteDocument(groupId: string, documentId: string): Promise<void> {
         if (USE_MOCK_DATA) {
             return mockDocumentsApi.deleteDocument(documentId);
         }
 
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/${documentId}`,
             {
                 method: "DELETE",
             }
@@ -144,7 +164,9 @@ export const documentsApi = {
     /**
      * Trigger reprocessing of a document
      */
-    async reprocessDocument(documentId: string): Promise<{ id: string; status: string; queued: boolean }> {
+    async reprocessDocument(
+        documentId: string
+    ): Promise<{ id: string; status: string; queued: boolean }> {
         if (USE_MOCK_DATA) {
             return mockDocumentsApi.reprocessDocument(documentId);
         }
@@ -155,7 +177,9 @@ export const documentsApi = {
                 method: "POST",
             }
         );
-        return handleResponse<{ id: string; status: string; queued: boolean }>(response);
+        return handleResponse<{ id: string; status: string; queued: boolean }>(
+            response
+        );
     },
 
     /**

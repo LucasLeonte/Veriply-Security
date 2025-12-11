@@ -7,6 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { MobileSidebar } from "./Sidebar";
+import { GroupSwitcher } from "./GroupSwitcher";
 
 interface HeaderProps {
     className?: string;
@@ -132,8 +133,10 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
                     </h1>
                 </div>
 
-                {/* User Menu */}
+                {/* Group Switcher & User Menu */}
                 <div className="flex items-center gap-4">
+                    <GroupSwitcher />
+
                     <div className="relative">
                         <Button
                             variant="ghost"

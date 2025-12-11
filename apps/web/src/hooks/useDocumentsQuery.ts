@@ -6,10 +6,10 @@ import {
 import { documentsApi } from "@/lib/api/documents";
 
 /**
- * Hook to fetch documents for a specific bot
+ * Hook to fetch documents for a specific group
  */
 export function useDocumentsQuery(
-    botId: string,
+    groupId: string,
     page: number = 1,
     pageSize: number = 20,
     search?: string
@@ -19,13 +19,13 @@ export function useDocumentsQuery(
     const [error, setError] = useState<Error | null>(null);
 
     const refetch = useCallback(async () => {
-        if (!botId) return;
+        if (!groupId) return;
 
         setIsLoading(true);
         setError(null);
         try {
             const result = await documentsApi.listDocuments(
-                botId,
+                groupId,
                 page,
                 pageSize,
                 search
@@ -40,7 +40,7 @@ export function useDocumentsQuery(
         } finally {
             setIsLoading(false);
         }
-    }, [botId, page, pageSize, search]);
+    }, [groupId, page, pageSize, search]);
 
     useEffect(() => {
         refetch();
@@ -91,14 +91,24 @@ export function useUploadDocuments() {
     const [error, setError] = useState<Error | null>(null);
 
     const mutate = useCallback(
-        async (
-            botId: string,
-            files: File[]
-        ): Promise<{ id: string; document_id: string; status: string; queued: boolean }> => {
+        async (params: {
+            groupId: string;
+            files: File[];
+            botId?: string;
+        }): Promise<{
+            id: string;
+            document_id: string;
+            status: string;
+            queued: boolean;
+        }> => {
             setIsPending(true);
             setError(null);
             try {
-                const result = await documentsApi.uploadDocuments(botId, files);
+                const result = await documentsApi.uploadDocuments(
+                    params.groupId,
+                    params.files,
+                    params.botId
+                );
                 return result;
             } catch (err) {
                 const error =
@@ -124,22 +134,31 @@ export function useDeleteDocument() {
     const [isPending, setIsPending] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    const mutate = useCallback(async (documentId: string): Promise<void> => {
-        setIsPending(true);
-        setError(null);
-        try {
-            await documentsApi.deleteDocument(documentId);
-        } catch (err) {
-            const error =
-                err instanceof Error
-                    ? err
-                    : new Error("Failed to delete document");
-            setError(error);
-            throw error;
-        } finally {
-            setIsPending(false);
-        }
-    }, []);
+    const mutate = useCallback(
+        async (params: {
+            groupId: string;
+            documentId: string;
+        }): Promise<void> => {
+            setIsPending(true);
+            setError(null);
+            try {
+                await documentsApi.deleteDocument(
+                    params.groupId,
+                    params.documentId
+                );
+            } catch (err) {
+                const error =
+                    err instanceof Error
+                        ? err
+                        : new Error("Failed to delete document");
+                setError(error);
+                throw error;
+            } finally {
+                setIsPending(false);
+            }
+        },
+        []
+    );
 
     return { mutate, isPending, error };
 }
@@ -151,23 +170,28 @@ export function useReprocessDocument() {
     const [isPending, setIsPending] = useState(false);
     const [error, setError] = useState<Error | null>(null);
 
-    const mutate = useCallback(async (documentId: string): Promise<{ id: string; status: string; queued: boolean }> => {
-        setIsPending(true);
-        setError(null);
-        try {
-            const result = await documentsApi.reprocessDocument(documentId);
-            return result;
-        } catch (err) {
-            const error =
-                err instanceof Error
-                    ? err
-                    : new Error("Failed to reprocess document");
-            setError(error);
-            throw error;
-        } finally {
-            setIsPending(false);
-        }
-    }, []);
+    const mutate = useCallback(
+        async (
+            documentId: string
+        ): Promise<{ id: string; status: string; queued: boolean }> => {
+            setIsPending(true);
+            setError(null);
+            try {
+                const result = await documentsApi.reprocessDocument(documentId);
+                return result;
+            } catch (err) {
+                const error =
+                    err instanceof Error
+                        ? err
+                        : new Error("Failed to reprocess document");
+                setError(error);
+                throw error;
+            } finally {
+                setIsPending(false);
+            }
+        },
+        []
+    );
 
     return { mutate, isPending, error };
 }

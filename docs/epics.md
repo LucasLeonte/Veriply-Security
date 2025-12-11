@@ -509,9 +509,9 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 **Technical Notes:**
 
--   Database: `bots` table with tenant_id + group_id + RLS
+-   Database: `bots` table with tenant_id + group_id + RLS enforced
 -   Confidence threshold determines auto-respond behavior (FR9)
--   All bots in a group read/write to the same KB
+-   All bots in a group share a single KB (not isolated per bot)
 -   Covers FR7, FR8, FR9 (group-scoped)
 
 ---
@@ -538,17 +538,18 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 **Given** I have an existing bot  
 **When** I click "Delete"  
-**Then** I see warning: "This will permanently delete the bot. The Group KB will be preserved (shared by other bots)."  
+**Then** I see warning: "This will permanently delete the bot. The Group KB will be preserved (shared by other bots). All chat sessions for this bot will be deleted."  
 **And** I must type the bot name to confirm  
 **And** on confirm:
 
 -   Bot record is deleted
--   The Group KB remains (shared across group)
+-   The Group KB remains (shared with other group bots)
 -   All chat sessions for this bot are deleted
 -   Bot is removed from all UI lists
 
 **And** only Manager+ can delete bots (not Operators)  
-**And** deletion is async with progress indicator
+**And** deletion is async with progress indicator  
+**And** documents contributed by this bot remain in Group KB (provenance preserved)
 
 **Prerequisites:** Story 2.1
 
@@ -652,8 +653,9 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 **Technical Notes:**
 
--   Files stored in S3-compatible object storage with tenant/group/bot path prefix
--   Database record with status: uploading → processing → ready → failed
+-   Files stored in S3-compatible object storage with tenant/group path prefix
+-   Database: documents(tenant_id, group_id, bot_id, uploader_id, created_at)
+-   Document status: uploading → processing → ready → failed
 -   Covers FR13 (group-scoped)
 
 ---
@@ -662,7 +664,7 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 **As a** System,  
 **I want** to extract, chunk, and embed uploaded documents with bot/uploader provenance,  
-**So that** content is searchable and we can track which bot contributed to the KB.
+**So that** content is searchable and provenance is preserved for audit and tracking.
 
 **Acceptance Criteria:**
 
@@ -673,18 +675,19 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 1. Extract raw text from file
 2. Split into semantic chunks (512 tokens, 50 token overlap)
 3. Generate embeddings using nomic-embed-text (1024 dimensions)
-4. Store embeddings in pgvector with metadata:
-    - tenant_id
-    - group_id
+4. Store chunks in pgvector with provenance metadata:
+    - tenant_id (for RLS)
+    - group_id (group-scoped KB)
     - bot_id (which bot the doc was uploaded for)
-    - document_id
-    - chunk_index
-    - created_at
+    - document_id (reference to parent document)
+    - chunk_index (position in document)
+    - created_at (when processed)
+    - source metadata (filename, page/row)
 
 **When** pipeline completes successfully  
 **Then** document status changes to "Ready"  
 **And** chunk count is displayed  
-**And** embeddings are indexed (IVFFlat) for fast retrieval
+**And** embeddings are indexed with composite index (tenant_id, group_id, embedding)
 
 **When** pipeline fails  
 **Then** document status changes to "Failed"  
@@ -694,24 +697,23 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **And** PDF extraction handles multi-column layouts  
 **And** DOCX extraction preserves headings as metadata  
 **And** CSV extraction treats each row as a chunk with column headers  
-**And** all chunks include source metadata (filename, page/row)
+**And** all chunks include source metadata (filename, page/row) for citation
 
 **Prerequisites:** Story 2.4
 
 **Technical Notes:**
 
--   Use pypdf for PDFs, python-docx for DOCX, csv module for CSVs
--   Chunking: RecursiveCharacterTextSplitter from LangChain
--   Embeddings table: document_chunks(id, document_id, embedding, bot_id, tenant_id, group_id, ...)
+-   Use pypdf for PDFs, python-docx for DOCX, csv for CSVs
+-   Chunking: RecursiveCharacterTextSplitter (LangChain)
+-   Table: document_chunks(id, document_id, embedding, bot_id, tenant_id, group_id, chunk_index, created_at, source_metadata)
+-   Composite index: (tenant_id, group_id, embedding) for RLS-aware similarity search
 -   RLS policy: only users in tenant+group can see/query chunks
+-   Embeddings model: nomic-embed-text (1024 dimensions)
 -   Covers FR14, FR15, FR16 (with group/bot provenance)
--   Embeddings: bge-m3 via Ollama API
--   Store: pgvector with HNSW index for fast retrieval
--   Covers FR14, FR15, FR16
 
 ---
 
-### Story 2.5: Knowledge Base Management UI
+### Story 2.6: Knowledge Base Management UI
 
 **As a** User,  
 **I want** to view and manage my bot's documents,  

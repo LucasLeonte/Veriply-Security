@@ -29,6 +29,7 @@ class Chunk(Base):
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     document_id = Column(Uuid, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     tenant_id = Column(Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True)
+    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     bot_id = Column(Uuid, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)  # Text content of chunk
@@ -36,14 +37,17 @@ class Chunk(Base):
     vector = Column(Vector(1024), nullable=True)  # 1024-dim embedding from nomic-embed-text
     # 'metadata' is reserved on declarative classes — use attribute name metadata_json
     metadata_json = Column('metadata', Text, nullable=True)
+    source_metadata = Column('source_metadata', Text, nullable=True)  # {filename, page, row}
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (
         Index('idx_chunks_document_id', 'document_id'),
+        Index('idx_chunks_group_id', 'group_id'),
+        Index('idx_chunks_tenant_group_vector', 'tenant_id', 'group_id', 'vector'),
         Index('idx_chunks_bot_id', 'bot_id'),
         Index('idx_chunks_bot_document', 'bot_id', 'document_id'),
-        Index('idx_chunks_bot_tenant', 'bot_id', 'tenant_id'),  # RLS composite index
+        Index('idx_chunks_bot_tenant_group', 'bot_id', 'tenant_id', 'group_id'),
         # HNSW index created in migration 005_add_hnsw_index.py
         {'extend_existing': True},
     )
