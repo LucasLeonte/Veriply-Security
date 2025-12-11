@@ -87,6 +87,27 @@ Nice-to-have (can defer):
 -   Models: Recommended `Ollama` self-hosted with `Qwen 2.5` and `bge-m3` embeddings — rationale: privacy, cost
 -   Multitenancy: Enforce RLS on all tenant-scoped tables — rationale: data separation + compliance
 
+## Multi-Tenancy, Groups, Bots, and Knowledge Base
+
+-   Entity model: `tenant_id` (account) → `group_id` (what the UI shows as Group) → multiple `bot_id` per group.
+-   Single KB per Group: all bots in a Group read/write the Group KB; verified answers stored with bot provenance (bot_id) for traceability.
+-   RAG/HITL precedence: resolve from Group KB first, scoped by tenant_id + group_id; bot_id used to filter when needed; verified answers written back to Group KB with provenance.
+-   Access control: every API/query that touches KB, search, HITL queue, ingestion must enforce tenant_id + group_id; deny by default if group_id missing/mismatched; bot_id validated within the current group.
+-   RLS: tables storing documents, embeddings, drafts, and verified entries include tenant_id and group_id; policies require both; bot_id optional but recorded. Example policy: `USING (tenant_id = current_tenant() AND group_id = current_group())`.
+-   Invitations and roles: membership is at Group level; bots inherit Group membership; no separate Team KB layer.
+
+## Ingestion, Embeddings, and Deletion Semantics
+
+-   Embeddings schema: include tenant_id, group_id, bot_id, doc_id, chunk_id, text, metadata. Indexes on tenant_id, group_id, bot_id and vector.
+-   Ingestion pipeline must tag every chunk with group_id and bot_id; deletes must support per-group purging (GDPR Right to be Forgotten).
+-   Verified KB entries carry tenant_id, group_id, bot_id (provenance) and source doc/section for citations.
+
+## API and UI Contracts for Groups/Bots
+
+-   API routes accept group_id (required) and bot_id (when bot-scoped); middleware sets and validates tenant_id + group_id context before handlers.
+-   HITL queue endpoints filter by group_id and optionally bot_id; KB writes/reads require group_id; search enforces group_id filter.
+-   UI: header group switcher; sidebar bots list is scoped to current group; KB entry labeled “Group Knowledge Base”.
+
 ---
 
 <!-- CHECKPOINT: template-output -->
