@@ -164,8 +164,8 @@ development_status:
         assigned_to: Lucas
 
     3-1-semantic-vector-search:
-        status: ready-for-dev
-        assigned_to: null
+        status: assigned
+        assigned_to: Kainy
 
     3-2-context-only-answer-generation:
         status: ready-for-dev
