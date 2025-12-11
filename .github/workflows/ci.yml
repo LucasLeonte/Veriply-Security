@@ -122,8 +122,9 @@ jobs:
   gitleaks:
     runs-on: ubuntu-latest
     permissions:
-      checks: write
       contents: read
+      pull-requests: write
+      statuses: write
     steps:
       - uses: actions/checkout@v4
         with:
