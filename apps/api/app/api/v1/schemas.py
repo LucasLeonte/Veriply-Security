@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict, field_serializer
 from typing import Optional
 from datetime import datetime
+from uuid import UUID
 
 class TenantCreate(BaseModel):
     name: str
@@ -11,9 +12,9 @@ class UserRegister(BaseModel):
     tenant_name: str
 
 class UserResponse(BaseModel):
-    id: str
+    id: str | UUID
     email: str
-    tenant_id: str
+    tenant_id: str | UUID
     role: str
     name: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -21,8 +22,14 @@ class UserResponse(BaseModel):
     last_active: Optional[datetime] = None
     is_active: str = "active"
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer('id', 'tenant_id')
+    def serialize_uuid(self, value: UUID | str) -> str:
+        """Convert UUID objects to strings."""
+        if isinstance(value, UUID):
+            return str(value)
+        return value
 
 class TenantResponse(BaseModel):
     id: str
@@ -56,15 +63,21 @@ class ProfileUpdateRequest(BaseModel):
         }
 
 class TeamMemberResponse(BaseModel):
-    id: str
+    id: str | UUID
     email: str
     name: Optional[str] = None
     role: str
     last_active: Optional[datetime] = None
     is_active: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer('id')
+    def serialize_uuid(self, value: UUID | str) -> str:
+        """Convert UUID objects to strings."""
+        if isinstance(value, UUID):
+            return str(value)
+        return value
 
 class RoleChangeRequest(BaseModel):
     role: str
@@ -82,13 +95,19 @@ class RoleChangeRequest(BaseModel):
         }
 
 class AuditLogResponse(BaseModel):
-    id: str
-    actor_id: str
-    target_user_id: Optional[str] = None
+    id: str | UUID
+    actor_id: str | UUID
+    target_user_id: Optional[str | UUID] = None
     action: str
     details: Optional[str] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer('id', 'actor_id', 'target_user_id')
+    def serialize_uuid(self, value: UUID | str | None) -> str | None:
+        """Convert UUID objects to strings."""
+        if isinstance(value, UUID):
+            return str(value)
+        return value
 

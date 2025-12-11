@@ -45,6 +45,9 @@ export default function LoginPage() {
             // Call login API endpoint first
             const apiUrl =
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            console.log("Attempting login to:", `${apiUrl}/api/v1/auth/login`);
+            console.log("Email:", email);
+
             let response = await fetch(`${apiUrl}/api/v1/auth/login`, {
                 method: "POST",
                 headers: {
@@ -57,8 +60,11 @@ export default function LoginPage() {
                 }),
             });
 
+            console.log("Login response status:", response.status);
+
             // If login fails with 401, try registration (new user)
             if (response.status === 401) {
+                console.log("Login failed, trying registration...");
                 response = await fetch(`${apiUrl}/api/v1/auth/register`, {
                     method: "POST",
                     headers: {
@@ -70,27 +76,49 @@ export default function LoginPage() {
                         tenant_name: email.split("@")[0],
                     }),
                 });
+                console.log("Registration response status:", response.status);
             }
 
             if (!response.ok) {
                 const errorData = await response.json();
+                console.log("Login/Registration failed:", errorData);
                 setError(errorData.detail || "Login failed");
                 return;
             }
 
             // Extract token from response and store in localStorage
             const data = await response.json();
+            console.log("Response data:", data);
+            console.log("Access token present:", !!data.access_token);
+
             if (data.access_token) {
+                console.log("Storing token in localStorage...");
                 localStorage.setItem("access_token", data.access_token);
+                console.log("Token stored. Length:", data.access_token.length);
+
+                // Verify it was stored
+                const storedToken = localStorage.getItem("access_token");
+                console.log(
+                    "Token verification - stored successfully:",
+                    !!storedToken
+                );
+                console.log(
+                    "Stored token matches:",
+                    storedToken === data.access_token
+                );
+            } else {
+                console.error("No access_token in response!");
             }
 
             setSuccess(true);
 
             // Redirect to dashboard after brief delay
             setTimeout(() => {
+                console.log("Redirecting to dashboard...");
                 router.push("/");
             }, 500);
         } catch (err) {
+            console.error("Login error:", err);
             setError(err instanceof Error ? err.message : "Login failed");
         } finally {
             setLoading(false);
@@ -103,6 +131,11 @@ export default function LoginPage() {
         try {
             const apiUrl =
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            console.log(
+                "Demo login attempt to:",
+                `${apiUrl}/api/v1/auth/register`
+            );
+
             const response = await fetch(`${apiUrl}/api/v1/auth/register`, {
                 method: "POST",
                 headers: {
@@ -115,16 +148,36 @@ export default function LoginPage() {
                 }),
             });
 
+            console.log("Demo response status:", response.status);
+
             if (response.ok) {
                 const data = await response.json();
+                console.log("Demo response data:", data);
+                console.log("Demo access token present:", !!data.access_token);
+
                 if (data.access_token) {
+                    console.log("Storing demo token...");
                     localStorage.setItem("access_token", data.access_token);
+                    console.log(
+                        "Demo token stored. Length:",
+                        data.access_token.length
+                    );
+
+                    // Verify it was stored
+                    const storedToken = localStorage.getItem("access_token");
+                    console.log(
+                        "Demo token verification - stored successfully:",
+                        !!storedToken
+                    );
                 }
                 router.push("/");
             } else {
+                const errorData = await response.json().catch(() => ({}));
+                console.log("Demo login failed:", errorData);
                 setError("Demo login failed");
             }
-        } catch {
+        } catch (error) {
+            console.error("Demo login error:", error);
             setError("Demo login error");
         } finally {
             setLoading(false);
