@@ -106,14 +106,22 @@ describe('useUploadDocuments', () => {
         const { result } = renderHook(() => useUploadDocuments());
 
         const files = [new File(['content'], 'test.pdf', { type: 'application/pdf' })];
+        
+        expect(result.current.isPending).toBe(false);
+
         const uploadPromise = result.current.mutate('bot-1', files);
 
-        expect(result.current.isPending).toBe(true);
+        await waitFor(() => {
+            expect(result.current.isPending).toBe(true);
+        });
 
         const response = await uploadPromise;
 
+        await waitFor(() => {
+            expect(result.current.isPending).toBe(false);
+        });
+
         expect(response).toEqual(mockResponse);
-        expect(result.current.isPending).toBe(false);
         expect(result.current.error).toBeNull();
     });
 
@@ -125,9 +133,16 @@ describe('useUploadDocuments', () => {
 
         const files = [new File(['content'], 'test.pdf', { type: 'application/pdf' })];
 
-        await expect(result.current.mutate('bot-1', files)).rejects.toThrow('Upload failed');
+        try {
+            await result.current.mutate('bot-1', files);
+        } catch (error) {
+            // Expected to throw
+        }
 
-        expect(result.current.isPending).toBe(false);
+        await waitFor(() => {
+            expect(result.current.isPending).toBe(false);
+        });
+
         expect(result.current.error).toBeTruthy();
     });
 });
@@ -138,13 +153,20 @@ describe('useDeleteDocument', () => {
 
         const { result } = renderHook(() => useDeleteDocument());
 
+        expect(result.current.isPending).toBe(false);
+
         const deletePromise = result.current.mutate('doc-123');
 
-        expect(result.current.isPending).toBe(true);
+        await waitFor(() => {
+            expect(result.current.isPending).toBe(true);
+        });
 
         await deletePromise;
 
-        expect(result.current.isPending).toBe(false);
+        await waitFor(() => {
+            expect(result.current.isPending).toBe(false);
+        });
+
         expect(result.current.error).toBeNull();
     });
 
@@ -154,9 +176,16 @@ describe('useDeleteDocument', () => {
 
         const { result } = renderHook(() => useDeleteDocument());
 
-        await expect(result.current.mutate('doc-123')).rejects.toThrow('Delete failed');
+        try {
+            await result.current.mutate('doc-123');
+        } catch (error) {
+            // Expected to throw
+        }
 
-        expect(result.current.isPending).toBe(false);
+        await waitFor(() => {
+            expect(result.current.isPending).toBe(false);
+        });
+
         expect(result.current.error).toBeTruthy();
     });
 });

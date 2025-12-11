@@ -8,6 +8,11 @@ describe('UploadModal', () => {
     const mockOnUpload = vi.fn();
     const botId = 'bot-123';
 
+    const getFileInput = () => {
+        const browseButton = screen.getByRole('button', { name: /Browse Files/i });
+        return browseButton.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
         mockOnUpload.mockResolvedValue(undefined);
@@ -37,7 +42,7 @@ describe('UploadModal', () => {
         );
 
         expect(screen.getByText('Upload Documents')).toBeInTheDocument();
-        expect(screen.getByText(/Drag and drop files here/)).toBeInTheDocument();
+        expect(screen.getByText('Drag & drop files here')).toBeInTheDocument();
     });
 
     it('calls onClose when clicking cancel', () => {
@@ -67,7 +72,7 @@ describe('UploadModal', () => {
         );
 
         const file = new File(['content'], 'test.exe', { type: 'application/x-executable' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -77,7 +82,7 @@ describe('UploadModal', () => {
         fireEvent.change(input);
 
         await waitFor(() => {
-            expect(screen.getByText(/File type not supported/)).toBeInTheDocument();
+            expect(screen.getByText(/Unsupported file type/)).toBeInTheDocument();
         });
     });
 
@@ -94,7 +99,7 @@ describe('UploadModal', () => {
         // Create a file larger than 10MB
         const largeContent = 'x'.repeat(11 * 1024 * 1024);
         const file = new File([largeContent], 'large.pdf', { type: 'application/pdf' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -104,7 +109,7 @@ describe('UploadModal', () => {
         fireEvent.change(input);
 
         await waitFor(() => {
-            expect(screen.getByText(/File size exceeds 10 MB limit/)).toBeInTheDocument();
+            expect(screen.getByText(/File too large/)).toBeInTheDocument();
         });
     });
 
@@ -119,7 +124,7 @@ describe('UploadModal', () => {
         );
 
         const file = new File(['content'], 'test.pdf', { type: 'application/pdf' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -144,7 +149,7 @@ describe('UploadModal', () => {
         );
 
         const file = new File(['content'], 'test.pdf', { type: 'application/pdf' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -157,7 +162,7 @@ describe('UploadModal', () => {
             expect(screen.getByText('test.pdf')).toBeInTheDocument();
         });
 
-        const removeButton = screen.getByLabelText(/Remove test.pdf/);
+        const removeButton = screen.getByLabelText(/Remove file/);
         fireEvent.click(removeButton);
 
         await waitFor(() => {
@@ -176,7 +181,7 @@ describe('UploadModal', () => {
         );
 
         const file = new File(['content'], 'test.pdf', { type: 'application/pdf' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -189,7 +194,7 @@ describe('UploadModal', () => {
             expect(screen.getByText('test.pdf')).toBeInTheDocument();
         });
 
-        const uploadButton = screen.getByText('Upload');
+        const uploadButton = screen.getByRole('button', { name: /Upload 1 file/ });
         fireEvent.click(uploadButton);
 
         await waitFor(() => {
@@ -208,7 +213,7 @@ describe('UploadModal', () => {
         );
 
         const file = new File(['content'], 'test.pdf', { type: 'application/pdf' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -216,7 +221,7 @@ describe('UploadModal', () => {
         });
 
         fireEvent.change(input);
-        const uploadButton = screen.getByText('Upload');
+        const uploadButton = screen.getByRole('button', { name: /Upload 1 file/ });
         fireEvent.click(uploadButton);
 
         await waitFor(() => {
@@ -237,7 +242,7 @@ describe('UploadModal', () => {
         );
 
         const file = new File(['content'], 'test.pdf', { type: 'application/pdf' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -245,7 +250,7 @@ describe('UploadModal', () => {
         });
 
         fireEvent.change(input);
-        const uploadButton = screen.getByText('Upload');
+        const uploadButton = screen.getByRole('button', { name: /Upload 1 file/ });
         fireEvent.click(uploadButton);
 
         await waitFor(() => {
@@ -263,7 +268,7 @@ describe('UploadModal', () => {
             />
         );
 
-        const uploadButton = screen.getByText('Upload');
+        const uploadButton = screen.getByRole('button', { name: /Upload/ });
         expect(uploadButton).toBeDisabled();
     });
 
@@ -284,7 +289,7 @@ describe('UploadModal', () => {
         );
 
         const file = new File(['content'], 'test.pdf', { type: 'application/pdf' });
-        const input = screen.getByLabelText(/click to browse/i);
+        const input = getFileInput();
 
         Object.defineProperty(input, 'files', {
             value: [file],
@@ -292,7 +297,7 @@ describe('UploadModal', () => {
         });
 
         fireEvent.change(input);
-        const uploadButton = screen.getByText('Upload');
+        const uploadButton = screen.getByRole('button', { name: /Upload 1 file/ });
         fireEvent.click(uploadButton);
 
         await waitFor(() => {

@@ -77,7 +77,7 @@ describe('DocumentCard', () => {
     it('opens menu when clicking more actions button', async () => {
         render(<DocumentCard document={mockDocument} {...mockHandlers} />);
 
-        const menuButton = screen.getByLabelText('Document actions');
+        const menuButton = screen.getByLabelText(/Actions for test-document.pdf/i);
         fireEvent.click(menuButton);
 
         await waitFor(() => {
@@ -90,7 +90,7 @@ describe('DocumentCard', () => {
     it('calls onDelete when delete is clicked', async () => {
         render(<DocumentCard document={mockDocument} {...mockHandlers} />);
 
-        const menuButton = screen.getByLabelText('Document actions');
+        const menuButton = screen.getByLabelText(/Actions for test-document.pdf/i);
         fireEvent.click(menuButton);
 
         const deleteButton = await screen.findByText('Delete');
@@ -102,7 +102,7 @@ describe('DocumentCard', () => {
     it('calls onReprocess when reprocess is clicked', async () => {
         render(<DocumentCard document={mockDocument} {...mockHandlers} />);
 
-        const menuButton = screen.getByLabelText('Document actions');
+        const menuButton = screen.getByLabelText(/Actions for test-document.pdf/i);
         fireEvent.click(menuButton);
 
         const reprocessButton = await screen.findByText('Reprocess');
@@ -115,7 +115,7 @@ describe('DocumentCard', () => {
         const processingDoc = { ...mockDocument, status: 'processing' as const };
         render(<DocumentCard document={processingDoc} {...mockHandlers} />);
 
-        const menuButton = screen.getByLabelText('Document actions');
+        const menuButton = screen.getByLabelText(/Actions for test-document.pdf/i);
         fireEvent.click(menuButton);
 
         await waitFor(() => {
@@ -126,7 +126,7 @@ describe('DocumentCard', () => {
     it('closes menu when clicking outside', async () => {
         render(<DocumentCard document={mockDocument} {...mockHandlers} />);
 
-        const menuButton = screen.getByLabelText('Document actions');
+        const menuButton = screen.getByLabelText(/Actions for test-document.pdf/i);
         fireEvent.click(menuButton);
 
         const backdrop = document.querySelector('.fixed.inset-0');
