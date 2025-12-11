@@ -24,7 +24,7 @@ team:
             skills: [backend, database, api]
         - name: Kainy
             max_wip: 2
-            current_wip: 0
+            current_wip: 1
             skills: [frontend, ui, testing]
         - name: Soulaymane
             max_wip: 2

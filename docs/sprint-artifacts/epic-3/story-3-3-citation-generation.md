@@ -1,8 +1,8 @@
 # Story 3.3: Citation Generation
 
 **Epic:** 3. RAG Q&A Engine  
-**Status:** ready-for-dev  
-**Assigned to:** TBD  
+**Status:** in-progress  
+**Assigned to:** Kainy  
 **Blocked by:** 3-2-context-only-answer-generation
 **Context:** docs/sprint-artifacts/epic-3/story-3-3.context.xml
 
