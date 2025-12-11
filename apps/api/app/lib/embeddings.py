@@ -11,7 +11,5 @@ def get_embedding(text: str, model: str | None = None) -> List[float]:
 
     Replace with a provider-specific implementation that calls OpenAI or a local model.
     """
-    # simple deterministic mock: length of text split by whitespace -> small vector
-    n = max(1, min(1536, len(text.split())))
-    # return a tiny vector for now
+    # simple deterministic mock: return a tiny vector for now
     return [0.0] * 8

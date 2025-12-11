@@ -16,7 +16,6 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.main import app
 from app.models.user import User
 from app.models.tenant import Tenant
 from app.models.bot import Bot

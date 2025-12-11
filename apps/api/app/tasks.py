@@ -6,7 +6,6 @@ returns True immediately. If no loop is running, it runs synchronously.
 """
 import asyncio
 import logging
-from typing import Optional
 from app.workers.document_processor import process_document
 from app.core.database import AsyncSessionLocal
 

@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.services.document_service import create_document
-from sqlalchemy import select, func, delete as sql_delete
+from sqlalchemy import select, func
 from app.models.document import Document
 from app.models.chunk import Chunk
 from app.schemas.document import (

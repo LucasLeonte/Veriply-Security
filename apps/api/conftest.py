@@ -17,7 +17,12 @@ from app.core.database import get_db
 from app.core.settings import settings
 
 # Import Base from models.base and all models to register them with metadata
-from app.models import Base, User, Tenant, Bot, Document, Embedding
+from app.models import Base  # noqa: F401 - imported for model registration
+from app.models.user import User  # noqa: F401
+from app.models.tenant import Tenant  # noqa: F401
+from app.models.bot import Bot  # noqa: F401
+from app.models.document import Document  # noqa: F401
+from app.models.embedding import Embedding  # noqa: F401
 
 
 # Test database URL - use file-based SQLite for tests to avoid in-memory connection issues

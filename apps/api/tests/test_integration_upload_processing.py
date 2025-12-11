@@ -1,7 +1,6 @@
 import os
 import time
 import asyncio
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.core.settings import settings

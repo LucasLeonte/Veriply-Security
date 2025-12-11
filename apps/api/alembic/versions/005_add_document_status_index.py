@@ -5,7 +5,6 @@ Revises: 004_create_chunks_table
 Create Date: 2025-12-10 12:00:00.000000
 """
 from alembic import op
-import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '005_add_document_status_index'
