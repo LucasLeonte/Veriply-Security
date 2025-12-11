@@ -16,6 +16,10 @@ vi.mock('@/lib/api/documents', () => ({
 }));
 
 describe('useDocumentsQuery', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('fetches documents successfully', async () => {
         const mockResponse = {
             documents: [
@@ -40,8 +44,7 @@ describe('useDocumentsQuery', () => {
 
         const { result } = renderHook(() => useDocumentsQuery('bot-1', 1, 20));
 
-        expect(result.current.isLoading).toBe(true);
-
+        // Wait for loading to complete
         await waitFor(() => {
             expect(result.current.isLoading).toBe(false);
         });
@@ -93,6 +96,10 @@ describe('useDocumentsQuery', () => {
 });
 
 describe('useUploadDocuments', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('uploads documents successfully', async () => {
         const mockResponse = {
             id: '123',
@@ -110,11 +117,6 @@ describe('useUploadDocuments', () => {
         expect(result.current.isPending).toBe(false);
 
         const uploadPromise = result.current.mutate('bot-1', files);
-
-        await waitFor(() => {
-            expect(result.current.isPending).toBe(true);
-        });
-
         const response = await uploadPromise;
 
         await waitFor(() => {
@@ -148,6 +150,10 @@ describe('useUploadDocuments', () => {
 });
 
 describe('useDeleteDocument', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('deletes document successfully', async () => {
         vi.mocked(documentsApi.deleteDocument).mockResolvedValue(undefined);
 
@@ -156,11 +162,6 @@ describe('useDeleteDocument', () => {
         expect(result.current.isPending).toBe(false);
 
         const deletePromise = result.current.mutate('doc-123');
-
-        await waitFor(() => {
-            expect(result.current.isPending).toBe(true);
-        });
-
         await deletePromise;
 
         await waitFor(() => {

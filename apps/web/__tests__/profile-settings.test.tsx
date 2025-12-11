@@ -145,7 +145,70 @@ describe('Login Page', () => {
 describe('Profile Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.fetch = vi.fn();
+    
+    // Mock localStorage
+    const mockLocalStorage: Record<string, string> = {
+      'access_token': 'mock-jwt-token-for-testing'
+    };
+    
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: (key: string) => mockLocalStorage[key] || null,
+        setItem: (key: string, value: string) => { mockLocalStorage[key] = value; },
+        removeItem: (key: string) => { delete mockLocalStorage[key]; },
+        clear: () => { Object.keys(mockLocalStorage).forEach(key => delete mockLocalStorage[key]); },
+      },
+      writable: true
+    });
+    
+    // Mock fetch to return valid profile data by default
+    global.fetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      const method = options?.method || 'GET';
+      
+      // Handle GET /api/v1/profile/me
+      if (method === 'GET' && url.includes('/api/v1/profile/me')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'user-123',
+            email: 'user@example.com',
+            name: 'John Doe',
+            avatar_url: null,
+            notification_frequency: 'weekly',
+            role: 'agent',
+            is_active: 'active',
+            last_active: '2025-12-11T00:00:00Z',
+          }),
+        } as unknown as Response);
+      }
+      
+      // Handle PUT /api/v1/profile/me
+      if (method === 'PUT' && url.includes('/api/v1/profile/me')) {
+        const body = options?.body ? JSON.parse(options.body as string) : {};
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'user-123',
+            email: 'user@example.com',
+            name: body.name || 'John Doe',
+            avatar_url: null,
+            notification_frequency: body.notification_frequency || 'weekly',
+            role: 'agent',
+            is_active: 'active',
+            last_active: '2025-12-11T00:00:00Z',
+          }),
+        } as unknown as Response);
+      }
+      
+      // Default response for unhandled requests
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as unknown as Response);
+    });
   });
 
   it('renders profile page successfully', async () => {
