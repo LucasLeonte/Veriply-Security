@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
 import {
-    Document,
     DocumentDetailResponse,
     PaginatedDocumentsResponse,
 } from "@/types/document";

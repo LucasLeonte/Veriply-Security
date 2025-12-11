@@ -1,5 +1,4 @@
 import {
-    Document,
     DocumentChunk,
     PaginatedDocumentsResponse,
     DocumentDetailResponse,

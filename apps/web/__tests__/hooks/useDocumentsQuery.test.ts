@@ -135,7 +135,7 @@ describe('useUploadDocuments', () => {
 
         try {
             await result.current.mutate('bot-1', files);
-        } catch (error) {
+        } catch (_error) {
             // Expected to throw
         }
 
@@ -178,7 +178,7 @@ describe('useDeleteDocument', () => {
 
         try {
             await result.current.mutate('doc-123');
-        } catch (error) {
+        } catch (_error) {
             // Expected to throw
         }
 

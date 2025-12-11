@@ -73,7 +73,7 @@ export function UploadModal({
         if (e.dataTransfer.files) {
             handleFiles(e.dataTransfer.files);
         }
-    }, []);
+    }, [handleFiles]);
 
     const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
@@ -116,9 +116,10 @@ export function UploadModal({
         return (bytes / (1024 * 1024)).toFixed(1) + " MB";
     };
 
+    if (!isOpen) return null;
+
     return (
-        <Dialog open={isOpen} onOpenChange={handleClose}>
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
                 <div className="bg-white rounded-lg shadow-lg w-full max-w-lg mx-4">
                     {/* Header */}
                     <div className="flex items-center justify-between p-6 border-b border-slate-200">
@@ -248,6 +249,5 @@ export function UploadModal({
                     </div>
                 </div>
             </div>
-        </Dialog>
     );
 }

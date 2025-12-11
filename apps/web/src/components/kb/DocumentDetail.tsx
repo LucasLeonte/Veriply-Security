@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import { Document, DocumentChunk } from "@/types/document";
-import { ArrowLeft, CheckCircle, AlertCircle, Clock, Loader, RefreshCw, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { CheckCircle, AlertCircle, Clock, Loader, RefreshCw, Trash2 } from "lucide-react";
 
 interface DocumentDetailProps {
     document: Document;
@@ -17,7 +16,7 @@ interface DocumentDetailProps {
 export function DocumentDetail({
     document,
     chunks = [],
-    botId,
+    botId: _botId,
     onReprocess,
     onDelete,
     isLoading = false,
