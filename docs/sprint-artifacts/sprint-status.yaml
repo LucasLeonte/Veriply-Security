@@ -169,13 +169,14 @@ development_status:
         completed_date: 2025-12-11
 
     3-2-context-only-answer-generation:
-        status: assigned
+        status: done
         assigned_to: Kainy
+        completed_date: 2025-12-11
         blocked_by: 3-1-semantic-vector-search
 
     3-3-citation-generation:
-        status: ready-for-dev
-        assigned_to: null
+        status: assigned
+        assigned_to: Kainy
         blocked_by: 3-2-context-only-answer-generation
 
     3-4-confidence-scoring-routing:

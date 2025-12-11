@@ -2,7 +2,7 @@
 
 **Epic:** 3. RAG Q&A Engine  
 **Status:** ready-for-dev  
-**Assigned to:** TBD  
+**Assigned to:** Kainy
 **Blocked by:** 3-1-semantic-vector-search
 **Context:** docs/sprint-artifacts/epic-3/story-3-2.context.xml
 
@@ -57,15 +57,16 @@ so that the AI never hallucinates from general knowledge.
 **System Prompt:**
 ```
 You are a helpful assistant for Veriply, an AI-powered customer support platform.
-Your role is to answer questions based ONLY on the provided context.
+Your role is to answer questions based ONLY on the provided context if there is one.
 
 CRITICAL RULES:
 1. Answer ONLY using the provided context
 2. If the context doesn't contain the answer, say "I don't have information about that in the knowledge base."
-3. NEVER make up facts
+3. NEVER make up facts 
 4. NEVER use outside knowledge
 5. NEVER hallucinate details
-6. Be clear and concise
+6. Be sure that you answers are traceable back to the source.
+7. Be clear and concise
 
 When answering:
 - Cite the source for important facts: "According to [Source]..."

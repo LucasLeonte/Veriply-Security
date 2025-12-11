@@ -4,6 +4,7 @@ import React from "react";
 import { Bot } from "@/types/bot";
 import { MoreVertical, FileText, Clock, Target } from "lucide-react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 interface BotCardProps {
     bot: Bot;
@@ -19,9 +20,22 @@ export function BotCard({
     onDelete,
 }: BotCardProps) {
     const [showMenu, setShowMenu] = React.useState(false);
+    const router = useRouter();
+
+    const handleCardClick = (e: React.MouseEvent) => {
+        // Don't navigate if clicking on the menu button or menu items
+        if ((e.target as HTMLElement).closest('.menu-trigger') || 
+            (e.target as HTMLElement).closest('.menu-content')) {
+            return;
+        }
+        router.push(`/dashboard/bots/${bot.id}/knowledge-base`);
+    };
 
     return (
-        <div className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div 
+            className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+            onClick={handleCardClick}
+        >
             <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
                     <h3 className="font-semibold text-lg text-gray-900 hover:text-blue-600 cursor-pointer">
@@ -36,17 +50,21 @@ export function BotCard({
 
                 <div className="relative">
                     <button
-                        onClick={() => setShowMenu(!showMenu)}
-                        className="p-1 hover:bg-gray-100 rounded"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowMenu(!showMenu);
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded menu-trigger"
                     >
                         <MoreVertical size={18} className="text-gray-500" />
                     </button>
 
                     {showMenu && (
-                        <div className="absolute right-0 mt-1 w-40 bg-white border rounded shadow-md z-10">
+                        <div className="absolute right-0 mt-1 w-40 bg-white border rounded shadow-md z-10 menu-content">
                             {onSettings && (
                                 <button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         onSettings(bot);
                                         setShowMenu(false);
                                     }}
@@ -57,7 +75,8 @@ export function BotCard({
                             )}
                             {onDuplicate && (
                                 <button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         onDuplicate(bot);
                                         setShowMenu(false);
                                     }}
@@ -68,7 +87,8 @@ export function BotCard({
                             )}
                             {onDelete && (
                                 <button
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         onDelete(bot);
                                         setShowMenu(false);
                                     }}

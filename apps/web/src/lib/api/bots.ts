@@ -4,9 +4,11 @@ import {
     UpdateBotInput,
     PaginatedBotsResponse,
 } from "@/types/bot";
+import { mockBotsApi } from "./mockBots";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const BOTS_ENDPOINT = `${API_BASE_URL}/api/v1/bots`;
+const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
 
 async function getAuthToken(): Promise<string | null> {
     // Only access localStorage on client-side
@@ -50,6 +52,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export const botsApi = {
     async createBot(data: CreateBotInput): Promise<Bot> {
+        if (USE_MOCK_DATA) {
+            return mockBotsApi.createBot(data);
+        }
+
         const response = await fetchWithAuth(BOTS_ENDPOINT, {
             method: "POST",
             body: JSON.stringify(data),
@@ -63,6 +69,10 @@ export const botsApi = {
         search?: string,
         sortBy: string = "name"
     ): Promise<PaginatedBotsResponse> {
+        if (USE_MOCK_DATA) {
+            return mockBotsApi.listBots(limit, offset, search, sortBy);
+        }
+
         const params = new URLSearchParams({
             limit: limit.toString(),
             offset: offset.toString(),
@@ -80,11 +90,19 @@ export const botsApi = {
     },
 
     async getBotDetails(botId: string): Promise<Bot> {
+        if (USE_MOCK_DATA) {
+            return mockBotsApi.getBot(botId);
+        }
+
         const response = await fetchWithAuth(`${BOTS_ENDPOINT}/${botId}`);
         return handleResponse<Bot>(response);
     },
 
     async updateBot(botId: string, data: UpdateBotInput): Promise<Bot> {
+        if (USE_MOCK_DATA) {
+            return mockBotsApi.updateBot(botId, data);
+        }
+
         const response = await fetchWithAuth(`${BOTS_ENDPOINT}/${botId}`, {
             method: "PATCH",
             body: JSON.stringify(data),
@@ -93,6 +111,10 @@ export const botsApi = {
     },
 
     async deleteBot(botId: string): Promise<void> {
+        if (USE_MOCK_DATA) {
+            return mockBotsApi.deleteBot(botId);
+        }
+
         const response = await fetchWithAuth(`${BOTS_ENDPOINT}/${botId}`, {
             method: "DELETE",
         });
@@ -102,6 +124,10 @@ export const botsApi = {
     },
 
     async duplicateBot(botId: string, name?: string): Promise<Bot> {
+        if (USE_MOCK_DATA) {
+            return mockBotsApi.duplicateBot(botId, name || "Copy of Bot");
+        }
+
         const response = await fetchWithAuth(
             `${BOTS_ENDPOINT}/${botId}/duplicate`,
             {

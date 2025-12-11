@@ -22,4 +22,5 @@ class Document(Base):
     __table_args__ = (
         Index('ix_documents_tenant_id', 'tenant_id'),
         Index('ix_documents_bot_id', 'bot_id'),
+        Index('ix_documents_status', 'status'),
     )

@@ -5,13 +5,11 @@ and edge cases.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4, UUID
+from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 from app.services.vector_search_service import (
     VectorSearchService,
     SearchResult,
-    DEFAULT_TOP_K,
-    DEFAULT_SIMILARITY_THRESHOLD,
 )
 from app.services.embedding_service import EmbeddingService
 

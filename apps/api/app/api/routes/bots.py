@@ -3,17 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from app.core.database import get_db
 from app.api.v1.auth import get_current_user, get_current_tenant
+
 from app.schemas.bot import BotCreateRequest, BotUpdateRequest, BotResponse, BotListResponse, BotDuplicateRequest
 from app.services.bot_service import BotService
 from app.services.embedding_service import EmbeddingService, EmbeddingError
-from app.services.vector_search_service import VectorSearchService, SearchResult
+from app.services.vector_search_service import VectorSearchService
 from app.models.user import User
 import logging
-from fastapi import UploadFile, File, BackgroundTasks, status
-from app.models.document import Document
-from app.lib import storage
-from io import BytesIO
-import os
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -66,7 +62,7 @@ async def list_bots(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     search: str | None = Query(None),
-    sort_by: str = Query("name", regex="^(name|created_at)$"),
+    sort_by: str = Query("name", pattern="^(name|created_at)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     tenant_id: UUID = Depends(get_current_tenant),
