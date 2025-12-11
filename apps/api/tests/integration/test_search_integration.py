@@ -5,11 +5,68 @@ embedding generation, and vector search with RLS enforcement.
 """
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from uuid import uuid4, UUID
-from app.main import app
-from app.core.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
+import jwt
+import os
+from datetime import datetime, timedelta
+from app.models.user import User
+from app.models.tenant import Tenant
+
+JWT_SECRET = os.getenv("JWT_SECRET", "please-change-me")
+JWT_ALGORITHM = "HS256"
+
+
+def create_test_token(user_id: str, tenant_id: str, expires_delta: timedelta = None) -> str:
+    """Create a test JWT token"""
+    if expires_delta is None:
+        expires_delta = timedelta(hours=1)
+    
+    expire = datetime.utcnow() + expires_delta
+    payload = {
+        "sub": user_id,
+        "tenant_id": tenant_id,
+        "exp": expire,
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+@pytest_asyncio.fixture
+async def test_user_and_tenant(db_session: AsyncSession):
+    """Create a test user and tenant"""
+    tenant = Tenant(id=uuid4(), name="Test Tenant", plan="FREE")
+    user = User(
+        id=uuid4(),
+        email="test@example.com",
+        password_hash="hashed",
+        tenant_id=tenant.id,
+        role="agent"
+    )
+    
+    db_session.add(tenant)
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    await db_session.refresh(tenant)
+    
+    return user, tenant
+
+
+@pytest.fixture
+def authenticated_headers(test_user_and_tenant):
+    """Create authentication headers with JWT token"""
+    user, tenant = test_user_and_tenant
+    token = create_test_token(str(user.id), str(tenant.id))
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def tenant_id(test_user_and_tenant):
+    """Return the tenant ID for tests"""
+    user, tenant = test_user_and_tenant
+    return tenant.id
 
 
 @pytest.mark.integration
@@ -321,7 +378,7 @@ class TestSearchPerformance:
 # Fixtures for integration tests
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def bot_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     """Create a test bot and return its ID."""
     response = await client.post(
@@ -332,7 +389,7 @@ async def bot_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     return UUID(response.json()["id"])
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def bot_a_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     """Create bot A for RLS testing."""
     response = await client.post(
@@ -343,7 +400,7 @@ async def bot_a_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     return UUID(response.json()["id"])
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def bot_b_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     """Create bot B for RLS testing."""
     response = await client.post(
@@ -354,9 +411,9 @@ async def bot_b_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     return UUID(response.json()["id"])
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def bot_with_1000_chunks(
-    client: AsyncClient, authenticated_headers: dict, db: AsyncSession
+    client: AsyncClient, authenticated_headers: dict, db_session: AsyncSession
 ) -> UUID:
     """Create a bot with 1000 chunks for performance testing."""
     # Implementation would seed database with 1000 chunks
@@ -364,9 +421,9 @@ async def bot_with_1000_chunks(
     pass
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def bot_with_10000_chunks(
-    client: AsyncClient, authenticated_headers: dict, db: AsyncSession
+    client: AsyncClient, authenticated_headers: dict, db_session: AsyncSession
 ) -> UUID:
     """Create a bot with 10,000 chunks for large KB testing."""
     # Implementation would seed database with 10K chunks

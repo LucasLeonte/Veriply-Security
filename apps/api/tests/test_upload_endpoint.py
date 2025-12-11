@@ -54,9 +54,9 @@ def test_upload_endpoint_monkeypatched(monkeypatch):
 
     client = TestClient(app)
 
-    # create a sample file
+    # create a sample file - use 'files' as the field name matching the endpoint parameter
     file_content = b"hello world"
-    files = {"file": ("test.txt", io.BytesIO(file_content), "text/plain")}
+    files = [("files", ("test.txt", io.BytesIO(file_content), "text/plain"))]
 
     # Use a random bot_id (BotService.get_bot is used to validate bot; patch it to return truthy)
     async def _fake_get_bot(db, bot_id, tenant_id):
