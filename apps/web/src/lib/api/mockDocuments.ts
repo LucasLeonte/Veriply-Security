@@ -262,6 +262,27 @@ export const mockDocumentsApi = {
         console.log(`Mock: Deleted document ${documentId}`);
     },
 
+    async bulkDeleteDocuments(botId: string, documentIds: string[]) {
+        await delay(500);
+        
+        // Validate documents belong to the bot
+        const validDocs = mockDocuments.filter(
+            d => d.bot_id === botId && documentIds.includes(d.id)
+        );
+        
+        if (validDocs.length === 0) {
+            throw new Error("No valid documents found");
+        }
+
+        console.log(`Mock: Bulk deleted ${validDocs.length} documents`);
+
+        return {
+            message: "Bulk deletion initiated",
+            queued_count: validDocs.length,
+            document_ids: validDocs.map(d => d.id),
+        };
+    },
+
     async reprocessDocument(documentId: string) {
         await delay(400);
         

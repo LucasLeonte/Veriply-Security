@@ -142,6 +142,35 @@ export const documentsApi = {
     },
 
     /**
+     * Delete multiple documents in bulk
+     */
+    async bulkDeleteDocuments(botId: string, documentIds: string[]): Promise<{
+        message: string;
+        queued_count: number;
+        document_ids: string[];
+    }> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.bulkDeleteDocuments(botId, documentIds);
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/documents/bulk-delete`,
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    bot_id: botId,
+                    document_ids: documentIds,
+                }),
+            }
+        );
+        return handleResponse<{
+            message: string;
+            queued_count: number;
+            document_ids: string[];
+        }>(response);
+    },
+
+    /**
      * Trigger reprocessing of a document
      */
     async reprocessDocument(documentId: string): Promise<{ id: string; status: string; queued: boolean }> {

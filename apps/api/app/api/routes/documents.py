@@ -14,11 +14,16 @@ from app.schemas.document import (
     DocumentListResponse,
     ChunkResponse,
     ChunkListResponse,
+    BulkDeleteRequest,
+    BulkDeleteResponse,
 )
 from typing import Optional, List
 import os
 import inspect
 import math
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Router for bot-scoped endpoints
 router = APIRouter(prefix="/bots", tags=["documents"])
@@ -246,16 +251,134 @@ async def delete_document(
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     
-    # Delete document (chunks cascade automatically via FK constraint)
+    # Cannot delete while processing
+    if doc.status == "processing":
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete document while processing. Please wait."
+        )
+    
+    # Store storage path before deletion
+    storage_path = doc.storage_path
+    
+    # Delete chunks first (explicit deletion for logging/cleanup)
+    chunks_query = select(Chunk).where(Chunk.document_id == document_id)
+    chunks_result = await db.execute(chunks_query)
+    chunks = chunks_result.scalars().all()
+    
+    for chunk in chunks:
+        await db.delete(chunk)
+    
+    # Delete document record
     await db.delete(doc)
     
     try:
         await db.commit()
-    except Exception:
+        logger.info(f"Deleted document {document_id} with {len(chunks)} chunks")
+    except Exception as e:
         await db.rollback()
+        logger.error(f"Failed to delete document {document_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete document")
     
+    # Enqueue async cleanup job for storage (fire-and-forget)
+    if storage_path:
+        try:
+            from app.services.deletion_service import enqueue_storage_cleanup
+            enqueue_storage_cleanup(storage_path)
+        except Exception as e:
+            # Don't fail the request if storage cleanup fails
+            logger.warning(f"Failed to enqueue storage cleanup for {storage_path}: {e}")
+    
     return None
+
+
+@documents_router.post("/bulk-delete", response_model=BulkDeleteResponse)
+async def bulk_delete_documents(
+    request: BulkDeleteRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """Bulk delete documents (max 100 at once, tenant-isolated)."""
+    document_ids = request.document_ids
+    
+    # Validate max 100 documents
+    if len(document_ids) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Maximum 100 documents can be deleted at once"
+        )
+    
+    if len(document_ids) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="No documents specified for deletion"
+        )
+    
+    # Verify all documents exist and belong to tenant
+    query = select(Document).where(
+        Document.id.in_(document_ids),
+        Document.tenant_id == tenant_id
+    )
+    result = await db.execute(query)
+    docs = result.scalars().all()
+    
+    if len(docs) != len(document_ids):
+        found_ids = {str(doc.id) for doc in docs}
+        missing_ids = [str(doc_id) for doc_id in document_ids if str(doc_id) not in found_ids]
+        raise HTTPException(
+            status_code=404,
+            detail=f"Some documents not found or don't belong to your organization: {missing_ids[:5]}"
+        )
+    
+    # Check for processing documents
+    processing_docs = [doc for doc in docs if doc.status == "processing"]
+    if processing_docs:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot delete {len(processing_docs)} document(s) that are currently processing"
+        )
+    
+    # Collect storage paths for cleanup
+    storage_paths = [doc.storage_path for doc in docs if doc.storage_path]
+    
+    # Delete all chunks for these documents
+    chunks_query = select(Chunk).where(Chunk.document_id.in_(document_ids))
+    chunks_result = await db.execute(chunks_query)
+    chunks = chunks_result.scalars().all()
+    
+    for chunk in chunks:
+        await db.delete(chunk)
+    
+    # Delete all documents
+    for doc in docs:
+        await db.delete(doc)
+    
+    try:
+        await db.commit()
+        logger.info(
+            f"Bulk deleted {len(docs)} documents with {len(chunks)} total chunks "
+            f"by user {current_user.get('sub') if isinstance(current_user, dict) else getattr(current_user, 'id', 'unknown')}"
+        )
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to bulk delete documents: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete documents")
+    
+    # Enqueue async cleanup jobs for storage (fire-and-forget)
+    cleanup_count = 0
+    if storage_paths:
+        try:
+            from app.services.deletion_service import enqueue_bulk_storage_cleanup
+            cleanup_count = enqueue_bulk_storage_cleanup(storage_paths)
+        except Exception as e:
+            logger.warning(f"Failed to enqueue bulk storage cleanup: {e}")
+    
+    return BulkDeleteResponse(
+        message=f"Successfully deleted {len(docs)} document(s)",
+        queued_count=cleanup_count,
+        document_ids=[str(doc_id) for doc_id in document_ids]
+    )
 
 
 @documents_router.post("/{document_id}/reprocess", status_code=202)

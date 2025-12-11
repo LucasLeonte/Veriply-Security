@@ -143,7 +143,7 @@ development_status:
         completed_date: 2025-12-11
 
     2-6-document-deletion:
-        status: assigned
+        status: drafted
         assigned_to: Soulaymane
         blocked_by: 2-5-knowledge-base-management-ui
 
