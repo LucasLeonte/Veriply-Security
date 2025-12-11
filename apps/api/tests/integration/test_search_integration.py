@@ -97,7 +97,7 @@ class TestSearchIntegration:
             },
         )
         assert upload_response.status_code == 201
-        document_id = upload_response.json()["id"]
+        upload_response.json()["id"]
 
         # Wait for document processing to complete (in real env, use polling)
         # For now, assume processing completes synchronously or via background job

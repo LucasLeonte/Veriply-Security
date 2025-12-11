@@ -7,14 +7,9 @@ from app.api.v1.auth import get_current_user, get_current_tenant
 from app.schemas.bot import BotCreateRequest, BotUpdateRequest, BotResponse, BotListResponse, BotDuplicateRequest
 from app.services.bot_service import BotService
 from app.services.embedding_service import EmbeddingService, EmbeddingError
-from app.services.vector_search_service import VectorSearchService, SearchResult
+from app.services.vector_search_service import VectorSearchService
 from app.models.user import User
 import logging
-from fastapi import UploadFile, File, BackgroundTasks, status
-from app.models.document import Document
-from app.lib import storage
-from io import BytesIO
-import os
 from pydantic import BaseModel, Field
 from typing import List, Optional
 

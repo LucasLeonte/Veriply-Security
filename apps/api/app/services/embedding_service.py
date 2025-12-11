@@ -7,7 +7,7 @@ and truncation handling.
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import List
 import httpx
 import numpy as np
 
