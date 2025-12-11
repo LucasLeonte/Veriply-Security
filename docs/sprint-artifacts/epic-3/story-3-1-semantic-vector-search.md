@@ -1,7 +1,7 @@
 # Story 3.1: Semantic Vector Search
 
 **Epic:** 3. RAG Q&A Engine  
-**Status:** review  
+**Status:** done  
 **Assigned to:** Kainy  
 **Blocked by:** 2-4-document-processing-pipeline
 **Context:** docs/sprint-artifacts/epic-3/story-3-1.context.xml
