@@ -17,8 +17,9 @@ class Chunk(Base):
       - tenant_id: FK -> tenants.id
       - bot_id: FK -> bots.id (nullable)
       - chunk_index: order index within document
-      - text: chunk content
-      - vector: pgvector embedding (nullable during processing)
+      - content: chunk text content
+      - page_number: page reference (optional)
+      - vector: pgvector embedding (1024 dimensions, nullable during processing)
       - metadata_json: JSON/text metadata stored in DB column `metadata`
       - created_at / updated_at timestamps
     """
@@ -30,9 +31,9 @@ class Chunk(Base):
     tenant_id = Column(Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True)
     bot_id = Column(Uuid, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True)
     chunk_index = Column(Integer, nullable=False)
-    content = Column(Text, nullable=False)
-    page_number = Column(Integer, nullable=True)
-    vector = Column(Vector, nullable=True)
+    content = Column(Text, nullable=False)  # Text content of chunk
+    page_number = Column(Integer, nullable=True)  # For PDF section/page reference
+    vector = Column(Vector(1024), nullable=True)  # 1024-dim embedding from nomic-embed-text
     # 'metadata' is reserved on declarative classes — use attribute name metadata_json
     metadata_json = Column('metadata', Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -42,5 +43,7 @@ class Chunk(Base):
         Index('idx_chunks_document_id', 'document_id'),
         Index('idx_chunks_bot_id', 'bot_id'),
         Index('idx_chunks_bot_document', 'bot_id', 'document_id'),
+        Index('idx_chunks_bot_tenant', 'bot_id', 'tenant_id'),  # RLS composite index
+        # HNSW index created in migration 005_add_hnsw_index.py
         {'extend_existing': True},
     )
