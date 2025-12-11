@@ -80,7 +80,7 @@ class TestSearchIntegration:
         authenticated_headers: dict,
         bot_id: UUID,
         tenant_id: UUID,
-        db: AsyncSession,
+        db_session: AsyncSession,
     ):
         """Test E2E: upload doc → process → embed → search → verify results."""
         # This test requires:
@@ -90,11 +90,11 @@ class TestSearchIntegration:
 
         # Upload a test document
         upload_response = await client.post(
-            f"/api/bots/{bot_id}/documents",
+            f"/api/v1/bots/{bot_id}/documents",
             headers=authenticated_headers,
-            files={
-                "file": ("test_policy.txt", b"Refund policy: 30-day money back guarantee")
-            },
+            files=[
+                ("files", ("test_policy.txt", b"Refund policy: 30-day money back guarantee", "text/plain"))
+            ],
         )
         assert upload_response.status_code == 201
         upload_response.json()["id"]
@@ -104,7 +104,7 @@ class TestSearchIntegration:
 
         # Perform search
         search_response = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             headers=authenticated_headers,
             json={
                 "query": "What is the refund policy?",
@@ -145,17 +145,17 @@ class TestSearchIntegration:
         """Test RLS: search bot A only returns bot A chunks (never bot B)."""
         # Upload document to bot A
         upload_a = await client.post(
-            f"/api/bots/{bot_a_id}/documents",
+            f"/api/v1/bots/{bot_a_id}/documents",
             headers=authenticated_headers,
-            files={"file": ("doc_a.txt", b"Bot A content about pricing")},
+            files=[("files", ("doc_a.txt", b"Bot A content about pricing", "text/plain"))],
         )
         assert upload_a.status_code == 201
 
         # Upload document to bot B
         upload_b = await client.post(
-            f"/api/bots/{bot_b_id}/documents",
+            f"/api/v1/bots/{bot_b_id}/documents",
             headers=authenticated_headers,
-            files={"file": ("doc_b.txt", b"Bot B content about shipping")},
+            files=[("files", ("doc_b.txt", b"Bot B content about shipping", "text/plain"))],
         )
         assert upload_b.status_code == 201
 
@@ -163,7 +163,7 @@ class TestSearchIntegration:
 
         # Search bot A for "pricing"
         search_a = await client.post(
-            f"/api/bots/{bot_a_id}/search",
+            f"/api/v1/bots/{bot_a_id}/search",
             headers=authenticated_headers,
             json={"query": "pricing", "k": 10},
         )
@@ -179,7 +179,7 @@ class TestSearchIntegration:
 
         # Search bot B for "shipping"
         search_b = await client.post(
-            f"/api/bots/{bot_b_id}/search",
+            f"/api/v1/bots/{bot_b_id}/search",
             headers=authenticated_headers,
             json={"query": "shipping", "k": 10},
         )
@@ -199,7 +199,7 @@ class TestSearchIntegration:
         """Test search with query that has no relevant chunks returns empty array."""
         # Search for gibberish query with no matching chunks
         response = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             headers=authenticated_headers,
             json={
                 "query": "xyz123 complete gibberish nonsense query",
@@ -223,7 +223,7 @@ class TestSearchIntegration:
 
         async def run_search():
             response = await client.post(
-                f"/api/bots/{bot_with_1000_chunks}/search",
+                f"/api/v1/bots/{bot_with_1000_chunks}/search",
                 headers=authenticated_headers,
                 json={"query": "test query", "k": 5},
             )
@@ -246,7 +246,7 @@ class TestSearchIntegration:
         """Test search with invalid bot_id returns 404."""
         invalid_bot_id = uuid4()
         response = await client.post(
-            f"/api/bots/{invalid_bot_id}/search",
+            f"/api/v1/bots/{invalid_bot_id}/search",
             headers=authenticated_headers,
             json={"query": "test"},
         )
@@ -256,7 +256,7 @@ class TestSearchIntegration:
     async def test_search_unauthenticated(self, client: AsyncClient, bot_id: UUID):
         """Test search without authentication returns 401."""
         response = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             json={"query": "test"},
         )
 
@@ -271,7 +271,7 @@ class TestSearchIntegration:
         """Test search validates k and similarity_threshold parameters."""
         # Invalid k (too large)
         response = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             headers=authenticated_headers,
             json={"query": "test", "k": 101},
         )
@@ -279,7 +279,7 @@ class TestSearchIntegration:
 
         # Invalid similarity_threshold (negative)
         response = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             headers=authenticated_headers,
             json={"query": "test", "similarity_threshold": -0.5},
         )
@@ -293,7 +293,7 @@ class TestSearchIntegration:
     ):
         """Test search handles special characters and non-ASCII text correctly."""
         response = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             headers=authenticated_headers,
             json={"query": "Café! @#$% 中文 日本語", "k": 5},
         )
@@ -313,12 +313,12 @@ class TestSearchIntegration:
 
         # Run search twice
         response1 = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             headers=authenticated_headers,
             json={"query": query, "k": 5},
         )
         response2 = await client.post(
-            f"/api/bots/{bot_id}/search",
+            f"/api/v1/bots/{bot_id}/search",
             headers=authenticated_headers,
             json={"query": query, "k": 5},
         )
@@ -356,7 +356,7 @@ class TestSearchPerformance:
     ):
         """Test search performance with large knowledge base (10K chunks)."""
         response = await client.post(
-            f"/api/bots/{bot_with_10000_chunks}/search",
+            f"/api/v1/bots/{bot_with_10000_chunks}/search",
             headers=authenticated_headers,
             json={"query": "common term search", "k": 5},
         )
@@ -382,7 +382,7 @@ class TestSearchPerformance:
 async def bot_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     """Create a test bot and return its ID."""
     response = await client.post(
-        "/api/bots",
+        "/api/v1/bots",
         headers=authenticated_headers,
         json={"name": "Test Search Bot", "description": "Bot for search tests"},
     )
@@ -394,7 +394,7 @@ async def bot_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
 async def bot_a_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     """Create bot A for RLS testing."""
     response = await client.post(
-        "/api/bots",
+        "/api/v1/bots",
         headers=authenticated_headers,
         json={"name": "Bot A", "description": "First bot"},
     )
@@ -406,7 +406,7 @@ async def bot_a_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
 async def bot_b_id(client: AsyncClient, authenticated_headers: dict) -> UUID:
     """Create bot B for RLS testing."""
     response = await client.post(
-        "/api/bots",
+        "/api/v1/bots",
         headers=authenticated_headers,
         json={"name": "Bot B", "description": "Second bot"},
     )
@@ -420,8 +420,8 @@ async def bot_with_1000_chunks(
 ) -> UUID:
     """Create a bot with 1000 chunks for performance testing."""
     # Implementation would seed database with 1000 chunks
-    # For now, return placeholder
-    pass
+    # For now, skip tests that require this fixture
+    pytest.skip("bot_with_1000_chunks fixture not yet implemented")
 
 
 @pytest_asyncio.fixture
@@ -430,4 +430,4 @@ async def bot_with_10000_chunks(
 ) -> UUID:
     """Create a bot with 10,000 chunks for large KB testing."""
     # Implementation would seed database with 10K chunks
-    pass
+    pytest.skip("bot_with_10000_chunks fixture not yet implemented")

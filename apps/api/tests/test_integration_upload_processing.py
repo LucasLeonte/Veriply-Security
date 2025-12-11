@@ -71,14 +71,15 @@ async def test_upload_and_background_processing(setup_test_data):
     app.dependency_overrides[get_current_user] = _fake_user
     app.dependency_overrides[get_current_tenant] = _fake_tenant
 
-    async with AsyncClient(app=app, base_url="http://test") as client:
+    from httpx import ASGITransport
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         file_content = b"Hello world. This is a small document for testing chunking and embedding. " * 5
         files = {"files": ("small.txt", file_content, "text/plain")}
         r = await client.post(f"/api/v1/bots/{bot_id}/documents", files=files)
         assert r.status_code == 201
         body = r.json()
-        assert "documents" in body
-        doc_id = body["documents"][0]["id"]
+        assert "id" in body
+        doc_id = body["id"]
 
         # Wait briefly for background task to run (in-process enqueuer schedules a task)
         await asyncio.sleep(1.0)
