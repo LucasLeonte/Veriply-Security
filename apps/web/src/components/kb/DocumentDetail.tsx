@@ -27,10 +27,10 @@ export function DocumentDetail({
 
     const getStatusDisplay = () => {
         switch (document.status) {
-            case "processed":
+            case "ready":
                 return {
                     icon: <CheckCircle size={20} className="text-emerald-600" />,
-                    text: "Processed successfully",
+                    text: "Ready",
                     className: "text-emerald-600",
                 };
             case "processing":
@@ -45,17 +45,29 @@ export function DocumentDetail({
                     text: "Processing failed",
                     className: "text-red-600",
                 };
-            case "pending":
+            case "uploaded":
                 return {
                     icon: <Clock size={20} className="text-slate-400" />,
-                    text: "Pending processing",
+                    text: "Uploaded",
+                    className: "text-slate-400",
+                };
+            case "uploading":
+                return {
+                    icon: <Clock size={20} className="text-slate-400" />,
+                    text: "Uploading",
+                    className: "text-slate-400",
+                };
+            default:
+                return {
+                    icon: <Clock size={20} className="text-slate-400" />,
+                    text: document.status,
                     className: "text-slate-400",
                 };
         }
     };
 
     const status = getStatusDisplay();
-    const formattedSize = (document.file_size / 1024).toFixed(1) + " KB";
+    const formattedSize = (document.size / 1024).toFixed(1) + " KB";
 
     const handleReprocess = async () => {
         setIsReprocessing(true);
@@ -207,7 +219,7 @@ export function DocumentDetail({
                         </h3>
                         {chunks.length === 0 ? (
                             <p className="text-sm text-slate-600">
-                                {document.status === "processed"
+                                {document.status === "ready"
                                     ? "No chunks available"
                                     : "Chunks will appear after processing completes"}
                             </p>

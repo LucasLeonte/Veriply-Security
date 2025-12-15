@@ -70,6 +70,7 @@ export function CreateBotModal({
 
         try {
             const bot = await mutate({
+                group_id: null as any,
                 name,
                 description: description || undefined,
                 confidence_threshold: threshold,

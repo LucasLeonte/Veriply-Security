@@ -40,7 +40,7 @@ export default function DocumentDetailPage() {
 
     const handleDelete = async (docId: string) => {
         try {
-            await deleteDocument(docId);
+            await deleteDocument({ groupId: botId, documentId: docId });
             // Redirect back to KB list after delete
             router.push(`/dashboard/bots/${botId}/knowledge-base`);
         } catch (err) {
@@ -98,7 +98,7 @@ export default function DocumentDetailPage() {
                 {/* Document Detail Component */}
                 <DocumentDetail
                     document={documentData}
-                    chunks={chunksData?.chunks || []}
+                    chunks={(chunksData?.chunks as any) || []}
                     botId={botId}
                     onReprocess={handleReprocess}
                     onDelete={handleDelete}

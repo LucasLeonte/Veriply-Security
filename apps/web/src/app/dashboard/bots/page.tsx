@@ -37,6 +37,7 @@ export default function BotsPage() {
 
     const offset = page * ITEMS_PER_PAGE;
     const { data, isLoading, error, refetch } = useBotsQuery(
+        null,
         ITEMS_PER_PAGE,
         offset,
         debouncedSearch || undefined,

@@ -30,7 +30,7 @@ export function DocumentCard({
 
     const getStatusDisplay = () => {
         switch (document.status) {
-            case "processed":
+            case "ready":
                 return {
                     icon: (
                         <CheckCircle
@@ -39,7 +39,7 @@ export function DocumentCard({
                             aria-hidden="true"
                         />
                     ),
-                    text: "Processed",
+                    text: "Ready",
                     className: "text-emerald-600",
                 };
             case "processing":
@@ -70,7 +70,7 @@ export function DocumentCard({
                     text: "Failed",
                     className: "text-red-600",
                 };
-            case "pending":
+            case "uploading":
                 return {
                     icon: (
                         <Clock
@@ -79,14 +79,26 @@ export function DocumentCard({
                             aria-hidden="true"
                         />
                     ),
-                    text: "Pending",
+                    text: "Uploaded",
+                    className: "text-slate-400",
+                };
+            default:
+                return {
+                    icon: (
+                        <Clock
+                            size={16}
+                            className="text-slate-400"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: document.status,
                     className: "text-slate-400",
                 };
         }
     };
 
     const status = getStatusDisplay();
-    const formattedSize = (document.file_size / 1024).toFixed(1) + " KB";
+    const formattedSize = (document.size / 1024).toFixed(1) + " KB";
     const uploadDate = new Date(document.created_at).toLocaleDateString(
         "en-US",
         {
@@ -127,7 +139,7 @@ export function DocumentCard({
                             {status.icon}
                             <span>{status.text}</span>
                         </div>
-                        {document.status === "processed" && (
+                        {document.status === "ready" && (
                             <>
                                 <span className="text-slate-300">•</span>
                                 <span className="text-sm text-slate-600">

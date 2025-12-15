@@ -8,6 +8,7 @@ import {
     Bot,
     Inbox,
     BookOpen,
+    BarChart3,
     Settings,
     Menu,
 } from "lucide-react";
@@ -19,12 +20,14 @@ import {
     SheetTrigger,
     SheetTitle,
 } from "./ui/sheet";
+import { useHITLQueue } from "@/hooks/useHITLQueue";
 
 const NAVIGATION_ITEMS = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/dashboard/bots", icon: Bot, label: "Bots" },
-    { href: "/inbox", icon: Inbox, label: "Inbox" },
+    { href: "/inbox", icon: Inbox, label: "Review Queue" },
     { href: "/knowledge-base", icon: BookOpen, label: "Knowledge Base" },
+    { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/settings", icon: Settings, label: "Settings" },
 ];
 
@@ -34,6 +37,7 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
+    const { stats } = useHITLQueue();
 
     const navItems = NAVIGATION_ITEMS.map((item) => ({
         ...item,
@@ -64,6 +68,11 @@ export function Sidebar({ className }: SidebarProps) {
             <div className="flex-1 space-y-2">
                 {navItems.map((item) => {
                     const Icon = item.icon;
+                    const badge =
+                        item.href === "/inbox" && stats.pending > 0
+                            ? stats.pending
+                            : null;
+
                     return (
                         <Link
                             key={item.href}
@@ -76,7 +85,12 @@ export function Sidebar({ className }: SidebarProps) {
                             )}
                         >
                             <Icon className="w-5 h-5 flex-shrink-0" />
-                            <span>{item.label}</span>
+                            <span className="flex-1">{item.label}</span>
+                            {badge && (
+                                <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-amber-600 text-white">
+                                    {badge}
+                                </span>
+                            )}
                         </Link>
                     );
                 })}
@@ -93,6 +107,7 @@ export function Sidebar({ className }: SidebarProps) {
 export function MobileSidebar() {
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
+    const { stats } = useHITLQueue();
 
     const navItems = NAVIGATION_ITEMS.map((item) => ({
         ...item,
@@ -125,6 +140,11 @@ export function MobileSidebar() {
                     <div className="flex-1 space-y-2 px-4">
                         {navItems.map((item) => {
                             const Icon = item.icon;
+                            const badge =
+                                item.href === "/inbox" && stats.pending > 0
+                                    ? stats.pending
+                                    : null;
+
                             return (
                                 <Link
                                     key={item.href}
@@ -138,7 +158,14 @@ export function MobileSidebar() {
                                     )}
                                 >
                                     <Icon className="w-5 h-5 flex-shrink-0" />
-                                    <span>{item.label}</span>
+                                    <span className="flex-1">
+                                        {item.label}
+                                    </span>
+                                    {badge && (
+                                        <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-amber-600 text-white">
+                                            {badge}
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}

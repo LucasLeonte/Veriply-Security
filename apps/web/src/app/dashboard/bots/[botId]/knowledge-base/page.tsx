@@ -35,7 +35,7 @@ export default function BotKnowledgeBasePage() {
 
     const handleUpload = async (files: File[]) => {
         try {
-            await uploadDocuments(botId, files);
+            await uploadDocuments({ groupId: botId, files, botId });
             // Refresh the list after upload
             refetch();
         } catch (err) {
@@ -46,7 +46,7 @@ export default function BotKnowledgeBasePage() {
 
     const handleDelete = async (documentId: string) => {
         try {
-            await deleteDocument(documentId);
+            await deleteDocument({ groupId: botId, documentId });
             // Refresh the list after delete
             refetch();
         } catch (err) {

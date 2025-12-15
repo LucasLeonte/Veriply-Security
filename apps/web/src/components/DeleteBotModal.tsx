@@ -52,7 +52,7 @@ export function DeleteBotModal({
         }
 
         try {
-            await mutate(bot.id);
+            await mutate(null as any, bot.id);
             onSuccess();
             setConfirmName("");
             onClose();
