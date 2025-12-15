@@ -11,6 +11,7 @@ import {
     BarChart3,
     Settings,
     Menu,
+    ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -50,22 +51,30 @@ export function Sidebar({ className }: SidebarProps) {
     return (
         <nav
             className={cn(
-                "hidden md:flex flex-col w-64 bg-slate-950 border-r border-slate-700 h-screen fixed left-0 top-0 pt-4 px-4",
+                "hidden md:flex flex-col w-64 bg-white border-r border-slate-200 h-screen fixed left-0 top-0 pt-4 px-4",
                 className
             )}
         >
-            {/* Logo */}
-            <div className="mb-8 flex items-center gap-2 px-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">V</span>
-                </div>
-                <span className="text-white font-semibold text-lg">
-                    Veriply
-                </span>
+            {/* Current Group */}
+            <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50">
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-white text-xs font-bold">
+                            GR
+                        </div>
+                        <div className="text-left">
+                            <p className="text-sm font-semibold text-slate-900">
+                                Current Group
+                            </p>
+                            <p className="text-xs text-slate-500">Switch group</p>
+                        </div>
+                    </div>
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                </button>
             </div>
 
             {/* Navigation Links */}
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 space-y-1">
                 {navItems.map((item) => {
                     const Icon = item.icon;
                     const badge =
@@ -78,16 +87,16 @@ export function Sidebar({ className }: SidebarProps) {
                             key={item.href}
                             href={item.href}
                             className={cn(
-                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium",
+                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium border border-transparent",
                                 item.isActive
-                                    ? "bg-emerald-600 text-white"
-                                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                                    ? "bg-sky-50 text-sky-700 border-sky-100"
+                                    : "text-slate-600 hover:bg-slate-50"
                             )}
                         >
                             <Icon className="w-5 h-5 flex-shrink-0" />
                             <span className="flex-1">{item.label}</span>
                             {badge && (
-                                <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-amber-600 text-white">
+                                <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
                                     {badge}
                                 </span>
                             )}
@@ -97,8 +106,16 @@ export function Sidebar({ className }: SidebarProps) {
             </div>
 
             {/* Footer */}
-            <div className="pb-4 border-t border-slate-700 pt-4">
-                <p className="text-xs text-slate-500 px-2">© 2025 Veriply</p>
+            <div className="pb-4 pt-4 border-t border-slate-100">
+                <div className="flex items-center gap-3 px-2">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-sm font-medium">
+                        D
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Dario</p>
+                        <p className="text-xs text-slate-500">Knowledge Manager</p>
+                    </div>
+                </div>
             </div>
         </nav>
     );

@@ -1,13 +1,13 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { MobileSidebar } from "./Sidebar";
-import { GroupSwitcher } from "./GroupSwitcher";
 
 interface HeaderProps {
     className?: string;
@@ -17,6 +17,7 @@ interface HeaderProps {
 
 export function Header({ className, userInitials, userName }: HeaderProps) {
     const router = useRouter();
+    const pathname = usePathname();
     const [userMenuOpen, setUserMenuOpen] = React.useState(false);
     const [displayName, setDisplayName] = React.useState<string>(
         userName || ""
@@ -98,7 +99,12 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
     };
 
     const handleSignOut = async () => {
-        // Call logout endpoint to clear httpOnly cookie
+        // Clear client storage token so subsequent calls fail fast
+        if (typeof window !== "undefined") {
+            localStorage.removeItem("access_token");
+        }
+
+        // Call logout endpoint to clear any httpOnly cookies (best-effort)
         try {
             await fetch("/api/v1/auth/logout", {
                 method: "POST",
@@ -113,29 +119,58 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
         setUserMenuOpen(false);
     };
 
+    const tabs = [
+        { href: "/inbox", label: "HITL Dashboard" },
+        { href: "/dashboard", label: "Chat Widget" },
+        { href: "/analytics", label: "Analytics" },
+    ];
+
     return (
         <header
             className={cn(
-                "sticky top-0 z-40 w-full bg-white border-b border-slate-300",
+                "sticky top-0 z-40 w-full bg-white border-b border-slate-200",
                 className
             )}
         >
-            <div className="flex items-center justify-between h-16 px-4 md:px-6">
+            <div className="flex items-center justify-between h-14 px-4 md:px-6">
                 {/* Mobile Menu Trigger */}
                 <div className="md:hidden">
                     <MobileSidebar />
                 </div>
 
-                {/* Title Area */}
-                <div className="flex-1">
-                    <h1 className="text-lg md:text-xl font-semibold text-slate-950">
-                        Dashboard
-                    </h1>
+                {/* Brand */}
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center">
+                        <span className="text-white text-sm font-bold">V</span>
+                    </div>
+                    <span className="font-semibold text-slate-900">Veriply</span>
+                    <span className="text-slate-300">|</span>
+                    <span className="text-sm text-slate-500">
+                        Design Direction: Cool Slate
+                    </span>
                 </div>
 
-                {/* Group Switcher & User Menu */}
+                {/* Tabs + User */}
                 <div className="flex items-center gap-4">
-                    <GroupSwitcher />
+                    <div className="hidden md:flex items-center gap-1">
+                        {tabs.map((tab) => {
+                            const active = pathname === tab.href;
+                            return (
+                                <Link
+                                    key={tab.href}
+                                    href={tab.href}
+                                    className={cn(
+                                        "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                                        active
+                                            ? "bg-sky-50 text-sky-700"
+                                            : "text-slate-600 hover:bg-slate-50"
+                                    )}
+                                >
+                                    {tab.label}
+                                </Link>
+                            );
+                        })}
+                    </div>
 
                     <div className="relative">
                         <Button
@@ -165,22 +200,22 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
 
                         {/* User Menu Dropdown */}
                         {userMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white border border-slate-300 py-1 z-50">
+                            <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white border border-slate-200 py-1 z-50">
                                 <button
                                     onClick={handleProfile}
-                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                                 >
                                     Profile
                                 </button>
                                 <button
                                     onClick={handleSettings}
-                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                                 >
                                     Settings
                                 </button>
                                 <button
                                     onClick={handleSignOut}
-                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 border-t border-slate-300"
+                                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 border-t border-slate-100"
                                 >
                                     Sign out
                                 </button>

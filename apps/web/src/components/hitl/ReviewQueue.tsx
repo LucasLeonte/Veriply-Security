@@ -67,9 +67,25 @@ export function ReviewQueueItemCard({
     };
 
     const confidenceColor = (confidence: number) => {
-        if (confidence >= 0.8) return "bg-green-100 text-green-700";
-        if (confidence >= 0.6) return "bg-yellow-100 text-yellow-700";
+        if (confidence >= 0.8) return "bg-emerald-100 text-emerald-700";
+        if (confidence >= 0.6) return "bg-amber-100 text-amber-700";
         return "bg-orange-100 text-orange-700";
+    };
+
+    const confidenceBar = (confidence: number) => {
+        const pct = Math.round(confidence * 100);
+        return (
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span>Confidence:</span>
+                <div className="flex-1 min-w-[120px] h-2 rounded-full bg-slate-200">
+                    <div
+                        className="h-2 rounded-full bg-amber-400"
+                        style={{ width: `${pct}%` }}
+                    />
+                </div>
+                <span className="text-slate-600 font-medium">{pct}%</span>
+            </div>
+        );
     };
 
     if (!isSelected) {
@@ -99,14 +115,7 @@ export function ReviewQueueItemCard({
                                 <span className="text-xs font-medium text-slate-500 uppercase">
                                     {item.type}
                                 </span>
-                                <span
-                                    className={cn(
-                                        "text-xs font-medium px-2 py-1 rounded-full",
-                                        confidenceColor(item.confidence)
-                                    )}
-                                >
-                                    {Math.round(item.confidence * 100)}%
-                                </span>
+                                {confidenceBar(item.confidence)}
                                 <span className="text-xs text-slate-500 flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     {formatTime(item.timestamp)}
@@ -128,58 +137,39 @@ export function ReviewQueueItemCard({
                 {/* Item Header */}
                 <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                        <div
-                            className={cn(
-                                "w-5 h-5 rounded-full flex items-center justify-center",
-                                item.type === "chat"
-                                    ? "bg-sky-100"
-                                    : "bg-purple-100"
-                            )}
-                        >
-                            {item.type === "chat" ? (
-                                <MessageCircle className="w-3 h-3 text-sky-600" />
-                            ) : (
-                                <Mail className="w-3 h-3 text-purple-600" />
-                            )}
-                        </div>
-                        <div>
-                            <span className="text-xs font-medium text-slate-500 uppercase">
-                                {item.type}
-                            </span>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                {formatTime(item.timestamp)}
-                            </p>
-                        </div>
+                        <span className="text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-1 rounded-full">
+                            Needs Review
+                        </span>
+                        <span className="text-xs text-slate-500">
+                            {formatTime(item.timestamp)} • Support Bot
+                        </span>
                     </div>
-                    <div
-                        className={cn(
-                            "px-3 py-1 rounded-full text-sm font-medium",
-                            confidenceColor(item.confidence)
-                        )}
-                    >
-                        {Math.round(item.confidence * 100)}% confidence
-                    </div>
+                    {confidenceBar(item.confidence)}
                 </div>
 
                 {/* Question */}
                 <div className="mb-4">
-                    <p className="text-xs font-medium text-slate-500 mb-1">
-                        USER QUESTION
+                    <p className="text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide">
+                        Customer Question
                     </p>
-                    <p className="text-slate-700">{item.userQuestion}</p>
+                    <p className="text-slate-800 text-base leading-relaxed">
+                        {item.userQuestion}
+                    </p>
                 </div>
 
                 {/* AI Draft */}
                 <div className="bg-slate-50 rounded-lg p-4 mb-4 border border-slate-200">
                     <div className="flex items-center justify-between mb-2">
-                        <p className="text-xs font-medium text-slate-500">
-                            AI DRAFT
+                        <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
+                            <span className="uppercase">AI Draft</span>
+                            <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[11px]">
+                                Generated
+                            </span>
                         </p>
                         {item.citations && item.citations.length > 0 && (
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-slate-500">
-                                    {item.citations.length} citation
-                                    {item.citations.length !== 1 ? "s" : ""}
+                                    Source{item.citations.length !== 1 ? "s" : ""}
                                 </span>
                             </div>
                         )}
@@ -192,7 +182,9 @@ export function ReviewQueueItemCard({
                             rows={6}
                         />
                     ) : (
-                        <p className="text-slate-700 text-sm">{item.aiDraft}</p>
+                        <p className="text-slate-800 text-base leading-relaxed">
+                            {item.aiDraft}
+                        </p>
                     )}
 
                     {/* Citations */}
@@ -259,7 +251,7 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                                 size="sm"
                             >
                                 <CheckCircle className="w-4 h-4" />
