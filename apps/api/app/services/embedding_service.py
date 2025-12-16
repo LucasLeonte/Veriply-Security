@@ -1,6 +1,6 @@
 """Embedding service for semantic vector search.
 
-Integrates with Ollama for nomic-embed-text model to generate 1024-dimensional
+Integrates with Ollama for nomic-embed-text model to generate 768-dimensional
 embeddings for queries and documents. Includes retry logic, normalization,
 and truncation handling.
 """
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
 EMBEDDING_MODEL = "nomic-embed-text"
-EMBEDDING_DIMENSIONS = 1024
+EMBEDDING_DIMENSIONS = 768
 MAX_QUERY_TOKENS = 500
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 0.5  # seconds
@@ -54,7 +54,7 @@ class EmbeddingService:
             text: Query text to embed
 
         Returns:
-            Normalized 1024-dimensional embedding vector
+            Normalized 768-dimensional embedding vector
 
         Raises:
             EmbeddingError: If embedding generation fails after retries
@@ -155,6 +155,7 @@ class EmbeddingService:
         response.raise_for_status()
 
         data = response.json()
+        # Ollama /api/embeddings returns {"embedding": [...]}
         embedding = data.get("embedding")
 
         if not embedding:

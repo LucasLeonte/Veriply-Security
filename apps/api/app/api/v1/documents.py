@@ -81,10 +81,11 @@ async def upload_document(
             raise HTTPException(status_code=413, detail="File too large (max 100MB)")
 
         # Save file to storage using local directory
-        storage_base = Path("storage") / "documents" / "groups" / str(group_id)
+        # Storage path matches DB path: groups/{group_id}/documents/{filename}
+        storage_path = f"groups/{group_id}/documents/{file.filename}"
+        storage_base = Path("storage") / "documents" / "groups" / str(group_id) / "documents"
         storage_base.mkdir(parents=True, exist_ok=True)
         file_path = storage_base / file.filename
-        storage_path = f"groups/{group_id}/documents/{file.filename}"
 
         content = await file.read()
         with open(file_path, "wb") as f:
