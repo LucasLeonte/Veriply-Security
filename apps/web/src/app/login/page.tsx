@@ -90,42 +90,6 @@ export default function LoginPage() {
         }
     };
 
-    const handleDemoLogin = async () => {
-        // Quick demo login using the registration endpoint
-        setLoading(true);
-        try {
-            const apiUrl =
-                process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-            const response = await fetch(`${apiUrl}/api/v1/auth/register`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    email: "demo@example.com",
-                    password: "demo123456",
-                    tenant_name: "Demo Tenant",
-                }),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-
-                if (data.access_token) {
-                    localStorage.setItem("access_token", data.access_token);
-                }
-                router.push("/groups");
-            } else {
-                const errorData = await response.json().catch(() => ({}));
-                setError("Demo login failed");
-            }
-        } catch (error) {
-            setError("Demo login error");
-        } finally {
-            setLoading(false);
-        }
-    };
-
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center p-4">
             {/* Background decoration */}
@@ -253,12 +217,13 @@ export default function LoginPage() {
                                     Remember me
                                 </span>
                             </label>
-                            <a
-                                href="#"
-                                className="text-blue-600 hover:text-blue-700 font-medium"
+                            <button
+                                type="button"
+                                onClick={() => router.push("/forgot-password")}
+                                className="text-sky-600 hover:text-sky-700 font-medium"
                             >
                                 Forgot password?
-                            </a>
+                            </button>
                         </div>
 
                         {/* Submit Button */}
@@ -270,24 +235,6 @@ export default function LoginPage() {
                             {loading ? "Logging in..." : "Log in"}
                         </button>
                     </form>
-
-                    {/* Divider */}
-                    <div className="flex items-center gap-4 my-6">
-                        <div className="flex-1 h-px bg-slate-300"></div>
-                        <span className="text-slate-500 text-sm font-medium">
-                            OR
-                        </span>
-                        <div className="flex-1 h-px bg-slate-300"></div>
-                    </div>
-
-                    {/* Demo Login Button */}
-                    <button
-                        onClick={handleDemoLogin}
-                        disabled={loading}
-                        className="w-full border border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-slate-700 font-medium py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Try Demo (demo@example.com)
-                    </button>
                 </div>
             </div>
 
