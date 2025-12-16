@@ -1,8 +1,19 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components";
 
 export default function DashboardPage() {
+    const router = useRouter();
+
+    useEffect(() => {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+            router.push("/login");
+        }
+    }, [router]);
+
     return (
         <DashboardLayout>
             <div className="space-y-6">

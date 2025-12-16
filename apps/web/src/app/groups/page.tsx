@@ -22,7 +22,7 @@ export default function GroupSelectionPage() {
             router.push("/login");
             return;
         }
-        
+
         // Fetch groups with error handling
         refreshGroups().catch((err) => {
             console.error("Failed to load groups:", err);
@@ -51,7 +51,7 @@ export default function GroupSelectionPage() {
             setNewGroupName("");
             setNewGroupDescription("");
             // Redirect to dashboard with selected group
-            router.push("/");
+            router.push("/dashboard");
         } catch (err) {
             console.error("Failed to create group:", err);
             setError(
@@ -64,7 +64,7 @@ export default function GroupSelectionPage() {
 
     const handleSelectGroup = (group: any) => {
         setCurrentGroup(group);
-        router.push("/");
+        router.push("/dashboard");
     };
 
     const handleLogout = () => {

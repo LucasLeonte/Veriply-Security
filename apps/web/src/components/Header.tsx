@@ -11,18 +11,14 @@ import { MobileSidebar } from "./Sidebar";
 
 interface HeaderProps {
     className?: string;
-    userInitials?: string;
-    userName?: string;
 }
 
-export function Header({ className, userInitials, userName }: HeaderProps) {
+export function Header({ className }: HeaderProps) {
     const router = useRouter();
     const pathname = usePathname();
     const [userMenuOpen, setUserMenuOpen] = React.useState(false);
-    const [displayName, setDisplayName] = React.useState<string>(
-        userName || ""
-    );
-    const [initials, setInitials] = React.useState<string>(userInitials || "");
+    const [displayName, setDisplayName] = React.useState<string>("");
+    const [initials, setInitials] = React.useState<string>("--");
     const [avatarUrl, setAvatarUrl] = React.useState<string | undefined>(
         undefined
     );
@@ -47,9 +43,7 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
                         ? localStorage.getItem("access_token")
                         : null;
                 if (!token) {
-                    // fall back to provided props if no token
-                    setDisplayName((prev) => prev || userName || "");
-                    setInitials((prev) => prev || userInitials || "");
+                    // no token, show generic display
                     return;
                 }
 
@@ -69,10 +63,8 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
                 if (!active) return;
 
                 const nameFromProfile = data?.name || data?.email || "";
-                setDisplayName(nameFromProfile || userName || "");
-                setInitials(
-                    deriveInitials(nameFromProfile) || userInitials || ""
-                );
+                setDisplayName(nameFromProfile);
+                setInitials(deriveInitials(nameFromProfile) || "--");
                 if (data?.avatar_url) {
                     setAvatarUrl(data.avatar_url as string);
                 }
@@ -86,7 +78,7 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
         return () => {
             active = false;
         };
-    }, [apiUrl, userInitials, userName]);
+    }, [apiUrl]);
 
     const handleProfile = () => {
         router.push("/profile");
@@ -143,7 +135,9 @@ export function Header({ className, userInitials, userName }: HeaderProps) {
                     <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center">
                         <span className="text-white text-sm font-bold">V</span>
                     </div>
-                    <span className="font-semibold text-slate-900">Veriply</span>
+                    <span className="font-semibold text-slate-900">
+                        Veriply
+                    </span>
                     <span className="text-slate-300">|</span>
                     <span className="text-sm text-slate-500">
                         Design Direction: Cool Slate
