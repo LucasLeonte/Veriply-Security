@@ -21,8 +21,6 @@ export interface Document {
     deleted_at?: string; // Soft-delete support
     tenant_id: string;
     // Optional frontend-only fields for UI
-    chunk_count?: number;
-    processing_progress?: number;
     error_message?: string;
     uploader_name?: string; // For UI display
 }
