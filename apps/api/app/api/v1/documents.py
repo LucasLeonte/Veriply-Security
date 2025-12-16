@@ -222,8 +222,8 @@ async def delete_document(
         # Verify group membership (any role can delete their own uploads)
         await check_group_access(group_id, current_user, session)
 
-        # Soft delete using service
-        await DocumentGroupService.soft_delete_document(
+        # Soft delete using service and retrieve filename for audit
+        deleted_doc = await DocumentGroupService.soft_delete_document(
             db=session,
             doc_id=doc_id,
             group_id=group_id,
@@ -237,6 +237,7 @@ async def delete_document(
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
             document_id=doc_id,
+            filename=deleted_doc.filename,
         )
 
         await session.commit()

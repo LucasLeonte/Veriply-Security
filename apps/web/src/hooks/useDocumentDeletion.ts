@@ -14,8 +14,16 @@ const toast = {
 };
 
 export interface UseDocumentDeletionReturn {
-    deleteDocument: (documentId: string, documentName: string) => Promise<boolean>;
-    bulkDeleteDocuments: (botId: string, documentIds: string[], documentNames: string[]) => Promise<boolean>;
+    deleteDocument: (
+        groupId: string,
+        documentId: string,
+        documentName: string
+    ) => Promise<boolean>;
+    bulkDeleteDocuments: (
+        botId: string,
+        documentIds: string[],
+        documentNames: string[]
+    ) => Promise<boolean>;
     deletingIds: Set<string>;
     isDeleting: boolean;
 }
@@ -24,17 +32,21 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
     const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const deleteDocument = async (documentId: string, documentName: string): Promise<boolean> => {
+    const deleteDocument = async (
+        groupId: string,
+        documentId: string,
+        documentName: string
+    ): Promise<boolean> => {
         // Add to deleting set
         setDeletingIds((prev) => new Set([...prev, documentId]));
         setIsDeleting(true);
 
         try {
-            await documentsApi.deleteDocument(documentId);
-            
+            await documentsApi.deleteDocument(groupId, documentId);
+
             // Success
             toast.success("Document deleted successfully");
-            
+
             // Remove from deleting set
             setDeletingIds((prev) => {
                 const newSet = new Set(prev);
@@ -52,9 +64,13 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
             });
 
             // Error handling
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+            const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+
+            if (
+                errorMessage.includes("404") ||
+                errorMessage.includes("not found")
+            ) {
                 toast.error("Document no longer exists");
             } else {
                 toast.error("Failed to delete document. Please try again.");
@@ -74,7 +90,9 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
     ): Promise<boolean> => {
         // Validate max 100 documents
         if (documentIds.length > 100) {
-            toast.error("Maximum 100 documents can be deleted at once. Please select fewer documents.");
+            toast.error(
+                "Maximum 100 documents can be deleted at once. Please select fewer documents."
+            );
             return false;
         }
 
@@ -83,12 +101,15 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
         setIsDeleting(true);
 
         try {
-            const result = await documentsApi.bulkDeleteDocuments(botId, documentIds);
-            
+            const result = await documentsApi.bulkDeleteDocuments(
+                botId,
+                documentIds
+            );
+
             // Success
             const count = result.queued_count || documentIds.length;
             toast.success(`${count} document(s) deleted successfully`);
-            
+
             // Remove all from deleting set
             setDeletingIds((prev) => {
                 const newSet = new Set(prev);
@@ -106,9 +127,13 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
             });
 
             // Error handling
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            
-            if (errorMessage.includes("400") || errorMessage.includes("Bad Request")) {
+            const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+
+            if (
+                errorMessage.includes("400") ||
+                errorMessage.includes("Bad Request")
+            ) {
                 toast.error("Maximum 100 documents can be deleted at once");
             } else {
                 toast.error(`Failed to delete documents. Please try again.`);
