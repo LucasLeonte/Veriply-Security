@@ -39,6 +39,7 @@ export async function getBotAccess(botId: string): Promise<AccessSummary> {
 }
 
 export async function setDocumentAccess(
+  botId: string,
   documentId: string,
   data: SetAccessRequest
 ): Promise<void> {
@@ -48,7 +49,7 @@ export async function setDocumentAccess(
   }
 
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/access/documents/${documentId}`,
+    `${API_BASE_URL}/api/v1/bots/${botId}/access/documents/${documentId}`,
     {
       method: 'POST',
       headers: {
@@ -66,6 +67,7 @@ export async function setDocumentAccess(
 }
 
 export async function setFolderAccess(
+  botId: string,
   folderId: string,
   data: SetAccessRequest
 ): Promise<void> {
@@ -75,7 +77,7 @@ export async function setFolderAccess(
   }
 
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/access/folders/${folderId}`,
+    `${API_BASE_URL}/api/v1/bots/${botId}/access/folders/${folderId}`,
     {
       method: 'POST',
       headers: {
@@ -93,6 +95,7 @@ export async function setFolderAccess(
 }
 
 export async function bulkSetAccess(
+  botId: string,
   data: BulkSetAccessRequest
 ): Promise<BulkSetAccessResponse> {
   const token = await getAuthToken();
@@ -100,7 +103,7 @@ export async function bulkSetAccess(
     throw new Error("Not authenticated");
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/access/bulk`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/bots/${botId}/access/bulk`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

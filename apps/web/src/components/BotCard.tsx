@@ -61,16 +61,6 @@ export function BotCard({
 
                     {showMenu && (
                         <div className="absolute right-0 mt-1 w-48 bg-white border rounded shadow-md z-10 menu-content">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    router.push(`/dashboard/bots/${bot.id}/knowledge-base`);
-                                    setShowMenu(false);
-                                }}
-                                className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
-                            >
-                                Knowledge Base
-                            </button>
                             {onSettings && (
                                 <button
                                     onClick={(e) => {
@@ -78,7 +68,7 @@ export function BotCard({
                                         onSettings(bot);
                                         setShowMenu(false);
                                     }}
-                                    className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm border-t"
+                                    className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                                 >
                                     Settings
                                 </button>
