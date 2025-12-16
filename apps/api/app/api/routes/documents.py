@@ -127,9 +127,9 @@ async def list_bot_documents(
     tenant_id: UUID = Depends(get_current_tenant),
 ):
     """List documents for a given bot with pagination and search (tenant-isolated)."""
-    # Base query
+    # Base query - use group_id instead of bot_id (bot_id field was refactored to group_id)
     base_query = select(Document).where(
-        Document.bot_id == bot_id,
+        Document.group_id == bot_id,
         Document.tenant_id == tenant_id
     )
     
@@ -173,7 +173,7 @@ async def list_bot_documents(
         
         doc_responses.append(DocumentResponse(
             id=doc.id,
-            bot_id=doc.bot_id,
+            bot_id=doc.group_id,  # Use group_id instead of bot_id for backward compatibility
             filename=doc.title,  # Use title directly (property also works)
             file_size=doc.size or 0,
             status=doc.status,
@@ -220,7 +220,7 @@ async def get_document(
     
     return DocumentResponse(
         id=doc.id,
-        bot_id=doc.bot_id,
+        bot_id=doc.group_id,  # Use group_id instead of bot_id for backward compatibility
         filename=doc.title,
         file_size=doc.size or 0,
         status=doc.status,

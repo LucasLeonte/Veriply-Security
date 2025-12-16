@@ -5,7 +5,7 @@ import { FolderList } from "@/components/kb";
 import { useGroup } from "@/contexts/GroupContext";
 import { foldersApi } from "@/lib/api/folders";
 import { documentsApi } from "@/lib/api/documents";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { Folder, FolderStats } from "@/types/folder";
 import type { Document } from "@/types/document";
 import { DocumentCard } from "@/components/kb/DocumentCard";
@@ -22,6 +22,7 @@ export default function GroupKnowledgeBasePage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch folders
     useEffect(() => {
@@ -52,6 +53,70 @@ export default function GroupKnowledgeBasePage() {
                 .finally(() => setIsLoading(false));
         }
     }, [currentGroup?.id]);
+
+    // Poll for document status updates
+    useEffect(() => {
+        const processingDocIds = documents
+            .filter((doc) => doc.status === "processing")
+            .map((doc) => doc.id);
+
+        if (processingDocIds.length === 0 || !currentGroup?.id) {
+            // Clear polling if no processing documents
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+            }
+            return;
+        }
+
+        const pollDocuments = async () => {
+            try {
+                const updatedDocs: Document[] = [];
+                for (const docId of processingDocIds) {
+                    try {
+                        const updated = await documentsApi.getDocument(docId);
+                        updatedDocs.push(updated as Document);
+                    } catch (err) {
+                        console.error(`Failed to fetch document ${docId}:`, err);
+                    }
+                }
+
+                if (updatedDocs.length > 0) {
+                    setDocuments((prevDocs) => {
+                        const docMap = new Map(prevDocs.map((doc) => [doc.id, doc]));
+                        updatedDocs.forEach((doc) => {
+                            docMap.set(doc.id, doc);
+                        });
+                        return Array.from(docMap.values());
+                    });
+                }
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        };
+
+        // Immediate poll
+        pollDocuments();
+
+        // Set up recurring polls every 2 seconds
+        pollingIntervalRef.current = setInterval(pollDocuments, 2000);
+
+        return () => {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+            }
+        };
+    }, [documents, currentGroup?.id]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+            }
+        };
+    }, []);
 
     const handleCreateFolder = async (name: string) => {
         if (!currentGroup?.id) return;
