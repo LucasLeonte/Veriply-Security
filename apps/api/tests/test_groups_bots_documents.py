@@ -18,7 +18,13 @@ async def session(db_session):
 @pytest.fixture
 async def test_tenant(session):
     """Create a test tenant."""
-    tenant = Tenant(id=uuid4(), name="Test Tenant")
+    from app.models.tenant import SubscriptionTier
+    tenant = Tenant(
+        id=uuid4(), 
+        name="Test Tenant",
+        plan="free",
+        subscription_tier=SubscriptionTier.FREE
+    )
     session.add(tenant)
     await session.commit()
     return tenant
