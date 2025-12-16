@@ -31,14 +31,14 @@ describe('Login Page', () => {
 
     expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
   });
 
   it('shows validation error when email is missing', async () => {
     const user = userEvent.setup();
     render(<LoginPage />);
 
-    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    const submitButton = screen.getByRole('button', { name: /log in/i });
     await user.click(submitButton);
 
     expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('Login Page', () => {
     const emailInput = screen.getByPlaceholderText('you@example.com');
     await user.type(emailInput, 'test@example.com');
 
-    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    const submitButton = screen.getByRole('button', { name: /log in/i });
     await user.click(submitButton);
 
     expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
@@ -77,7 +77,7 @@ describe('Login Page', () => {
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'short');
 
-    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    const submitButton = screen.getByRole('button', { name: /log in/i });
     await user.click(submitButton);
 
     expect(await screen.findByText(/at least 8 characters/i)).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe('Login Page', () => {
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'password123');
 
-    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    const submitButton = screen.getByRole('button', { name: /log in/i });
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -128,7 +128,7 @@ describe('Login Page', () => {
     await user.type(emailInput, 'test@example.com');
     await user.type(passwordInput, 'password123');
 
-    const submitButton = screen.getByRole('button', { name: /sign in/i });
+    const submitButton = screen.getByRole('button', { name: /log in/i });
     await user.click(submitButton);
 
     expect(await screen.findByText(/invalid credentials/i)).toBeInTheDocument();
@@ -404,10 +404,12 @@ describe('Profile Page', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
-        '/api/v1/profile/avatar',
+        expect.stringMatching(/\/api\/v1\/profile\/avatar$/),
         expect.objectContaining({
           method: 'POST',
-          credentials: 'include',
+          headers: expect.objectContaining({
+            'Authorization': expect.stringContaining('Bearer '),
+          }),
         })
       );
     });

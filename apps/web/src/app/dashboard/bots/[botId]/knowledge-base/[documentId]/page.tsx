@@ -100,7 +100,7 @@ export default function DocumentDetailPage() {
                 {/* Document Detail Component */}
                 <DocumentDetail
                     document={documentData}
-                    chunks={(chunksData?.chunks as any) || []}
+                    chunks={chunksData?.chunks || []}
                     botId={botId}
                     onReprocess={handleReprocess}
                     onDelete={handleDelete}

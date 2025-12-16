@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +14,14 @@ export default function LoginPage() {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
+
+    // Check for session expired error
+    useEffect(() => {
+        const errorParam = searchParams.get("error");
+        if (errorParam === "session_expired") {
+            setError("Your session has expired. Please log in again.");
+        }
+    }, [searchParams]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -46,7 +55,7 @@ export default function LoginPage() {
             // Call login API endpoint first
             const apiUrl =
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-            let response = await fetch(`${apiUrl}/api/v1/auth/login`, {
+            const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -109,7 +118,7 @@ export default function LoginPage() {
                     <p className="text-slate-600">Log in to your account</p>
                     <div className="mt-2 text-sm">
                         <span className="text-slate-500">
-                            Don't have an account?
+                            Don&apos;t have an account?
                         </span>
                         <button
                             type="button"

@@ -136,16 +136,17 @@ describe('useUploadDocuments', () => {
         const files = [new File(['content'], 'test.pdf', { type: 'application/pdf' })];
 
         try {
-            await result.current.mutate('bot-1', files);
+            await result.current.mutate({ groupId: 'bot-1', files });
         } catch (_error) {
             // Expected to throw
         }
 
         await waitFor(() => {
             expect(result.current.isPending).toBe(false);
+            expect(result.current.error).not.toBeNull();
         });
 
-        expect(result.current.error).toBeTruthy();
+        expect(result.current.error?.message).toBe('Upload failed');
     });
 });
 
@@ -161,7 +162,7 @@ describe('useDeleteDocument', () => {
 
         expect(result.current.isPending).toBe(false);
 
-        const deletePromise = result.current.mutate('doc-123');
+        const deletePromise = result.current.mutate({ groupId: 'group-1', documentId: 'doc-123' });
         await deletePromise;
 
         await waitFor(() => {
@@ -178,7 +179,7 @@ describe('useDeleteDocument', () => {
         const { result } = renderHook(() => useDeleteDocument());
 
         try {
-            await result.current.mutate('doc-123');
+            await result.current.mutate({ groupId: 'group-1', documentId: 'doc-123' });
         } catch (_error) {
             // Expected to throw
         }

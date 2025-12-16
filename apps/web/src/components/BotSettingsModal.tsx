@@ -28,10 +28,11 @@ export function BotSettingsModal({
     onError,
 }: BotSettingsModalProps) {
     const { data: bot, isLoading: isLoadingBot } = useBotQuery(null, botId);
+    const groupId = bot?.group_id ?? "";
     const {
         mutate: updateBot,
         isPending: isUpdating,
-    } = useUpdateBot(null as any, botId);
+    } = useUpdateBot(groupId, botId);
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");

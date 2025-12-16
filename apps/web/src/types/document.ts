@@ -34,7 +34,7 @@ export interface DocumentChunk {
     chunk_index: number;
     page_number?: number;
     group_id: string;
-    source_metadata?: Record<string, any>;
+    source_metadata?: Record<string, unknown>;
     created_at: string;
 }
 

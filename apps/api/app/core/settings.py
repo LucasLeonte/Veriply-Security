@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -166,7 +167,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "info"
     
     # CORS Configuration
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001"
+    CORS_ORIGINS: str = Field(
+        default="http://localhost:3000,http://localhost:3001",
+        env="ALLOW_ORIGINS"
+    )
     
     @property
     def CORS_ORIGINS_LIST(self) -> list[str]:

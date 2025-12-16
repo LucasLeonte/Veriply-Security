@@ -7,6 +7,10 @@ import { SearchBar } from "./SearchBar";
 import { Pagination } from "./Pagination";
 import { UploadModal } from "./UploadModal";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { BulkDeleteToolbar } from "../knowledge-base/BulkDeleteToolbar";
+import { BulkDeleteConfirmationModal } from "../modals/BulkDeleteConfirmationModal";
+import { DeleteConfirmationModal } from "../modals/DeleteConfirmationModal";
+import { useDocumentDeletion } from "@/hooks/useDocumentDeletion";
 import { Upload, Loader, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -48,6 +52,11 @@ export function KnowledgeBaseList({
     const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
+    // Bulk deletion state
+    const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<string>>(new Set());
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const { deleteDocument, bulkDeleteDocuments, deletingIds, isDeleting: isHookDeleting } = useDocumentDeletion();
+
     // Debounce search and notify parent
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -55,6 +64,11 @@ export function KnowledgeBaseList({
         }, 300);
         return () => clearTimeout(timer);
     }, [searchQuery, onSearchChange]);
+
+    // Clear selection when documents change (e.g., pagination, search)
+    useEffect(() => {
+        setSelectedDocumentIds(new Set());
+    }, [documents]);
 
     const handleViewDocument = (document: Document) => {
         router.push(`/dashboard/bots/${botId}/knowledge-base/${document.id}`);
@@ -88,6 +102,48 @@ export function KnowledgeBaseList({
         }
     };
 
+    // Bulk selection handlers
+    const handleSelectAll = () => {
+        if (selectedDocumentIds.size === documents.length) {
+            // Deselect all
+            setSelectedDocumentIds(new Set());
+        } else {
+            // Select all on current page
+            const allIds = new Set(documents.map(doc => doc.id));
+            setSelectedDocumentIds(allIds);
+        }
+    };
+
+    const handleToggleSelection = (documentId: string) => {
+        const newSelection = new Set(selectedDocumentIds);
+        if (newSelection.has(documentId)) {
+            newSelection.delete(documentId);
+        } else {
+            newSelection.add(documentId);
+        }
+        setSelectedDocumentIds(newSelection);
+    };
+
+    const handleBulkDeleteClick = () => {
+        setIsBulkDeleteModalOpen(true);
+    };
+
+    const handleBulkDeleteConfirm = async () => {
+        const documentIds = Array.from(selectedDocumentIds);
+        const documentNames = documents
+            .filter(doc => selectedDocumentIds.has(doc.id))
+            .map(doc => doc.filename);
+
+        try {
+            await bulkDeleteDocuments(botId, documentIds, documentNames);
+            setIsBulkDeleteModalOpen(false);
+            setSelectedDocumentIds(new Set());
+            // Note: Parent component should refresh document list
+        } catch (err) {
+            console.error("Bulk delete failed:", err);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header Section */}
@@ -106,6 +162,18 @@ export function KnowledgeBaseList({
                     Upload Documents
                 </button>
             </div>
+
+            {/* Bulk Delete Toolbar */}
+            {!isLoading && !error && documents.length > 0 && (
+                <BulkDeleteToolbar
+                    selectedCount={selectedDocumentIds.size}
+                    totalCount={documents.length}
+                    allSelected={selectedDocumentIds.size === documents.length && documents.length > 0}
+                    onSelectAll={handleSelectAll}
+                    onBulkDelete={handleBulkDeleteClick}
+                    disabled={isHookDeleting}
+                />
+            )}
 
             {/* Document Count */}
             {!isLoading && (
@@ -171,6 +239,9 @@ export function KnowledgeBaseList({
                             onView={handleViewDocument}
                             onDelete={handleDeleteClick}
                             onReprocess={handleReprocess}
+                            isSelected={selectedDocumentIds.has(document.id)}
+                            onToggleSelection={handleToggleSelection}
+                            isDeleting={deletingIds.has(document.id)}
                         />
                     ))}
                 </div>
@@ -204,6 +275,18 @@ export function KnowledgeBaseList({
                 onConfirm={handleDeleteConfirm}
                 documentName={documentToDelete?.filename || ""}
                 isDeleting={isDeleting}
+            />
+
+            {/* Bulk Delete Confirmation Modal */}
+            <BulkDeleteConfirmationModal
+                isOpen={isBulkDeleteModalOpen}
+                onClose={() => setIsBulkDeleteModalOpen(false)}
+                onConfirm={handleBulkDeleteConfirm}
+                selectedCount={selectedDocumentIds.size}
+                selectedDocuments={documents
+                    .filter(doc => selectedDocumentIds.has(doc.id))
+                    .map(doc => ({ id: doc.id, name: doc.filename }))}
+                isDeleting={isHookDeleting}
             />
         </div>
     );

@@ -45,6 +45,17 @@ async function fetchWithAuth(
 
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+            // Clear expired token
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("access_token");
+                // Redirect to login
+                window.location.href = "/login?error=session_expired";
+            }
+            throw new Error("Session expired. Please log in again.");
+        }
+        
         const error = await response
             .json()
             .catch(() => ({ detail: "Unknown error" }));
@@ -160,6 +171,35 @@ export const documentsApi = {
         if (!response.ok) {
             throw new Error(`Failed to delete document: ${response.status}`);
         }
+    },
+
+    /**
+     * Delete multiple documents in bulk
+     */
+    async bulkDeleteDocuments(botId: string, documentIds: string[]): Promise<{
+        message: string;
+        queued_count: number;
+        document_ids: string[];
+    }> {
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.bulkDeleteDocuments(botId, documentIds);
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/documents/bulk-delete`,
+            {
+                method: "POST",
+                body: JSON.stringify({
+                    bot_id: botId,
+                    document_ids: documentIds,
+                }),
+            }
+        );
+        return handleResponse<{
+            message: string;
+            queued_count: number;
+            document_ids: string[];
+        }>(response);
     },
 
     /**

@@ -65,3 +65,25 @@ class ChunkListResponse(BaseModel):
     """Response schema for document chunks list"""
     chunks: List[ChunkResponse]
     total: int
+
+
+class BulkDeleteRequest(BaseModel):
+    """Request schema for bulk document deletion"""
+    document_ids: List[UUID]
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "document_ids": [
+                    "550e8400-e29b-41d4-a716-446655440000",
+                    "550e8400-e29b-41d4-a716-446655440001"
+                ]
+            }
+        }
+
+
+class BulkDeleteResponse(BaseModel):
+    """Response schema for bulk document deletion"""
+    message: str
+    queued_count: int
+    document_ids: List[str]
