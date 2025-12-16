@@ -136,7 +136,7 @@ describe('useUploadDocuments', () => {
         const files = [new File(['content'], 'test.pdf', { type: 'application/pdf' })];
 
         try {
-            await result.current.mutate('bot-1', files);
+            await result.current.mutate({ groupId: 'bot-1', files });
         } catch (_error) {
             // Expected to throw
         }
@@ -144,6 +144,9 @@ describe('useUploadDocuments', () => {
         await waitFor(() => {
             expect(result.current.isPending).toBe(false);
         });
+        
+        expect(result.current.error).not.toBeNull();
+        expect(result.current.error?.message).toBe('Upload failed');
 
         expect(result.current.error).toBeTruthy();
     });

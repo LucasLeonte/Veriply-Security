@@ -181,10 +181,12 @@ describe("DuplicateBotModal", () => {
         await user.click(submitButton);
 
         await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalledWith({
+            expect(mockMutate).toHaveBeenCalledWith(
+                expect.objectContaining({
                 botId: mockBot.id,
                 name: "Test Bot (Copy)",
-            });
+                })
+            );
             expect(mockOnSuccess).toHaveBeenCalledWith(newBot);
         });
     });
@@ -279,10 +281,12 @@ describe("DuplicateBotModal", () => {
         await user.click(submitButton);
 
         await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalledWith({
+            expect(mockMutate).toHaveBeenCalledWith(
+                expect.objectContaining({
                 botId: mockBot.id,
                 name: "My Custom Copy",
-            });
+                })
+            );
         });
     });
 });

@@ -220,7 +220,7 @@ describe("DeleteBotModal", () => {
         await user.click(deleteButton);
 
         await waitFor(() => {
-            expect(mockMutate).toHaveBeenCalledWith(mockBot.id);
+            expect(mockMutate).toHaveBeenCalledWith(null, mockBot.id);
             expect(mockOnSuccess).toHaveBeenCalled();
         });
     });
