@@ -157,6 +157,11 @@ development_status:
         assigned_to: Kainy
         blocked_by: 2-1-bot-creation-configuration
 
+    2-9-group-kb-folders-bot-allowlist:
+        status: ready-for-dev
+        assigned_to: Dario
+        blocked_by: null
+
     epic-2-retrospective: optional
 
     # Epic 3: RAG Q&A Engine
