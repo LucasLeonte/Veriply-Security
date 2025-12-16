@@ -82,6 +82,10 @@ async def create_folder(
             db=session,
             actor_id=user_id,
             action="folder_created",
+            tenant_id=tenant_id,
+            group_id=group_id,
+            target_type="folder",
+            target_id=folder.id,
             details={
                 "folder_id": str(folder.id),
                 "folder_name": folder.name,
@@ -285,6 +289,10 @@ async def update_folder(
             db=session,
             actor_id=user_id,
             action="folder_updated",
+            tenant_id=tenant_id,
+            group_id=group_id,
+            target_type="folder",
+            target_id=folder.id,
             details={
                 "folder_id": str(folder.id),
                 "folder_name": folder.name,
@@ -371,6 +379,10 @@ async def delete_folder(
             db=session,
             actor_id=user_id,
             action="folder_deleted",
+            tenant_id=tenant_id,
+            group_id=group_id,
+            target_type="folder",
+            target_id=folder.id,
             details={
                 "folder_id": str(folder.id),
                 "folder_name": folder.name,

@@ -2,7 +2,7 @@
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.folder import Folder
 from app.models.document import Document
@@ -181,6 +181,9 @@ class FolderService:
     ) -> Folder:
         """Soft-delete a folder. Documents in folder have folder_id set to NULL.
         
+        To avoid unique constraint conflicts on (tenant_id, group_id, name),
+        the folder is renamed with a deletion suffix before being marked deleted.
+        
         Args:
             db: Database session
             folder_id: Folder ID
@@ -195,6 +198,15 @@ class FolderService:
         """
         folder = await FolderService.get_folder(db, folder_id, tenant_id, group_id)
         
+        # Rename folder to avoid unique constraint conflict on name
+        ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        suffix = f" __deleted__{ts}"
+        max_len = 255
+        base = folder.name or "folder"
+        if len(base) + len(suffix) > max_len:
+            base = base[: max_len - len(suffix)]
+        folder.name = f"{base}{suffix}"
+
         # Mark folder as deleted
         folder.deleted_at = datetime.utcnow()
         folder.updated_at = datetime.utcnow()
@@ -202,13 +214,15 @@ class FolderService:
         # Documents will have folder_id set to NULL by FK constraint ON DELETE SET NULL
         # But we'll do it explicitly here for clarity
         await db.execute(
-            select(Document).where(
+            update(Document)
+            .where(
                 and_(
                     Document.folder_id == folder_id,
                     Document.tenant_id == tenant_id,
-                    Document.group_id == group_id
+                    Document.group_id == group_id,
                 )
-            ).update({Document.folder_id: None})
+            )
+            .values(folder_id=None)
         )
         
         await db.flush()

@@ -135,12 +135,24 @@ class DocumentGroupService:
         """
         Soft-delete a document (mark deleted_at).
         
+        To avoid potential conflicts, the document title is renamed with a 
+        deletion suffix before being marked deleted.
+        
         Note: Chunks remain in KB but are orphaned. Document can be
         restored by clearing deleted_at if needed.
         """
         doc = await DocumentGroupService.get_document(db, doc_id, group_id, tenant_id)
         if not doc:
             raise ValueError(f"Document {doc_id} not found")
+
+        # Rename document to avoid potential conflicts on recreate
+        ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        suffix = f" __deleted__{ts}"
+        max_len = 255
+        base = doc.title or "document"
+        if len(base) + len(suffix) > max_len:
+            base = base[: max_len - len(suffix)]
+        doc.title = f"{base}{suffix}"
 
         doc.deleted_at = datetime.utcnow()
         await db.flush()
