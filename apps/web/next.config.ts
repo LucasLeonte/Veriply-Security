@@ -60,9 +60,6 @@ const nextConfig: NextConfig = {
 
     // Output configuration
     output: "standalone", // For Docker deployment
-
-    // Disable telemetry
-    telemetry: false,
 };
 
 export default nextConfig;

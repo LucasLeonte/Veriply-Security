@@ -284,9 +284,9 @@ export function KnowledgeBaseList({
                 onClose={() => setIsBulkDeleteModalOpen(false)}
                 onConfirm={handleBulkDeleteConfirm}
                 selectedCount={selectedDocumentIds.size}
-                documentNames={documents
+                selectedDocuments={documents
                     .filter(doc => selectedDocumentIds.has(doc.id))
-                    .map(doc => doc.filename)}
+                    .map(doc => ({ id: doc.id, name: doc.filename }))}
                 isDeleting={isHookDeleting}
             />
         </div>
