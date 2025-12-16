@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components";
+import { getAccessToken, clearAccessToken } from "@/lib/auth";
 
 interface TeamMember {
     id: string;
@@ -30,7 +31,7 @@ export default function SettingsPage() {
             setLoading(true);
             setError(null);
 
-            const token = localStorage.getItem("access_token");
+            const token = getAccessToken();
             if (!token) {
                 setError("Not authenticated. Please log in.");
                 setTimeout(() => {
@@ -51,7 +52,7 @@ export default function SettingsPage() {
 
             if (profileResponse.status === 401) {
                 setError("Session expired. Please log in again.");
-                localStorage.removeItem("access_token");
+                clearAccessToken();
                 window.location.href = "/login";
                 return;
             }
@@ -75,7 +76,7 @@ export default function SettingsPage() {
 
             if (membersResponse.status === 401) {
                 setError("Session expired. Please log in again.");
-                localStorage.removeItem("access_token");
+                clearAccessToken();
                 window.location.href = "/login";
                 return;
             }
@@ -107,7 +108,7 @@ export default function SettingsPage() {
         try {
             setError(null);
 
-            const token = localStorage.getItem("access_token");
+            const token = getAccessToken();
             if (!token) {
                 setError("Not authenticated. Please log in.");
                 setTimeout(() => {
@@ -128,7 +129,7 @@ export default function SettingsPage() {
 
             if (response.status === 401) {
                 setError("Session expired. Please log in again.");
-                localStorage.removeItem("access_token");
+                clearAccessToken();
                 window.location.href = "/login";
                 return;
             }
@@ -151,7 +152,7 @@ export default function SettingsPage() {
         try {
             setError(null);
 
-            const token = localStorage.getItem("access_token");
+            const token = getAccessToken();
             if (!token) {
                 setError("Not authenticated. Please log in.");
                 setTimeout(() => {
@@ -174,7 +175,7 @@ export default function SettingsPage() {
 
             if (response.status === 401) {
                 setError("Session expired. Please log in again.");
-                localStorage.removeItem("access_token");
+                clearAccessToken();
                 window.location.href = "/login";
                 return;
             }

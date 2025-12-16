@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useGroup } from "@/contexts/GroupContext";
 import { groupsApi } from "@/lib/api/groups";
 import { Users, Plus, ArrowRight, LogOut } from "lucide-react";
+import { getAccessToken, clearAccessToken } from "@/lib/auth";
 
 export default function GroupSelectionPage() {
     const router = useRouter();
@@ -17,7 +18,7 @@ export default function GroupSelectionPage() {
 
     useEffect(() => {
         // Check if user is authenticated
-        const token = localStorage.getItem("access_token");
+        const token = getAccessToken();
         if (!token) {
             router.push("/login");
             return;
@@ -68,7 +69,7 @@ export default function GroupSelectionPage() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem("access_token");
+        clearAccessToken();
         router.push("/login");
     };
 

@@ -5,6 +5,7 @@ import {
     UpdateGroupInput,
     InviteMemberInput,
 } from "@/types/group";
+import { getAccessToken } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const GROUPS_ENDPOINT = `${API_BASE_URL}/api/v1/groups`;
@@ -13,7 +14,7 @@ async function getAuthToken(): Promise<string | null> {
     if (typeof window === "undefined") {
         return null;
     }
-    return localStorage.getItem("access_token");
+    return getAccessToken();
 }
 
 async function fetchWithAuth(

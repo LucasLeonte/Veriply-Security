@@ -8,6 +8,7 @@ import React, {
     ReactNode,
 } from "react";
 import { Group } from "@/types/group";
+import { getAccessToken } from "@/lib/auth";
 import { groupsApi } from "@/lib/api/groups";
 
 interface GroupContextType {
@@ -30,7 +31,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
     const refreshGroups = async () => {
         // Check if user is logged in before fetching
         if (typeof window === "undefined") return;
-        const token = localStorage.getItem("access_token");
+        const token = getAccessToken();
         if (!token) {
             setIsLoading(false);
             return; // Don't fetch if not logged in

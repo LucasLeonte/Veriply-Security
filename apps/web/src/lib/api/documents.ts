@@ -4,6 +4,7 @@ import {
     DocumentDetailResponse,
 } from "@/types/document";
 import { mockDocumentsApi } from "./mockDocuments";
+import { getAccessToken } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
@@ -13,7 +14,7 @@ async function getAuthToken(): Promise<string | null> {
     if (typeof window === "undefined") {
         return null;
     }
-    return localStorage.getItem("access_token");
+    return getAccessToken();
 }
 
 async function fetchWithAuth(
