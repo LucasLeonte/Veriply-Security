@@ -187,8 +187,9 @@ development_status:
         blocked_by: 3-3-citation-generation
 
     3-5-pii-redaction:
-        status: in-progress
+        status: done
         assigned_to: Kainy
+        completed_date: 2025-12-16
         blocked_by: 3-2-context-only-answer-generation
 
     epic-3-retrospective: optional

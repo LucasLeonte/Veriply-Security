@@ -70,7 +70,7 @@ development_status:
     3-2-context-only-answer-generation: drafted
     3-3-citation-generation: done
     3-4-confidence-scoring-routing: drafted
-    3-5-pii-redaction: drafted
+    3-5-pii-redaction: done
     4-4-trust-signals-display: drafted
     4-5-embeddable-widget-generation: drafted
     4-6-widget-security-responsiveness: drafted
