@@ -321,6 +321,6 @@ Answer (based ONLY on the context above):"""
                         token = data["message"]["content"]
                         if token:
                             yield token
-                except json.JSONDecodeError as e:
+                except json.JSONDecodeError:
                     logger.warning(f"Failed to parse Ollama response line: {line[:100]}")
                     raise

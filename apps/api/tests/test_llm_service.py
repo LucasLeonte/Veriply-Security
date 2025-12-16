@@ -5,13 +5,11 @@ and context-only enforcement.
 """
 
 import pytest
-import json
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from app.services.llm_service import (
     LLMService,
-    LLMError,
     DEFAULT_TEMPERATURE,
     DEFAULT_TOP_P,
     DEFAULT_MAX_TOKENS,

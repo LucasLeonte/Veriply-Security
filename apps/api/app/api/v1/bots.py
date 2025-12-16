@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
-from datetime import datetime
 import logging
 
-from app.models import Bot, BotStatus, Group, GroupMember, GroupRole
+from app.models import Group, GroupMember, GroupRole
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.api.v1.schemas import BotCreate, BotUpdate, BotResponse

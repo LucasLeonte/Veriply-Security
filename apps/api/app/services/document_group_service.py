@@ -4,11 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from uuid import UUID
 from datetime import datetime
-from pathlib import Path
 import logging
 
 from app.models import Document, Chunk, Group
-from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +87,7 @@ class DocumentGroupService:
                 (Document.id == doc_id)
                 & (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at == None)
+                & (Document.deleted_at is None)
             )
         )
 
@@ -109,14 +107,14 @@ class DocumentGroupService:
         )
 
         if not include_deleted:
-            query = query.where(Document.deleted_at == None)
+            query = query.where(Document.deleted_at is None)
 
         # Count
         count_query = select(func.count(Document.id)).where(
             (Document.group_id == group_id) & (Document.tenant_id == tenant_id)
         )
         if not include_deleted:
-            count_query = count_query.where(Document.deleted_at == None)
+            count_query = count_query.where(Document.deleted_at is None)
 
         total = await db.scalar(count_query)
 
@@ -236,7 +234,7 @@ class DocumentGroupService:
             select(func.count(Document.id)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at == None)
+                & (Document.deleted_at is None)
             )
         )
 
@@ -252,7 +250,7 @@ class DocumentGroupService:
             select(func.sum(Document.size)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at == None)
+                & (Document.deleted_at is None)
             )
         )
 

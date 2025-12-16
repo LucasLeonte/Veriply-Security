@@ -4,10 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
-from datetime import datetime
 import logging
 
-from app.models import Group, GroupMember, GroupRole, User, Tenant
+from app.models import GroupMember, GroupRole, User, Tenant
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.api.v1.schemas import (
@@ -106,7 +105,7 @@ async def create_group(
     except Exception as e:
         await session.rollback()
         logger.exception(f"UNEXPECTED ERROR creating group - Type: {type(e).__name__}, Message: {e}")
-        logger.error(f"Full traceback:", exc_info=True)
+        logger.error("Full traceback:", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create group: {str(e)}")
 
 

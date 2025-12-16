@@ -4,16 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
-from datetime import datetime
 from pathlib import Path
-import os
 import logging
 
-from app.models import Document, Group, GroupMember, GroupRole
+from app.models import Group, GroupMember, GroupRole
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.core.settings import settings
-from app.api.v1.schemas import DocumentResponse, DocumentUpload, ChunkResponse
+from app.api.v1.schemas import DocumentResponse, ChunkResponse
 from app.services.document_group_service import DocumentGroupService
 from app.services.audit_service import AuditService
 
@@ -264,7 +262,6 @@ async def list_document_chunks(
     Useful for reviewing processed content and provenance.
     """
     try:
-        from app.models import Chunk
 
         # Verify group membership
         await check_group_access(group_id, current_user, session)

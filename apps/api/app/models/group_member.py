@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Uuid, ForeignKey, DateTime, Enum as SQLEnum, Index
+from sqlalchemy import Column, Uuid, ForeignKey, DateTime, Enum as SQLEnum, Index
 from datetime import datetime
 import enum
 from .base import Base

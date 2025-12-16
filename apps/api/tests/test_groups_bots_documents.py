@@ -3,12 +3,9 @@
 import pytest
 from httpx import AsyncClient
 from uuid import uuid4
-import json
 
-from app.main import app
 from app.core.auth import get_jwt_secret, JWT_ALGORITHM
-from app.core.database import get_db
-from app.models import User, Tenant, Group, GroupMember, GroupRole, Bot, Document
+from app.models import User, Tenant
 import jwt
 
 

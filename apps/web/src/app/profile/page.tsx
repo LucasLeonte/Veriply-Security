@@ -375,8 +375,9 @@ export default function ProfilePage() {
                             <input
                                 type="text"
                                 value={
-                                    profile.role.charAt(0).toUpperCase() +
-                                    profile.role.slice(1)
+                                    profile.role
+                                        ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1)
+                                        : ""
                                 }
                                 readOnly
                                 className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 capitalize"

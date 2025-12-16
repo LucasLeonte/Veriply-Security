@@ -9,8 +9,9 @@ describe('UploadModal', () => {
     const botId = 'bot-123';
 
     const getFileInput = () => {
-        const browseButton = screen.getByRole('button', { name: /Browse Files/i });
-        return browseButton.parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+        const labels = screen.getAllByText(/Browse Files/i);
+        const browseLabel = labels.find(label => label.tagName === 'SPAN')?.closest('label');
+        return browseLabel?.querySelector('input[type="file"]') as HTMLInputElement;
     };
 
     beforeEach(() => {

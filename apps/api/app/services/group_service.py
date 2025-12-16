@@ -167,7 +167,7 @@ class GroupService:
             )
         )
         if existing:
-            raise ValueError(f"User already a member of this group")
+            raise ValueError("User already a member of this group")
 
         member = GroupMember(
             group_id=group_id,
@@ -250,7 +250,7 @@ class GroupService:
             select(func.count(Document.id)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at == None)
+                & (Document.deleted_at is None)
             )
         )
 
