@@ -44,6 +44,17 @@ async function fetchWithAuth(
 
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+            // Clear expired token
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("access_token");
+                // Redirect to login
+                window.location.href = "/login?error=session_expired";
+            }
+            throw new Error("Session expired. Please log in again.");
+        }
+        
         const error = await response
             .json()
             .catch(() => ({ detail: "Unknown error" }));
@@ -112,13 +123,16 @@ export const documentsApi = {
             formData.append("files", file);
         });
 
-        const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/bots/${botId}/documents`,
-            {
-                method: "POST",
-                body: formData,
-            }
-        );
+        const url = `${API_BASE_URL}/api/v1/bots/${botId}/documents`;
+        console.log('[Upload] Uploading to:', url);
+        console.log('[Upload] Files:', files.map(f => f.name));
+        
+        const response = await fetchWithAuth(url, {
+            method: "POST",
+            body: formData,
+        });
+        
+        console.log('[Upload] Response status:', response.status);
         return handleResponse<{ id: string; document_id: string; status: string; queued: boolean }>(response);
     },
 

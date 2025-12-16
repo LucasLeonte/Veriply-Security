@@ -74,7 +74,7 @@ async def upload_document(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
-            uploader_id=(current_user.get('sub') if isinstance(current_user, dict) else getattr(current_user, 'id', None)),
+            uploader_id=current_user.id,
             filename=safe_filename,
             size_bytes=len(content),
             mime_type=file.content_type or "application/octet-stream",
@@ -85,9 +85,10 @@ async def upload_document(
 
     try:
         await db.commit()
-    except Exception:
+    except Exception as e:
         await db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to save document")
+        logger.exception(f"Failed to commit document to database: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save document: {str(e)}")
     
     # After commit, enqueue processing so background sessions can see the row
     queued_after = False
@@ -134,7 +135,7 @@ async def list_bot_documents(
     
     # Apply search filter
     if search:
-        base_query = base_query.where(Document.filename.ilike(f"%{search}%"))
+        base_query = base_query.where(Document.title.ilike(f"%{search}%"))
     
     # Get total count
     count_query = select(func.count()).select_from(base_query.subquery())
@@ -173,7 +174,7 @@ async def list_bot_documents(
         doc_responses.append(DocumentResponse(
             id=doc.id,
             bot_id=doc.bot_id,
-            filename=doc.filename,
+            filename=doc.title,  # Use title directly (property also works)
             file_size=doc.size or 0,
             status=doc.status,
             chunk_count=chunk_count,
@@ -220,7 +221,7 @@ async def get_document(
     return DocumentResponse(
         id=doc.id,
         bot_id=doc.bot_id,
-        filename=doc.filename,
+        filename=doc.title,
         file_size=doc.size or 0,
         status=doc.status,
         chunk_count=chunk_count,

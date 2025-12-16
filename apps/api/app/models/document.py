@@ -9,8 +9,7 @@ class Document(Base):
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     tenant_id = Column(Uuid, ForeignKey("tenants.id"), nullable=False)
     bot_id = Column(Uuid, ForeignKey("bots.id"), nullable=True)
-    title = Column(String(255), nullable=True)
-    filename = Column(String(255), nullable=True)
+    title = Column(String(255), nullable=False)  # Database column is 'title'
     mime = Column(String(100), nullable=True)
     size = Column(Integer, nullable=True)
     storage_path = Column(Text, nullable=True)
@@ -24,3 +23,8 @@ class Document(Base):
         Index('ix_documents_bot_id', 'bot_id'),
         Index('ix_documents_status', 'status'),
     )
+    
+    @property
+    def filename(self):
+        """Alias for title - API expects 'filename' but DB column is 'title'"""
+        return self.title
