@@ -163,7 +163,7 @@ async def bot_b1(async_db: AsyncSession, tenant_b: Tenant, user_b: User):
 
 
 @pytest.fixture
-async def doc_a1_hr(async_db: AsyncSession, bot_a1: Bot, tenant_a: Tenant):
+async def doc_a1_hr(async_db: AsyncSession, bot_a1: Bot, tenant_a: Tenant, user_a: User):
     """Create document for Bot A1"""
     doc = Document(
         id=uuid4(),
@@ -171,6 +171,7 @@ async def doc_a1_hr(async_db: AsyncSession, bot_a1: Bot, tenant_a: Tenant):
         tenant_id=tenant_a.id,
         title="HR Handbook",
         status="ready",
+        uploader_id=user_a.id,
         created_at=datetime.utcnow(),
     )
     async_db.add(doc)
@@ -179,7 +180,7 @@ async def doc_a1_hr(async_db: AsyncSession, bot_a1: Bot, tenant_a: Tenant):
 
 
 @pytest.fixture
-async def doc_b1_support(async_db: AsyncSession, bot_b1: Bot, tenant_b: Tenant):
+async def doc_b1_support(async_db: AsyncSession, bot_b1: Bot, tenant_b: Tenant, user_b: User):
     """Create document for Bot B1"""
     doc = Document(
         id=uuid4(),
@@ -187,6 +188,7 @@ async def doc_b1_support(async_db: AsyncSession, bot_b1: Bot, tenant_b: Tenant):
         tenant_id=tenant_b.id,
         title="Support FAQ",
         status="ready",
+        uploader_id=user_b.id,
         created_at=datetime.utcnow(),
     )
     async_db.add(doc)

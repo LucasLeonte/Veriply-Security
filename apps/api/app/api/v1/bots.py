@@ -74,7 +74,7 @@ async def create_bot(
 
         # Create bot using service
         new_bot = await BotGroupService.create_bot(
-            session=session,
+            db=session,
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
             user_id=UUID(current_user["sub"]),
@@ -85,7 +85,7 @@ async def create_bot(
 
         # Log to audit trail
         await AuditService.log_action(
-            session=session,
+            db=session,
             actor_id=UUID(current_user["sub"]),
             action="bot_created",
             tenant_id=UUID(current_user["tenant_id"]),
@@ -128,13 +128,18 @@ async def get_bot(
 
         # Get bot using service
         bot = await BotGroupService.get_bot(
-            session=session,
+            db=session,
             bot_id=bot_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )
 
-        return bot
+        if bot is None:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        
+        return BotResponse.model_validate(bot)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -142,9 +147,13 @@ async def get_bot(
         raise HTTPException(status_code=500, detail="Failed to retrieve bot")
 
 
-@router.get("", response_model=list[BotResponse])
+@router.get("", response_model=dict)
 async def list_bots(
     group_id: UUID,
+    limit: int = 20,
+    offset: int = 0,
+    search: str | None = None,
+    sort_by: str = "name",
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -158,13 +167,25 @@ async def list_bots(
         await check_group_access(group_id, current_user, session)
 
         # List bots using service
-        bots = await BotGroupService.list_group_bots(
-            session=session,
+        bots, total_count = await BotGroupService.list_group_bots(
+            db=session,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
+            limit=limit,
+            offset=offset,
         )
 
-        return bots
+        # Convert to response format
+        bot_responses = [
+            BotResponse.model_validate(bot) for bot in bots
+        ]
+
+        return {
+            "bots": bot_responses,
+            "total_count": total_count,
+            "limit": limit,
+            "offset": offset,
+        }
     except Exception as e:
         logger.exception(f"Error listing bots: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve bots")
@@ -189,7 +210,7 @@ async def update_bot(
 
         # Update bot using service
         bot = await BotGroupService.update_bot(
-            session=session,
+            db=session,
             bot_id=bot_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
@@ -200,7 +221,7 @@ async def update_bot(
 
         # Log to audit trail
         await AuditService.log_action(
-            session=session,
+            db=session,
             actor_id=UUID(current_user["sub"]),
             action="bot_updated",
             tenant_id=UUID(current_user["tenant_id"]),
@@ -247,7 +268,7 @@ async def delete_bot(
 
         # Delete bot using service
         await BotGroupService.delete_bot(
-            session=session,
+            db=session,
             bot_id=bot_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
@@ -255,7 +276,7 @@ async def delete_bot(
 
         # Log to audit trail
         await AuditService.log_action(
-            session=session,
+            db=session,
             actor_id=UUID(current_user["sub"]),
             action="bot_deleted",
             tenant_id=UUID(current_user["tenant_id"]),
@@ -266,6 +287,7 @@ async def delete_bot(
         )
 
         await session.commit()
+        return None
 
     except ValueError as e:
         await session.rollback()
