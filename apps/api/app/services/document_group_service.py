@@ -26,6 +26,7 @@ class DocumentGroupService:
         storage_path: str,
         bot_id: UUID | None = None,
         title: str | None = None,
+        folder_id: UUID | None = None,
     ) -> Document:
         """
         Create a document record in the group KB with provenance.
@@ -41,6 +42,7 @@ class DocumentGroupService:
             storage_path: Path where file is stored
             bot_id: Optional bot that triggered upload
             title: Optional title (defaults to filename)
+            folder_id: Optional folder ID for organization
             
         Returns:
             Created Document object
@@ -58,6 +60,7 @@ class DocumentGroupService:
             tenant_id=tenant_id,
             group_id=group_id,
             bot_id=bot_id,
+            folder_id=folder_id,
             filename=filename,
             title=title or filename,
             mime=mime_type,

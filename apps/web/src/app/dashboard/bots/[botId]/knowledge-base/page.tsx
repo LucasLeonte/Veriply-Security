@@ -5,19 +5,25 @@ import { KnowledgeBaseList } from "@/components/kb";
 import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     useDocumentsQuery,
     useUploadDocuments,
     useDeleteDocument,
     useReprocessDocument,
 } from "@/hooks/useDocumentsQuery";
+import { useGroup } from "@/contexts/GroupContext";
+import { foldersApi } from "@/lib/api/folders";
+import type { Folder } from "@/types/folder";
 
 export default function BotKnowledgeBasePage() {
     const params = useParams();
     const botId = params.botId as string;
+    const { currentGroup } = useGroup();
     const [currentPage, setCurrentPage] = useState(1); // Pages are 1-indexed
     const [searchQuery, setSearchQuery] = useState("");
+    const [folders, setFolders] = useState<Folder[]>([]);
+    const [foldersLoading, setFoldersLoading] = useState(false);
 
     const ITEMS_PER_PAGE = 10;
 
@@ -33,9 +39,21 @@ export default function BotKnowledgeBasePage() {
     const { mutate: deleteDocument } = useDeleteDocument();
     const { mutate: reprocessDocument } = useReprocessDocument();
 
-    const handleUpload = async (files: File[]) => {
+    // Fetch folders for the current group
+    useEffect(() => {
+        if (currentGroup?.id) {
+            setFoldersLoading(true);
+            foldersApi
+                .listFolders(currentGroup.id)
+                .then((fetchedFolders) => setFolders(fetchedFolders))
+                .catch((err) => console.error("Failed to fetch folders:", err))
+                .finally(() => setFoldersLoading(false));
+        }
+    }, [currentGroup?.id]);
+
+    const handleUpload = async (files: File[], folderId?: string) => {
         try {
-            await uploadDocuments({ groupId: botId, files, botId });
+            await uploadDocuments({ groupId: botId, files, botId, folderId });
             // Refresh the list after upload
             refetch();
         } catch (err) {
@@ -101,11 +119,12 @@ export default function BotKnowledgeBasePage() {
                     totalPages={data?.total_pages || 0}
                     onPageChange={setCurrentPage}
                     onSearchChange={setSearchQuery}
-                    isLoading={isLoading}
+                    isLoading={isLoading || foldersLoading}
                     error={error?.message}
                     onUpload={handleUpload}
                     onDelete={handleDelete}
                     onReprocess={handleReprocess}
+                    folders={folders}
                 />
             </div>
         </DashboardLayout>

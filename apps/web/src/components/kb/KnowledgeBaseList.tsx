@@ -14,9 +14,11 @@ import { useDocumentDeletion } from "@/hooks/useDocumentDeletion";
 import { Upload, Loader, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import type { Folder } from "@/types/folder";
+
 interface KnowledgeBaseListProps {
     botId: string;
-    onUpload: (files: File[]) => Promise<void>;
+    onUpload: (files: File[], folderId?: string) => Promise<void>;
     onDelete: (documentId: string) => Promise<void>;
     onReprocess: (documentId: string) => Promise<void>;
     documents: Document[];
@@ -27,6 +29,7 @@ interface KnowledgeBaseListProps {
     onSearchChange?: (search: string) => void;
     isLoading: boolean;
     error?: string | null;
+    folders?: Folder[];
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -44,6 +47,7 @@ export function KnowledgeBaseList({
     onSearchChange,
     isLoading,
     error,
+    folders = [],
 }: KnowledgeBaseListProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
@@ -263,6 +267,7 @@ export function KnowledgeBaseList({
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onUpload={onUpload}
+                folders={folders}
             />
 
             {/* Delete Confirmation Dialog */}

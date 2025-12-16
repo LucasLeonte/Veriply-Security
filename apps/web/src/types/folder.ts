@@ -12,7 +12,7 @@ export interface Folder {
 }
 
 export interface FolderStats {
-  doc_count: number;
+  document_count: number;
 }
 
 export interface FolderCreate {

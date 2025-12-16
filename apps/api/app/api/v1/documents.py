@@ -51,6 +51,7 @@ async def upload_document(
     file: UploadFile = File(...),
     bot_id: str | None = Form(None),
     title: str | None = Form(None),
+    folder_id: str | None = Form(None),
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -58,7 +59,7 @@ async def upload_document(
     Upload a document to the group's knowledge base.
     
     Returns immediately (202 Accepted) and processes asynchronously.
-    Metadata includes: uploader_id, bot_id (optional), group_id.
+    Metadata includes: uploader_id, bot_id (optional), group_id, folder_id (optional).
     
     Required permissions: Any group member (Operator+)
     """
@@ -90,16 +91,17 @@ async def upload_document(
 
         # Create document record using service
         new_doc = await DocumentGroupService.create_document(
-            session=session,
+            db=session,
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
             uploader_id=UUID(current_user["sub"]),
             filename=file.filename,
-            mime=file.content_type or "application/octet-stream",
-            size=len(content),
+            mime_type=file.content_type or "application/octet-stream",
+            size_bytes=len(content),
             storage_path=storage_path,
             bot_id=UUID(bot_id) if bot_id else None,
             title=title or file.filename,
+            folder_id=UUID(folder_id) if folder_id else None,
         )
 
         # Log to audit trail

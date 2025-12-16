@@ -118,7 +118,8 @@ export const documentsApi = {
     async uploadDocuments(
         groupId: string,
         files: File[],
-        botId?: string
+        botId?: string,
+        folderId?: string
     ): Promise<{
         id: string;
         document_id: string;
@@ -139,8 +140,12 @@ export const documentsApi = {
             formData.append("bot_id", botId);
         }
 
+        if (folderId) {
+            formData.append("folder_id", folderId);
+        }
+
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/groups/${groupId}/documents`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/upload`,
             {
                 method: "POST",
                 body: formData,

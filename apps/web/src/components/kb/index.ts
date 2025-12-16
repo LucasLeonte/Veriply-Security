@@ -5,3 +5,4 @@ export { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 export { Pagination } from "./Pagination";
 export { KnowledgeBaseList } from "./KnowledgeBaseList";
 export { DocumentDetail } from "./DocumentDetail";
+export { FolderList } from "./FolderList";
