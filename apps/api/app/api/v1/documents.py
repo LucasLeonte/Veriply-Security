@@ -99,14 +99,13 @@ async def upload_document(
             mime_type=file.content_type or "application/octet-stream",
             size_bytes=len(content),
             storage_path=storage_path,
-            bot_id=UUID(bot_id) if bot_id else None,
             title=title or file.filename,
             folder_id=UUID(folder_id) if folder_id else None,
         )
 
         # Log to audit trail
         await AuditService.log_document_upload(
-            session=session,
+            db=session,
             actor_id=UUID(current_user["sub"]),
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
@@ -233,7 +232,7 @@ async def delete_document(
 
         # Log to audit trail
         await AuditService.log_document_delete(
-            session=session,
+            db=session,
             actor_id=UUID(current_user["sub"]),
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
