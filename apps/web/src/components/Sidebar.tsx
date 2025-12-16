@@ -22,6 +22,8 @@ import {
     SheetTitle,
 } from "./ui/sheet";
 import { useHITLQueue } from "@/hooks/useHITLQueue";
+import { GroupSwitcher } from "./GroupSwitcher";
+import { useGroup } from "@/contexts/GroupContext";
 
 const NAVIGATION_ITEMS = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -39,6 +41,7 @@ interface SidebarProps {
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const { stats } = useHITLQueue();
+    const { currentGroup } = useGroup();
 
     const navItems = NAVIGATION_ITEMS.map((item) => ({
         ...item,
@@ -57,20 +60,7 @@ export function Sidebar({ className }: SidebarProps) {
         >
             {/* Current Group */}
             <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <button className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-50">
-                    <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-white text-xs font-bold">
-                            GR
-                        </div>
-                        <div className="text-left">
-                            <p className="text-sm font-semibold text-slate-900">
-                                Current Group
-                            </p>
-                            <p className="text-xs text-slate-500">Switch group</p>
-                        </div>
-                    </div>
-                    <ChevronDown className="w-4 h-4 text-slate-400" />
-                </button>
+                <GroupSwitcher />
             </div>
 
             {/* Navigation Links */}
