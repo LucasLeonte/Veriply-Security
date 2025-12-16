@@ -127,7 +127,10 @@ export function DocumentCard({
     };
 
     const status = getStatusDisplay();
-    const formattedSize = (document.size / 1024).toFixed(1) + " KB";
+    const formattedSize =
+        typeof document.size === "number" && isFinite(document.size)
+            ? (document.size / 1024).toFixed(1) + " KB"
+            : "—";
     const uploadDate = new Date(document.created_at).toLocaleDateString(
         "en-US",
         {

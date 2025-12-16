@@ -14,6 +14,7 @@ from app.core.settings import settings
 from app.api.v1.schemas import DocumentResponse, ChunkResponse
 from app.services.document_group_service import DocumentGroupService
 from app.services.audit_service import AuditService
+from app import tasks
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +126,12 @@ async def upload_document(
         )
 
         await session.commit()
+
+        # Enqueue background processing of the uploaded document
+        try:
+            tasks.enqueue_group_document_processing(str(new_doc.id))
+        except Exception:
+            logger.exception("Failed to enqueue group document processing for %s", new_doc.id)
 
         return {
             "id": str(new_doc.id),
