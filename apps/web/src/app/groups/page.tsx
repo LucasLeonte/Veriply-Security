@@ -63,7 +63,7 @@ export default function GroupSelectionPage() {
         }
     };
 
-    const handleSelectGroup = (group: any) => {
+    const handleSelectGroup = (group: Group) => {
         setCurrentGroup(group);
         router.push("/dashboard");
     };

@@ -46,7 +46,7 @@ export default function LoginPage() {
             // Call login API endpoint first
             const apiUrl =
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-            let response = await fetch(`${apiUrl}/api/v1/auth/login`, {
+            const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -116,10 +116,10 @@ export default function LoginPage() {
                 }
                 router.push("/groups");
             } else {
-                const errorData = await response.json().catch(() => ({}));
+                await response.json().catch(() => ({}));
                 setError("Demo login failed");
             }
-        } catch (error) {
+        } catch (_error) {
             setError("Demo login error");
         } finally {
             setLoading(false);
@@ -145,7 +145,7 @@ export default function LoginPage() {
                     <p className="text-slate-600">Log in to your account</p>
                     <div className="mt-2 text-sm">
                         <span className="text-slate-500">
-                            Don't have an account?
+                            Don&apos;t have an account?
                         </span>
                         <button
                             type="button"
