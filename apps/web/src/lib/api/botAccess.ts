@@ -6,10 +6,23 @@ import {
   BulkSetAccessRequest,
   BulkSetAccessResponse,
 } from '@/types/botAccess';
+import { getAccessToken } from '@/lib/auth';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
-export async function getBotAccess(botId: string, token: string): Promise<AccessSummary> {
+async function getAuthToken(): Promise<string | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  return getAccessToken();
+}
+
+export async function getBotAccess(botId: string): Promise<AccessSummary> {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error("Not authenticated");
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/v1/bots/${botId}/access`, {
     method: 'GET',
     headers: {
@@ -26,15 +39,16 @@ export async function getBotAccess(botId: string, token: string): Promise<Access
 }
 
 export async function setDocumentAccess(
-  botId: string,
   documentId: string,
-  isAllowed: boolean,
-  token: string
+  data: SetAccessRequest
 ): Promise<void> {
-  const data: SetAccessRequest = { is_allowed: isAllowed };
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error("Not authenticated");
+  }
 
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/bots/${botId}/access/documents/${documentId}`,
+    `${API_BASE_URL}/api/v1/access/documents/${documentId}`,
     {
       method: 'POST',
       headers: {
@@ -52,15 +66,16 @@ export async function setDocumentAccess(
 }
 
 export async function setFolderAccess(
-  botId: string,
   folderId: string,
-  isAllowed: boolean,
-  token: string
+  data: SetAccessRequest
 ): Promise<void> {
-  const data: SetAccessRequest = { is_allowed: isAllowed };
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error("Not authenticated");
+  }
 
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/bots/${botId}/access/folders/${folderId}`,
+    `${API_BASE_URL}/api/v1/access/folders/${folderId}`,
     {
       method: 'POST',
       headers: {
@@ -78,11 +93,14 @@ export async function setFolderAccess(
 }
 
 export async function bulkSetAccess(
-  botId: string,
-  data: BulkSetAccessRequest,
-  token: string
+  data: BulkSetAccessRequest
 ): Promise<BulkSetAccessResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/bots/${botId}/access/bulk`, {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error("Not authenticated");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/v1/access/bulk`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -98,3 +116,11 @@ export async function bulkSetAccess(
 
   return response.json();
 }
+
+// Export API object
+export const botAccessApi = {
+  getBotAccess,
+  setDocumentAccess,
+  setFolderAccess,
+  bulkSetAccess,
+};
