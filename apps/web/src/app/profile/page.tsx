@@ -4,6 +4,7 @@ import Image from "next/image";
 
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { getAccessToken, clearAccessToken } from "@/lib/auth";
 
 interface UserProfile {
     id: string;
@@ -37,7 +38,7 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
         try {
             setLoading(true);
-            const token = localStorage.getItem("access_token");
+            const token = getAccessToken();
 
             if (!token) {
                 setError("Not authenticated. Please log in.");
@@ -64,7 +65,7 @@ export default function ProfilePage() {
                     setError(
                         "Your session is invalid. This usually happens when the server was restarted. Please log in again."
                     );
-                    localStorage.removeItem("access_token");
+                    clearAccessToken();
                     return;
                 }
                 const errorData = await response.json();
@@ -110,7 +111,7 @@ export default function ProfilePage() {
                 return;
             }
 
-            const token = localStorage.getItem("access_token");
+            const token = getAccessToken();
             if (!token) {
                 setError("Not authenticated. Please log in.");
                 return;
@@ -133,7 +134,7 @@ export default function ProfilePage() {
             if (!response.ok) {
                 if (response.status === 401) {
                     setError("Session expired. Please log in again.");
-                    localStorage.removeItem("access_token");
+                    clearAccessToken();
                     window.location.href = "/login";
                     return;
                 }
@@ -176,7 +177,7 @@ export default function ProfilePage() {
                 return;
             }
 
-            const token = localStorage.getItem("access_token");
+            const token = getAccessToken();
             if (!token) {
                 setError("Not authenticated. Please log in.");
                 return;
@@ -203,7 +204,7 @@ export default function ProfilePage() {
             if (!response.ok) {
                 if (response.status === 401) {
                     setError("Session expired. Please log in again.");
-                    localStorage.removeItem("access_token");
+                    clearAccessToken();
                     window.location.href = "/login";
                     return;
                 }
@@ -375,8 +376,10 @@ export default function ProfilePage() {
                             <input
                                 type="text"
                                 value={
-                                    profile.role.charAt(0).toUpperCase() +
-                                    profile.role.slice(1)
+                                    profile.role
+                                        ? profile.role.charAt(0).toUpperCase() +
+                                          profile.role.slice(1)
+                                        : ""
                                 }
                                 readOnly
                                 className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 capitalize"

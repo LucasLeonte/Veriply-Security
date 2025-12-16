@@ -83,7 +83,6 @@ class AnswerGenerationService:
 
         # Step 1: Retrieve context chunks via vector search
         logger.debug(f"Searching for context: query='{query[:100]}...'")
-        start_time = time.time()
 
         try:
             search_results, search_latency_ms = (

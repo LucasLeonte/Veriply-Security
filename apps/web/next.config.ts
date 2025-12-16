@@ -12,6 +12,9 @@ import type { NextConfig } from "next";
  * See apps/web/.env.example for documentation of all variables.
  */
 
+// Disable Next.js telemetry at config load time to avoid type-unsupported `telemetry` field
+process.env.NEXT_TELEMETRY_DISABLED = "1";
+
 const nextConfig: NextConfig = {
     // Environment variable configuration
     env: {

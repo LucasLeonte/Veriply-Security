@@ -10,6 +10,7 @@ export interface Bot {
     created_at: string;
     updated_at: string;
     tenant_id: string;
+    group_id: string; // Added for group scoping
     doc_count?: number; // Added for UI display
     last_updated?: string; // Added for UI display
 }
@@ -18,6 +19,7 @@ export interface CreateBotInput {
     name: string;
     description?: string;
     confidence_threshold?: number;
+    group_id: string; // Required for group-scoped creation
 }
 
 export interface UpdateBotInput {

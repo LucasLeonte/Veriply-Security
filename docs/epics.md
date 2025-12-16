@@ -15,123 +15,136 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 ### Epic Summary
 
-| Epic | Title | FR Coverage | Stories |
-|------|-------|-------------|---------|
-| 1 | Foundation & Auth | FR1-FR6 | 6 |
-| 2 | Bot & Knowledge Management | FR7-FR19 | 8 |
-| 3 | RAG Q&A Engine | FR20-FR26 | 5 |
-| 4 | Chat Experience | FR27-FR36 | 6 |
-| 5 | HITL Verification | FR37-FR43 | 5 |
-| 6 | Email Automation | FR44-FR50 | 5 |
-| 7 | Verified Knowledge Base | FR51-FR55 | 4 |
-| 8 | Analytics & Compliance | FR56-FR64 | 5 |
+| Epic | Title                      | FR Coverage            | Stories |
+| ---- | -------------------------- | ---------------------- | ------- |
+| 1    | Foundation & Auth + Groups | FR1-FR6                | 8       |
+| 2    | Bot & Knowledge Management | FR7-FR19               | 5       |
+| 3    | RAG Q&A Engine             | FR20-FR26              | 5       |
+| 4    | Chat Experience            | FR27-FR36              | 6       |
+| 5    | HITL Verification          | FR37-FR43              | 5       |
+| 6    | Email Automation           | FR44-FR50              | 5       |
+| 7    | Verified Knowledge Base    | FR51-FR55              | 4       |
+| 8    | Analytics & Compliance     | FR56-FR64              | 5       |
+| 9    | Testing & QA               | Provenance & Isolation | 5       |
 
-**Total:** 8 Epics, 44 Stories covering 64 FRs
+**Total:** 9 Epics, 48 Stories covering 64 FRs + cross-cutting test coverage
 
 ---
 
 ## Functional Requirements Inventory
 
 ### User & Tenant Management (FR1-FR6)
-- **FR1:** Users can register with email/password or OAuth (Google, Microsoft)
-- **FR2:** Users can create a new tenant organization during registration
-- **FR3:** Admins can invite team members via email and assign roles
-- **FR4:** Users can update their profile information and notification preferences
-- **FR5:** System enforces strict data isolation between tenants using RLS
-- **FR6:** Admins can remove team members from the organization
+
+-   **FR1:** Users can register with email/password or OAuth (Google, Microsoft)
+-   **FR2:** Users can create a new tenant organization during registration
+-   **FR3:** Admins can invite team members via email and assign roles
+-   **FR4:** Users can update their profile information and notification preferences
+-   **FR5:** System enforces strict data isolation between tenants using RLS
+-   **FR6:** Admins can remove team members from the organization
 
 ### Bot Management (FR7-FR12)
-- **FR7:** Users can create multiple bots within their organization
-- **FR8:** Users can configure bot settings: name, description, confidence threshold
-- **FR9:** Users can set the auto-respond confidence threshold
-- **FR10:** Users can delete a bot and all associated documents/embeddings
-- **FR11:** Users can duplicate a bot configuration (without documents)
-- **FR12:** Bots are isolated: documents and queries scoped to assigned bot
+
+-   **FR7:** Users can create multiple bots within their organization
+-   **FR8:** Users can configure bot settings: name, description, confidence threshold
+-   **FR9:** Users can set the auto-respond confidence threshold
+-   **FR10:** Users can delete a bot and all associated documents/embeddings
+-   **FR11:** Users can duplicate a bot configuration (without documents)
+-   **FR12:** Bots are isolated: documents and queries scoped to assigned bot
 
 ### Knowledge Ingestion (FR13-FR19)
-- **FR13:** Users can upload documents (PDF, DOCX, TXT, MD, CSV) up to 25MB
-- **FR14:** System automatically chunks documents into semantic segments
-- **FR15:** System generates embeddings using bge-m3 model
-- **FR16:** System stores embeddings in PostgreSQL + pgvector with scoping
-- **FR17:** Users can view list of uploaded documents with status
-- **FR18:** Users can delete specific documents and embeddings
-- **FR19:** Users can re-process a document to update embeddings
+
+-   **FR13:** Users can upload documents (PDF, DOCX, TXT, MD, CSV) up to 25MB
+-   **FR14:** System automatically chunks documents into semantic segments
+-   **FR15:** System generates embeddings using bge-m3 model
+-   **FR16:** System stores embeddings in PostgreSQL + pgvector with scoping
+-   **FR17:** Users can view list of uploaded documents with status
+-   **FR18:** Users can delete specific documents and embeddings
+-   **FR19:** Users can re-process a document to update embeddings
 
 ### RAG & Q&A Engine (FR20-FR26)
-- **FR20:** System retrieves relevant context using semantic vector search
-- **FR21:** System generates answers based *only* on retrieved context
-- **FR22:** System provides citations (source + section) for every answer
-- **FR23:** System calculates and returns confidence score (0-100%)
-- **FR24:** System checks Verified KB first before generating
-- **FR25:** System refuses out-of-domain questions
-- **FR26:** System redacts PII from queries before sending to LLM
+
+-   **FR20:** System retrieves relevant context using semantic vector search
+-   **FR21:** System generates answers based _only_ on retrieved context
+-   **FR22:** System provides citations (source + section) for every answer
+-   **FR23:** System calculates and returns confidence score (0-100%)
+-   **FR24:** System checks Verified KB first before generating
+-   **FR25:** System refuses out-of-domain questions
+-   **FR26:** System redacts PII from queries before sending to LLM
 
 ### Chat Interface (FR27-FR32)
-- **FR27:** End-users can interact via web-based chat interface
-- **FR28:** Chat displays AI responses with source citations
-- **FR29:** Chat maintains conversation context for follow-ups
-- **FR30:** End-users can provide feedback (thumbs up/down)
-- **FR31:** Low-confidence responses display "I'm checking with the team"
-- **FR32:** Chat displays "Verified" badge for Verified KB answers
+
+-   **FR27:** End-users can interact via web-based chat interface
+-   **FR28:** Chat displays AI responses with source citations
+-   **FR29:** Chat maintains conversation context for follow-ups
+-   **FR30:** End-users can provide feedback (thumbs up/down)
+-   **FR31:** Low-confidence responses display "I'm checking with the team"
+-   **FR32:** Chat displays "Verified" badge for Verified KB answers
 
 ### Embeddable Widget (FR33-FR36)
-- **FR33:** Users can generate embeddable JavaScript snippet
-- **FR34:** Widget customizable: colors, position, welcome message
-- **FR35:** Widget supports domain whitelisting
-- **FR36:** Widget works on desktop and mobile browsers
+
+-   **FR33:** Users can generate embeddable JavaScript snippet
+-   **FR34:** Widget customizable: colors, position, welcome message
+-   **FR35:** Widget supports domain whitelisting
+-   **FR36:** Widget works on desktop and mobile browsers
 
 ### HITL Dashboard (FR37-FR43)
-- **FR37:** Agents view queue of pending review items
-- **FR38:** Queue displays: query, context, AI draft, confidence score
-- **FR39:** Agents can approve a draft (sends + adds to Verified KB)
-- **FR40:** Agents can edit a draft before approving
-- **FR41:** Agents can reject with reason
-- **FR42:** Dashboard supports keyboard shortcuts: A/R/E/N
-- **FR43:** Agents can filter queue by bot, date, or status
+
+-   **FR37:** Agents view queue of pending review items
+-   **FR38:** Queue displays: query, context, AI draft, confidence score
+-   **FR39:** Agents can approve a draft (sends + adds to Verified KB)
+-   **FR40:** Agents can edit a draft before approving
+-   **FR41:** Agents can reject with reason
+-   **FR42:** Dashboard supports keyboard shortcuts: A/R/E/N
+-   **FR43:** Agents can filter queue by bot, date, or status
 
 ### Email Automation (FR44-FR50)
-- **FR44:** Users can connect Gmail accounts via OAuth2
-- **FR45:** Users can connect Outlook accounts via OAuth2
-- **FR46:** System monitors inbox for emails matching rules
-- **FR47:** System generates email draft responses from KB
-- **FR48:** System matches user's historical writing style/tone
-- **FR49:** Email drafts appear in HITL queue for review
-- **FR50:** Users can configure which labels/folders to monitor
+
+-   **FR44:** Users can connect Gmail accounts via OAuth2
+-   **FR45:** Users can connect Outlook accounts via OAuth2
+-   **FR46:** System monitors inbox for emails matching rules
+-   **FR47:** System generates email draft responses from KB
+-   **FR48:** System matches user's historical writing style/tone
+-   **FR49:** Email drafts appear in HITL queue for review
+-   **FR50:** Users can configure which labels/folders to monitor
 
 ### Verified Knowledge Base (FR51-FR55)
-- **FR51:** System maintains separate index of verified Q&A pairs
-- **FR52:** Approved HITL responses auto-add to Verified KB
-- **FR53:** Users can manually add Q&A pairs
-- **FR54:** Users can edit or remove Verified KB entries
-- **FR55:** Verified KB entries take priority over RAG answers
+
+-   **FR51:** System maintains separate index of verified Q&A pairs
+-   **FR52:** Approved HITL responses auto-add to Verified KB
+-   **FR53:** Users can manually add Q&A pairs
+-   **FR54:** Users can edit or remove Verified KB entries
+-   **FR55:** Verified KB entries take priority over RAG answers
 
 ### Analytics & Reporting (FR56-FR60)
-- **FR56:** Dashboard: total queries, deflection rate, response time
-- **FR57:** Dashboard: HITL intervention rate over time
-- **FR58:** Dashboard: rejection reasons breakdown
-- **FR59:** Dashboard: most common unanswered questions
-- **FR60:** Users can export analytics as CSV
+
+-   **FR56:** Dashboard: total queries, deflection rate, response time
+-   **FR57:** Dashboard: HITL intervention rate over time
+-   **FR58:** Dashboard: rejection reasons breakdown
+-   **FR59:** Dashboard: most common unanswered questions
+-   **FR60:** Users can export analytics as CSV
 
 ### Compliance & Data Management (FR61-FR64)
-- **FR61:** Users can delete all data (GDPR Right to be Forgotten)
-- **FR62:** Users can export KB and Q&A history (GDPR Portability)
-- **FR63:** System logs all AI actions and human approvals
-- **FR64:** All AI responses clearly labeled as AI-generated
+
+-   **FR61:** Users can delete all data (GDPR Right to be Forgotten)
+-   **FR62:** Users can export KB and Q&A history (GDPR Portability)
+-   **FR63:** System logs all AI actions and human approvals
+-   **FR64:** All AI responses clearly labeled as AI-generated
 
 ---
 
 ## FR Coverage Map
 
-| Epic | FRs Covered |
-|------|-------------|
-| Epic 1: Foundation & Auth | FR1, FR2, FR3, FR4, FR5, FR6 |
-| Epic 2: Bot & Knowledge Management | FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19 |
-| Epic 3: RAG Q&A Engine | FR20, FR21, FR22, FR23, FR24, FR25, FR26 |
-| Epic 4: Chat Experience | FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36 |
-| Epic 5: HITL Verification | FR37, FR38, FR39, FR40, FR41, FR42, FR43 |
-| Epic 6: Email Automation | FR44, FR45, FR46, FR47, FR48, FR49, FR50 |
-| Epic 7: Verified Knowledge Base | FR51, FR52, FR53, FR54, FR55 |
-| Epic 8: Analytics & Compliance | FR56, FR57, FR58, FR59, FR60, FR61, FR62, FR63, FR64 |
+| Epic                               | FRs Covered                                                                                                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Epic 1: Foundation & Auth + Groups | FR1, FR2, FR3, FR4, FR5, FR6 (group management, invites, RBAC)                                                       |
+| Epic 2: Bot & Knowledge Management | FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19 (group-scoped bots, shared KB, provenance) |
+| Epic 3: RAG Q&A Engine             | FR20, FR21, FR22, FR23, FR24, FR25, FR26                                                                             |
+| Epic 4: Chat Experience            | FR27, FR28, FR29, FR30, FR31, FR32, FR33, FR34, FR35, FR36                                                           |
+| Epic 5: HITL Verification          | FR37, FR38, FR39, FR40, FR41, FR42, FR43                                                                             |
+| Epic 6: Email Automation           | FR44, FR45, FR46, FR47, FR48, FR49, FR50                                                                             |
+| Epic 7: Verified Knowledge Base    | FR51, FR52, FR53, FR54, FR55                                                                                         |
+| Epic 8: Analytics & Compliance     | FR56, FR57, FR58, FR59, FR60, FR61, FR62, FR63, FR64                                                                 |
+| Epic 9: Testing & QA               | Provenance tracking, group isolation, RBAC, RLS enforcement (cross-cutting)                                          |
 
 ---
 
@@ -154,11 +167,12 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Given** a fresh clone of the repository  
 **When** I run `docker-compose up`  
 **Then** the following services should start:
-- Next.js frontend on localhost:3000
-- FastAPI backend on localhost:8000/docs (Swagger UI)
-- PostgreSQL with pgvector extension on localhost:5432
-- Redis on localhost:6379
-- Ollama service on localhost:11434
+
+-   Next.js frontend on localhost:3000
+-   FastAPI backend on localhost:8000/docs (Swagger UI)
+-   PostgreSQL with pgvector extension on localhost:5432
+-   Redis on localhost:6379
+-   Ollama service on localhost:11434
 
 **And** running `npm run dev` from apps/web starts the frontend in dev mode  
 **And** running `uvicorn` from apps/api starts the backend in dev mode  
@@ -168,10 +182,11 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** None (first story)
 
 **Technical Notes:**
-- Monorepo structure: apps/web (Next.js 14), apps/api (FastAPI)
-- Docker Compose for local development with hot-reload
-- PostgreSQL 16 with pgvector extension pre-installed
-- Ollama container with custom entrypoint to pull models on first run
+
+-   Monorepo structure: apps/web (Next.js 14), apps/api (FastAPI)
+-   Docker Compose for local development with hot-reload
+-   PostgreSQL 16 with pgvector extension pre-installed
+-   Ollama container with custom entrypoint to pull models on first run
 
 ---
 
@@ -186,9 +201,10 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Given** a connected database  
 **When** I apply the migration scripts  
 **Then** the following tables should exist:
-- `tenants` (id, name, slug, plan, created_at)
-- `users` (id, tenant_id, email, password_hash, role, created_at)
-- `invitations` (id, tenant_id, email, role, token, expires_at)
+
+-   `tenants` (id, name, slug, plan, created_at)
+-   `users` (id, tenant_id, email, password_hash, role, created_at)
+-   `invitations` (id, tenant_id, email, role, token, expires_at)
 
 **And** every table except `tenants` has a `tenant_id` column  
 **And** RLS policies are active: `tenant_id = current_setting('app.current_tenant_id')::uuid`  
@@ -198,10 +214,11 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 1.1
 
 **Technical Notes:**
-- Use Alembic for Python migrations
-- RLS policies enforce isolation at DB level (defense in depth)
-- `set_config('app.current_tenant_id', ...)` called on each request
-- Covers FR5 (data isolation)
+
+-   Use Alembic for Python migrations
+-   RLS policies enforce isolation at DB level (defense in depth)
+-   `set_config('app.current_tenant_id', ...)` called on each request
+-   Covers FR5 (data isolation)
 
 ---
 
@@ -215,9 +232,10 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 **Given** I am on the registration page  
 **When** I enter:
-- Email (valid format, unique)
-- Password (min 8 chars, 1 uppercase, 1 number, 1 special)
-- Organization name (2-50 chars)
+
+-   Email (valid format, unique)
+-   Password (min 8 chars, 1 uppercase, 1 number, 1 special)
+-   Organization name (2-50 chars)
 
 **Then** a new tenant record is created  
 **And** I am assigned the "Owner" role for that tenant  
@@ -236,10 +254,11 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 1.2
 
 **Technical Notes:**
-- Transaction: User + Tenant creation must be atomic
-- Password hashing: bcrypt with cost factor 12
-- Email verification token expires in 24 hours
-- Covers FR1, FR2
+
+-   Transaction: User + Tenant creation must be atomic
+-   Password hashing: bcrypt with cost factor 12
+-   Email verification token expires in 24 hours
+-   Covers FR1, FR2
 
 ---
 
@@ -274,10 +293,11 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 1.3
 
 **Technical Notes:**
-- NextAuth.js for OAuth (Google, Microsoft)
-- JWT signed with RS256 (asymmetric for microservices)
-- Refresh token rotation on use
-- Covers FR1 (OAuth)
+
+-   NextAuth.js for OAuth (Google, Microsoft)
+-   JWT signed with RS256 (asymmetric for microservices)
+-   Refresh token rotation on use
+-   Covers FR1 (OAuth)
 
 ---
 
@@ -312,9 +332,10 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 1.4
 
 **Technical Notes:**
-- Invitation token: cryptographically random, single-use
-- Role hierarchy: Owner > Admin > Manager > Agent > Viewer
-- Covers FR3
+
+-   Invitation token: cryptographically random, single-use
+-   Role hierarchy: Owner > Admin > Manager > Agent > Viewer
+-   Covers FR3
 
 ---
 
@@ -352,112 +373,270 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 1.5
 
 **Technical Notes:**
-- Avatar upload to S3-compatible storage
-- Notification preferences: email digest frequency
-- Covers FR4, FR6
+
+-   Avatar upload to S3-compatible storage
+-   Notification preferences: email digest frequency
+-   Covers FR4, FR6
+
+---
+
+### Story 1.7: Group Creation & Switching
+
+**As a** User with Tenant Admin role,  
+**I want** to create and switch between groups within my tenant,  
+**So that** my team can organize bots and knowledge by department or project.
+
+**Acceptance Criteria:**
+
+**Given** I am on the Groups dashboard  
+**When** I click "Create Group"  
+**Then** I see a form with:
+
+-   Group name (required, 2-50 chars, unique within tenant)
+-   Group description (optional, max 500 chars)
+
+**When** I submit a valid form  
+**Then** a new group is created  
+**And** I am automatically added as "Group Admin"  
+**And** the group switcher shows the new group  
+**And** I am redirected to the group's dashboard
+
+**Given** I am a member of multiple groups  
+**When** I click the group switcher dropdown  
+**Then** I see all groups I'm a member of  
+**And** I can click to switch to any group  
+**And** the UI updates to show that group's data (bots, KB, etc.)  
+**And** JWT claims are updated to reflect new group_id
+
+**And** group names must be unique within the tenant  
+**And** group creation timestamp is recorded
+
+**Prerequisites:** Story 1.6
+
+**Technical Notes:**
+
+-   Database: `groups` table with tenant_id, group_id in JWT
+-   RLS enforces tenant_id + group_id filtering on all group-scoped tables
+-   Group switcher component in UI header
+-   Session stores active group_id; injected into every request
+
+---
+
+### Story 1.8: Group Member Invitation & RBAC
+
+**As a** Group Admin,  
+**I want** to invite users to my group and assign roles (Group Admin, Manager, Operator),  
+**So that** team members can collaborate on bots and knowledge in my group.
+
+**Acceptance Criteria:**
+
+**Given** I am a Group Admin on the Group Settings page  
+**When** I enter an email and select a role (Group Admin, Manager, Operator)  
+**Then** an invitation email is sent with a unique group-specific signup link  
+**And** the invitation appears in "Pending Invitations" (group level)  
+**And** the invitation expires in 7 days
+
+**Given** I received a group invitation email  
+**When** I click the link  
+**Then** I am added to that group with the assigned role  
+**And** the invitation is marked as "Accepted"
+
+**Given** I am a Group Admin viewing group members  
+**When** I click "Remove" on a member  
+**Then** I see confirmation: "Remove [Name] from this group?"  
+**And** on confirm, the user loses group access  
+**And** the user's group sessions are invalidated  
+**And** the user remains in the tenant (but not this group)
+
+**Given** I am a Group Admin  
+**When** I change a member's role  
+**Then** the role is updated in group_members table  
+**And** permissions take effect on next request
+
+**And** role hierarchy (Group Admin > Manager > Operator) is enforced  
+**And** cannot invite non-existent tenants users (MVP: users must join tenant first)
+
+**Prerequisites:** Story 1.7
+
+**Technical Notes:**
+
+-   Database: `group_members` table (group_id, user_id, role)
+-   RLS policy: users can see/manage groups they're members of
+-   Group invitations use separate email template
+-   Covers group-scoped RBAC (FR3 extended to groups)
 
 ---
 
 ## Epic 2: Bot & Knowledge Management
 
-**Goal:** Enable users to create bots with isolated knowledge bases and upload documents for processing.  
-**Value:** Users can create specialized bots (HR Bot, Sales Bot) and populate them with company knowledge.  
+**Goal:** Enable users to create bots per group with isolated knowledge bases and upload documents for processing.  
+**Value:** Users can create specialized bots per group (HR Bot, Sales Bot) and populate them with company knowledge; all bots in a group share the group's KB with provenance tracking.  
 **FR Coverage:** FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18, FR19
 
 ---
 
-### Story 2.1: Bot Creation & Configuration
+### Story 2.1: Bot Creation & Configuration (Group-Scoped)
 
-**As a** User,  
-**I want** to create and configure multiple bots within my organization,  
-**So that** I can separate knowledge bases by department or use case.
+**As a** Manager or Group Admin,  
+**I want** to create and configure multiple bots within my group,  
+**So that** I can specialize bots by function (HR Bot, Sales Bot) and share a single Knowledge Base.
 
 **Acceptance Criteria:**
 
-**Given** I am on the Bots page  
+**Given** I am on my group's Bots page  
 **When** I click "Create Bot"  
 **Then** I see a form with:
-- Name (required, 2-50 chars)
-- Description (optional, max 500 chars)
-- Confidence threshold slider (0-100%, default 80%)
+
+-   Bot name (required, 2-50 chars, unique within group)
+-   Description (optional, max 500 chars)
+-   Confidence threshold slider (0-100%, default 80%)
 
 **When** I submit a valid form  
 **Then** a new bot is created with status "Empty"  
-**And** I am redirected to the bot's Knowledge Base page  
-**And** the bot appears in my bot list
+**And** the bot is scoped to my current group (group_id stored in DB)  
+**And** I am redirected to the bot's Group KB page  
+**And** the bot appears in my group's bot list
 
 **Given** I have an existing bot  
 **When** I click "Settings"  
 **Then** I can edit name, description, and confidence threshold  
 **And** changes are saved on submit
 
-**And** bot names must be unique within the organization  
-**And** organization's bot limit is enforced per subscription tier
+**And** bot names must be unique within the group  
+**And** Operators cannot create bots (Manager+ only)
 
-**Prerequisites:** Story 1.6
+**Prerequisites:** Story 1.8
 
 **Technical Notes:**
-- Database: `bots` table with tenant_id, RLS enforced
-- Confidence threshold determines auto-respond behavior (FR9)
-- Covers FR7, FR8, FR9
+
+-   Database: `bots` table with tenant_id + group_id + RLS enforced
+-   Confidence threshold determines auto-respond behavior (FR9)
+-   All bots in a group share a single KB (not isolated per bot)
+-   Covers FR7, FR8, FR9 (group-scoped)
 
 ---
 
-### Story 2.2: Bot Duplication & Deletion
+### Story 2.2: Bot Update & Deletion (Group-Scoped)
 
-**As a** User,  
-**I want** to duplicate or delete bots,  
-**So that** I can quickly create similar bots or clean up unused ones.
+**As a** Manager or Group Admin,  
+**I want** to update bot settings and delete bots,  
+**So that** I can refine bot configurations or remove outdated bots from my group.
 
 **Acceptance Criteria:**
 
-**Given** I have an existing bot  
-**When** I click "Duplicate"  
-**Then** a new bot is created with:
-- Name: "[Original] (Copy)"
-- Same description and settings
-- Empty knowledge base (no documents copied)
+**Given** I have an existing bot in my group  
+**When** I click "Edit"  
+**Then** I can modify:
+
+-   Name
+-   Description
+-   Confidence threshold
+
+**When** I save changes  
+**Then** the bot is updated  
+**And** I see success message: "Bot updated"
 
 **Given** I have an existing bot  
 **When** I click "Delete"  
-**Then** I see warning: "This will permanently delete the bot and all its documents. This cannot be undone."  
+**Then** I see warning: "This will permanently delete the bot. The Group KB will be preserved (shared by other bots). All chat sessions for this bot will be deleted."  
 **And** I must type the bot name to confirm  
 **And** on confirm:
-- Bot record is deleted
-- All documents are deleted
-- All embeddings are deleted from vector store
-- All chat history is deleted
 
-**And** deletion is async with progress indicator for large KBs
+-   Bot record is deleted
+-   The Group KB remains (shared with other group bots)
+-   All chat sessions for this bot are deleted
+-   Bot is removed from all UI lists
+
+**And** only Manager+ can delete bots (not Operators)  
+**And** deletion is async with progress indicator  
+**And** documents contributed by this bot remain in Group KB (provenance preserved)
 
 **Prerequisites:** Story 2.1
 
 **Technical Notes:**
-- Cascade delete: bot → documents → chunks → embeddings
-- Background job for large deletions
-- Covers FR10, FR11, FR12
+
+-   Cascade delete: bot → chat_sessions only (NOT documents/chunks, as KB is group-scoped)
+-   Documents remain in group KB for other bots to use
+-   Covers FR10 (adapted to group model)
 
 ---
 
-### Story 2.3: Document Upload API
+### Story 2.3: Group Knowledge Base View & Provenance
 
-**As a** User,  
-**I want** to upload documents to my bot's knowledge base,  
-**So that** the AI can answer questions from my content.
+**As a** Group member,  
+**I want** to view the shared Knowledge Base with document provenance (which bot uploaded what),  
+**So that** I can understand the KB composition and track contributions.
 
 **Acceptance Criteria:**
 
-**Given** I am on a bot's Knowledge Base page  
+**Given** I am on the Group KB page  
+**When** I view the documents list  
+**Then** I see for each document:
+
+-   File name
+-   Upload date
+-   Uploader name
+-   Uploaded by bot(s) (may be multiple)
+-   Status (Processing, Ready, Failed)
+-   Chunk count
+-   Actions (View, Delete)
+
+**When** I click "View" on a document  
+**Then** I see:
+
+-   Document content preview
+-   List of chunks with embeddings status
+-   Which bots reference this document
+-   Upload timestamp and uploader
+
+**Given** I have Manager+ role  
+**When** I click "Delete" on a document  
+**Then** I see confirmation: "Delete this document from the Group KB? All bots will lose access."  
+**And** on confirm, the document and its chunks are deleted  
+**And** the KB is updated for all bots
+
+**And** Operators can view KB but not delete  
+**And** provenance metadata (bot_id, uploader_id) is recorded on upload
+
+**Prerequisites:** Story 2.1
+
+**Technical Notes:**
+
+-   Database: documents.bot_id (nullable, allows multi-bot ownership)
+-   RLS ensures only group members see group KB
+-   Provenance tracked in documents table (bot_id, created_by_user_id, created_at)
+-   Covers FR12, FR17 (group-scoped with provenance)
+
+---
+
+### Story 2.4: Document Upload to Group KB
+
+**As a** Manager or Operator,  
+**I want** to upload documents to my group's shared Knowledge Base,  
+**So that** all bots in the group can access and answer questions from the content.
+
+**Acceptance Criteria:**
+
+**Given** I am on the Group KB page  
 **When** I drag-and-drop or select files  
 **Then** I can upload:
-- PDF (up to 25MB)
-- DOCX (up to 25MB)
-- TXT (up to 25MB)
-- MD (up to 25MB)
-- CSV (up to 25MB)
+
+-   PDF (up to 25MB)
+-   DOCX (up to 25MB)
+-   TXT (up to 25MB)
+-   MD (up to 25MB)
+-   CSV (up to 25MB)
 
 **When** upload completes  
 **Then** document appears with status "Processing"  
+**And** metadata is recorded:
+
+-   tenant_id (for RLS)
+-   group_id (group-scoped)
+-   bot_id (which bot triggered upload, optional for multi-source)
+-   uploader user_id
+-   upload timestamp
+
 **And** I see a progress indicator  
 **And** I can continue uploading more files
 
@@ -468,37 +647,47 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Then** I see error: "File too large. Maximum size: 25MB"
 
 **And** multiple files can be uploaded simultaneously  
-**And** upload uses chunked/resumable upload for reliability
+**And** Operators can upload; Group Admin and Manager can upload
 
-**Prerequisites:** Story 2.1
+**Prerequisites:** Story 2.3
 
 **Technical Notes:**
-- Store files in S3-compatible object storage
-- Virus scan before processing (basic validation for MVP)
-- Database record with status: uploading → processing → ready → failed
-- Covers FR13
+
+-   Files stored in S3-compatible object storage with tenant/group path prefix
+-   Database: documents(tenant_id, group_id, bot_id, uploader_id, created_at)
+-   Document status: uploading → processing → ready → failed
+-   Covers FR13 (group-scoped)
 
 ---
 
-### Story 2.4: Document Processing Pipeline
+### Story 2.5: Document Processing Pipeline with Provenance
 
 **As a** System,  
-**I want** to extract, chunk, and embed uploaded documents,  
-**So that** content is searchable via semantic search.
+**I want** to extract, chunk, and embed uploaded documents with bot/uploader provenance,  
+**So that** content is searchable and provenance is preserved for audit and tracking.
 
 **Acceptance Criteria:**
 
 **Given** a document with status "Processing"  
 **When** the background worker picks it up  
 **Then** the following pipeline executes:
+
 1. Extract raw text from file
 2. Split into semantic chunks (512 tokens, 50 token overlap)
-3. Generate embeddings using bge-m3 (1024 dimensions)
-4. Store embeddings in pgvector with metadata
+3. Generate embeddings using nomic-embed-text (1024 dimensions)
+4. Store chunks in pgvector with provenance metadata:
+    - tenant_id (for RLS)
+    - group_id (group-scoped KB)
+    - bot_id (which bot the doc was uploaded for)
+    - document_id (reference to parent document)
+    - chunk_index (position in document)
+    - created_at (when processed)
+    - source metadata (filename, page/row)
 
 **When** pipeline completes successfully  
 **Then** document status changes to "Ready"  
-**And** chunk count is displayed
+**And** chunk count is displayed  
+**And** embeddings are indexed with composite index (tenant_id, group_id, embedding)
 
 **When** pipeline fails  
 **Then** document status changes to "Failed"  
@@ -507,20 +696,24 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 
 **And** PDF extraction handles multi-column layouts  
 **And** DOCX extraction preserves headings as metadata  
-**And** CSV extraction treats each row as a chunk with column headers
+**And** CSV extraction treats each row as a chunk with column headers  
+**And** all chunks include source metadata (filename, page/row) for citation
 
-**Prerequisites:** Story 2.3
+**Prerequisites:** Story 2.4
 
 **Technical Notes:**
-- Use pypdf for PDFs, python-docx for DOCX
-- Chunking: RecursiveCharacterTextSplitter from LangChain
-- Embeddings: bge-m3 via Ollama API
-- Store: pgvector with HNSW index for fast retrieval
-- Covers FR14, FR15, FR16
+
+-   Use pypdf for PDFs, python-docx for DOCX, csv for CSVs
+-   Chunking: RecursiveCharacterTextSplitter (LangChain)
+-   Table: document_chunks(id, document_id, embedding, bot_id, tenant_id, group_id, chunk_index, created_at, source_metadata)
+-   Composite index: (tenant_id, group_id, embedding) for RLS-aware similarity search
+-   RLS policy: only users in tenant+group can see/query chunks
+-   Embeddings model: nomic-embed-text (1024 dimensions)
+-   Covers FR14, FR15, FR16 (with group/bot provenance)
 
 ---
 
-### Story 2.5: Knowledge Base Management UI
+### Story 2.6: Knowledge Base Management UI
 
 **As a** User,  
 **I want** to view and manage my bot's documents,  
@@ -531,20 +724,22 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Given** I am on a bot's Knowledge Base page  
 **When** the page loads  
 **Then** I see a table with:
-- Document name
-- Type (PDF/DOCX/TXT/MD/CSV)
-- Size
-- Status (Processing/Ready/Failed)
-- Chunk count
-- Upload date
-- Actions (View, Delete, Reprocess)
+
+-   Document name
+-   Type (PDF/DOCX/TXT/MD/CSV)
+-   Size
+-   Status (Processing/Ready/Failed)
+-   Chunk count
+-   Upload date
+-   Actions (View, Delete, Reprocess)
 
 **Given** I click on a document  
 **When** the detail view opens  
 **Then** I see:
-- Full document metadata
-- List of chunks with preview
-- Processing logs (if failed)
+
+-   Full document metadata
+-   List of chunks with preview
+-   Processing logs (if failed)
 
 **And** I can search/filter documents by name  
 **And** I can sort by any column  
@@ -553,9 +748,10 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 2.4
 
 **Technical Notes:**
-- Paginated list (20 per page)
-- Real-time status updates via polling or WebSocket
-- Covers FR17
+
+-   Paginated list (20 per page)
+-   Real-time status updates via polling or WebSocket
+-   Covers FR17
 
 ---
 
@@ -574,10 +770,11 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **When** I confirm  
 **Then** documents are marked as "Deleting"  
 **And** background job removes:
-- File from object storage
-- Document record from database
-- All chunk records
-- All embeddings from vector store
+
+-   File from object storage
+-   Document record from database
+-   All chunk records
+-   All embeddings from vector store
 
 **When** deletion completes  
 **Then** documents disappear from the list  
@@ -589,9 +786,10 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 2.5
 
 **Technical Notes:**
-- Soft delete first, then background hard delete
-- Vector deletion: DELETE FROM chunks WHERE document_id = X
-- Covers FR18
+
+-   Soft delete first, then background hard delete
+-   Vector deletion: DELETE FROM chunks WHERE document_id = X
+-   Covers FR18
 
 ---
 
@@ -620,9 +818,10 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 2.6
 
 **Technical Notes:**
-- Same pipeline as initial processing
-- Useful for embedding model updates
-- Covers FR19
+
+-   Same pipeline as initial processing
+-   Useful for embedding model updates
+-   Covers FR19
 
 ---
 
@@ -651,9 +850,10 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 2.7
 
 **Technical Notes:**
-- RLS policy: `bot_id = current_setting('app.current_bot_id')::uuid`
-- API middleware sets bot context from request
-- Covers FR12
+
+-   RLS policy: `bot_id = current_setting('app.current_bot_id')::uuid`
+-   API middleware sets bot context from request
+-   Covers FR12
 
 ---
 
@@ -676,6 +876,7 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Given** a user query (e.g., "What is the refund policy?")  
 **When** the retrieval service runs  
 **Then**:
+
 1. Query is embedded using bge-m3 (same model as documents)
 2. pgvector cosine similarity search finds top-K chunks (K=5 default)
 3. Results are filtered by tenant_id AND bot_id
@@ -691,10 +892,11 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Prerequisites:** Story 2.4 (embeddings exist)
 
 **Technical Notes:**
-- pgvector operator: `<=>` for cosine distance
-- HNSW index for fast approximate search
-- Hybrid search (keyword + semantic) is v1.1
-- Covers FR20
+
+-   pgvector operator: `<=>` for cosine distance
+-   HNSW index for fast approximate search
+-   Hybrid search (keyword + semantic) is v1.1
+-   Covers FR20
 
 ---
 
@@ -709,6 +911,7 @@ This document provides the complete epic and story breakdown for Veriply, decomp
 **Given** retrieved context chunks  
 **When** the LLM generates an answer  
 **Then** the prompt enforces:
+
 ```
 You are a helpful assistant. Answer ONLY using the provided context.
 If the context doesn't contain the answer, say "I don't have information about that."
@@ -730,10 +933,11 @@ Question: {query}
 **Prerequisites:** Story 3.1
 
 **Technical Notes:**
-- LLM: Qwen 2.5 14B via Ollama
-- Fallback: OpenAI GPT-4o-mini if Ollama unavailable
-- Streaming via SSE (Server-Sent Events)
-- Covers FR21, FR25
+
+-   LLM: Qwen 2.5 14B via Ollama
+-   Fallback: OpenAI GPT-4o-mini if Ollama unavailable
+-   Streaming via SSE (Server-Sent Events)
+-   Covers FR21, FR25
 
 ---
 
@@ -747,8 +951,9 @@ Question: {query}
 
 **Given** an AI-generated answer  
 **Then** the response includes inline citations:
-- Format: "According to [Document Name, Section X]..."
-- Or footnote style: "...refund within 30 days.[1]" with "[1] Returns Policy.pdf, Page 3"
+
+-   Format: "According to [Document Name, Section X]..."
+-   Or footnote style: "...refund within 30 days.[1]" with "[1] Returns Policy.pdf, Page 3"
 
 **And** citations are clickable links to the source chunk  
 **And** citation UI shows: document name, section/page, relevance score  
@@ -760,9 +965,10 @@ Question: {query}
 **Prerequisites:** Story 3.2
 
 **Technical Notes:**
-- LLM prompt includes citation format instructions
-- Post-processing maps citations to actual chunks
-- Covers FR22
+
+-   LLM prompt includes citation format instructions
+-   Post-processing maps citations to actual chunks
+-   Covers FR22
 
 ---
 
@@ -777,9 +983,10 @@ Question: {query}
 **Given** an AI answer with retrieved context  
 **When** confidence is calculated  
 **Then** score is 0-100% based on:
-- Retrieval confidence: max similarity score of chunks (40% weight)
-- Answer confidence: LLM's self-reported confidence (30% weight)
-- Context coverage: % of answer supported by context (30% weight)
+
+-   Retrieval confidence: max similarity score of chunks (40% weight)
+-   Answer confidence: LLM's self-reported confidence (30% weight)
+-   Context coverage: % of answer supported by context (30% weight)
 
 **And** score is returned with the answer  
 **And** score is visible to agents (not end-users)
@@ -794,9 +1001,10 @@ Question: {query}
 **Prerequisites:** Story 3.3
 
 **Technical Notes:**
-- Confidence heuristic can be refined over time
-- LLM prompt asks for self-confidence assessment
-- Covers FR23, FR24 (Verified KB check), FR31 (low-confidence message)
+
+-   Confidence heuristic can be refined over time
+-   LLM prompt asks for self-confidence assessment
+-   Covers FR23, FR24 (Verified KB check), FR31 (low-confidence message)
 
 ---
 
@@ -811,11 +1019,12 @@ Question: {query}
 **Given** a user query containing PII  
 **When** the query is processed  
 **Then** the following are detected and redacted:
-- Email addresses → `<EMAIL>`
-- Phone numbers → `<PHONE>`
-- Credit card numbers → `<CREDIT_CARD>`
-- Social Security Numbers → `<SSN>`
-- Names (context-dependent) → `<PERSON>`
+
+-   Email addresses → `<EMAIL>`
+-   Phone numbers → `<PHONE>`
+-   Credit card numbers → `<CREDIT_CARD>`
+-   Social Security Numbers → `<SSN>`
+-   Names (context-dependent) → `<PERSON>`
 
 **And** redacted query is sent to LLM  
 **And** original query is logged separately (encrypted) for debugging  
@@ -827,10 +1036,11 @@ Question: {query}
 **Prerequisites:** Story 3.2
 
 **Technical Notes:**
-- Use Microsoft Presidio or regex patterns
-- Run BEFORE embedding for retrieval too
-- Log original with encryption for support cases
-- Covers FR26
+
+-   Use Microsoft Presidio or regex patterns
+-   Run BEFORE embedding for retrieval too
+-   Log original with encryption for support cases
+-   Covers FR26
 
 ---
 
@@ -853,9 +1063,10 @@ Question: {query}
 **Given** I navigate to a bot's chat URL  
 **When** the page loads  
 **Then** I see:
-- Chat window with welcome message
-- Input field with placeholder "Ask a question..."
-- Send button
+
+-   Chat window with welcome message
+-   Input field with placeholder "Ask a question..."
+-   Send button
 
 **When** I type a question and press Enter/Send  
 **Then** my message appears in the chat  
@@ -870,9 +1081,10 @@ Question: {query}
 **Prerequisites:** Epic 3 (RAG engine)
 
 **Technical Notes:**
-- Next.js page with WebSocket/SSE for streaming
-- Session-based chat history (localStorage or server)
-- Covers FR27, FR28
+
+-   Next.js page with WebSocket/SSE for streaming
+-   Session-based chat history (localStorage or server)
+-   Covers FR27, FR28
 
 ---
 
@@ -897,9 +1109,10 @@ Question: {query}
 **Prerequisites:** Story 4.1
 
 **Technical Notes:**
-- Prepend conversation history to LLM prompt
-- Summarize older messages if context too long
-- Covers FR29
+
+-   Prepend conversation history to LLM prompt
+-   Summarize older messages if context too long
+-   Covers FR29
 
 ---
 
@@ -919,9 +1132,10 @@ Question: {query}
 **When** I click the thumbs-down icon  
 **Then** negative feedback is recorded  
 **And** I optionally see: "What was wrong?" with options:
-- Incorrect information
-- Not helpful
-- Other
+
+-   Incorrect information
+-   Not helpful
+-   Other
 
 **And** feedback is linked to the specific answer  
 **And** feedback contributes to analytics  
@@ -930,9 +1144,10 @@ Question: {query}
 **Prerequisites:** Story 4.1
 
 **Technical Notes:**
-- Database: `feedback` table with answer_id, type, reason
-- Aggregate for Trust Score metric
-- Covers FR30
+
+-   Database: `feedback` table with answer_id, type, reason
+-   Aggregate for Trust Score metric
+-   Covers FR30
 
 ---
 
@@ -959,8 +1174,9 @@ Question: {query}
 **Prerequisites:** Story 4.1, Epic 5 (HITL)
 
 **Technical Notes:**
-- Badge styling from UX design system
-- Covers FR31, FR32
+
+-   Badge styling from UX design system
+-   Covers FR31, FR32
 
 ---
 
@@ -975,20 +1191,23 @@ Question: {query}
 **Given** I am on a bot's Settings page  
 **When** I click "Get Widget Code"  
 **Then** I see a code snippet:
+
 ```html
-<script src="https://veriply.io/widget.js" 
-        data-bot-id="xxx" 
-        data-position="bottom-right"
-        data-primary-color="#3B82F6"
-        data-welcome-message="Hi! How can I help?">
-</script>
+<script
+    src="https://veriply.io/widget.js"
+    data-bot-id="xxx"
+    data-position="bottom-right"
+    data-primary-color="#3B82F6"
+    data-welcome-message="Hi! How can I help?"
+></script>
 ```
 
 **And** I can customize:
-- Position: bottom-right, bottom-left
-- Primary color: color picker
-- Welcome message: text input
-- Auto-open: on/off
+
+-   Position: bottom-right, bottom-left
+-   Primary color: color picker
+-   Welcome message: text input
+-   Auto-open: on/off
 
 **And** I can preview the widget live  
 **And** I can copy the code with one click
@@ -996,9 +1215,10 @@ Question: {query}
 **Prerequisites:** Story 4.1
 
 **Technical Notes:**
-- Widget is a separate bundled JS file
-- Loads in iframe for security isolation
-- Covers FR33, FR34
+
+-   Widget is a separate bundled JS file
+-   Loads in iframe for security isolation
+-   Covers FR33, FR34
 
 ---
 
@@ -1011,7 +1231,7 @@ Question: {query}
 **Acceptance Criteria:**
 
 **Given** I am on widget settings  
-**When** I add allowed domains (e.g., "example.com, *.example.com")  
+**When** I add allowed domains (e.g., "example.com, \*.example.com")  
 **Then** the widget only loads on those domains
 
 **Given** the widget is loaded on an unauthorized domain  
@@ -1025,9 +1245,10 @@ Question: {query}
 **Prerequisites:** Story 4.5
 
 **Technical Notes:**
-- Server validates Origin/Referer header
-- Wildcard domain support
-- Covers FR35, FR36
+
+-   Server validates Origin/Referer header
+-   Wildcard domain support
+-   Covers FR35, FR36
 
 ---
 
@@ -1050,9 +1271,10 @@ Question: {query}
 **Given** I am on the HITL Dashboard  
 **When** the page loads  
 **Then** I see a queue with:
-- Item count badge
-- List of pending items sorted by date (oldest first)
-- Each item shows: Query preview, Bot name, Confidence %, Time waiting
+
+-   Item count badge
+-   List of pending items sorted by date (oldest first)
+-   Each item shows: Query preview, Bot name, Confidence %, Time waiting
 
 **And** queue updates in real-time when new items arrive  
 **And** I can see empty state: "No items pending review. Nice work!"
@@ -1060,9 +1282,10 @@ Question: {query}
 **Prerequisites:** Epic 3 (low-confidence routing)
 
 **Technical Notes:**
-- WebSocket for real-time updates
-- Database: `review_queue` table with status
-- Covers FR37
+
+-   WebSocket for real-time updates
+-   Database: `review_queue` table with status
+-   Covers FR37
 
 ---
 
@@ -1077,9 +1300,10 @@ Question: {query}
 **Given** I select an item from the queue  
 **When** the review interface opens  
 **Then** I see a split view:
-- **Left panel:** Original query + Retrieved context chunks with sources
-- **Right panel:** AI draft response (editable)
-- **Top bar:** Confidence score, Bot name, Time in queue
+
+-   **Left panel:** Original query + Retrieved context chunks with sources
+-   **Right panel:** AI draft response (editable)
+-   **Top bar:** Confidence score, Bot name, Time in queue
 
 **And** context chunks are expandable/collapsible  
 **And** source documents are clickable (opens in new tab)  
@@ -1088,8 +1312,9 @@ Question: {query}
 **Prerequisites:** Story 5.1
 
 **Technical Notes:**
-- Rich text editor for draft (Tiptap or similar)
-- Covers FR38
+
+-   Rich text editor for draft (Tiptap or similar)
+-   Covers FR38
 
 ---
 
@@ -1104,6 +1329,7 @@ Question: {query}
 **Given** I am reviewing a draft  
 **When** I click "Approve" (or press `A`)  
 **Then**:
+
 1. Response is sent to the end-user
 2. Q&A pair is added to Verified KB
 3. Item is removed from queue
@@ -1120,9 +1346,10 @@ Question: {query}
 **Prerequisites:** Story 5.2
 
 **Technical Notes:**
-- Atomic transaction: send + store + dequeue
-- Diff stored for analytics on correction patterns
-- Covers FR39, FR40
+
+-   Atomic transaction: send + store + dequeue
+-   Diff stored for analytics on correction patterns
+-   Covers FR39, FR40
 
 ---
 
@@ -1137,14 +1364,16 @@ Question: {query}
 **Given** I am reviewing a poor draft  
 **When** I click "Reject" (or press `R`)  
 **Then** a modal appears with rejection reasons:
-- Hallucination (made up facts)
-- Wrong Tone (too casual/formal)
-- Outdated Information
-- Irrelevant Answer
-- Other (with text input)
+
+-   Hallucination (made up facts)
+-   Wrong Tone (too casual/formal)
+-   Outdated Information
+-   Irrelevant Answer
+-   Other (with text input)
 
 **When** I select a reason and confirm  
 **Then**:
+
 1. Item is removed from queue
 2. Rejection reason is logged
 3. I can optionally write a correct answer manually
@@ -1156,9 +1385,10 @@ Question: {query}
 **Prerequisites:** Story 5.2
 
 **Technical Notes:**
-- Database: `rejections` table with reason, notes
-- High rejection rate triggers alerts
-- Covers FR41
+
+-   Database: `rejections` table with reason, notes
+-   High rejection rate triggers alerts
+-   Covers FR41
 
 ---
 
@@ -1172,18 +1402,20 @@ Question: {query}
 
 **Given** I am on the HITL Dashboard  
 **Then** the following shortcuts work:
-- `A` = Approve current draft
-- `R` = Reject current draft
-- `E` = Focus on edit field
-- `N` = Skip to next item
-- `←/→` = Navigate between items
-- `?` = Show shortcut help
+
+-   `A` = Approve current draft
+-   `R` = Reject current draft
+-   `E` = Focus on edit field
+-   `N` = Skip to next item
+-   `←/→` = Navigate between items
+-   `?` = Show shortcut help
 
 **Given** I click "Filters"  
 **Then** I can filter by:
-- Bot (dropdown)
-- Date range (picker)
-- Status (pending, in-progress)
+
+-   Bot (dropdown)
+-   Date range (picker)
+-   Status (pending, in-progress)
 
 **And** filter state persists in URL  
 **And** filtered count shows in header
@@ -1191,9 +1423,10 @@ Question: {query}
 **Prerequisites:** Story 5.4
 
 **Technical Notes:**
-- Keyboard event listeners with proper focus management
-- URL query params for filter state
-- Covers FR42, FR43
+
+-   Keyboard event listeners with proper focus management
+-   URL query params for filter state
+-   Covers FR42, FR43
 
 ---
 
@@ -1233,9 +1466,10 @@ Question: {query}
 **Prerequisites:** Story 1.4 (auth)
 
 **Technical Notes:**
-- Scopes: `gmail.readonly`, `gmail.compose`, `gmail.modify`
-- Token encryption at rest
-- Covers FR44
+
+-   Scopes: `gmail.readonly`, `gmail.compose`, `gmail.modify`
+-   Token encryption at rest
+-   Covers FR44
 
 ---
 
@@ -1262,9 +1496,10 @@ Question: {query}
 **Prerequisites:** Story 6.1
 
 **Technical Notes:**
-- Microsoft Graph API
-- Scopes: `Mail.Read`, `Mail.Send`
-- Covers FR45
+
+-   Microsoft Graph API
+-   Scopes: `Mail.Read`, `Mail.Send`
+-   Covers FR45
 
 ---
 
@@ -1279,10 +1514,11 @@ Question: {query}
 **Given** I have a connected email account  
 **When** I click "Configure Monitoring"  
 **Then** I can set:
-- Monitored folders/labels (Inbox, Support, etc.)
-- Keywords to include (optional)
-- Keywords to exclude (optional)
-- Bot to use for each rule
+
+-   Monitored folders/labels (Inbox, Support, etc.)
+-   Keywords to include (optional)
+-   Keywords to exclude (optional)
+-   Bot to use for each rule
 
 **When** a new email matches my rules  
 **Then** it is queued for draft generation
@@ -1294,9 +1530,10 @@ Question: {query}
 **Prerequisites:** Story 6.2
 
 **Technical Notes:**
-- Background job polls for new emails
-- Webhook support if available (Gmail push notifications)
-- Covers FR46, FR50
+
+-   Background job polls for new emails
+-   Webhook support if available (Gmail push notifications)
+-   Covers FR46, FR50
 
 ---
 
@@ -1311,6 +1548,7 @@ Question: {query}
 **Given** a new email triggers a rule  
 **When** the system processes it  
 **Then**:
+
 1. Email content is extracted
 2. PII is redacted
 3. RAG retrieves relevant context
@@ -1318,18 +1556,20 @@ Question: {query}
 5. Draft is added to HITL queue
 
 **And** draft includes:
-- Subject: "Re: [Original Subject]"
-- Body: AI-generated response
-- Citations as internal notes (not in final email)
+
+-   Subject: "Re: [Original Subject]"
+-   Body: AI-generated response
+-   Citations as internal notes (not in final email)
 
 **And** draft generation takes <30 seconds
 
 **Prerequisites:** Story 6.3, Epic 3 (RAG)
 
 **Technical Notes:**
-- Same RAG pipeline as chat
-- Email-specific prompt template
-- Covers FR47, FR49
+
+-   Same RAG pipeline as chat
+-   Email-specific prompt template
+-   Covers FR47, FR49
 
 ---
 
@@ -1344,24 +1584,27 @@ Question: {query}
 **Given** I have sent emails previously  
 **When** the system generates a draft  
 **Then** it analyzes my historical emails for:
-- Tone (formal, casual, friendly)
-- Greeting style ("Hi [Name]," vs "Hello,")
-- Signature style
-- Average length
+
+-   Tone (formal, casual, friendly)
+-   Greeting style ("Hi [Name]," vs "Hello,")
+-   Signature style
+-   Average length
 
 **And** the draft matches these patterns  
 **And** I can adjust style settings manually:
-- Tone slider (Formal ↔ Casual)
-- Verbosity (Concise ↔ Detailed)
+
+-   Tone slider (Formal ↔ Casual)
+-   Verbosity (Concise ↔ Detailed)
 
 **And** style analysis uses last 50 sent emails
 
 **Prerequisites:** Story 6.4
 
 **Technical Notes:**
-- Store style profile per user
-- LLM prompt includes style instructions
-- Covers FR48
+
+-   Store style profile per user
+-   LLM prompt includes style instructions
+-   Covers FR48
 
 ---
 
@@ -1383,12 +1626,13 @@ Question: {query}
 
 **Given** a Q&A pair is approved via HITL  
 **Then** it is stored in the Verified KB:
-- Question (embedded for semantic match)
-- Answer (full text)
-- Source citations
-- Approved by (user)
-- Approved at (timestamp)
-- Bot ID (scoped)
+
+-   Question (embedded for semantic match)
+-   Answer (full text)
+-   Source citations
+-   Approved by (user)
+-   Approved at (timestamp)
+-   Bot ID (scoped)
 
 **And** embeddings use same model as documents (bge-m3)  
 **And** Verified KB is separate from document chunks
@@ -1396,9 +1640,10 @@ Question: {query}
 **Prerequisites:** Epic 5 (HITL)
 
 **Technical Notes:**
-- Table: `verified_qa` with vector column
-- Scoped by tenant_id and bot_id
-- Covers FR51, FR52
+
+-   Table: `verified_qa` with vector column
+-   Scoped by tenant_id and bot_id
+-   Covers FR51, FR52
 
 ---
 
@@ -1428,9 +1673,10 @@ Question: {query}
 **Prerequisites:** Story 7.1, Epic 3
 
 **Technical Notes:**
-- Two-stage retrieval: Verified KB → Documents
-- High threshold (95%) prevents false matches
-- Covers FR55
+
+-   Two-stage retrieval: Verified KB → Documents
+-   High threshold (95%) prevents false matches
+-   Covers FR55
 
 ---
 
@@ -1445,9 +1691,10 @@ Question: {query}
 **Given** I am on the Verified KB page  
 **When** I click "Add Entry"  
 **Then** I see a form with:
-- Question (required)
-- Answer (required, rich text)
-- Tags (optional)
+
+-   Question (required)
+-   Answer (required, rich text)
+-   Tags (optional)
 
 **When** I submit  
 **Then** the entry is added to Verified KB  
@@ -1459,9 +1706,10 @@ Question: {query}
 **Prerequisites:** Story 7.1
 
 **Technical Notes:**
-- Same embedding pipeline as documents
-- CSV import with validation
-- Covers FR53
+
+-   Same embedding pipeline as documents
+-   CSV import with validation
+-   Covers FR53
 
 ---
 
@@ -1475,10 +1723,11 @@ Question: {query}
 
 **Given** I am on the Verified KB page  
 **Then** I see a searchable list of entries with:
-- Question preview
-- Answer preview
-- Created by / date
-- Actions (Edit, Delete)
+
+-   Question preview
+-   Answer preview
+-   Created by / date
+-   Actions (Edit, Delete)
 
 **When** I click "Edit"  
 **Then** I can modify question or answer  
@@ -1494,9 +1743,10 @@ Question: {query}
 **Prerequisites:** Story 7.3
 
 **Technical Notes:**
-- Editing triggers re-embedding
-- Audit log for changes
-- Covers FR54
+
+-   Editing triggers re-embedding
+-   Audit log for changes
+-   Covers FR54
 
 ---
 
@@ -1519,10 +1769,11 @@ Question: {query}
 **Given** I am on the Analytics page  
 **When** the page loads  
 **Then** I see cards showing:
-- **Total Queries:** count for selected period
-- **Deflection Rate:** % answered from Verified KB
-- **Average Response Time:** seconds
-- **HITL Rate:** % requiring human review
+
+-   **Total Queries:** count for selected period
+-   **Deflection Rate:** % answered from Verified KB
+-   **Average Response Time:** seconds
+-   **HITL Rate:** % requiring human review
 
 **And** I can filter by date range (7d, 30d, 90d, custom)  
 **And** I can filter by bot  
@@ -1531,9 +1782,10 @@ Question: {query}
 **Prerequisites:** Epic 5 (data exists)
 
 **Technical Notes:**
-- Pre-aggregated metrics for performance
-- Charts: line for trends, bar for comparisons
-- Covers FR56, FR57
+
+-   Pre-aggregated metrics for performance
+-   Charts: line for trends, bar for comparisons
+-   Covers FR56, FR57
 
 ---
 
@@ -1548,20 +1800,23 @@ Question: {query}
 **Given** I am on Analytics  
 **When** I view the "Quality" tab  
 **Then** I see:
-- **Rejection Breakdown:** pie chart of reasons (Hallucination, Wrong Tone, etc.)
-- **Top Unanswered Questions:** list of queries with no good answer
-- **Feedback Score:** thumbs up vs down ratio
+
+-   **Rejection Breakdown:** pie chart of reasons (Hallucination, Wrong Tone, etc.)
+-   **Top Unanswered Questions:** list of queries with no good answer
+-   **Feedback Score:** thumbs up vs down ratio
 
 **And** clicking an unanswered question shows:
-- Query text
-- Attempted context (if any)
-- Suggestion: "Add to Verified KB"
+
+-   Query text
+-   Attempted context (if any)
+-   Suggestion: "Add to Verified KB"
 
 **Prerequisites:** Story 8.1
 
 **Technical Notes:**
-- Unanswered = low confidence + rejected
-- Covers FR58, FR59
+
+-   Unanswered = low confidence + rejected
+-   Covers FR58, FR59
 
 ---
 
@@ -1576,23 +1831,26 @@ Question: {query}
 **Given** I am on Analytics  
 **When** I click "Export CSV"  
 **Then** I can select:
-- Date range
-- Metrics to include
-- Bots to include
+
+-   Date range
+-   Metrics to include
+-   Bots to include
 
 **And** a CSV file downloads with:
-- Headers matching selected metrics
-- One row per day
-- UTF-8 encoding
+
+-   Headers matching selected metrics
+-   One row per day
+-   UTF-8 encoding
 
 **And** export respects current filters
 
 **Prerequisites:** Story 8.1
 
 **Technical Notes:**
-- Server-side CSV generation
-- Large exports use streaming
-- Covers FR60
+
+-   Server-side CSV generation
+-   Large exports use streaming
+-   Covers FR60
 
 ---
 
@@ -1611,30 +1869,33 @@ Question: {query}
 
 **When** confirmed  
 **Then** a background job runs that deletes:
-- All users in the tenant
-- All bots and documents
-- All embeddings from vector store
-- All conversations and feedback
-- All analytics data
-- Tenant record itself
+
+-   All users in the tenant
+-   All bots and documents
+-   All embeddings from vector store
+-   All conversations and feedback
+-   All analytics data
+-   Tenant record itself
 
 **And** deletion completes within 30 days (GDPR requirement)  
 **And** confirmation email is sent
 
 **Given** I click "Export My Data" (Data Portability)  
 **Then** a ZIP file is generated containing:
-- User profile (JSON)
-- All documents (original files)
-- Verified KB entries (JSON)
-- Conversation history (JSON)
-- Analytics summary (CSV)
+
+-   User profile (JSON)
+-   All documents (original files)
+-   Verified KB entries (JSON)
+-   Conversation history (JSON)
+-   Analytics summary (CSV)
 
 **Prerequisites:** Story 1.6
 
 **Technical Notes:**
-- Async job for deletion with audit log
-- Export excludes other users' data
-- Covers FR61, FR62
+
+-   Async job for deletion with audit log
+-   Export excludes other users' data
+-   Covers FR61, FR62
 
 ---
 
@@ -1648,12 +1909,13 @@ Question: {query}
 
 **Given** any AI action occurs  
 **Then** an audit log entry is created:
-- Timestamp
-- Action type (query, generation, approval, rejection)
-- Actor (user or system)
-- Input summary
-- Output summary
-- Confidence score
+
+-   Timestamp
+-   Action type (query, generation, approval, rejection)
+-   Actor (user or system)
+-   Input summary
+-   Output summary
+-   Confidence score
 
 **And** audit logs are immutable (append-only)  
 **And** logs are retained for 2 years
@@ -1668,102 +1930,327 @@ Question: {query}
 **Prerequisites:** All epics
 
 **Technical Notes:**
-- Separate audit database/table (append-only)
-- Required for EU AI Act compliance
-- Covers FR63, FR64
+
+-   Separate audit database/table (append-only)
+-   Required for EU AI Act compliance
+-   Covers FR63, FR64
 
 ---
 
 ## FR Coverage Matrix
 
-| FR | Description | Epic | Stories |
-|----|-------------|------|---------|
-| FR1 | Register with email/OAuth | 1 | 1.3, 1.4 |
-| FR2 | Create tenant organization | 1 | 1.3 |
-| FR3 | Invite team members | 1 | 1.5 |
-| FR4 | Update profile | 1 | 1.6 |
-| FR5 | RLS data isolation | 1 | 1.2 |
-| FR6 | Remove team members | 1 | 1.6 |
-| FR7 | Create multiple bots | 2 | 2.1 |
-| FR8 | Configure bot settings | 2 | 2.1 |
-| FR9 | Set confidence threshold | 2 | 2.1 |
-| FR10 | Delete bot | 2 | 2.2 |
-| FR11 | Duplicate bot | 2 | 2.2 |
-| FR12 | Bot isolation | 2 | 2.8 |
-| FR13 | Upload documents | 2 | 2.3 |
-| FR14 | Chunk documents | 2 | 2.4 |
-| FR15 | Generate embeddings | 2 | 2.4 |
-| FR16 | Store embeddings | 2 | 2.4 |
-| FR17 | View document list | 2 | 2.5 |
-| FR18 | Delete documents | 2 | 2.6 |
-| FR19 | Reprocess documents | 2 | 2.7 |
-| FR20 | Semantic search | 3 | 3.1 |
-| FR21 | Context-only generation | 3 | 3.2 |
-| FR22 | Citations | 3 | 3.3 |
-| FR23 | Confidence scoring | 3 | 3.4 |
-| FR24 | Check Verified KB first | 3, 7 | 3.4, 7.2 |
-| FR25 | Refuse out-of-domain | 3 | 3.2 |
-| FR26 | PII redaction | 3 | 3.5 |
-| FR27 | Chat interface | 4 | 4.1 |
-| FR28 | Display citations | 4 | 4.1 |
-| FR29 | Conversation context | 4 | 4.2 |
-| FR30 | User feedback | 4 | 4.3 |
-| FR31 | Low-confidence message | 4 | 4.4 |
-| FR32 | Verified badge | 4 | 4.4 |
-| FR33 | Widget generation | 4 | 4.5 |
-| FR34 | Widget customization | 4 | 4.5 |
-| FR35 | Domain whitelisting | 4 | 4.6 |
-| FR36 | Mobile responsive widget | 4 | 4.6 |
-| FR37 | HITL queue view | 5 | 5.1 |
-| FR38 | Queue item display | 5 | 5.2 |
-| FR39 | Approve draft | 5 | 5.3 |
-| FR40 | Edit draft | 5 | 5.3 |
-| FR41 | Reject with reason | 5 | 5.4 |
-| FR42 | Keyboard shortcuts | 5 | 5.5 |
-| FR43 | Filter queue | 5 | 5.5 |
-| FR44 | Gmail OAuth | 6 | 6.1 |
-| FR45 | Outlook OAuth | 6 | 6.2 |
-| FR46 | Email monitoring | 6 | 6.3 |
-| FR47 | Email draft generation | 6 | 6.4 |
-| FR48 | Style matching | 6 | 6.5 |
-| FR49 | Email drafts in HITL | 6 | 6.4 |
-| FR50 | Configure folders | 6 | 6.3 |
-| FR51 | Verified KB index | 7 | 7.1 |
-| FR52 | Auto-add approved | 7 | 7.1 |
-| FR53 | Manual Q&A entry | 7 | 7.3 |
-| FR54 | Edit/remove entries | 7 | 7.4 |
-| FR55 | Verified KB priority | 7 | 7.2 |
-| FR56 | Query metrics | 8 | 8.1 |
-| FR57 | HITL rate | 8 | 8.1 |
-| FR58 | Rejection breakdown | 8 | 8.2 |
-| FR59 | Unanswered questions | 8 | 8.2 |
-| FR60 | CSV export | 8 | 8.3 |
-| FR61 | GDPR deletion | 8 | 8.4 |
-| FR62 | GDPR export | 8 | 8.4 |
-| FR63 | Audit trail | 8 | 8.5 |
-| FR64 | AI labeling | 8 | 8.5 |
+| FR   | Description                | Epic | Stories  |
+| ---- | -------------------------- | ---- | -------- |
+| FR1  | Register with email/OAuth  | 1    | 1.3, 1.4 |
+| FR2  | Create tenant organization | 1    | 1.3      |
+| FR3  | Invite team members        | 1    | 1.5      |
+| FR4  | Update profile             | 1    | 1.6      |
+| FR5  | RLS data isolation         | 1    | 1.2      |
+| FR6  | Remove team members        | 1    | 1.6      |
+| FR7  | Create multiple bots       | 2    | 2.1      |
+| FR8  | Configure bot settings     | 2    | 2.1      |
+| FR9  | Set confidence threshold   | 2    | 2.1      |
+| FR10 | Delete bot                 | 2    | 2.2      |
+| FR11 | Duplicate bot              | 2    | 2.2      |
+| FR12 | Bot isolation              | 2    | 2.8      |
+| FR13 | Upload documents           | 2    | 2.3      |
+| FR14 | Chunk documents            | 2    | 2.4      |
+| FR15 | Generate embeddings        | 2    | 2.4      |
+| FR16 | Store embeddings           | 2    | 2.4      |
+| FR17 | View document list         | 2    | 2.5      |
+| FR18 | Delete documents           | 2    | 2.6      |
+| FR19 | Reprocess documents        | 2    | 2.7      |
+| FR20 | Semantic search            | 3    | 3.1      |
+| FR21 | Context-only generation    | 3    | 3.2      |
+| FR22 | Citations                  | 3    | 3.3      |
+| FR23 | Confidence scoring         | 3    | 3.4      |
+| FR24 | Check Verified KB first    | 3, 7 | 3.4, 7.2 |
+| FR25 | Refuse out-of-domain       | 3    | 3.2      |
+| FR26 | PII redaction              | 3    | 3.5      |
+| FR27 | Chat interface             | 4    | 4.1      |
+| FR28 | Display citations          | 4    | 4.1      |
+| FR29 | Conversation context       | 4    | 4.2      |
+| FR30 | User feedback              | 4    | 4.3      |
+| FR31 | Low-confidence message     | 4    | 4.4      |
+| FR32 | Verified badge             | 4    | 4.4      |
+| FR33 | Widget generation          | 4    | 4.5      |
+| FR34 | Widget customization       | 4    | 4.5      |
+| FR35 | Domain whitelisting        | 4    | 4.6      |
+| FR36 | Mobile responsive widget   | 4    | 4.6      |
+| FR37 | HITL queue view            | 5    | 5.1      |
+| FR38 | Queue item display         | 5    | 5.2      |
+| FR39 | Approve draft              | 5    | 5.3      |
+| FR40 | Edit draft                 | 5    | 5.3      |
+| FR41 | Reject with reason         | 5    | 5.4      |
+| FR42 | Keyboard shortcuts         | 5    | 5.5      |
+| FR43 | Filter queue               | 5    | 5.5      |
+| FR44 | Gmail OAuth                | 6    | 6.1      |
+| FR45 | Outlook OAuth              | 6    | 6.2      |
+| FR46 | Email monitoring           | 6    | 6.3      |
+| FR47 | Email draft generation     | 6    | 6.4      |
+| FR48 | Style matching             | 6    | 6.5      |
+| FR49 | Email drafts in HITL       | 6    | 6.4      |
+| FR50 | Configure folders          | 6    | 6.3      |
+| FR51 | Verified KB index          | 7    | 7.1      |
+| FR52 | Auto-add approved          | 7    | 7.1      |
+| FR53 | Manual Q&A entry           | 7    | 7.3      |
+| FR54 | Edit/remove entries        | 7    | 7.4      |
+| FR55 | Verified KB priority       | 7    | 7.2      |
+| FR56 | Query metrics              | 8    | 8.1      |
+| FR57 | HITL rate                  | 8    | 8.1      |
+| FR58 | Rejection breakdown        | 8    | 8.2      |
+| FR59 | Unanswered questions       | 8    | 8.2      |
+| FR60 | CSV export                 | 8    | 8.3      |
+| FR61 | GDPR deletion              | 8    | 8.4      |
+| FR62 | GDPR export                | 8    | 8.4      |
+| FR63 | Audit trail                | 8    | 8.5      |
+| FR64 | AI labeling                | 8    | 8.5      |
+
+---
+
+---
+
+## Epic 9: Testing & Quality Assurance (KB Provenance & Isolation)
+
+**Goal:** Ensure KB provenance tracking, group isolation, and RLS enforcement are thoroughly tested.  
+**Value:** Users can trust that group data is isolated, bot contributions are tracked, and no data leaks occur across groups or tenants.  
+**Test Coverage:** RLS policies, bot/group/tenant isolation, document provenance, RBAC enforcement
+
+---
+
+### Story 9.1: Unit Tests for KB Provenance Metadata
+
+**As a** Developer,  
+**I want** unit tests that verify document chunk metadata (bot_id, uploader, tenant_id, group_id) is correctly stored and retrieved,  
+**So that** provenance tracking is reliable.
+
+**Acceptance Criteria:**
+
+**Given** a document is uploaded with bot_id and user metadata  
+**When** chunks are created from the document  
+**Then** each chunk stores:
+
+-   document_id (references parent document)
+-   bot_id (which bot uploaded)
+-   tenant_id (for RLS)
+-   group_id (for group scoping)
+-   chunk_index
+-   created_at
+-   uploaded_by_user_id
+
+**When** I query chunks for a bot  
+**Then** only chunks with that bot_id (and matching tenant/group) are returned
+
+**Given** two groups in the same tenant  
+**When** each uploads documents  
+**Then** Group A chunks have group_id=A, Group B chunks have group_id=B  
+**And** querying Group A returns only Group A chunks
+
+**And** 100% code coverage for provenance metadata functions  
+**And** tests pass with both PostgreSQL and pgvector extensions
+
+**Prerequisites:** Story 2.5
+
+**Technical Notes:**
+
+-   Test file: `apps/api/tests/test_kb_provenance.py`
+-   Use pytest fixtures for test data setup
+-   Mock Ollama for embedding tests (or use test container)
+-   Covers provenance tracking
+
+---
+
+### Story 9.2: RLS Integration Tests for Group Isolation
+
+**As a** Developer,  
+**I want** integration tests that verify RLS policies prevent cross-group data access,  
+**So that** group data remains isolated even if queries bypass application logic.
+
+**Acceptance Criteria:**
+
+**Given** User A in Group X and User B in Group Y (both in Tenant 1)  
+**When** User A queries the database with their JWT (containing tenant_id=1, group_id=X)  
+**Then** they only see documents/chunks with (tenant_id=1, group_id=X)  
+**And** they cannot query Group Y data even with direct SQL
+
+**Given** the RLS policy `(tenant_id, group_id) = current_user_claims()`  
+**When** a user from a different group tries to access data  
+**Then** the query returns 0 rows (RLS blocks it, not application logic)
+
+**Given** User A is removed from Group X  
+**When** their session ends and they rejoin Group Z  
+**Then** subsequent queries return only Group Z data  
+**And** they cannot access cached Group X data
+
+**And** cross-tenant access is blocked by RLS (tenant_id != current_tenant)  
+**And** tests simulate realistic JWT claims  
+**And** tests run against actual PostgreSQL with RLS enabled
+
+**Prerequisites:** Story 1.8
+
+**Technical Notes:**
+
+-   Test file: `apps/api/tests/test_rls_group_isolation.py`
+-   Use testcontainers for PostgreSQL + RLS setup
+-   Set session variables: `SET app.current_tenant_id = 'x'; SET app.current_group_id = 'y';`
+-   Test both `documents` and `document_chunks` tables
+-   Covers RLS enforcement
+
+---
+
+### Story 9.3: E2E Test: Multi-Bot Group KB Upload & Query
+
+**As a** QA,  
+**I want** an end-to-end test that verifies multiple bots uploading to the same Group KB and querying with correct provenance,  
+**So that** the complete flow works as intended.
+
+**Acceptance Criteria:**
+
+**Given** a group with 2 bots (HR Bot and IT Bot)  
+**When** HR Bot uploads "HR Handbook.pdf"  
+**Then** chunks are stored with bot_id = HR Bot  
+**And** chunk metadata shows uploader as the Manager who triggered upload
+
+**When** IT Bot uploads "IT Policies.md"  
+**Then** chunks are stored with bot_id = IT Bot  
+**And** chunk metadata shows IT Bot as contributor
+
+**Given** I query the Group KB  
+**When** I search for "vacation policy"  
+**Then** I get chunks from "HR Handbook.pdf" with bot_id = HR Bot  
+**And** chunk source metadata displays: "HR Bot, uploaded by [Name], [date]"
+
+**When** I delete "HR Handbook.pdf"  
+**Then** HR Bot's chunks are removed from the KB  
+**And** IT Bot's chunks remain  
+**And** the Group KB still has access to IT Policies
+
+**And** test runs with Playwright (web UI) and API assertions  
+**And** test data is cleaned up after each run  
+**And** test covers both happy path and error cases (upload fail, delete fail)
+
+**Prerequisites:** Story 2.5, Story 5.1 (Chat API)
+
+**Technical Notes:**
+
+-   Test file: `tests/e2e/group-kb-multibot.spec.ts` (Playwright)
+-   Setup: create tenant → create group → add 2 bots → upload docs → query → verify
+-   Use real Ollama or mock embeddings API
+-   Assertions: document.provenance.bot_id, document.provenance.uploader_name, etc.
+
+---
+
+### Story 9.4: RBAC Enforcement Tests (Bot CRUD Permissions)
+
+**As a** Developer,  
+**I want** tests that verify only authorized roles can perform bot CRUD operations,  
+**So that** permissions are enforced at the API layer.
+
+**Acceptance Criteria:**
+
+**Given** an Operator user in a group  
+**When** they try POST `/api/groups/{group_id}/bots`  
+**Then** API returns 403 Forbidden  
+**And** bot is not created
+
+**Given** a Manager user in a group  
+**When** they try POST `/api/groups/{group_id}/bots`  
+**Then** API returns 201 Created  
+**And** bot is successfully created
+
+**Given** an Operator user  
+**When** they try DELETE `/api/bots/{bot_id}`  
+**Then** API returns 403 Forbidden  
+**And** bot is not deleted
+
+**Given** a Manager or Group Admin user  
+**When** they try DELETE `/api/bots/{bot_id}`  
+**Then** API returns 204 No Content  
+**And** bot is deleted
+
+**Given** an Operator user  
+**When** they try to upload a document  
+**Then** API returns 201 Created (Operators can upload)  
+**And** document is created with uploader_id = Operator
+
+**And** all permission checks log audit trail (who attempted what, result)  
+**And** tests cover all CRUD endpoints for bots and documents  
+**And** tests verify JWT role claim is actually checked (not just UI hiding buttons)
+
+**Prerequisites:** Story 1.8, Story 2.1
+
+**Technical Notes:**
+
+-   Test file: `apps/api/tests/test_rbac_bot_crud.py`
+-   Use pytest parametrize to test all role/endpoint combinations
+-   Mock JWT tokens with different role claims
+-   Assert HTTP status codes and error messages
+-   Covers RBAC enforcement in FastAPI
+
+---
+
+### Story 9.5: Integration Test: Ingestion Tagging & Audit Trail
+
+**As a** Developer,  
+**I want** tests that verify documents are tagged with tenant_id/group_id/bot_id during ingestion and audit trails are recorded,  
+**So that** every document action is traceable.
+
+**Acceptance Criteria:**
+
+**Given** a Manager uploads a document to Group A  
+**When** the ingestion pipeline completes  
+**Then** the document record has:
+
+-   tenant_id = Group A's tenant
+-   group_id = Group A's id
+-   bot_id = selected bot id
+-   uploaded_by_user_id = Manager's id
+-   created_at = timestamp
+
+**When** I query the audit log  
+**Then** I see an entry: "User [Name] uploaded [Document] to Group [Name] with bot [Bot Name], 2 chunks created"
+
+**Given** a Manager deletes a document  
+**When** deletion completes  
+**Then** audit log shows: "User [Name] deleted [Document] from Group [Name]"  
+**And** document record is soft-deleted (deleted_at timestamp set)
+
+**And** audit trail is queryable by group, user, date range  
+**And** tests verify audit entries cannot be modified (append-only)  
+**And** tests cover success and failure cases
+
+**Prerequisites:** Story 2.4, Story 2.5
+
+**Technical Notes:**
+
+-   Audit table: `audit_logs` (id, tenant_id, group_id, user_id, action, resource_type, resource_id, timestamp)
+-   Test file: `apps/api/tests/test_ingestion_audit.py`
+-   Verify audit trail via direct DB query (RLS-scoped)
+-   Soft-delete: documents.deleted_at != NULL
 
 ---
 
 ## Summary
 
-| Metric | Value |
-|--------|-------|
-| **Total Epics** | 8 |
-| **Total Stories** | 44 |
-| **FRs Covered** | 64/64 (100%) |
-| **MVP Scope** | All stories |
+| Metric                               | Value                                      |
+| ------------------------------------ | ------------------------------------------ |
+| **Total Epics**                      | 9                                          |
+| **Total Stories**                    | 52                                         |
+| **FRs Covered**                      | 64/64 (100%)                               |
+| **New Stories (Group/RBAC/Testing)** | 8                                          |
+| **MVP Scope**                        | All stories (with Epic 9 testing critical) |
 
 ### Epic Sequence
 
-1. **Foundation & Auth** → Infrastructure + Users (blocks everything)
-2. **Bot & Knowledge** → Data layer (blocks RAG)
+1. **Foundation & Auth** → Infrastructure + Users + Groups (blocks everything)
+2. **Bot & Knowledge** → Data layer with group scoping & provenance (blocks RAG)
 3. **RAG Q&A Engine** → Core AI (blocks Chat, HITL)
 4. **Chat Experience** → End-user interface (enables value delivery)
 5. **HITL Verification** → Trust layer (core differentiator)
 6. **Email Automation** → Major use case (builds on HITL)
 7. **Verified KB** → Learning loop (completes trust cycle)
 8. **Analytics & Compliance** → ROI proof + legal compliance
+9. **Testing & QA** → Provenance & isolation validation (runs in parallel with development)
 
 ---
 

@@ -266,17 +266,6 @@ class TestMetadataReturning:
 
     def test_query_metadata_structure(self):
         """Test that response includes correct metadata structure."""
-        expected_fields = [
-            "query",
-            "bot_id",
-            "tenant_id",
-            "k",
-            "context_chunks",
-            "search_latency_ms",
-            "tokens_generated",
-            "generation_latency_s",
-            "model",
-        ]
         # Verify all fields are present
         pass
 

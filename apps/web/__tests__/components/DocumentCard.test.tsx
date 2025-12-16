@@ -8,12 +8,17 @@ describe('DocumentCard', () => {
     const mockDocument: Document = {
         id: '123',
         bot_id: 'bot-456',
+        group_id: 'group-789',
+        uploader_id: 'user-123',
         filename: 'test-document.pdf',
-        file_size: 1024000, // 1000 KB
+        mime: 'application/pdf',
+        size: 1024000, // 1000 KB
+        storage_path: '/docs/test-document.pdf',
         status: 'processed',
         chunk_count: 10,
         created_at: '2025-01-01T00:00:00Z',
         updated_at: '2025-01-01T00:00:00Z',
+        tenant_id: 'tenant-123',
     };
 
     const mockHandlers = {

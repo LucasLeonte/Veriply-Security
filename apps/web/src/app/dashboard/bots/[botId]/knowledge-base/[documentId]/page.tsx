@@ -11,12 +11,14 @@ import {
     useDeleteDocument,
     useReprocessDocument,
 } from "@/hooks/useDocumentsQuery";
+import { useGroup } from "@/contexts/GroupContext";
 
 export default function DocumentDetailPage() {
     const params = useParams();
     const router = useRouter();
     const botId = params.botId as string;
     const documentId = params.documentId as string;
+    const { currentGroup } = useGroup();
 
     // Fetch document details
     const { data: documentData, isLoading, refetch } = useDocumentQuery(documentId);
@@ -40,7 +42,7 @@ export default function DocumentDetailPage() {
 
     const handleDelete = async (docId: string) => {
         try {
-            await deleteDocument(docId);
+            await deleteDocument({ groupId: currentGroup.id, documentId: docId });
             // Redirect back to KB list after delete
             router.push(`/dashboard/bots/${botId}/knowledge-base`);
         } catch (err) {

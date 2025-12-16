@@ -9,8 +9,11 @@ export const mockBots: Bot[] = [
         confidence_threshold: 0.8,
         created_at: "2025-12-01T10:00:00Z",
         updated_at: "2025-12-10T15:30:00Z",
-        document_count: 12,
-        chunk_count: 245,
+        status: "Ready",
+        created_by: "user-1",
+        tenant_id: "tenant-1",
+        group_id: "group-1",
+        doc_count: 12,
     },
     {
         id: "bot-456",
@@ -19,8 +22,11 @@ export const mockBots: Bot[] = [
         confidence_threshold: 0.75,
         created_at: "2025-11-25T14:20:00Z",
         updated_at: "2025-12-09T11:15:00Z",
-        document_count: 8,
-        chunk_count: 156,
+        status: "Ready",
+        created_by: "user-1",
+        tenant_id: "tenant-1",
+        group_id: "group-1",
+        doc_count: 8,
     },
     {
         id: "bot-789",
@@ -29,8 +35,11 @@ export const mockBots: Bot[] = [
         confidence_threshold: 0.85,
         created_at: "2025-11-20T09:45:00Z",
         updated_at: "2025-12-08T16:00:00Z",
-        document_count: 5,
-        chunk_count: 98,
+        status: "Ready",
+        created_by: "user-1",
+        tenant_id: "tenant-1",
+        group_id: "group-1",
+        doc_count: 5,
     },
 ];
 
@@ -98,8 +107,11 @@ export const mockBotsApi = {
             confidence_threshold: data.confidence_threshold || 0.8,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            document_count: 0,
-            chunk_count: 0,
+            status: "Empty",
+            created_by: "user-1",
+            tenant_id: "tenant-1",
+            group_id: "group-1",
+            doc_count: 0,
         };
 
         mockBots.push(newBot);

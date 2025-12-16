@@ -8,6 +8,9 @@ from app.core.migrations import enable_pgvector, enable_rls
 from app.core.settings import settings
 from app.api.v1 import auth
 from app.api.v1 import profile
+from app.api.v1 import groups
+from app.api.v1 import bots as bots_v1
+from app.api.v1 import documents as documents_v1
 from app.api.routes import bots
 from app.api.routes import query
 from app.api.routes.documents import router as bot_documents_router, documents_router as document_detail_router
@@ -44,6 +47,9 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(profile.router)
+app.include_router(groups.router)
+app.include_router(bots_v1.router)
+app.include_router(documents_v1.router)
 app.include_router(bots.router, prefix="/api/v1")
 app.include_router(query.router, prefix="/api/v1")
 app.include_router(bot_documents_router, prefix="/api/v1")

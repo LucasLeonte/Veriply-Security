@@ -2,7 +2,16 @@
 
 import React from "react";
 import { Document } from "@/types/document";
-import { FileText, MoreVertical, CheckCircle, AlertCircle, Clock, Loader, Square, CheckSquare } from "lucide-react";
+import {
+    FileText,
+    MoreVertical,
+    CheckCircle,
+    AlertCircle,
+    Clock,
+    Loader,
+    User,
+    Bot,
+} from "lucide-react";
 
 interface DocumentCardProps {
     document: Document;
@@ -36,40 +45,107 @@ export function DocumentCard({
         }
 
         switch (document.status) {
+            case "ready":
+                return {
+                    icon: (
+                        <CheckCircle
+                            size={16}
+                            className="text-emerald-600"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: "Ready",
+                    className: "text-emerald-600",
+                };
             case "processed":
                 return {
-                    icon: <CheckCircle size={16} className="text-emerald-600" aria-hidden="true" />,
+                    icon: (
+                        <CheckCircle
+                            size={16}
+                            className="text-emerald-600"
+                            aria-hidden="true"
+                        />
+                    ),
                     text: "Processed",
                     className: "text-emerald-600",
                 };
+            case "pending":
+                return {
+                    icon: (
+                        <Clock
+                            size={16}
+                            className="text-slate-400"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: "Pending",
+                    className: "text-slate-400",
+                };
             case "processing":
                 return {
-                    icon: <Loader size={16} className="text-amber-500 animate-spin" aria-hidden="true" />,
-                    text: `Processing${document.processing_progress ? ` ${document.processing_progress}%` : "..."}`,
+                    icon: (
+                        <Loader
+                            size={16}
+                            className="text-amber-500 animate-spin"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: `Processing${
+                        document.processing_progress
+                            ? ` ${document.processing_progress}%`
+                            : "..."
+                    }`,
                     className: "text-amber-500",
                 };
             case "failed":
                 return {
-                    icon: <AlertCircle size={16} className="text-red-600" aria-hidden="true" />,
+                    icon: (
+                        <AlertCircle
+                            size={16}
+                            className="text-red-600"
+                            aria-hidden="true"
+                        />
+                    ),
                     text: "Failed",
                     className: "text-red-600",
                 };
-            case "pending":
+            case "uploading":
                 return {
-                    icon: <Clock size={16} className="text-slate-400" aria-hidden="true" />,
-                    text: "Pending",
+                    icon: (
+                        <Clock
+                            size={16}
+                            className="text-slate-400"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: "Uploaded",
+                    className: "text-slate-400",
+                };
+            default:
+                return {
+                    icon: (
+                        <Clock
+                            size={16}
+                            className="text-slate-400"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: document.status,
                     className: "text-slate-400",
                 };
         }
     };
 
     const status = getStatusDisplay();
-    const formattedSize = (document.file_size / 1024).toFixed(1) + " KB";
-    const uploadDate = new Date(document.created_at).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-    });
+    const formattedSize = (document.size / 1024).toFixed(1) + " KB";
+    const uploadDate = new Date(document.created_at).toLocaleDateString(
+        "en-US",
+        {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+        }
+    );
 
     return (
         <div className={`border border-slate-200 rounded-lg p-4 transition-all bg-white ${
@@ -93,7 +169,11 @@ export function DocumentCard({
                 )}
 
                 {/* File Icon */}
-                <FileText size={24} className="text-slate-400 flex-shrink-0 mt-1" aria-hidden="true" />
+                <FileText
+                    size={24}
+                    className="text-slate-400 flex-shrink-0 mt-1"
+                    aria-hidden="true"
+                />
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -110,11 +190,13 @@ export function DocumentCard({
 
                     {/* Status and Metadata */}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        <div className={`flex items-center gap-1 text-sm font-medium ${status.className}`}>
+                        <div
+                            className={`flex items-center gap-1 text-sm font-medium ${status.className}`}
+                        >
                             {status.icon}
                             <span>{status.text}</span>
                         </div>
-                        {document.status === "processed" && (
+                        {(document.status === "ready" || document.status === "processed") && (
                             <>
                                 <span className="text-slate-300">•</span>
                                 <span className="text-sm text-slate-600">
@@ -123,7 +205,9 @@ export function DocumentCard({
                             </>
                         )}
                         <span className="text-slate-300">•</span>
-                        <span className="text-sm text-slate-600">{formattedSize}</span>
+                        <span className="text-sm text-slate-600">
+                            {formattedSize}
+                        </span>
                     </div>
 
                     {/* Error Message */}
@@ -132,6 +216,29 @@ export function DocumentCard({
                             Error: {document.error_message}
                         </p>
                     )}
+
+                    {/* Provenance Information */}
+                    <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
+                        {document.uploader_id && (
+                            <div className="flex items-center gap-1">
+                                <User size={12} />
+                                <span>
+                                    Uploaded by User {document.uploader_id}
+                                </span>
+                            </div>
+                        )}
+                        {document.bot_id && (
+                            <>
+                                {document.uploader_id && (
+                                    <span className="text-slate-300">•</span>
+                                )}
+                                <div className="flex items-center gap-1">
+                                    <Bot size={12} />
+                                    <span>Triggered by Bot</span>
+                                </div>
+                            </>
+                        )}
+                    </div>
 
                     {/* Upload Date */}
                     <p className="text-xs text-slate-500 mt-1">
@@ -149,7 +256,11 @@ export function DocumentCard({
                         aria-expanded={showMenu}
                         aria-haspopup="true"
                     >
-                        <MoreVertical size={18} className="text-slate-500" aria-hidden="true" />
+                        <MoreVertical
+                            size={18}
+                            className="text-slate-500"
+                            aria-hidden="true"
+                        />
                     </button>
 
                     {showMenu && (
@@ -161,7 +272,7 @@ export function DocumentCard({
                                 aria-hidden="true"
                             />
                             {/* Menu */}
-                            <div 
+                            <div
                                 className="absolute right-0 mt-1 w-40 bg-white border border-slate-200 rounded-md shadow-lg z-20"
                                 role="menu"
                                 aria-label="Document actions menu"
@@ -178,18 +289,19 @@ export function DocumentCard({
                                         View Details
                                     </button>
                                 )}
-                                {onReprocess && document.status !== "processing" && (
-                                    <button
-                                        onClick={() => {
-                                            onReprocess(document);
-                                            setShowMenu(false);
-                                        }}
-                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors"
-                                        role="menuitem"
-                                    >
-                                        Reprocess
-                                    </button>
-                                )}
+                                {onReprocess &&
+                                    document.status !== "processing" && (
+                                        <button
+                                            onClick={() => {
+                                                onReprocess(document);
+                                                setShowMenu(false);
+                                            }}
+                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors"
+                                            role="menuitem"
+                                        >
+                                            Reprocess
+                                        </button>
+                                    )}
                                 {onDelete && (
                                     <button
                                         onClick={() => {

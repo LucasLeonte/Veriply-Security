@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
     title: "Veriply - Trust-First AI Customer Service",
@@ -15,7 +16,7 @@ export default function RootLayout({
     return (
         <html lang="en">
             <body className="antialiased" suppressHydrationWarning>
-                {children}
+                <Providers>{children}</Providers>
             </body>
         </html>
     );

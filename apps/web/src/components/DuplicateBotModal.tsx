@@ -70,6 +70,7 @@ export function DuplicateBotModal({
 
         try {
             const duplicatedBot = await mutate({
+                groupId: bot.group_id,
                 botId: bot.id,
                 name: newName,
             });

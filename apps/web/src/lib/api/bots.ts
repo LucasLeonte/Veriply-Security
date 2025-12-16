@@ -5,17 +5,22 @@ import {
     PaginatedBotsResponse,
 } from "@/types/bot";
 import { mockBotsApi } from "./mockBots";
+import { getAccessToken } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-const BOTS_ENDPOINT = `${API_BASE_URL}/api/v1/bots`;
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
+
+// Helper to construct group-scoped bot endpoint
+function getBotsEndpoint(groupId: string): string {
+    return `${API_BASE_URL}/api/v1/groups/${groupId}/bots`;
+}
 
 async function getAuthToken(): Promise<string | null> {
     // Only access localStorage on client-side
     if (typeof window === "undefined") {
         return null;
     }
-    return localStorage.getItem("access_token");
+    return getAccessToken();
 }
 
 async function fetchWithAuth(
@@ -67,7 +72,8 @@ export const botsApi = {
             return mockBotsApi.createBot(data);
         }
 
-        const response = await fetchWithAuth(BOTS_ENDPOINT, {
+        const endpoint = getBotsEndpoint(data.group_id);
+        const response = await fetchWithAuth(endpoint, {
             method: "POST",
             body: JSON.stringify(data),
         });
@@ -75,6 +81,7 @@ export const botsApi = {
     },
 
     async listBots(
+        groupId: string,
         limit: number = 20,
         offset: number = 0,
         search?: string,
@@ -84,6 +91,7 @@ export const botsApi = {
             return mockBotsApi.listBots(limit, offset, search, sortBy);
         }
 
+        const endpoint = getBotsEndpoint(groupId);
         const params = new URLSearchParams({
             limit: limit.toString(),
             offset: offset.toString(),
@@ -95,38 +103,45 @@ export const botsApi = {
         }
 
         const response = await fetchWithAuth(
-            `${BOTS_ENDPOINT}?${params.toString()}`
+            `${endpoint}?${params.toString()}`
         );
         return handleResponse<PaginatedBotsResponse>(response);
     },
 
-    async getBotDetails(botId: string): Promise<Bot> {
+    async getBotDetails(groupId: string, botId: string): Promise<Bot> {
         if (USE_MOCK_DATA) {
             return mockBotsApi.getBot(botId);
         }
 
-        const response = await fetchWithAuth(`${BOTS_ENDPOINT}/${botId}`);
+        const endpoint = getBotsEndpoint(groupId);
+        const response = await fetchWithAuth(`${endpoint}/${botId}`);
         return handleResponse<Bot>(response);
     },
 
-    async updateBot(botId: string, data: UpdateBotInput): Promise<Bot> {
+    async updateBot(
+        groupId: string,
+        botId: string,
+        data: UpdateBotInput
+    ): Promise<Bot> {
         if (USE_MOCK_DATA) {
             return mockBotsApi.updateBot(botId, data);
         }
 
-        const response = await fetchWithAuth(`${BOTS_ENDPOINT}/${botId}`, {
+        const endpoint = getBotsEndpoint(groupId);
+        const response = await fetchWithAuth(`${endpoint}/${botId}`, {
             method: "PATCH",
             body: JSON.stringify(data),
         });
         return handleResponse<Bot>(response);
     },
 
-    async deleteBot(botId: string): Promise<void> {
+    async deleteBot(groupId: string, botId: string): Promise<void> {
         if (USE_MOCK_DATA) {
             return mockBotsApi.deleteBot(botId);
         }
 
-        const response = await fetchWithAuth(`${BOTS_ENDPOINT}/${botId}`, {
+        const endpoint = getBotsEndpoint(groupId);
+        const response = await fetchWithAuth(`${endpoint}/${botId}`, {
             method: "DELETE",
         });
         if (!response.ok) {
@@ -134,18 +149,20 @@ export const botsApi = {
         }
     },
 
-    async duplicateBot(botId: string, name?: string): Promise<Bot> {
+    async duplicateBot(
+        groupId: string,
+        botId: string,
+        name?: string
+    ): Promise<Bot> {
         if (USE_MOCK_DATA) {
             return mockBotsApi.duplicateBot(botId, name || "Copy of Bot");
         }
 
-        const response = await fetchWithAuth(
-            `${BOTS_ENDPOINT}/${botId}/duplicate`,
-            {
-                method: "POST",
-                body: JSON.stringify({ name }),
-            }
-        );
+        const endpoint = getBotsEndpoint(groupId);
+        const response = await fetchWithAuth(`${endpoint}/${botId}/duplicate`, {
+            method: "POST",
+            body: JSON.stringify({ name }),
+        });
         return handleResponse<Bot>(response);
     },
 };

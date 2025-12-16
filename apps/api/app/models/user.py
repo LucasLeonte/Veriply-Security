@@ -15,5 +15,8 @@ class User(Base):
     notification_frequency = Column(String, default="weekly")  # daily, weekly, never
     last_active = Column(DateTime, nullable=True)
     is_active = Column(String, default="active")  # active, inactive
+    # Password reset fields
+    password_reset_token = Column(String, nullable=True)
+    password_reset_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

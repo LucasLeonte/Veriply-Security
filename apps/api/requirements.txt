@@ -20,3 +20,5 @@ pytest-mock
 aiosqlite
 PyPDF2
 python-docx
+aiosmtplib
+email-validator

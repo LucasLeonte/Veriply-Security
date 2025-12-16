@@ -263,7 +263,6 @@ export function KnowledgeBaseList({
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onUpload={onUpload}
-                botId={botId}
             />
 
             {/* Delete Confirmation Dialog */}

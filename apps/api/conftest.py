@@ -20,8 +20,11 @@ from app.core.settings import settings
 from app.models import Base  # noqa: F401 - imported for model registration
 from app.models.user import User  # noqa: F401
 from app.models.tenant import Tenant  # noqa: F401
+from app.models.group import Group  # noqa: F401
+from app.models.group_member import GroupMember, GroupRole  # noqa: F401
 from app.models.bot import Bot  # noqa: F401
 from app.models.document import Document  # noqa: F401
+from app.models.chunk import Chunk  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
 
 

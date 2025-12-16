@@ -13,6 +13,7 @@ class Bot(Base):
     
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     tenant_id = Column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=True)
     name = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
     confidence_threshold = Column(Integer, default=80, nullable=False)
@@ -24,6 +25,8 @@ class Bot(Base):
     # Indexes and constraints
     __table_args__ = (
         Index('ix_bots_tenant_id', 'tenant_id'),
-        Index('ix_bots_tenant_created', 'tenant_id', 'created_at'),
-        __import__('sqlalchemy').UniqueConstraint('tenant_id', 'name', name='uq_bots_tenant_name'),
+        Index('ix_bots_group_id', 'group_id'),
+        Index('ix_bots_tenant_group', 'tenant_id', 'group_id'),
+        Index('ix_bots_tenant_group_created', 'tenant_id', 'group_id', 'created_at'),
+        __import__('sqlalchemy').UniqueConstraint('tenant_id', 'group_id', 'name', name='uq_bots_tenant_group_name'),
     )
