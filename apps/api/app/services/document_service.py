@@ -60,11 +60,11 @@ async def create_document(
         raise ValueError(f"Failed to store file: {filename}")
 
     # Create DB object
+    # Note: Document.title maps to the 'filename' column in the database
     doc = Document(
         tenant_id=tenant_uuid,
         bot_id=bot_uuid,
-        filename=filename,
-        title=title,
+        title=title or filename,  # title attribute maps to filename column
         mime=mime_type,
         size=size_bytes,
         storage_path=storage_path,

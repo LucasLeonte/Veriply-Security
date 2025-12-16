@@ -47,6 +47,17 @@ async function fetchWithAuth(
 
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+            // Clear expired token
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("access_token");
+                // Redirect to login
+                window.location.href = "/login?error=session_expired";
+            }
+            throw new Error("Session expired. Please log in again.");
+        }
+        
         const error = await response
             .json()
             .catch(() => ({ detail: "Unknown error" }));

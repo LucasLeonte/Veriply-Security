@@ -10,8 +10,7 @@ class Document(Base):
     tenant_id = Column(Uuid, ForeignKey("tenants.id"), nullable=False)
     group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=True)
     bot_id = Column(Uuid, ForeignKey("bots.id"), nullable=True)
-    title = Column(String(255), nullable=True)
-    filename = Column(String(255), nullable=True)
+    title = Column(String(255), nullable=False)  # Database column is 'title'
     mime = Column(String(100), nullable=True)
     size = Column(Integer, nullable=True)
     storage_path = Column(Text, nullable=True)
@@ -29,3 +28,8 @@ class Document(Base):
         Index('ix_documents_status', 'status'),
         Index('ix_documents_deleted', 'deleted_at'),
     )
+    
+    @property
+    def filename(self):
+        """Alias for title - API expects 'filename' but DB column is 'title'"""
+        return self.title
