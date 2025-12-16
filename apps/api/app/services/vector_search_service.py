@@ -10,11 +10,13 @@ from typing import List, Optional
 from uuid import UUID
 from dataclasses import dataclass
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chunk import Chunk
 from app.models.document import Document
+from app.models.bot import Bot
+from app.models.bot_document_access import BotDocumentAccess
 from app.services.embedding_service import EmbeddingService, EmbeddingError
 
 logger = logging.getLogger(__name__)
@@ -94,7 +96,77 @@ class VectorSearchService:
         # Set HNSW search parameter for this session
         await db.execute(text(f"SET hnsw.ef_search = {HNSW_EF_SEARCH}"))
 
-        # Perform vector search with RLS filtering
+        # Resolve the bot's group for access filtering
+        bot = await db.scalar(select(Bot).where(Bot.id == bot_id, Bot.tenant_id == tenant_id))
+        if not bot or not bot.group_id:
+            logger.info(f"Bot {bot_id} has no group assigned; returning no results")
+            return [], int((time.time() - start_time) * 1000)
+        group_id_val = bot.group_id
+
+        # Determine document IDs this bot can access using allowlist rules
+        # Access logic:
+        #  - Explicit document records with is_allowed=true are allowed
+        #  - Folder-level is_allowed=true allows all docs in that folder
+        #  - Explicit document records with is_allowed=false override folder allow
+        # Note: we keep this in-SQL for performance rather than per-row Python checks
+
+        # Subquery: documents explicitly allowed
+        allowed_docs_explicit = (
+            select(BotDocumentAccess.document_id)
+            .where(
+                and_(
+                    BotDocumentAccess.bot_id == bot_id,
+                    BotDocumentAccess.tenant_id == tenant_id,
+                    BotDocumentAccess.group_id == group_id_val,
+                    BotDocumentAccess.document_id.isnot(None),
+                    BotDocumentAccess.is_allowed.is_(True),
+                )
+            )
+        )
+
+        # Subquery: documents allowed via folder allow
+        allowed_docs_via_folder = (
+            select(Document.id)
+            .join(
+                BotDocumentAccess,
+                and_(
+                    BotDocumentAccess.folder_id == Document.folder_id,
+                    BotDocumentAccess.bot_id == bot_id,
+                    BotDocumentAccess.tenant_id == tenant_id,
+                    BotDocumentAccess.group_id == Document.group_id,
+                    BotDocumentAccess.is_allowed.is_(True),
+                ),
+            )
+            .where(
+                and_(
+                    Document.tenant_id == tenant_id,
+                    Document.group_id == group_id_val,
+                    Document.deleted_at.is_(None),
+                )
+            )
+        )
+
+        # Subquery: documents explicitly denied (to subtract)
+        denied_docs_explicit = (
+            select(BotDocumentAccess.document_id)
+            .where(
+                and_(
+                    BotDocumentAccess.bot_id == bot_id,
+                    BotDocumentAccess.tenant_id == tenant_id,
+                    BotDocumentAccess.group_id == group_id_val,
+                    BotDocumentAccess.document_id.isnot(None),
+                    BotDocumentAccess.is_allowed.is_(False),
+                )
+            )
+        )
+
+        # Final filter condition for accessible documents
+        accessible_docs_condition = or_(
+            Chunk.document_id.in_(allowed_docs_explicit),
+            Chunk.document_id.in_(allowed_docs_via_folder),
+        )
+
+        # Perform vector search with RLS filtering and bot allowlist
         # Use pgvector's cosine distance operator (<=>)
         # Lower distance = higher similarity
         stmt = (
@@ -107,9 +179,10 @@ class VectorSearchService:
                 Chunk.metadata_json,
                 Chunk.vector.cosine_distance(query_embedding).label("distance"),
             )
-            .where(Chunk.bot_id == bot_id)
             .where(Chunk.tenant_id == tenant_id)
             .where(Chunk.vector.isnot(None))  # Only chunks with embeddings
+            .where(accessible_docs_condition)
+            .where(~Chunk.document_id.in_(denied_docs_explicit))
             .order_by(text("distance"))
             .limit(k * 2)  # Get extra results for threshold filtering
         )
