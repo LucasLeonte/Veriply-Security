@@ -5,6 +5,7 @@ import {
     PaginatedBotsResponse,
 } from "@/types/bot";
 import { mockBotsApi } from "./mockBots";
+import { getAccessToken } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const USE_MOCK_DATA = process.env.NEXT_PUBLIC_USE_MOCK_DATA === "true";
@@ -19,7 +20,7 @@ async function getAuthToken(): Promise<string | null> {
     if (typeof window === "undefined") {
         return null;
     }
-    return localStorage.getItem("access_token");
+    return getAccessToken();
 }
 
 async function fetchWithAuth(

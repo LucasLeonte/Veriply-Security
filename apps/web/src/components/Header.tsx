@@ -8,6 +8,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { MobileSidebar } from "./Sidebar";
+import { getAccessToken, clearAccessToken } from "@/lib/auth";
 
 interface HeaderProps {
     className?: string;
@@ -39,9 +40,7 @@ export function Header({ className }: HeaderProps) {
         const loadProfile = async () => {
             try {
                 const token =
-                    typeof window !== "undefined"
-                        ? localStorage.getItem("access_token")
-                        : null;
+                    typeof window !== "undefined" ? getAccessToken() : null;
                 if (!token) {
                     // no token, show generic display
                     return;
@@ -93,7 +92,7 @@ export function Header({ className }: HeaderProps) {
     const handleSignOut = async () => {
         // Clear client storage token so subsequent calls fail fast
         if (typeof window !== "undefined") {
-            localStorage.removeItem("access_token");
+            clearAccessToken();
         }
 
         // Call logout endpoint to clear any httpOnly cookies (best-effort)
@@ -137,10 +136,6 @@ export function Header({ className }: HeaderProps) {
                     </div>
                     <span className="font-semibold text-slate-900">
                         Veriply
-                    </span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-sm text-slate-500">
-                        Design Direction: Cool Slate
                     </span>
                 </div>
 

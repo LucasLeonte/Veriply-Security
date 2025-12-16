@@ -9,6 +9,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -63,11 +64,15 @@ export default function LoginPage() {
                 return;
             }
 
-            // Extract token from response and store in localStorage
+            // Extract token from response and store based on rememberMe
             const data = await response.json();
 
             if (data.access_token) {
-                localStorage.setItem("access_token", data.access_token);
+                if (rememberMe) {
+                    localStorage.setItem("access_token", data.access_token);
+                } else {
+                    sessionStorage.setItem("access_token", data.access_token);
+                }
             } else {
                 setError("Login failed: no access token returned");
             }
@@ -237,6 +242,10 @@ export default function LoginPage() {
                             <label className="flex items-center gap-2">
                                 <input
                                     type="checkbox"
+                                    checked={rememberMe}
+                                    onChange={(e) =>
+                                        setRememberMe(e.target.checked)
+                                    }
                                     className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                                     disabled={loading}
                                 />

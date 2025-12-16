@@ -7,6 +7,7 @@ import { useGroup } from "@/contexts/GroupContext";
 import { Button } from "@/components/ui/button";
 import { groupsApi } from "@/lib/api/groups";
 import { Group, GroupMember, GroupRole } from "@/types/group";
+import { getAccessToken } from "@/lib/auth";
 import {
     Plus,
     Trash2,
@@ -51,10 +52,7 @@ export default function GroupsPage() {
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) return;
 
-        const token =
-            typeof window !== "undefined"
-                ? localStorage.getItem("access_token")
-                : null;
+        const token = typeof window !== "undefined" ? getAccessToken() : null;
         if (!token) {
             alert(
                 "You must be logged in to create a group. Please sign in again."

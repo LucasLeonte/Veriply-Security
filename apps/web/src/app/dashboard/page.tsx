@@ -3,12 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components";
+import { getAccessToken } from "@/lib/auth";
 
 export default function DashboardPage() {
     const router = useRouter();
 
     useEffect(() => {
-        const token = localStorage.getItem("access_token");
+        const token = getAccessToken();
         if (!token) {
             router.push("/login");
         }

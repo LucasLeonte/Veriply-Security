@@ -8,6 +8,7 @@ export default function SignupPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -38,7 +39,11 @@ export default function SignupPage() {
 
             const data = await res.json();
             if (data.access_token) {
-                localStorage.setItem("access_token", data.access_token);
+                if (rememberMe) {
+                    localStorage.setItem("access_token", data.access_token);
+                } else {
+                    sessionStorage.setItem("access_token", data.access_token);
+                }
             }
 
             // Redirect to group selection
@@ -107,6 +112,24 @@ export default function SignupPage() {
                                 placeholder="At least 8 characters"
                                 disabled={loading}
                             />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="rememberMe"
+                                checked={rememberMe}
+                                onChange={(e) =>
+                                    setRememberMe(e.target.checked)
+                                }
+                                className="w-4 h-4 text-sky-500 border-slate-300 rounded focus:ring-sky-500"
+                            />
+                            <label
+                                htmlFor="rememberMe"
+                                className="text-sm text-slate-700 select-none"
+                            >
+                                Keep me signed in
+                            </label>
                         </div>
 
                         <div className="pt-4">
