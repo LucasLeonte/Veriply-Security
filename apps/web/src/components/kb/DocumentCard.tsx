@@ -18,6 +18,9 @@ interface DocumentCardProps {
     onView?: (document: Document) => void;
     onDelete?: (document: Document) => void;
     onReprocess?: (document: Document) => void;
+    isSelected?: boolean;
+    onToggleSelection?: (documentId: string) => void;
+    isDeleting?: boolean;
 }
 
 export function DocumentCard({
@@ -25,10 +28,22 @@ export function DocumentCard({
     onView,
     onDelete,
     onReprocess,
+    isSelected = false,
+    onToggleSelection,
+    isDeleting = false,
 }: DocumentCardProps) {
     const [showMenu, setShowMenu] = React.useState(false);
 
     const getStatusDisplay = () => {
+        // Show deleting status if currently being deleted
+        if (isDeleting) {
+            return {
+                icon: <Loader size={16} className="text-red-500 animate-spin" aria-hidden="true" />,
+                text: "Deleting...",
+                className: "text-red-500",
+            };
+        }
+
         switch (document.status) {
             case "ready":
                 return {
@@ -133,8 +148,26 @@ export function DocumentCard({
     );
 
     return (
-        <div className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
+        <div className={`border border-slate-200 rounded-lg p-4 transition-all bg-white ${
+            isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-md"
+        } ${isDeleting ? "opacity-60" : ""}`}>
             <div className="flex items-start gap-3">
+                {/* Selection Checkbox */}
+                {onToggleSelection && (
+                    <button
+                        onClick={() => onToggleSelection(document.id)}
+                        disabled={isDeleting || document.status === "processing"}
+                        className="flex-shrink-0 mt-1 p-1 rounded hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label={isSelected ? "Deselect document" : "Select document"}
+                    >
+                        {isSelected ? (
+                            <CheckSquare className="h-5 w-5 text-blue-600" />
+                        ) : (
+                            <Square className="h-5 w-5 text-slate-400" />
+                        )}
+                    </button>
+                )}
+
                 {/* File Icon */}
                 <FileText
                     size={24}
@@ -217,7 +250,8 @@ export function DocumentCard({
                 <div className="relative flex-shrink-0">
                     <button
                         onClick={() => setShowMenu(!showMenu)}
-                        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"
+                        disabled={isDeleting}
+                        className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center hover:bg-slate-100 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                         aria-label={`Actions for ${document.filename}`}
                         aria-expanded={showMenu}
                         aria-haspopup="true"
@@ -274,7 +308,8 @@ export function DocumentCard({
                                             onDelete(document);
                                             setShowMenu(false);
                                         }}
-                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50 transition-colors"
+                                        disabled={document.status === "processing" || isDeleting}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                         role="menuitem"
                                     >
                                         Delete

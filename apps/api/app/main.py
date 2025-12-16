@@ -13,7 +13,7 @@ from app.api.v1 import bots as bots_v1
 from app.api.v1 import documents as documents_v1
 from app.api.routes import bots
 from app.api.routes import query
-from app.api.routes.documents import router as documents_router, documents_router as document_detail_router
+from app.api.routes.documents import router as bot_documents_router, documents_router as document_detail_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,7 +52,7 @@ app.include_router(bots_v1.router)
 app.include_router(documents_v1.router)
 app.include_router(bots.router, prefix="/api/v1")
 app.include_router(query.router, prefix="/api/v1")
-app.include_router(documents_router, prefix="/api/v1")
+app.include_router(bot_documents_router, prefix="/api/v1")
 app.include_router(document_detail_router, prefix="/api/v1")
 
 @app.get("/")
