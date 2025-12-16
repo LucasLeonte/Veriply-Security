@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Bot } from "@/types/bot";
 import { useCreateBot } from "@/hooks/useBotsQuery";
+import { useGroup } from "@/contexts/GroupContext";
 import { AlertCircle, Loader } from "lucide-react";
 
 interface CreateBotModalProps {
@@ -25,6 +26,7 @@ export function CreateBotModal({
     onSuccess,
     onError,
 }: CreateBotModalProps) {
+    const { currentGroup } = useGroup();
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [threshold, setThreshold] = useState(80);
@@ -70,7 +72,7 @@ export function CreateBotModal({
 
         try {
             const bot = await mutate({
-                group_id: null as any,
+                group_id: currentGroup.id,
                 name,
                 description: description || undefined,
                 confidence_threshold: threshold,
