@@ -28,7 +28,7 @@ class FolderUpdate(BaseModel):
 
 
 class FolderStats(BaseModel):
-    doc_count: int
+    document_count: int
 
 
 class FolderResponse(BaseModel):
@@ -164,7 +164,7 @@ async def list_folders(
         response = []
         for folder in folders:
             stats = await FolderService.get_folder_stats(
-                session, folder.id, tenant_id, group_id
+                db=session, folder_id=folder.id, tenant_id=tenant_id, group_id=group_id
             )
             response.append(FolderResponse(
                 id=str(folder.id),
@@ -220,7 +220,7 @@ async def get_folder(
         
         # Get stats
         stats = await FolderService.get_folder_stats(
-            session, folder.id, tenant_id, group_id
+            db=session, folder_id=folder.id, tenant_id=tenant_id, group_id=group_id
         )
         
         return FolderResponse(
@@ -296,7 +296,7 @@ async def update_folder(
         
         # Get stats
         stats = await FolderService.get_folder_stats(
-            session, folder.id, tenant_id, group_id
+            db=session, folder_id=folder.id, tenant_id=tenant_id, group_id=group_id
         )
         
         return FolderResponse(

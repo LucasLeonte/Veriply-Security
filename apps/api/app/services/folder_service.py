@@ -249,5 +249,5 @@ class FolderService:
         ) or 0
         
         return {
-            "doc_count": doc_count
+            "document_count": doc_count
         }

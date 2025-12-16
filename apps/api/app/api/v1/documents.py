@@ -79,10 +79,10 @@ async def upload_document(
         if file.size and file.size > 100 * 1024 * 1024:  # 100MB limit
             raise HTTPException(status_code=413, detail="File too large (max 100MB)")
 
-        # Save file to storage first
-        storage_dir = Path(settings.STORAGE_PATH) / f"groups/{group_id}/documents"
-        storage_dir.mkdir(parents=True, exist_ok=True)
-        file_path = storage_dir / file.filename
+        # Save file to storage using local directory
+        storage_base = Path("storage") / "documents" / "groups" / str(group_id)
+        storage_base.mkdir(parents=True, exist_ok=True)
+        file_path = storage_base / file.filename
         storage_path = f"groups/{group_id}/documents/{file.filename}"
 
         content = await file.read()
@@ -118,8 +118,8 @@ async def upload_document(
 
         # Mark as uploaded (will be processed asynchronously)
         await DocumentGroupService.update_document_status(
-            session=session,
-            document_id=new_doc.id,
+            db=session,
+            doc_id=new_doc.id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
             status="uploaded",
@@ -161,8 +161,8 @@ async def get_document(
 
         # Get document using service
         doc = await DocumentGroupService.get_document(
-            session=session,
-            document_id=doc_id,
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )
@@ -193,7 +193,7 @@ async def list_documents(
 
         # List documents using service
         docs = await DocumentGroupService.list_group_documents(
-            session=session,
+            db=session,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
             include_deleted=include_deleted,
@@ -225,8 +225,8 @@ async def delete_document(
 
         # Soft delete using service
         await DocumentGroupService.soft_delete_document(
-            session=session,
-            document_id=doc_id,
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )
@@ -270,16 +270,16 @@ async def list_document_chunks(
 
         # Get document to verify it exists
         await DocumentGroupService.get_document(
-            session=session,
-            document_id=doc_id,
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )
 
         # List chunks using service
         chunks = await DocumentGroupService.get_document_chunks(
-            session=session,
-            document_id=doc_id,
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )

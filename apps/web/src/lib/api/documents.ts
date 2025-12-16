@@ -130,11 +130,16 @@ export const documentsApi = {
             return mockDocumentsApi.uploadDocuments(groupId, files);
         }
 
-        const formData = new FormData();
+        // Backend expects single file per request, so upload first file
+        // TODO: Support batch uploads or loop through files
+        if (files.length === 0) {
+            throw new Error("No files to upload");
+        }
 
-        files.forEach((file) => {
-            formData.append("files", file);
-        });
+        const formData = new FormData();
+        
+        // Backend expects 'file' (singular)
+        formData.append("file", files[0]);
 
         if (botId) {
             formData.append("bot_id", botId);
