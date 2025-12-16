@@ -9,11 +9,13 @@ import { DuplicateBotModal } from "@/components/DuplicateBotModal";
 import { DeleteBotModal } from "@/components/DeleteBotModal";
 import { useBotsQuery } from "@/hooks/useBotsQuery";
 import { DashboardLayout } from "@/components";
+import { useGroup } from "@/contexts/GroupContext";
 import { Bot } from "@/types/bot";
 
 const ITEMS_PER_PAGE = 20;
 
 export default function BotsPage() {
+    const { currentGroup } = useGroup();
     const [page, setPage] = useState(0);
     const [search, setSearch] = useState("");
     const [sortBy, setSortBy] = useState<"name" | "created_at">("name");
@@ -37,7 +39,7 @@ export default function BotsPage() {
 
     const offset = page * ITEMS_PER_PAGE;
     const { data, isLoading, error, refetch } = useBotsQuery(
-        null,
+        currentGroup.id,
         ITEMS_PER_PAGE,
         offset,
         debouncedSearch || undefined,
