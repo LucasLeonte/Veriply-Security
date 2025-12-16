@@ -187,7 +187,7 @@ development_status:
         blocked_by: 3-3-citation-generation
 
     3-5-pii-redaction:
-        status: assigned
+        status: in-progress
         assigned_to: Kainy
         blocked_by: 3-2-context-only-answer-generation
 
