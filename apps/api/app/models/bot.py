@@ -13,7 +13,7 @@ class Bot(Base):
     
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     tenant_id = Column(Uuid, ForeignKey("tenants.id"), nullable=False)
-    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=True)
     name = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
     confidence_threshold = Column(Integer, default=80, nullable=False)

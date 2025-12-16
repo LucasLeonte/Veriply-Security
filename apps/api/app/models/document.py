@@ -8,7 +8,7 @@ class Document(Base):
 
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     tenant_id = Column(Uuid, ForeignKey("tenants.id"), nullable=False)
-    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=True)
     bot_id = Column(Uuid, ForeignKey("bots.id"), nullable=True)
     title = Column(String(255), nullable=True)
     filename = Column(String(255), nullable=True)

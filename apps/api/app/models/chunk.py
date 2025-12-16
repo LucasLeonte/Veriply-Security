@@ -29,7 +29,7 @@ class Chunk(Base):
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     document_id = Column(Uuid, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     tenant_id = Column(Uuid, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=True)
-    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=True)
     bot_id = Column(Uuid, ForeignKey("bots.id", ondelete="CASCADE"), nullable=True)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)  # Text content of chunk
