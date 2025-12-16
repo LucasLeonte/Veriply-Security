@@ -170,6 +170,7 @@ async def setup_multi_tenant_scenario(async_db: AsyncSession):
         tenant_id=tenant_a.id,
         title="HR Handbook",
         status="ready",
+        uploader_id=user_a1.id,
         created_at=datetime.utcnow(),
     )
     doc_a_hr_policies = Document(
@@ -178,6 +179,7 @@ async def setup_multi_tenant_scenario(async_db: AsyncSession):
         tenant_id=tenant_a.id,
         title="HR Policies",
         status="ready",
+        uploader_id=user_a1.id,
         created_at=datetime.utcnow(),
     )
     doc_a_sales_commission = Document(
@@ -186,6 +188,7 @@ async def setup_multi_tenant_scenario(async_db: AsyncSession):
         tenant_id=tenant_a.id,
         title="Commission Structure",
         status="ready",
+        uploader_id=user_a1.id,
         created_at=datetime.utcnow(),
     )
     
@@ -195,6 +198,7 @@ async def setup_multi_tenant_scenario(async_db: AsyncSession):
         tenant_id=tenant_b.id,
         title="Support FAQ",
         status="ready",
+        uploader_id=user_b1.id,
         created_at=datetime.utcnow(),
     )
     doc_b_finance_guide = Document(
@@ -203,6 +207,7 @@ async def setup_multi_tenant_scenario(async_db: AsyncSession):
         tenant_id=tenant_b.id,
         title="Finance Guide",
         status="ready",
+        uploader_id=user_b1.id,
         created_at=datetime.utcnow(),
     )
     
