@@ -39,3 +39,4 @@ yarn-error.log*
 # User uploads
 storage/avatars/
 storage/documents/
+/apps/api/storage/documents
