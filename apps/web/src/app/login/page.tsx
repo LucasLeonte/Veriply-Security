@@ -57,21 +57,6 @@ export default function LoginPage() {
                 }),
             });
 
-            // If login fails with 401, try registration (new user)
-            if (response.status === 401) {
-                response = await fetch(`${apiUrl}/api/v1/auth/register`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        email,
-                        password,
-                        tenant_name: email.split("@")[0],
-                    }),
-                });
-            }
-
             if (!response.ok) {
                 const errorData = await response.json();
                 setError(errorData.detail || "Login failed");
@@ -152,7 +137,19 @@ export default function LoginPage() {
                     <h1 className="text-4xl font-bold text-slate-900 mb-2">
                         Veriply
                     </h1>
-                    <p className="text-slate-600">Sign in to your account</p>
+                    <p className="text-slate-600">Log in to your account</p>
+                    <div className="mt-2 text-sm">
+                        <span className="text-slate-500">
+                            Don't have an account?
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => router.push("/signup")}
+                            className="text-sky-600 hover:underline ml-1"
+                        >
+                            Create account
+                        </button>
+                    </div>
                 </div>
 
                 {/* Form Card */}
@@ -261,7 +258,7 @@ export default function LoginPage() {
                             disabled={loading}
                             className="w-full bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed mt-6 shadow-md hover:shadow-lg"
                         >
-                            {loading ? "Signing in..." : "Sign in"}
+                            {loading ? "Logging in..." : "Log in"}
                         </button>
                     </form>
 
@@ -282,22 +279,6 @@ export default function LoginPage() {
                     >
                         Try Demo (demo@example.com)
                     </button>
-
-                    {/* Sign Up Link */}
-                    <p className="text-center text-slate-600 text-sm mt-6">
-                        Don&apos;t have an account?{" "}
-                        <a
-                            href="#"
-                            className="text-sky-600 hover:text-sky-700 font-medium"
-                        >
-                            Sign up
-                        </a>
-                    </p>
-                </div>
-
-                {/* Footer Info */}
-                <div className="mt-8 text-center text-slate-500 text-xs">
-                    <p>Protected by enterprise security</p>
                 </div>
             </div>
 
