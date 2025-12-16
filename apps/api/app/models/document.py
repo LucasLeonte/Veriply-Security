@@ -9,6 +9,7 @@ class Document(Base):
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     tenant_id = Column(Uuid, ForeignKey("tenants.id"), nullable=False)
     group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
+    folder_id = Column(Uuid, ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
     title = Column(String(255), nullable=False)  # Database column is 'title'
     mime = Column(String(100), nullable=True)
     size = Column(Integer, nullable=True)
@@ -22,6 +23,7 @@ class Document(Base):
     __table_args__ = (
         Index('ix_documents_tenant_id', 'tenant_id'),
         Index('ix_documents_group_id', 'group_id'),
+        Index('ix_documents_folder_id', 'folder_id'),
         Index('ix_documents_tenant_group', 'tenant_id', 'group_id'),
         Index('ix_documents_status', 'status'),
         Index('ix_documents_deleted', 'deleted_at'),

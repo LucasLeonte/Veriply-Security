@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { Upload, X, FileText, AlertCircle } from "lucide-react";
+import { Upload, X, FileText, AlertCircle, Folder } from "lucide-react";
+import type { Folder as FolderType } from "@/types/folder";
 
 interface UploadModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onUpload: (files: File[]) => Promise<void>;
+    onUpload: (files: File[], folderId?: string) => Promise<void>;
+    folders?: FolderType[];
 }
 
 const ALLOWED_EXTENSIONS = [".pdf", ".txt", ".docx", ".md"];
@@ -16,8 +18,10 @@ export function UploadModal({
     isOpen,
     onClose,
     onUpload,
+    folders = [],
 }: UploadModalProps) {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [selectedFolderId, setSelectedFolderId] = useState<string | undefined>(undefined);
     const [isDragging, setIsDragging] = useState(false);
     const [error, setError] = useState<string>("");
     const [isUploading, setIsUploading] = useState(false);
@@ -92,8 +96,9 @@ export function UploadModal({
         setError("");
 
         try {
-            await onUpload(selectedFiles);
+            await onUpload(selectedFiles, selectedFolderId);
             setSelectedFiles([]);
+            setSelectedFolderId(undefined);
             onClose();
         } catch (err) {
             setError(err instanceof Error ? err.message : "Upload failed");
@@ -105,6 +110,7 @@ export function UploadModal({
     const handleClose = () => {
         if (!isUploading) {
             setSelectedFiles([]);
+            setSelectedFolderId(undefined);
             setError("");
             onClose();
         }
@@ -181,6 +187,30 @@ export function UploadModal({
                                 Supported: {ALLOWED_EXTENSIONS.join(", ")} • Max size: 10 MB
                             </p>
                         </div>
+
+                        {/* Folder Selection */}
+                        {folders.length > 0 && (
+                            <div>
+                                <label htmlFor="folder-select" className="text-sm font-medium text-slate-700 block mb-2">
+                                    <Folder size={16} className="inline mr-1" />
+                                    Save to folder (optional)
+                                </label>
+                                <select
+                                    id="folder-select"
+                                    value={selectedFolderId || ""}
+                                    onChange={(e) => setSelectedFolderId(e.target.value || undefined)}
+                                    disabled={isUploading}
+                                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white disabled:opacity-50"
+                                >
+                                    <option value="">No folder (root)</option>
+                                    {folders.map((folder) => (
+                                        <option key={folder.id} value={folder.id}>
+                                            {folder.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         {/* Selected Files */}
                         {selectedFiles.length > 0 && (

@@ -284,7 +284,12 @@ class DocumentResponse(BaseModel):
     filename: str
     status: str
     uploader_id: str | UUID
+    mime: Optional[str] = None
+    size: Optional[int] = 0
+    storage_path: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 

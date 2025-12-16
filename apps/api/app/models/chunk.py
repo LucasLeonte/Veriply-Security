@@ -21,7 +21,7 @@ class Chunk(Base):
       - chunk_index: order index within document
       - content: chunk text content
       - page_number: page reference (optional)
-      - vector: pgvector embedding (1024 dimensions, nullable during processing)
+      - vector: pgvector embedding (768 dimensions, nullable during processing)
       - metadata_json: JSON/text metadata stored in DB column `metadata`
       - created_at / updated_at timestamps
     """
@@ -35,10 +35,9 @@ class Chunk(Base):
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)  # Text content of chunk
     page_number = Column(Integer, nullable=True)  # For PDF section/page reference
-    vector = Column(Vector(1024), nullable=True)  # 1024-dim embedding from nomic-embed-text
+    vector = Column(Vector(768), nullable=True)  # 768-dim embedding from nomic-embed-text
     # 'metadata' is reserved on declarative classes — use attribute name metadata_json
     metadata_json = Column('metadata', Text, nullable=True)
-    source_metadata = Column('source_metadata', Text, nullable=True)  # {filename, page, row}
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

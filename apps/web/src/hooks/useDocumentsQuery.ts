@@ -95,6 +95,7 @@ export function useUploadDocuments() {
             groupId: string;
             files: File[];
             botId?: string;
+            folderId?: string;
         }): Promise<{
             id: string;
             document_id: string;
@@ -107,7 +108,8 @@ export function useUploadDocuments() {
                 const result = await documentsApi.uploadDocuments(
                     params.groupId,
                     params.files,
-                    params.botId
+                    params.botId,
+                    params.folderId
                 );
                 return result;
             } catch (err) {

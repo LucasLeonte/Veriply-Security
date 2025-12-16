@@ -14,6 +14,7 @@ from app.core.settings import settings
 from app.api.v1.schemas import DocumentResponse, ChunkResponse
 from app.services.document_group_service import DocumentGroupService
 from app.services.audit_service import AuditService
+from app import tasks
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ async def upload_document(
     file: UploadFile = File(...),
     bot_id: str | None = Form(None),
     title: str | None = Form(None),
+    folder_id: str | None = Form(None),
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -58,7 +60,7 @@ async def upload_document(
     Upload a document to the group's knowledge base.
     
     Returns immediately (202 Accepted) and processes asynchronously.
-    Metadata includes: uploader_id, bot_id (optional), group_id.
+    Metadata includes: uploader_id, bot_id (optional), group_id, folder_id (optional).
     
     Required permissions: Any group member (Operator+)
     """
@@ -78,11 +80,12 @@ async def upload_document(
         if file.size and file.size > 100 * 1024 * 1024:  # 100MB limit
             raise HTTPException(status_code=413, detail="File too large (max 100MB)")
 
-        # Save file to storage first
-        storage_dir = Path(settings.STORAGE_PATH) / f"groups/{group_id}/documents"
-        storage_dir.mkdir(parents=True, exist_ok=True)
-        file_path = storage_dir / file.filename
+        # Save file to storage using local directory
+        # Storage path matches DB path: groups/{group_id}/documents/{filename}
         storage_path = f"groups/{group_id}/documents/{file.filename}"
+        storage_base = Path("storage") / "documents" / "groups" / str(group_id) / "documents"
+        storage_base.mkdir(parents=True, exist_ok=True)
+        file_path = storage_base / file.filename
 
         content = await file.read()
         with open(file_path, "wb") as f:
@@ -90,21 +93,21 @@ async def upload_document(
 
         # Create document record using service
         new_doc = await DocumentGroupService.create_document(
-            session=session,
+            db=session,
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
             uploader_id=UUID(current_user["sub"]),
             filename=file.filename,
-            mime=file.content_type or "application/octet-stream",
-            size=len(content),
+            mime_type=file.content_type or "application/octet-stream",
+            size_bytes=len(content),
             storage_path=storage_path,
-            bot_id=UUID(bot_id) if bot_id else None,
             title=title or file.filename,
+            folder_id=UUID(folder_id) if folder_id else None,
         )
 
         # Log to audit trail
         await AuditService.log_document_upload(
-            session=session,
+            db=session,
             actor_id=UUID(current_user["sub"]),
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
@@ -116,14 +119,20 @@ async def upload_document(
 
         # Mark as uploaded (will be processed asynchronously)
         await DocumentGroupService.update_document_status(
-            session=session,
-            document_id=new_doc.id,
+            db=session,
+            doc_id=new_doc.id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
             status="uploaded",
         )
 
         await session.commit()
+
+        # Enqueue background processing of the uploaded document
+        try:
+            tasks.enqueue_group_document_processing(str(new_doc.id))
+        except Exception:
+            logger.exception("Failed to enqueue group document processing for %s", new_doc.id)
 
         return {
             "id": str(new_doc.id),
@@ -159,8 +168,8 @@ async def get_document(
 
         # Get document using service
         doc = await DocumentGroupService.get_document(
-            session=session,
-            document_id=doc_id,
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )
@@ -190,8 +199,8 @@ async def list_documents(
         await check_group_access(group_id, current_user, session)
 
         # List documents using service
-        docs = await DocumentGroupService.list_group_documents(
-            session=session,
+        docs, total = await DocumentGroupService.list_group_documents(
+            db=session,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
             include_deleted=include_deleted,
@@ -221,21 +230,22 @@ async def delete_document(
         # Verify group membership (any role can delete their own uploads)
         await check_group_access(group_id, current_user, session)
 
-        # Soft delete using service
-        await DocumentGroupService.soft_delete_document(
-            session=session,
-            document_id=doc_id,
+        # Soft delete using service and retrieve filename for audit
+        deleted_doc = await DocumentGroupService.soft_delete_document(
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )
 
         # Log to audit trail
         await AuditService.log_document_delete(
-            session=session,
+            db=session,
             actor_id=UUID(current_user["sub"]),
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
             document_id=doc_id,
+            filename=deleted_doc.filename,
         )
 
         await session.commit()
@@ -268,16 +278,16 @@ async def list_document_chunks(
 
         # Get document to verify it exists
         await DocumentGroupService.get_document(
-            session=session,
-            document_id=doc_id,
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )
 
         # List chunks using service
         chunks = await DocumentGroupService.get_document_chunks(
-            session=session,
-            document_id=doc_id,
+            db=session,
+            doc_id=doc_id,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
         )

@@ -158,7 +158,7 @@ development_status:
         blocked_by: 2-1-bot-creation-configuration
 
     2-9-group-kb-folders-bot-allowlist:
-        status: ready-for-dev
+        status: review
         assigned_to: Dario
         blocked_by: null
 

@@ -1,0 +1,196 @@
+import logging
+import os
+import io
+import uuid
+import asyncio
+from datetime import datetime
+from typing import List, Optional
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.document import Document
+from app.models.chunk import Chunk
+from app.services.embedding_service import EmbeddingService, EmbeddingError
+
+logger = logging.getLogger(__name__)
+
+
+def _simple_text_extractor(file_bytes: bytes, filename: Optional[str], mime: Optional[str]) -> str:
+    """Best-effort text extraction for PDF/DOCX/Plain text.
+
+    Falls back to utf-8/latin-1 decode if specialized libs not available.
+    """
+    # PDF
+    if (mime and "pdf" in mime.lower()) or (filename and filename.lower().endswith(".pdf")):
+        try:
+            from PyPDF2 import PdfReader
+            reader = PdfReader(io.BytesIO(file_bytes))
+            texts: List[str] = []
+            for p in reader.pages:
+                try:
+                    texts.append(p.extract_text() or "")
+                except Exception:
+                    texts.append("")
+            return "\n\n".join(texts)
+        except Exception:
+            logger.warning("PyPDF2 unavailable/failed; falling back to plain decode")
+
+    # DOCX
+    if filename and filename.lower().endswith(".docx"):
+        try:
+            from docx import Document as DocxDocument
+            doc = DocxDocument(io.BytesIO(file_bytes))
+            paragraphs = [p.text for p in doc.paragraphs]
+            return "\n\n".join(paragraphs)
+        except Exception:
+            logger.warning("python-docx unavailable/failed; falling back to plain decode")
+
+    # Plain text fallback
+    for enc in ("utf-8", "latin-1"):
+        try:
+            return file_bytes.decode(enc)
+        except Exception:
+            pass
+    return ""
+
+
+def _chunk_text(text: str, max_words: int = 200, overlap: int = 30) -> List[str]:
+    words = text.split()
+    if not words:
+        return []
+    chunks: List[str] = []
+    i = 0
+    n = len(words)
+    while i < n:
+        end = min(i + max_words, n)
+        chunk = " ".join(words[i:end])
+        chunks.append(chunk)
+        if end == n:
+            break
+        i = max(0, end - overlap)
+    return chunks
+
+
+async def _read_file_bytes(storage_path: str) -> bytes:
+    """Read bytes from storage path used by group upload.
+
+    Group uploads save under storage/documents/<storage_path> where storage_path
+    is like 'groups/<group_id>/documents/<filename>'.
+    """
+    # Absolute path under project storage
+    base = os.path.join(os.getcwd(), "storage", "documents")
+    local = os.path.join(base, storage_path.replace("/", os.sep))
+    # Perform blocking read in a thread
+    def _read() -> bytes:
+        with open(local, "rb") as f:
+            return f.read()
+    return await asyncio.to_thread(_read)
+
+
+async def process_group_document(
+    document_id: str | uuid.UUID,
+    db_session: AsyncSession,
+    embedding_service: Optional[EmbeddingService] = None,
+) -> dict:
+    """Process a group-scoped document: extract, chunk, embed, persist.
+
+    Updates Document.status lifecycle: uploaded -> processing -> ready/failed.
+    """
+    # Normalize id
+    try:
+        doc_id = uuid.UUID(str(document_id))
+    except Exception:
+        doc_id = document_id  # type: ignore
+
+    # Load document
+    doc = await db_session.get(Document, doc_id)
+    if not doc:
+        logger.error("Document %s not found", document_id)
+        return {"document_id": str(document_id), "status": "not_found"}
+
+    # Mark processing
+    doc.status = "processing"
+    doc.updated_at = datetime.utcnow()
+    await db_session.flush()
+    try:
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+
+    # Read bytes
+    try:
+        file_bytes = await _read_file_bytes(doc.storage_path or "")
+    except Exception as e:
+        logger.exception("Failed to read document %s: %s", document_id, e)
+        doc.status = "failed"
+        doc.updated_at = datetime.utcnow()
+        await db_session.flush()
+        try:
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
+        return {"document_id": str(document_id), "status": "failed", "error": "read_error"}
+
+    # Extract & chunk
+    text = _simple_text_extractor(file_bytes, getattr(doc, "filename", None), getattr(doc, "mime", None))
+    chunks = _chunk_text(text)
+
+    # Prepare embedding service
+    own_service = False
+    if embedding_service is None:
+        embedding_service = EmbeddingService()
+        own_service = True
+
+    created = 0
+    try:
+        # Embed in sequence to keep it simple; can batch later
+        for idx, chunk_text in enumerate(chunks):
+            vec = None
+            try:
+                vec = await embedding_service.embed_query(chunk_text)
+            except EmbeddingError as e:
+                logger.warning("Embedding failed for doc %s chunk %d: %s", document_id, idx, e)
+                # still store chunk without vector
+
+            chunk = Chunk(
+                document_id=doc.id,
+                tenant_id=doc.tenant_id,
+                group_id=doc.group_id,
+                chunk_index=idx,
+                content=chunk_text,
+                page_number=None,
+                vector=vec,
+                metadata_json=None,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            db_session.add(chunk)
+            created += 1
+
+        await db_session.flush()
+
+        doc.status = "ready"
+        doc.updated_at = datetime.utcnow()
+        await db_session.flush()
+        try:
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
+    except Exception:
+        logger.exception("Persisting chunks failed for document %s", document_id)
+        doc.status = "failed"
+        doc.updated_at = datetime.utcnow()
+        await db_session.flush()
+        try:
+            await db_session.commit()
+        except Exception:
+            await db_session.rollback()
+        return {"document_id": str(document_id), "status": "failed", "error": "persist_error"}
+    finally:
+        if own_service:
+            try:
+                await embedding_service.close()  # type: ignore
+            except Exception:
+                pass
+
+    return {"document_id": str(document_id), "status": "ready", "chunks_created": created}

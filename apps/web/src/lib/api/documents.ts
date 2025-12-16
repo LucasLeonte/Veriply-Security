@@ -2,6 +2,7 @@ import {
     DocumentChunk,
     PaginatedDocumentsResponse,
     DocumentDetailResponse,
+    Document,
 } from "@/types/document";
 import { mockDocumentsApi } from "./mockDocuments";
 import { getAccessToken } from "@/lib/auth";
@@ -95,7 +96,18 @@ export const documentsApi = {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/groups/${groupId}/documents?${params.toString()}`
         );
-        return handleResponse<PaginatedDocumentsResponse>(response);
+        // Backend may return an array (non-paginated). Normalize to PaginatedDocumentsResponse.
+        const data = await handleResponse<PaginatedDocumentsResponse | Document[]>(response);
+        if (Array.isArray(data)) {
+            return {
+                documents: data as Document[],
+                total: data.length,
+                page,
+                page_size: pageSize,
+                total_pages: Math.max(1, Math.ceil(data.length / pageSize)),
+            } satisfies PaginatedDocumentsResponse;
+        }
+        return data as PaginatedDocumentsResponse;
     },
 
     /**
@@ -118,7 +130,8 @@ export const documentsApi = {
     async uploadDocuments(
         groupId: string,
         files: File[],
-        botId?: string
+        botId?: string,
+        folderId?: string
     ): Promise<{
         id: string;
         document_id: string;
@@ -129,18 +142,27 @@ export const documentsApi = {
             return mockDocumentsApi.uploadDocuments(groupId, files);
         }
 
-        const formData = new FormData();
+        // Backend expects single file per request, so upload first file
+        // TODO: Support batch uploads or loop through files
+        if (files.length === 0) {
+            throw new Error("No files to upload");
+        }
 
-        files.forEach((file) => {
-            formData.append("files", file);
-        });
+        const formData = new FormData();
+        
+        // Backend expects 'file' (singular)
+        formData.append("file", files[0]);
 
         if (botId) {
             formData.append("bot_id", botId);
         }
 
+        if (folderId) {
+            formData.append("folder_id", folderId);
+        }
+
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/groups/${groupId}/documents`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/upload`,
             {
                 method: "POST",
                 body: formData,
@@ -236,8 +258,12 @@ export const documentsApi = {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}/chunks`
         );
-        return handleResponse<{ chunks: DocumentChunk[]; total: number }>(
+        const data = await handleResponse<{ chunks: DocumentChunk[]; total: number } | DocumentChunk[]>(
             response
         );
+        if (Array.isArray(data)) {
+            return { chunks: data as DocumentChunk[], total: data.length };
+        }
+        return data as { chunks: DocumentChunk[]; total: number };
     },
 };
