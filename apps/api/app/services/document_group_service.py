@@ -86,7 +86,7 @@ class DocumentGroupService:
                 (Document.id == doc_id)
                 & (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at is None)
+                & (Document.deleted_at.is_(None))
             )
         )
 
@@ -106,14 +106,14 @@ class DocumentGroupService:
         )
 
         if not include_deleted:
-            query = query.where(Document.deleted_at is None)
+            query = query.where(Document.deleted_at.is_(None))
 
         # Count
         count_query = select(func.count(Document.id)).where(
             (Document.group_id == group_id) & (Document.tenant_id == tenant_id)
         )
         if not include_deleted:
-            count_query = count_query.where(Document.deleted_at is None)
+            count_query = count_query.where(Document.deleted_at.is_(None))
 
         total = await db.scalar(count_query)
 
@@ -233,7 +233,7 @@ class DocumentGroupService:
             select(func.count(Document.id)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at is None)
+                & (Document.deleted_at.is_(None))
             )
         )
 
@@ -249,7 +249,7 @@ class DocumentGroupService:
             select(func.sum(Document.size)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at is None)
+                & (Document.deleted_at.is_(None))
             )
         )
 

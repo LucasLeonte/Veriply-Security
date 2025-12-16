@@ -2,6 +2,7 @@ import {
     DocumentChunk,
     PaginatedDocumentsResponse,
     DocumentDetailResponse,
+    Document,
 } from "@/types/document";
 import { mockDocumentsApi } from "./mockDocuments";
 import { getAccessToken } from "@/lib/auth";
@@ -95,7 +96,18 @@ export const documentsApi = {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/groups/${groupId}/documents?${params.toString()}`
         );
-        return handleResponse<PaginatedDocumentsResponse>(response);
+        // Backend may return an array (non-paginated). Normalize to PaginatedDocumentsResponse.
+        const data = await handleResponse<PaginatedDocumentsResponse | Document[]>(response);
+        if (Array.isArray(data)) {
+            return {
+                documents: data as Document[],
+                total: data.length,
+                page,
+                page_size: pageSize,
+                total_pages: Math.max(1, Math.ceil(data.length / pageSize)),
+            } satisfies PaginatedDocumentsResponse;
+        }
+        return data as PaginatedDocumentsResponse;
     },
 
     /**
@@ -246,8 +258,12 @@ export const documentsApi = {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}/chunks`
         );
-        return handleResponse<{ chunks: DocumentChunk[]; total: number }>(
+        const data = await handleResponse<{ chunks: DocumentChunk[]; total: number } | DocumentChunk[]>(
             response
         );
+        if (Array.isArray(data)) {
+            return { chunks: data as DocumentChunk[], total: data.length };
+        }
+        return data as { chunks: DocumentChunk[]; total: number };
     },
 };

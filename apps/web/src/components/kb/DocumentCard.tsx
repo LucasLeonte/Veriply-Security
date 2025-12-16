@@ -11,6 +11,8 @@ import {
     Loader,
     User,
     Bot,
+    CheckSquare,
+    Square,
 } from "lucide-react";
 
 interface DocumentCardProps {
@@ -57,19 +59,7 @@ export function DocumentCard({
                     text: "Ready",
                     className: "text-emerald-600",
                 };
-            case "processed":
-                return {
-                    icon: (
-                        <CheckCircle
-                            size={16}
-                            className="text-emerald-600"
-                            aria-hidden="true"
-                        />
-                    ),
-                    text: "Processed",
-                    className: "text-emerald-600",
-                };
-            case "pending":
+            case "uploaded":
                 return {
                     icon: (
                         <Clock
@@ -78,7 +68,7 @@ export function DocumentCard({
                             aria-hidden="true"
                         />
                     ),
-                    text: "Pending",
+                    text: "Uploaded",
                     className: "text-slate-400",
                 };
             case "processing":
@@ -112,13 +102,13 @@ export function DocumentCard({
             case "uploading":
                 return {
                     icon: (
-                        <Clock
+                        <Loader
                             size={16}
-                            className="text-slate-400"
+                            className="text-slate-400 animate-spin"
                             aria-hidden="true"
                         />
                     ),
-                    text: "Uploaded",
+                    text: "Uploading...",
                     className: "text-slate-400",
                 };
             default:
@@ -196,7 +186,7 @@ export function DocumentCard({
                             {status.icon}
                             <span>{status.text}</span>
                         </div>
-                        {(document.status === "ready" || document.status === "processed") && (
+                        {document.status === "ready" && (
                             <>
                                 <span className="text-slate-300">•</span>
                                 <span className="text-sm text-slate-600">

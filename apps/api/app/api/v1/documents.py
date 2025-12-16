@@ -191,7 +191,7 @@ async def list_documents(
         await check_group_access(group_id, current_user, session)
 
         # List documents using service
-        docs = await DocumentGroupService.list_group_documents(
+        docs, total = await DocumentGroupService.list_group_documents(
             db=session,
             group_id=group_id,
             tenant_id=UUID(current_user["tenant_id"]),
