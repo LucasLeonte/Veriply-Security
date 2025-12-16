@@ -68,7 +68,7 @@ development_status:
     2-6-document-deletion: in-progress
     3-1-semantic-vector-search: drafted
     3-2-context-only-answer-generation: drafted
-    3-3-citation-generation: drafted
+    3-3-citation-generation: done
     3-4-confidence-scoring-routing: drafted
     3-5-pii-redaction: drafted
     4-4-trust-signals-display: drafted
