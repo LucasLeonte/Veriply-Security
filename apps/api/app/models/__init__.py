@@ -5,6 +5,8 @@ from .group import Group as Group
 from .group_member import GroupMember as GroupMember, GroupRole as GroupRole
 from .bot import Bot as Bot, BotStatus as BotStatus
 from .document import Document as Document
+from .folder import Folder as Folder
+from .bot_document_access import BotDocumentAccess as BotDocumentAccess
 from .chunk import Chunk as Chunk
 from .embedding import Embedding as Embedding
 from .audit_log import AuditLog as AuditLog
@@ -19,6 +21,8 @@ __all__ = [
     "Bot",
     "BotStatus",
     "Document",
+    "Folder",
+    "BotDocumentAccess",
     "Chunk",
     "Embedding",
     "AuditLog",
