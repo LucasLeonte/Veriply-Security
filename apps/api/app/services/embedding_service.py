@@ -7,6 +7,7 @@ and truncation handling.
 
 import asyncio
 import logging
+import os
 from typing import List
 import httpx
 import numpy as np
@@ -14,8 +15,8 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # Configuration
-OLLAMA_BASE_URL = "http://localhost:11434"
-EMBEDDING_MODEL = "nomic-embed-text"
+OLLAMA_BASE_URL = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+EMBEDDING_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 EMBEDDING_DIMENSIONS = 768
 MAX_QUERY_TOKENS = 500
 MAX_RETRIES = 3
