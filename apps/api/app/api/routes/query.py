@@ -18,6 +18,8 @@ from app.services.vector_search_service import VectorSearchService
 from app.services.answer_service import AnswerGenerationService
 from app.services.embedding_service import EmbeddingService, EmbeddingError
 from app.services.bot_service import BotService
+from pydantic import BaseModel, Field
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -158,3 +160,112 @@ async def _stream_answer(
         logger.error(f"Error streaming answer: {e}")
         error_event = {"type": "error", "message": str(e)}
         yield f"data: {json.dumps(error_event)}\n\n"
+
+
+# Compatibility: dedicated search endpoint to retrieve context chunks only
+
+
+class SearchRequest(BaseModel):
+    """Request body for semantic search only (no LLM)."""
+
+    query: str = Field(..., min_length=1, max_length=1000, description="Search query text")
+    k: int = Field(5, ge=1, le=20, description="Number of top results to return")
+    similarity_threshold: float = Field(
+        0.5, ge=0.0, le=1.0, description="Minimum similarity score (0-1)"
+    )
+
+
+class SearchResultItem(BaseModel):
+    """Individual search result item."""
+
+    chunk_id: str
+    document_id: str
+    document_name: str
+    section: Optional[str] = None
+    text: str
+    similarity: float
+    position: int
+    page_number: Optional[int] = None
+
+
+class SearchResponse(BaseModel):
+    """Search response with results and timing metadata."""
+
+    query: str
+    results: List[SearchResultItem]
+    search_latency_ms: int
+
+
+@router.post("/{bot_id}/search", response_model=SearchResponse)
+async def search_bot_documents(
+    bot_id: UUID,
+    request: SearchRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """
+    Perform semantic vector search across a bot's accessible knowledge base.
+
+    This endpoint returns only the retrieved chunks and similarity scores, and
+    respects bot-level allowlists (documents/folders) as enforced by
+    VectorSearchService.
+    """
+    try:
+        # Verify bot exists and tenant isolation
+        bot = await BotService.get_bot(db=db, bot_id=bot_id, tenant_id=tenant_id)
+        if not bot:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Bot not found",
+            )
+
+        # Initialize services
+        embedding_service = EmbeddingService()
+        vector_search_service = VectorSearchService(embedding_service)
+
+        try:
+            results, latency_ms = await vector_search_service.search(
+                db=db,
+                bot_id=bot_id,
+                tenant_id=tenant_id,
+                query=request.query,
+                k=request.k,
+                similarity_threshold=request.similarity_threshold,
+            )
+
+            items = [
+                SearchResultItem(
+                    chunk_id=r.chunk_id,
+                    document_id=r.document_id,
+                    document_name=r.document_name,
+                    section=r.section,
+                    text=r.text,
+                    similarity=r.similarity,
+                    position=r.position,
+                    page_number=r.page_number,
+                )
+                for r in results
+            ]
+
+            return SearchResponse(
+                query=request.query,
+                results=items,
+                search_latency_ms=latency_ms,
+            )
+        except EmbeddingError as e:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Embedding service temporarily unavailable",
+            ) from e
+        finally:
+            await embedding_service.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"Error during search: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Search failed unexpectedly",
+        )

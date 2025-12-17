@@ -43,7 +43,9 @@ export function FolderList({
             setNewFolderName("");
             setIsCreating(false);
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to create folder");
+            setError(
+                err instanceof Error ? err.message : "Failed to create folder"
+            );
         }
     };
 
@@ -59,7 +61,9 @@ export function FolderList({
             setEditingId(null);
             setEditingName("");
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to edit folder");
+            setError(
+                err instanceof Error ? err.message : "Failed to edit folder"
+            );
         }
     };
 
@@ -140,17 +144,17 @@ export function FolderList({
             {/* All Documents (no folder) */}
             <button
                 onClick={() => onSelectFolder(null)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded transition-colors ${
+                className={`w-full flex items-center px-3 py-2 text-sm rounded transition-colors ${
                     selectedFolderId === null
                         ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                         : "hover:bg-slate-50 text-slate-700 border border-transparent"
                 }`}
             >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
                     <FileText size={16} />
                     <span>All Documents</span>
                 </div>
-                <span className="text-xs text-slate-500">
+                <span className="ml-auto text-xs text-slate-500 tabular-nums text-right">
                     {folderStats.get("null")?.document_count || 0}
                 </span>
             </button>
@@ -169,13 +173,19 @@ export function FolderList({
                         {editingId === folder.id ? (
                             // Edit Mode
                             <>
-                                <Folder size={16} className="text-slate-400 flex-shrink-0" />
+                                <Folder
+                                    size={16}
+                                    className="text-slate-400 flex-shrink-0"
+                                />
                                 <input
                                     type="text"
                                     value={editingName}
-                                    onChange={(e) => setEditingName(e.target.value)}
+                                    onChange={(e) =>
+                                        setEditingName(e.target.value)
+                                    }
                                     onKeyDown={(e) => {
-                                        if (e.key === "Enter") handleEdit(folder.id);
+                                        if (e.key === "Enter")
+                                            handleEdit(folder.id);
                                         if (e.key === "Escape") cancelEdit();
                                     }}
                                     className="flex-1 text-sm bg-white border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -202,26 +212,39 @@ export function FolderList({
                                     className="flex items-center gap-2 flex-1 text-left"
                                 >
                                     <Folder size={16} />
-                                    <span className="truncate">{folder.name}</span>
+                                    <span className="truncate">
+                                        {folder.name}
+                                    </span>
                                 </button>
-                                <span className="text-xs text-slate-500">
-                                    {folderStats.get(folder.id)?.document_count || 0}
-                                </span>
-                                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
-                                    <button
-                                        onClick={() => startEdit(folder)}
-                                        className="p-1 hover:bg-slate-200 rounded"
-                                        title="Rename folder"
-                                    >
-                                        <Edit2 size={14} className="text-slate-500" />
-                                    </button>
-                                    <button
-                                        onClick={() => onDeleteFolder(folder.id)}
-                                        className="p-1 hover:bg-red-100 rounded"
-                                        title="Delete folder"
-                                    >
-                                        <Trash2 size={14} className="text-red-500" />
-                                    </button>
+                                <div className="ml-auto flex items-center gap-3">
+                                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                                        <button
+                                            onClick={() => startEdit(folder)}
+                                            className="p-1 hover:bg-slate-200 rounded"
+                                            title="Rename folder"
+                                        >
+                                            <Edit2
+                                                size={14}
+                                                className="text-slate-500"
+                                            />
+                                        </button>
+                                        <button
+                                            onClick={() =>
+                                                onDeleteFolder(folder.id)
+                                            }
+                                            className="p-1 hover:bg-red-100 rounded"
+                                            title="Delete folder"
+                                        >
+                                            <Trash2
+                                                size={14}
+                                                className="text-red-500"
+                                            />
+                                        </button>
+                                    </div>
+                                    <span className="text-xs text-slate-500 tabular-nums text-right w-10">
+                                        {folderStats.get(folder.id)
+                                            ?.document_count || 0}
+                                    </span>
                                 </div>
                             </>
                         )}

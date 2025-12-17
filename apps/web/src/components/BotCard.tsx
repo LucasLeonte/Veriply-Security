@@ -24,15 +24,17 @@ export function BotCard({
 
     const handleCardClick = (e: React.MouseEvent) => {
         // Don't navigate if clicking on the menu button or menu items
-        if ((e.target as HTMLElement).closest('.menu-trigger') || 
-            (e.target as HTMLElement).closest('.menu-content')) {
+        if (
+            (e.target as HTMLElement).closest(".menu-trigger") ||
+            (e.target as HTMLElement).closest(".menu-content")
+        ) {
             return;
         }
         router.push(`/dashboard/bots/${bot.id}`);
     };
 
     return (
-        <div 
+        <div
             className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
             onClick={handleCardClick}
         >
@@ -61,16 +63,6 @@ export function BotCard({
 
                     {showMenu && (
                         <div className="absolute right-0 mt-1 w-48 bg-white border rounded shadow-md z-10 menu-content">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    router.push(`/dashboard/bots/${bot.id}/knowledge-base`);
-                                    setShowMenu(false);
-                                }}
-                                className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
-                            >
-                                Knowledge Base
-                            </button>
                             {onSettings && (
                                 <button
                                     onClick={(e) => {
@@ -78,7 +70,7 @@ export function BotCard({
                                         onSettings(bot);
                                         setShowMenu(false);
                                     }}
-                                    className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm border-t"
+                                    className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
                                 >
                                     Settings
                                 </button>

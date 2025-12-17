@@ -1,10 +1,12 @@
 """Bots API routes for CRUD operations with group scoping."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
 import logging
+from pathlib import Path
+import uuid
 
 from app.models import Group, GroupMember, GroupRole
 from app.core.auth import get_current_user
@@ -12,6 +14,7 @@ from app.core.database import get_db
 from app.api.v1.schemas import BotCreate, BotUpdate, BotResponse
 from app.services.bot_group_service import BotGroupService
 from app.services.audit_service import AuditService
+from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -217,6 +220,9 @@ async def update_bot(
             name=bot_data.name,
             description=bot_data.description,
             confidence_threshold=bot_data.confidence_threshold,
+            avatar_url=bot_data.avatar_url,
+            welcome_message=bot_data.welcome_message,
+            is_public=bot_data.is_public,
         )
 
         # Log to audit trail
@@ -246,6 +252,88 @@ async def update_bot(
         await session.rollback()
         logger.exception(f"Error updating bot: {e}")
         raise HTTPException(status_code=500, detail="Failed to update bot")
+
+
+@router.post("/{bot_id}/avatar")
+async def upload_bot_avatar(
+    group_id: UUID,
+    bot_id: UUID,
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Upload or replace a bot's avatar image.
+
+    - Allowed types: image/jpeg, image/png, image/webp
+    - Max size: 5MB
+    - Stores file under storage/avatars and exposes at /avatars/*
+    - Updates bot.avatar_url
+
+    Required permissions: group_admin or manager
+    """
+    # Verify permissions
+    await check_group_access(group_id, current_user, session, required_role=GroupRole.MANAGER)
+
+    # Validate file type
+    allowed_types = {"image/jpeg", "image/png", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}",
+        )
+
+    # Read and validate size
+    content = await file.read()
+    size_bytes = len(content)
+    max_size = 5 * 1024 * 1024
+    if size_bytes > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File too large. Max 5MB",
+        )
+
+    # Generate unique filename and persist under storage/avatars
+    file_extension = Path(file.filename or "avatar").suffix
+    unique_filename = f"bot_{bot_id}_{uuid.uuid4()}{file_extension}"
+
+    project_root = Path(__file__).resolve().parents[5]
+    avatars_dir = project_root / "storage" / "avatars"
+    avatars_dir.mkdir(parents=True, exist_ok=True)
+    (avatars_dir / unique_filename).write_bytes(content)
+
+    # Build public URL using mounted /avatars
+    public_base = getattr(settings, "PUBLIC_BASE_URL", None) or "http://127.0.0.1:8000"
+    avatar_url = f"{public_base.rstrip('/')}/avatars/{unique_filename}"
+
+    # Update bot record
+    try:
+        bot = await BotGroupService.update_bot(
+            db=session,
+            bot_id=bot_id,
+            group_id=group_id,
+            tenant_id=UUID(current_user["tenant_id"]),
+            avatar_url=avatar_url,
+        )
+
+        await AuditService.log_action(
+            db=session,
+            actor_id=UUID(current_user["sub"]),
+            action="bot_avatar_updated",
+            tenant_id=UUID(current_user["tenant_id"]),
+            group_id=group_id,
+            target_type="Bot",
+            target_id=bot_id,
+            details={"avatar_url": avatar_url},
+        )
+
+        await session.commit()
+        return {"avatar_url": bot.avatar_url, "size_bytes": size_bytes}
+
+    except Exception as e:
+        await session.rollback()
+        logger.exception(f"Error uploading bot avatar: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload avatar")
 
 
 @router.delete("/{bot_id}", status_code=status.HTTP_204_NO_CONTENT)

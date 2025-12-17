@@ -56,7 +56,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
             }
             throw new Error("Session expired. Please log in again.");
         }
-        
+
         const error = await response
             .json()
             .catch(() => ({ detail: "Unknown error" }));
@@ -97,7 +97,9 @@ export const documentsApi = {
             `${API_BASE_URL}/api/v1/groups/${groupId}/documents?${params.toString()}`
         );
         // Backend may return an array (non-paginated). Normalize to PaginatedDocumentsResponse.
-        const data = await handleResponse<PaginatedDocumentsResponse | Document[]>(response);
+        const data = await handleResponse<
+            PaginatedDocumentsResponse | Document[]
+        >(response);
         if (Array.isArray(data)) {
             return {
                 documents: data as Document[],
@@ -149,7 +151,7 @@ export const documentsApi = {
         }
 
         const formData = new FormData();
-        
+
         // Backend expects 'file' (singular)
         formData.append("file", files[0]);
 
@@ -198,7 +200,10 @@ export const documentsApi = {
     /**
      * Delete multiple documents in bulk
      */
-    async bulkDeleteDocuments(botId: string, documentIds: string[]): Promise<{
+    async bulkDeleteDocuments(
+        botId: string,
+        documentIds: string[]
+    ): Promise<{
         message: string;
         queued_count: number;
         document_ids: string[];
@@ -258,12 +263,38 @@ export const documentsApi = {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}/chunks`
         );
-        const data = await handleResponse<{ chunks: DocumentChunk[]; total: number } | DocumentChunk[]>(
-            response
-        );
+        const data = await handleResponse<
+            { chunks: DocumentChunk[]; total: number } | DocumentChunk[]
+        >(response);
         if (Array.isArray(data)) {
             return { chunks: data as DocumentChunk[], total: data.length };
         }
         return data as { chunks: DocumentChunk[]; total: number };
+    },
+
+    /**
+     * Move a document to a folder
+     */
+    async moveDocumentToFolder(
+        documentId: string,
+        folderId: string | null,
+        _groupId: string
+    ): Promise<Document> {
+        // Touch unused param to satisfy type checker without changing signature
+        void _groupId;
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.getDocument(documentId);
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/documents/${documentId}/move`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    folder_id: folderId,
+                }),
+            }
+        );
+        return handleResponse<Document>(response);
     },
 };

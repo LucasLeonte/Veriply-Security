@@ -17,6 +17,7 @@ from app.schemas.document import (
     BulkDeleteRequest,
     BulkDeleteResponse,
 )
+from pydantic import BaseModel
 from typing import Optional, List
 import os
 import inspect
@@ -127,9 +128,9 @@ async def list_bot_documents(
     tenant_id: UUID = Depends(get_current_tenant),
 ):
     """List documents for a given bot with pagination and search (tenant-isolated)."""
-    # Base query
+    # Base query - use group_id instead of bot_id (bot_id field was refactored to group_id)
     base_query = select(Document).where(
-        Document.bot_id == bot_id,
+        Document.group_id == bot_id,
         Document.tenant_id == tenant_id
     )
     
@@ -173,7 +174,7 @@ async def list_bot_documents(
         
         doc_responses.append(DocumentResponse(
             id=doc.id,
-            bot_id=doc.bot_id,
+            bot_id=doc.group_id,  # Use group_id instead of bot_id for backward compatibility
             filename=doc.title,  # Use title directly (property also works)
             file_size=doc.size or 0,
             status=doc.status,
@@ -220,7 +221,7 @@ async def get_document(
     
     return DocumentResponse(
         id=doc.id,
-        bot_id=doc.bot_id,
+        bot_id=doc.group_id,  # Use group_id instead of bot_id for backward compatibility
         filename=doc.title,
         file_size=doc.size or 0,
         status=doc.status,
@@ -426,6 +427,63 @@ async def reprocess_document(
             pass
     
     return {"id": str(doc.id), "status": doc.status, "queued": bool(queued)}
+
+
+class MoveDocumentRequest(BaseModel):
+    """Request schema for moving a document to a folder"""
+    folder_id: Optional[UUID] = None
+
+
+@documents_router.patch("/{document_id}/move", response_model=DocumentResponse)
+async def move_document_to_folder(
+    document_id: UUID,
+    request: MoveDocumentRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """Move a document to a folder or root (tenant-isolated)."""
+    # Verify document exists and belongs to tenant
+    query = select(Document).where(
+        Document.id == document_id,
+        Document.tenant_id == tenant_id
+    )
+    result = await db.execute(query)
+    doc = result.scalar_one_or_none()
+    
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Update folder_id
+    doc.folder_id = request.folder_id
+    
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to move document")
+    
+    # Refresh to get updated data
+    await db.refresh(doc)
+    
+    # Get chunk count
+    chunk_count_query = select(func.count()).where(Chunk.document_id == doc.id)
+    chunk_result = await db.execute(chunk_count_query)
+    chunk_count = chunk_result.scalar() or 0
+    
+    return DocumentResponse(
+        id=doc.id,
+        bot_id=doc.group_id,
+        filename=doc.title,
+        file_size=doc.size or 0,
+        status=doc.status,
+        chunk_count=chunk_count,
+        created_at=doc.created_at,
+        updated_at=doc.updated_at,
+        title=doc.title,
+        mime_type=doc.mime,
+        storage_path=doc.storage_path,
+    )
 
 
 @documents_router.get("/{document_id}/chunks", response_model=ChunkListResponse)

@@ -15,6 +15,7 @@ from app.api.v1 import folders
 from app.api.v1 import bot_access
 from app.api.v1 import query as query_v1  # Story 3.4: Confidence-based query
 from app.api.routes import query
+from app.api.routes import chat
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
 
 @asynccontextmanager
@@ -54,8 +55,8 @@ app.include_router(bots_v1.router)  # Group-scoped: /api/v1/groups/{group_id}/bo
 app.include_router(documents_v1.router)  # Group-scoped: /api/v1/groups/{group_id}/documents
 app.include_router(folders.router)  # Group-scoped: /api/v1/groups/{group_id}/folders
 app.include_router(bot_access.router)  # Bot access: /api/v1/bots/{bot_id}/access
-app.include_router(query_v1.router)  # Story 3.4: /api/v1/bots/{bot_id}/query (confidence-based)
-app.include_router(query.router, prefix="/api/v1")  # Legacy: /api/v1/bots/{bot_id}/query (streaming without confidence)
+app.include_router(query.router, prefix="/api/v1")  # Legacy: /api/v1/query
+app.include_router(chat.router, prefix="/api/v1")  # Public chat: /api/v1/bots/{bot_id}/public, /api/v1/bots/{bot_id}/chat/query
 app.include_router(document_detail_router, prefix="/api/v1")  # Legacy: /api/v1/documents/{id} operations
 
 @app.get("/")

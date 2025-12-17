@@ -204,9 +204,9 @@ development_status:
         assigned_to: Lucas
 
     4-1-web-chat-interface:
-        status: in-progress
+        status: review
         assigned_to: Dario
-        blocked_by: 3-2-context-only-answer-generation
+        blocked_by: null
 
     4-2-conversation-context:
         status: ready-for-dev

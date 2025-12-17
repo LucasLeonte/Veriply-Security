@@ -54,6 +54,11 @@ def _simple_text_extractor(file_bytes: bytes, filename: Optional[str], mime: Opt
     return ""
 
 
+def _sanitize_text(text: str) -> str:
+    """Remove characters that Postgres rejects (e.g., NULs)."""
+    return text.replace("\x00", "")
+
+
 def _chunk_text(text: str, max_words: int = 200, overlap: int = 30) -> List[str]:
     words = text.split()
     if not words:
@@ -132,7 +137,8 @@ async def process_group_document(
         return {"document_id": str(document_id), "status": "failed", "error": "read_error"}
 
     # Extract & chunk
-    text = _simple_text_extractor(file_bytes, getattr(doc, "filename", None), getattr(doc, "mime", None))
+    raw_text = _simple_text_extractor(file_bytes, getattr(doc, "filename", None), getattr(doc, "mime", None))
+    text = _sanitize_text(raw_text)
     chunks = _chunk_text(text)
 
     # Prepare embedding service
@@ -145,6 +151,9 @@ async def process_group_document(
     try:
         # Embed in sequence to keep it simple; can batch later
         for idx, chunk_text in enumerate(chunks):
+            chunk_text = _sanitize_text(chunk_text)
+            if not chunk_text.strip():
+                continue
             vec = None
             try:
                 vec = await embedding_service.embed_query(chunk_text)

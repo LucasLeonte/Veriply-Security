@@ -205,6 +205,59 @@ ENTRYPOINT ["/bin/bash", "/pull-models.sh"]
 
 _Script:_ Start server -> `ollama pull llama3` -> `ollama pull nomic-embed-text` -> Keep running.
 
+---
+
+## Recent Backend Updates (Dec 2025)
+
+### Embeddings and Vector Store Alignment
+
+- Embedding model: `nomic-embed-text` via Ollama HTTP API
+    - Endpoint: `POST /api/embeddings`
+    - Payload: `{ "model": "nomic-embed-text", "prompt": "<text>" }`
+    - Response field: `embedding` (length 768)
+- Application expects and validates 768-dim vectors.
+- Database column `chunks.vector` is `vector(768)` (pgvector) with HNSW index; cosine distance is used for similarity.
+
+### Group-Scoped Knowledge Base and Processing
+
+- Knowledge base is scoped at the Group level (multi-bot shared KB per group).
+- Upload path: `POST /api/v1/groups/{group_id}/documents/upload`
+    - Files are stored under: `storage/documents/groups/{group_id}/documents/{filename}`
+    - Processing is executed asynchronously by `app/workers/group_document_processor.py`:
+        1. Extract text (PDF/DOCX/plain fallback)
+        2. Chunk into ~200-word segments with overlap
+        3. Generate 768-dim embeddings via Ollama
+        4. Persist chunks and mark document status `ready`
+
+### Bot-Level Access Control (Allowlist)
+
+- Access is controlled via `BotDocumentAccess` records:
+    - Explicit document access: allow or deny
+    - Folder-level access: allow all docs within a folder
+    - Explicit deny overrides any allow (including folder allow)
+- Management API:
+    - Set document access: `POST /api/v1/bots/{bot_id}/access/documents/{document_id}` `{ is_allowed: boolean }`
+    - Set folder access: `POST /api/v1/bots/{bot_id}/access/folders/{folder_id}` `{ is_allowed: boolean }`
+    - Bulk set: `POST /api/v1/bots/{bot_id}/access/bulk`
+    - Summary: `GET /api/v1/bots/{bot_id}/access`
+
+### Semantic Search Endpoint
+
+- New endpoint for direct vector search (no LLM call):
+    - `POST /api/v1/bots/{bot_id}/search`
+    - Body: `{ query: string, k?: number = 5, similarity_threshold?: number = 0.5 }`
+    - Returns: top chunks with similarity and document metadata
+- Backed by `VectorSearchService`, which enforces the bot allowlist rules above and filters by tenant + group.
+
+### Query (LLM) Endpoint
+
+- `POST /api/v1/bots/{bot_id}/query` continues to use `VectorSearchService` for retrieval, thus inheriting the same allowlist enforcement; it then streams/generates the answer via the LLM service.
+
+### Notes
+
+- Any previous assumptions of per-chunk `bot_id` have been removed in favor of Group-scoped storage and bot allowlists.
+- Ensure Ollama is running locally and the `nomic-embed-text` model is pulled before starting the API for successful embeddings.
+
 **RAG Retrieval Logic:**
 
 ```python

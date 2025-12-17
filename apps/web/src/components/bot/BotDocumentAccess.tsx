@@ -12,10 +12,14 @@ interface BotDocumentAccessProps {
     groupId: string;
 }
 
-interface DocumentWithAccess extends Document {
+interface DocumentWithAccess {
+    id: string;
+    title: string;
+    folder_id: string | null;
     _access: {
         is_allowed: boolean;
-        source: string;
+        has_explicit_access: boolean;
+        explicit_allowed: boolean | null;
     };
 }
 
@@ -43,17 +47,17 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
             
             // Process folders
             summary.folders.forEach((folderAccess: FolderAccessItem) => {
-                folderMap.set(folderAccess.folder_id, {
-                    folder: folderAccess.folder,
+                folderMap.set(folderAccess.id, {
+                    folder: { id: folderAccess.id, name: folderAccess.name },
                     documents: [],
-                    folderAccess: folderAccess.is_allowed,
+                    folderAccess: folderAccess.allowed,
                     isExpanded: false,
                 });
             });
 
             // Process documents
             summary.documents.forEach((docAccess: DocumentAccessItem) => {
-                const folderId = docAccess.document.folder_id || null;
+                const folderId = docAccess.folder_id || null;
                 
                 if (!folderMap.has(folderId)) {
                     folderMap.set(folderId, {
@@ -65,10 +69,13 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
                 }
 
                 const docWithAccess: DocumentWithAccess = {
-                    ...docAccess.document,
+                    id: docAccess.id,
+                    title: docAccess.name,
+                    folder_id: docAccess.folder_id,
                     _access: {
-                        is_allowed: docAccess.is_allowed,
-                        source: docAccess.source,
+                        is_allowed: docAccess.allowed,
+                        has_explicit_access: docAccess.has_explicit_access,
+                        explicit_allowed: docAccess.explicit_allowed,
                     }
                 };
                 folderMap.get(folderId)!.documents.push(docWithAccess);
@@ -107,7 +114,7 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
         
         setSavingIds((prev) => new Set(prev).add(folderId));
         try {
-            await botAccessApi.setFolderAccess(folderId, { is_allowed: newAccess });
+            await botAccessApi.setFolderAccess(botId, folderId, { is_allowed: newAccess });
             await loadAccessData(); // Refresh to get updated state
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to update folder access");
@@ -128,7 +135,7 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
         
         setSavingIds((prev) => new Set(prev).add(documentId));
         try {
-            await botAccessApi.setDocumentAccess(documentId, { is_allowed: newAccess });
+            await botAccessApi.setDocumentAccess(botId, documentId, { is_allowed: newAccess });
             await loadAccessData(); // Refresh
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to update document access");
@@ -245,12 +252,12 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
                                                 
                                                 <div className="flex-1 min-w-0">
                                                     <p className="text-sm font-medium text-slate-900 truncate">
-                                                        {doc.filename}
+                                                        {doc.title}
                                                     </p>
                                                     <p className="text-xs text-slate-500">
-                                                        {access.source === "explicit"
+                                                        {access.has_explicit_access
                                                             ? "Explicit access"
-                                                            : access.source === "folder"
+                                                            : doc.folder_id && folderData.folderAccess !== null
                                                             ? "Inherited from folder"
                                                             : "Default (denied)"}
                                                     </p>
