@@ -1,7 +1,12 @@
 "use client";
 
 import { DashboardLayout } from "@/components";
-import { FolderList } from "@/components/kb";
+import {
+    FolderList,
+    ReprocessModal,
+    BulkReprocessModal,
+    BulkDeleteModal,
+} from "@/components/kb";
 import { useGroup } from "@/contexts/GroupContext";
 import { foldersApi } from "@/lib/api/folders";
 import { documentsApi } from "@/lib/api/documents";
@@ -29,6 +34,15 @@ export default function GroupKnowledgeBasePage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [moveModalOpen, setMoveModalOpen] = useState(false);
     const [documentToMove, setDocumentToMove] = useState<Document | null>(null);
+    const [documentToReprocess, setDocumentToReprocess] =
+        useState<Document | null>(null);
+    const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>(
+        []
+    );
+    const [isReprocessModalOpen, setIsReprocessModalOpen] = useState(false);
+    const [isBulkReprocessModalOpen, setIsBulkReprocessModalOpen] =
+        useState(false);
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch folders
@@ -42,6 +56,7 @@ export default function GroupKnowledgeBasePage() {
                 .then(([fetchedFolders, docsResponse]) => {
                     setFolders(fetchedFolders);
                     setDocuments(docsResponse.documents);
+                    setSelectedDocumentIds([]);
                     setFolderStats(
                         buildFolderStats(fetchedFolders, docsResponse.documents)
                     );
@@ -87,7 +102,10 @@ export default function GroupKnowledgeBasePage() {
                 const updatedDocs: Document[] = [];
                 for (const docId of processingDocIds) {
                     try {
-                        const updated = await documentsApi.getDocument(docId);
+                        const updated = await documentsApi.getDocument(
+                            docId,
+                            currentGroup.id
+                        );
                         updatedDocs.push(updated as Document);
                     } catch (err) {
                         console.error(
@@ -224,6 +242,145 @@ export default function GroupKnowledgeBasePage() {
         setMoveModalOpen(true);
     };
 
+    const handleToggleSelection = (documentId: string) => {
+        setSelectedDocumentIds((prev) =>
+            prev.includes(documentId)
+                ? prev.filter((id) => id !== documentId)
+                : [...prev, documentId]
+        );
+    };
+
+    const handleOpenBulkDeleteModal = () => {
+        if (!selectedDocumentIds.length) return;
+        const selectedDocs = documents.filter((d) =>
+            selectedDocumentIds.includes(d.id)
+        );
+        const processing = selectedDocs.filter(
+            (d) => d.status === "processing"
+        );
+        if (processing.length > 0) {
+            alert(
+                "Cannot delete documents while processing. Please wait for reprocessing to complete."
+            );
+            return;
+        }
+        if (selectedDocumentIds.length > 100) {
+            alert("You can delete a maximum of 100 documents at once.");
+            return;
+        }
+        setIsBulkDeleteModalOpen(true);
+    };
+
+    const handleBulkDeleteDocuments = async () => {
+        if (!currentGroup?.id || !selectedDocumentIds.length) return;
+
+        try {
+            await documentsApi.bulkDeleteDocuments(
+                currentGroup.id,
+                selectedDocumentIds
+            );
+
+            setDocuments((prev) =>
+                prev.filter((d) => !selectedDocumentIds.includes(d.id))
+            );
+
+            setSelectedDocumentIds([]);
+            setIsBulkDeleteModalOpen(false);
+        } catch (err) {
+            console.error("Failed to bulk delete documents:", err);
+            alert(
+                `Failed to delete documents: ${
+                    err instanceof Error ? err.message : "Unknown error"
+                }`
+            );
+        }
+    };
+
+    const handleOpenReprocessModal = (document: Document) => {
+        setDocumentToReprocess(document);
+        setIsReprocessModalOpen(true);
+    };
+
+    const handleOpenBulkReprocessModal = () => {
+        if (!selectedDocumentIds.length) return;
+        const selectedDocs = documents.filter((d) =>
+            selectedDocumentIds.includes(d.id)
+        );
+        const invalid = selectedDocs.filter(
+            (d) => !["ready", "failed", "uploaded"].includes(d.status)
+        );
+        if (invalid.length > 0) {
+            alert(
+                "Bulk reprocess is only available for Ready, Failed, or Uploaded documents."
+            );
+            return;
+        }
+        if (selectedDocumentIds.length > 100) {
+            alert("You can reprocess a maximum of 100 documents at once.");
+            return;
+        }
+        setIsBulkReprocessModalOpen(true);
+    };
+
+    const handleReprocessDocument = async () => {
+        if (!documentToReprocess || !currentGroup?.id) return;
+
+        try {
+            await documentsApi.reprocessDocument(
+                currentGroup.id,
+                documentToReprocess.id
+            );
+
+            // Update document status to processing
+            setDocuments((prev) =>
+                prev.map((d) =>
+                    d.id === documentToReprocess.id
+                        ? { ...d, status: "processing" }
+                        : d
+                )
+            );
+
+            setIsReprocessModalOpen(false);
+            setDocumentToReprocess(null);
+        } catch (err) {
+            console.error("Failed to reprocess document:", err);
+            alert(
+                `Failed to reprocess document: ${
+                    err instanceof Error ? err.message : "Unknown error"
+                }`
+            );
+        }
+    };
+
+    const handleBulkReprocessDocuments = async () => {
+        if (!currentGroup?.id || !selectedDocumentIds.length) return;
+
+        try {
+            await documentsApi.bulkReprocessDocuments(
+                currentGroup.id,
+                selectedDocumentIds
+            );
+
+            setDocuments((prev) =>
+                prev.map((d) =>
+                    selectedDocumentIds.includes(d.id)
+                        ? { ...d, status: "processing" }
+                        : d
+                )
+            );
+
+            setSelectedDocumentIds([]);
+            setIsBulkReprocessModalOpen(false);
+        } catch (err) {
+            console.error("Failed to bulk reprocess documents:", err);
+            alert(
+                `Failed to reprocess documents: ${
+                    err instanceof Error ? err.message : "Unknown error"
+                }`
+            );
+        }
+    };
+
     const filteredDocuments = documents.filter((doc) => {
         const matchesFolder =
             selectedFolderId === null
@@ -285,20 +442,52 @@ export default function GroupKnowledgeBasePage() {
                     {/* Main Content - Documents */}
                     <div className="lg:col-span-3 space-y-4">
                         {/* Toolbar */}
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
                             <SearchBar
                                 value={searchQuery}
                                 onChange={setSearchQuery}
                                 placeholder="Search documents..."
-                                className="flex-1 max-w-md"
+                                className="flex-1 min-w-[220px] max-w-md"
                             />
-                            <button
-                                onClick={() => setIsUploadModalOpen(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors"
-                            >
-                                <Upload size={18} />
-                                Upload Documents
-                            </button>
+                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                                {selectedDocumentIds.length > 0 && (
+                                    <>
+                                        <span className="text-sm text-slate-600">
+                                            {selectedDocumentIds.length}{" "}
+                                            selected
+                                        </span>
+                                        <button
+                                            onClick={
+                                                handleOpenBulkReprocessModal
+                                            }
+                                            className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors"
+                                        >
+                                            Reprocess Selected
+                                        </button>
+                                        <button
+                                            onClick={handleOpenBulkDeleteModal}
+                                            className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                        >
+                                            Delete Selected
+                                        </button>
+                                        <button
+                                            onClick={() =>
+                                                setSelectedDocumentIds([])
+                                            }
+                                            className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                        >
+                                            Clear
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    onClick={() => setIsUploadModalOpen(true)}
+                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors"
+                                >
+                                    <Upload size={18} />
+                                    Upload Documents
+                                </button>
+                            </div>
                         </div>
 
                         {/* Document Grid */}
@@ -346,9 +535,23 @@ export default function GroupKnowledgeBasePage() {
                                                             d.id !== document.id
                                                     )
                                                 );
+                                                setSelectedDocumentIds((prev) =>
+                                                    prev.filter(
+                                                        (id) =>
+                                                            id !== document.id
+                                                    )
+                                                );
                                             }}
-                                            onReprocess={async () => {}}
+                                            onReprocess={
+                                                handleOpenReprocessModal
+                                            }
                                             onMove={handleOpenMoveModal}
+                                            isSelected={selectedDocumentIds.includes(
+                                                document.id
+                                            )}
+                                            onToggleSelection={
+                                                handleToggleSelection
+                                            }
                                             folderName={folderName}
                                         />
                                     );
@@ -377,6 +580,32 @@ export default function GroupKnowledgeBasePage() {
                     folders={folders}
                     documentName={documentToMove?.filename}
                     currentFolderId={documentToMove?.folder_id}
+                />
+
+                {/* Reprocess Modal */}
+                <BulkReprocessModal
+                    isOpen={isBulkReprocessModalOpen}
+                    count={selectedDocumentIds.length}
+                    onClose={() => setIsBulkReprocessModalOpen(false)}
+                    onConfirm={handleBulkReprocessDocuments}
+                />
+
+                {/* Delete Modal */}
+                <BulkDeleteModal
+                    isOpen={isBulkDeleteModalOpen}
+                    count={selectedDocumentIds.length}
+                    onClose={() => setIsBulkDeleteModalOpen(false)}
+                    onConfirm={handleBulkDeleteDocuments}
+                />
+
+                <ReprocessModal
+                    isOpen={isReprocessModalOpen}
+                    onClose={() => {
+                        setIsReprocessModalOpen(false);
+                        setDocumentToReprocess(null);
+                    }}
+                    onConfirm={handleReprocessDocument}
+                    documentName={documentToReprocess?.filename}
                 />
             </div>
         </DashboardLayout>

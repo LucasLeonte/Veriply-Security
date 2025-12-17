@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime
 from typing import List, Optional
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
@@ -92,28 +93,84 @@ async def _read_file_bytes(storage_path: str) -> bytes:
     return await asyncio.to_thread(_read)
 
 
+async def _process_bytes(
+    doc: Document,
+    file_bytes: bytes,
+    db_session: AsyncSession,
+    embedding_service: Optional[EmbeddingService],
+) -> tuple[int, Optional[str]]:
+    """Extract, chunk, and embed file bytes into Chunk rows. Returns (created_count, error_code)."""
+
+    raw_text = _simple_text_extractor(file_bytes, getattr(doc, "filename", None), getattr(doc, "mime", None))
+    text = _sanitize_text(raw_text)
+    chunks = _chunk_text(text)
+
+    own_service = False
+    if embedding_service is None:
+        embedding_service = EmbeddingService()
+        own_service = True
+
+    created = 0
+    error_code: Optional[str] = None
+    try:
+        for idx, chunk_text in enumerate(chunks):
+            chunk_text = _sanitize_text(chunk_text)
+            if not chunk_text.strip():
+                continue
+
+            vec = None
+            try:
+                vec = await embedding_service.embed_query(chunk_text)
+            except EmbeddingError as e:
+                logger.warning("Embedding failed for doc %s chunk %d: %s", doc.id, idx, e)
+                # store chunk without vector; continue
+
+            chunk = Chunk(
+                document_id=doc.id,
+                tenant_id=doc.tenant_id,
+                group_id=doc.group_id,
+                chunk_index=idx,
+                content=chunk_text,
+                page_number=None,
+                vector=vec,
+                metadata_json=None,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            db_session.add(chunk)
+            created += 1
+
+        await db_session.flush()
+    except Exception:
+        logger.exception("Persisting chunks failed for document %s", doc.id)
+        error_code = "persist_error"
+    finally:
+        if own_service:
+            try:
+                await embedding_service.close()  # type: ignore
+            except Exception:
+                pass
+
+    return created, error_code
+
+
 async def process_group_document(
     document_id: str | uuid.UUID,
     db_session: AsyncSession,
     embedding_service: Optional[EmbeddingService] = None,
 ) -> dict:
-    """Process a group-scoped document: extract, chunk, embed, persist.
+    """Initial processing of a group-scoped document."""
 
-    Updates Document.status lifecycle: uploaded -> processing -> ready/failed.
-    """
-    # Normalize id
     try:
         doc_id = uuid.UUID(str(document_id))
     except Exception:
         doc_id = document_id  # type: ignore
 
-    # Load document
     doc = await db_session.get(Document, doc_id)
     if not doc:
         logger.error("Document %s not found", document_id)
         return {"document_id": str(document_id), "status": "not_found"}
 
-    # Mark processing
     doc.status = "processing"
     doc.updated_at = datetime.utcnow()
     await db_session.flush()
@@ -136,57 +193,79 @@ async def process_group_document(
             await db_session.rollback()
         return {"document_id": str(document_id), "status": "failed", "error": "read_error"}
 
-    # Extract & chunk
-    raw_text = _simple_text_extractor(file_bytes, getattr(doc, "filename", None), getattr(doc, "mime", None))
-    text = _sanitize_text(raw_text)
-    chunks = _chunk_text(text)
+    created, error_code = await _process_bytes(doc, file_bytes, db_session, embedding_service)
 
-    # Prepare embedding service
-    own_service = False
-    if embedding_service is None:
-        embedding_service = EmbeddingService()
-        own_service = True
-
-    created = 0
-    try:
-        # Embed in sequence to keep it simple; can batch later
-        for idx, chunk_text in enumerate(chunks):
-            chunk_text = _sanitize_text(chunk_text)
-            if not chunk_text.strip():
-                continue
-            vec = None
-            try:
-                vec = await embedding_service.embed_query(chunk_text)
-            except EmbeddingError as e:
-                logger.warning("Embedding failed for doc %s chunk %d: %s", document_id, idx, e)
-                # still store chunk without vector
-
-            chunk = Chunk(
-                document_id=doc.id,
-                tenant_id=doc.tenant_id,
-                group_id=doc.group_id,
-                chunk_index=idx,
-                content=chunk_text,
-                page_number=None,
-                vector=vec,
-                metadata_json=None,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-            )
-            db_session.add(chunk)
-            created += 1
-
-        await db_session.flush()
-
+    if error_code:
+        doc.status = "failed"
+        doc.updated_at = datetime.utcnow()
+    else:
         doc.status = "ready"
         doc.updated_at = datetime.utcnow()
-        await db_session.flush()
-        try:
-            await db_session.commit()
-        except Exception:
-            await db_session.rollback()
+
+    await db_session.flush()
+    try:
+        await db_session.commit()
     except Exception:
-        logger.exception("Persisting chunks failed for document %s", document_id)
+        await db_session.rollback()
+
+    if error_code:
+        return {"document_id": str(document_id), "status": "failed", "error": error_code}
+    return {"document_id": str(document_id), "status": "ready", "chunks_created": created}
+
+
+async def process_group_document_reprocess(
+    document_id: str | uuid.UUID,
+    db_session: AsyncSession,
+    embedding_service: Optional[EmbeddingService] = None,
+) -> dict:
+    """Reprocess an existing group document with rollback of old chunks on failure."""
+
+    try:
+        doc_id = uuid.UUID(str(document_id))
+    except Exception:
+        doc_id = document_id  # type: ignore
+
+    doc = await db_session.get(Document, doc_id)
+    if not doc:
+        logger.error("Document %s not found", document_id)
+        return {"document_id": str(document_id), "status": "not_found"}
+
+    doc.status = "processing"
+    doc.updated_at = datetime.utcnow()
+    await db_session.flush()
+    try:
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+
+    # Backup existing chunks for rollback
+    existing_chunks = list(
+        await db_session.scalars(select(Chunk).where(Chunk.document_id == doc.id))
+    )
+    backup_chunks = [
+        {
+            "chunk_index": c.chunk_index,
+            "content": c.content,
+            "page_number": c.page_number,
+            "vector": c.vector,
+            "metadata_json": c.metadata_json,
+            "created_at": c.created_at,
+            "updated_at": c.updated_at,
+        }
+        for c in existing_chunks
+    ]
+
+    # Delete existing chunks (embeddings stored with them)
+    for c in existing_chunks:
+        await db_session.delete(c)
+    await db_session.flush()
+
+    # Read bytes
+    try:
+        file_bytes = await _read_file_bytes(doc.storage_path or "")
+    except Exception as e:
+        logger.exception("Failed to read document %s: %s", document_id, e)
+        await _restore_chunks(doc, db_session, backup_chunks)
         doc.status = "failed"
         doc.updated_at = datetime.utcnow()
         await db_session.flush()
@@ -194,12 +273,44 @@ async def process_group_document(
             await db_session.commit()
         except Exception:
             await db_session.rollback()
-        return {"document_id": str(document_id), "status": "failed", "error": "persist_error"}
-    finally:
-        if own_service:
-            try:
-                await embedding_service.close()  # type: ignore
-            except Exception:
-                pass
+        return {"document_id": str(document_id), "status": "failed", "error": "read_error"}
 
+    created, error_code = await _process_bytes(doc, file_bytes, db_session, embedding_service)
+
+    if error_code:
+        await _restore_chunks(doc, db_session, backup_chunks)
+        doc.status = "failed"
+        doc.updated_at = datetime.utcnow()
+    else:
+        doc.status = "ready"
+        doc.updated_at = datetime.utcnow()
+
+    await db_session.flush()
+    try:
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+
+    if error_code:
+        return {"document_id": str(document_id), "status": "failed", "error": error_code}
     return {"document_id": str(document_id), "status": "ready", "chunks_created": created}
+
+
+async def _restore_chunks(doc: Document, db_session: AsyncSession, backup_chunks: list[dict]) -> None:
+    """Restore prior chunks after a failed reprocess attempt."""
+    for data in backup_chunks:
+        db_session.add(
+            Chunk(
+                document_id=doc.id,
+                tenant_id=doc.tenant_id,
+                group_id=doc.group_id,
+                chunk_index=data["chunk_index"],
+                content=data["content"],
+                page_number=data["page_number"],
+                vector=data["vector"],
+                metadata_json=data["metadata_json"],
+                created_at=data["created_at"],
+                updated_at=data["updated_at"],
+            )
+        )
+    await db_session.flush()
