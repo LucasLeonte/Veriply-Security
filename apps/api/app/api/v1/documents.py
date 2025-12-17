@@ -333,24 +333,36 @@ async def bulk_delete_documents(
         if len(docs) != len(payload.document_ids):
             raise HTTPException(status_code=404, detail="One or more documents not found")
 
+        # Validate that no documents are currently processing
+        processing_docs = [d for d in docs if d.status == "processing"]
+        if processing_docs:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete documents that are currently processing. Please wait for processing to complete."
+            )
+
+        # Delete each document with nested transaction for atomicity
         for d in docs:
-            try:
-                await DocumentGroupService.soft_delete_document(
-                    db=session,
-                    doc_id=d.id,
-                    group_id=group_id,
-                    tenant_id=UUID(current_user["tenant_id"]),
-                )
-                await AuditService.log_document_delete(
-                    db=session,
-                    actor_id=UUID(current_user["sub"]),
-                    tenant_id=UUID(current_user["tenant_id"]),
-                    group_id=group_id,
-                    document_id=d.id,
-                    filename=d.filename,
-                )
-            except Exception:
-                logger.exception(f"Failed to delete document {d.id}")
+            async with session.begin_nested():
+                try:
+                    await DocumentGroupService.soft_delete_document(
+                        db=session,
+                        doc_id=d.id,
+                        group_id=group_id,
+                        tenant_id=UUID(current_user["tenant_id"]),
+                    )
+                    await AuditService.log_document_delete(
+                        db=session,
+                        actor_id=UUID(current_user["sub"]),
+                        tenant_id=UUID(current_user["tenant_id"]),
+                        group_id=group_id,
+                        document_id=d.id,
+                        filename=d.filename,
+                    )
+                except Exception:
+                    logger.exception(f"Failed to delete document {d.id}")
+                    # Nested transaction will rollback this document only
+                    raise
 
         await session.commit()
         return None
@@ -408,26 +420,38 @@ async def bulk_reprocess_documents(
                     detail=f"Source file not found for document {d.id}",
                 )
 
-        # Mark processing
-        now_ids = []
+        # Attempt to enqueue ALL tasks BEFORE updating database
+        successfully_enqueued = []
         for d in docs:
+            doc_id_str = str(d.id)
+            try:
+                success = tasks.enqueue_group_document_reprocessing(doc_id_str)
+                if success:
+                    successfully_enqueued.append(d)
+                else:
+                    logger.error(f"Failed to enqueue reprocessing for document {doc_id_str}")
+            except Exception as e:
+                logger.exception(f"Exception enqueueing reprocessing for {doc_id_str}: {e}")
+
+        # Only update status for successfully enqueued documents
+        if not successfully_enqueued:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to enqueue any documents for reprocessing"
+            )
+
+        now_ids = []
+        for d in successfully_enqueued:
             d.status = "processing"
             d.updated_at = datetime.utcnow()
             now_ids.append(str(d.id))
+        
         await session.flush()
         await session.commit()
 
-        queued = 0
-        for doc_id in now_ids:
-            try:
-                tasks.enqueue_group_document_reprocessing(doc_id)
-                queued += 1
-            except Exception:
-                logger.exception("Failed to enqueue group document reprocessing for %s", doc_id)
-
         return {
-            "message": f"Queued {queued} document(s) for reprocessing.",
-            "queued_count": queued,
+            "message": f"Queued {len(successfully_enqueued)} document(s) for reprocessing.",
+            "queued_count": len(successfully_enqueued),
             "document_ids": now_ids,
         }
 
@@ -483,6 +507,25 @@ async def reprocess_document(
                 detail="Source file not found. Cannot reprocess.",
             )
 
+        # Attempt to enqueue task BEFORE updating database
+        doc_id_str = str(doc_id)
+        try:
+            success = tasks.enqueue_group_document_reprocessing(doc_id_str)
+            if not success:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to enqueue document for reprocessing"
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception(f"Exception enqueueing reprocessing for {doc_id_str}: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to enqueue document for reprocessing"
+            )
+
+        # Only update status after successful enqueueing
         await DocumentGroupService.update_document_status(
             db=session,
             doc_id=doc_id,
@@ -492,11 +535,6 @@ async def reprocess_document(
         )
 
         await session.commit()
-
-        try:
-            tasks.enqueue_group_document_reprocessing(str(doc_id))
-        except Exception:
-            logger.exception("Failed to enqueue group document reprocessing for %s", doc_id)
 
         return {
             "id": str(doc_id),
