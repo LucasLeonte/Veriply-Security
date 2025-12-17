@@ -136,6 +136,9 @@ class BotGroupService:
         name: str | None = None,
         description: str | None = None,
         confidence_threshold: int | None = None,
+        avatar_url: str | None = None,
+        welcome_message: str | None = None,
+        is_public: bool | None = None,
     ) -> Bot:
         """Update bot details."""
         bot = await BotGroupService.get_bot(db, bot_id, group_id, tenant_id)
@@ -161,6 +164,15 @@ class BotGroupService:
 
         if confidence_threshold is not None:
             bot.confidence_threshold = confidence_threshold
+
+        if avatar_url is not None:
+            bot.avatar_url = avatar_url
+
+        if welcome_message is not None:
+            bot.welcome_message = welcome_message
+
+        if is_public is not None:
+            bot.is_public = is_public
 
         bot.updated_at = datetime.utcnow()
         await db.flush()

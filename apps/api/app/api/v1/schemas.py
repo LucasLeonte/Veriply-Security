@@ -232,6 +232,9 @@ class BotUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     confidence_threshold: Optional[int] = None
+    avatar_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    is_public: Optional[bool] = None
 
     @field_validator("name")
     @classmethod
@@ -256,6 +259,9 @@ class BotResponse(BaseModel):
     description: Optional[str] = None
     confidence_threshold: int
     status: str
+    avatar_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    is_public: bool
     created_by: str | UUID
     created_at: datetime
 

@@ -44,10 +44,10 @@ export default function MessageList({
                         </Avatar>
                     )}
                     <div
-                        className={`max-w-[70%] rounded-lg px-4 py-2 ${
+                        className={`max-w-[70%] rounded-lg px-4 py-2 shadow-sm ${
                             message.role === "user"
-                                ? "bg-sky-500 text-white"
-                                : "bg-white border border-slate-200"
+                                ? "bg-gradient-to-br from-sky-500 to-sky-600 text-white"
+                                : "bg-slate-50 border border-slate-200"
                         }`}
                     >
                         {message.role === "user" ? (
@@ -115,12 +115,9 @@ export default function MessageList({
                                 >
                                     {message.content}
                                 </ReactMarkdown>
-                                {message.citations &&
-                                    message.citations.length > 0 && (
+                                {message.citations && message.citations.length > 0 && (
                                         <div className="mt-3 pt-3 border-t border-slate-200">
-                                            <p className="text-xs font-medium text-slate-600 mb-1">
-                                                Sources:
-                                            </p>
+                                            <p className="text-xs font-medium text-slate-600 mb-1">Sources ({message.citations.length}):</p>
                                             <div className="space-y-1">
                                                 {message.citations.map(
                                                     (citation, idx) => (

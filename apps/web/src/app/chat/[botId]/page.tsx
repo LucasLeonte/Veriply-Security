@@ -19,7 +19,7 @@ export async function generateMetadata({
             title: `Chat with ${bot.name} | Veriply`,
             description: bot.welcome_message || `Ask ${bot.name} questions`,
         };
-    } catch (error) {
+    } catch {
         return {
             title: "Bot Not Found | Veriply",
         };
@@ -32,7 +32,7 @@ export default async function ChatPage({ params }: PageProps) {
 
     try {
         botInfo = await getBotPublicInfo(resolvedParams.botId);
-    } catch (error) {
+    } catch {
         // Bot not found or not public
         notFound();
     }

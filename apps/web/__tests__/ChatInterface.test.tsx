@@ -45,7 +45,6 @@ describe("ChatInterface", () => {
     });
 
     it("displays user message after send", async () => {
-        const user = userEvent.setup();
 
         vi.mocked(chatHook.useChat).mockReturnValue({
             messages: [

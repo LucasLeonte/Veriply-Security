@@ -48,21 +48,23 @@ async def get_public_bot_info(
                 detail="Bot not found",
             )
 
-        # For MVP: All bots are considered public
-        # In production, add is_public field to Bot model
-        # if not bot.is_public:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_403_FORBIDDEN,
-        #         detail="Bot is not public",
-        #     )
+        # Check public visibility
+        if hasattr(bot, "is_public") and not bot.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is not public",
+            )
 
         return PublicBotInfo(
             id=str(bot.id),
             name=bot.name,
-            avatar_url=None,  # TODO: Add avatar_url field to Bot model
-            welcome_message=bot.description
-            or f"Hi! I'm {bot.name}. Ask me anything!",
-            is_public=True,  # TODO: Add is_public field to Bot model
+            avatar_url=getattr(bot, "avatar_url", None),
+            welcome_message=(
+                getattr(bot, "welcome_message", None)
+                or bot.description
+                or f"Hi! I'm {bot.name}. Ask me anything!"
+            ),
+            is_public=getattr(bot, "is_public", True),
         )
 
     except HTTPException:

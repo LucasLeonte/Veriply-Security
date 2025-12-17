@@ -6,8 +6,11 @@ import ChatInterface from "@/components/chat/ChatInterface";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Settings, FileText, MessageCircle } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGroup } from "@/contexts/GroupContext";
+import { botsApi } from "@/lib/api/bots";
+import { Bot } from "@/types/bot";
+import BotGeneralSettings from "@/components/bot/BotGeneralSettings";
 
 type TabType = "settings" | "documents" | "chat";
 
@@ -16,6 +19,19 @@ export default function BotSettingsPage() {
     const botId = params.botId as string;
     const { currentGroup } = useGroup();
     const [activeTab, setActiveTab] = useState<TabType>("chat");
+    const [bot, setBot] = useState<Bot | null>(null);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!currentGroup) return;
+        setLoading(true);
+        botsApi
+            .getBotDetails(currentGroup.id, botId)
+            .then(setBot)
+            .catch((e) => setError(e.message || "Failed to load bot"))
+            .finally(() => setLoading(false));
+    }, [currentGroup, botId]);
 
     if (!currentGroup) {
         return (
@@ -102,13 +118,19 @@ export default function BotSettingsPage() {
                                 </p>
                             </div>
 
-                            <ChatInterface
-                                botId={botId}
-                                botName="Bot"
-                                botAvatar={undefined}
-                                welcomeMessage="Ask your bot a question using its knowledge base."
-                                isPublic={true}
-                            />
+                            {loading ? (
+                                <div className="p-6 text-slate-600">Loading bot…</div>
+                            ) : error ? (
+                                <div className="p-6 text-red-700 bg-red-50 border border-red-200 rounded">{error}</div>
+                            ) : bot ? (
+                                <ChatInterface
+                                    botId={botId}
+                                    botName={bot.name}
+                                    botAvatar={bot.avatar_url}
+                                    welcomeMessage={bot.welcome_message || bot.description || `Hi! I'm ${bot.name}`}
+                                    isPublic={bot.is_public}
+                                />
+                            ) : null}
                         </div>
                     )}
 
@@ -127,11 +149,9 @@ export default function BotSettingsPage() {
                         </div>
                     )}
 
-                    {activeTab === "settings" && (
+                    {activeTab === "settings" && currentGroup && (
                         <div className="bg-white border border-slate-200 rounded-lg p-6">
-                            <p className="text-slate-600">
-                                General settings coming soon...
-                            </p>
+                            <BotGeneralSettings groupId={currentGroup.id} botId={botId} />
                         </div>
                     )}
                 </div>

@@ -278,8 +278,10 @@ export const documentsApi = {
     async moveDocumentToFolder(
         documentId: string,
         folderId: string | null,
-        groupId: string
+        _groupId: string
     ): Promise<Document> {
+        // Touch unused param to satisfy type checker without changing signature
+        void _groupId;
         if (USE_MOCK_DATA) {
             return mockDocumentsApi.getDocument(documentId);
         }

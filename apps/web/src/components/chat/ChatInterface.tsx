@@ -107,7 +107,10 @@ export default function ChatInterface({
                         </p>
                     </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-2 py-1 rounded-full border ${isPublic ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                        {isPublic ? "Public" : "Private"}
+                    </span>
                     <Button
                         variant="ghost"
                         size="sm"
