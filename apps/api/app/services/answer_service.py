@@ -286,7 +286,36 @@ class AnswerGenerationService:
             logger.error(f"Vector search failed: {e}")
             raise
 
-        # Step 2: Calculate confidence and determine routing
+        # Step 2: Generate AI draft (always, regardless of routing decision)
+        # This ensures HITL queue has the AI draft for human review
+        logger.debug(
+            f"Generating AI draft with {len(search_results)} context chunks"
+        )
+
+        draft_tokens = []
+        try:
+            async for token in self.llm_service.generate_answer(
+                query=query,
+                context_chunks=search_results,
+                conversation_history=conversation_history,
+            ):
+                draft_tokens.append(token)
+            
+            ai_draft = "".join(draft_tokens)
+            metadata["ai_draft"] = ai_draft
+            metadata["tokens_generated"] = len(draft_tokens)
+            
+            logger.info(
+                f"AI draft generated: {len(draft_tokens)} tokens"
+            )
+
+        except LLMError as e:
+            logger.error(f"Failed to generate AI draft: {e}")
+            # Don't fail the entire operation if draft generation fails
+            ai_draft = "Failed to generate draft"
+            metadata["ai_draft"] = ai_draft
+
+        # Step 3: Calculate confidence and determine routing
         confidence_result = await self.confidence_calculator.calculate_confidence(
             db=db,
             bot_id=bot_id,
@@ -300,6 +329,14 @@ class AnswerGenerationService:
             metadata_json={
                 "search_results": metadata.get("search_results", []),
                 "confidence_threshold": confidence_threshold,
+                "ai_draft": ai_draft,
+                "citations": [
+                    {
+                        "source": chunk.document_name,
+                        "relevance": chunk.similarity,
+                    }
+                    for chunk in search_results
+                ],
             },
         )
 
@@ -320,7 +357,7 @@ class AnswerGenerationService:
             f"routing={confidence_result.routing_decision.value}"
         )
 
-        # Step 3: Route based on confidence
+        # Step 4: Route based on confidence
         if confidence_result.routing_decision == RoutingDecision.HITL:
             # Low confidence - route to HITL queue
             logger.info(
@@ -337,46 +374,24 @@ class AnswerGenerationService:
                 hitl_message=HITL_PENDING_MESSAGE,
             )
 
-        # Step 4: High confidence - generate and return answer
+        # Step 5: High confidence - return the generated answer as iterator
         logger.debug(
-            f"Auto-send: generating answer with {len(search_results)} context chunks"
+            f"Auto-send: returning generated answer"
         )
 
-        try:
-            gen_start_time = time.time()
-            tokens_count = 0
+        # Create an async generator that yields the already-generated draft tokens
+        async def answer_generator() -> AsyncIterator[str]:
+            """Generator that yields tokens from the already-generated draft."""
+            for token in draft_tokens:
+                yield token
 
-            async def answer_generator() -> AsyncIterator[str]:
-                """Inner generator to count tokens and update metadata."""
-                nonlocal tokens_count
-                async for token in self.llm_service.generate_answer(
-                    query=query,
-                    context_chunks=search_results,
-                    conversation_history=conversation_history,
-                ):
-                    tokens_count += 1
-                    yield token
-
-                generation_elapsed = time.time() - gen_start_time
-                metadata["tokens_generated"] = tokens_count
-                metadata["generation_latency_s"] = round(generation_elapsed, 2)
-
-                logger.info(
-                    f"Answer generation complete: "
-                    f"tokens={tokens_count}, latency={generation_elapsed:.2f}s"
-                )
-
-            return AnswerResponse(
-                answer_generator=answer_generator(),
-                metadata=metadata,
-                confidence=confidence_result,
-                routing_decision=RoutingDecision.AUTO_SEND,
-                hitl_message=None,
-            )
-
-        except LLMError as e:
-            logger.error(f"Failed to generate answer: {e}")
-            raise
+        return AnswerResponse(
+            answer_generator=answer_generator(),
+            metadata=metadata,
+            confidence=confidence_result,
+            routing_decision=RoutingDecision.AUTO_SEND,
+            hitl_message=None,
+        )
 
     async def generate_from_context(
         self,
