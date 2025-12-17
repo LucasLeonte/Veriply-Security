@@ -250,7 +250,7 @@ class GroupService:
             select(func.count(Document.id)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at is None)
+                & (Document.deleted_at.is_(None))
             )
         )
 

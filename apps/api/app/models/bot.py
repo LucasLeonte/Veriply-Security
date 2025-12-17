@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Uuid, ForeignKey, DateTime, Enum as SQLEnum, Text, Index
+from sqlalchemy import Column, String, Integer, Uuid, ForeignKey, DateTime, Enum as SQLEnum, Text, Index, Boolean
 from datetime import datetime
 import enum
 from .base import Base
@@ -18,6 +18,10 @@ class Bot(Base):
     description = Column(Text, nullable=True)
     confidence_threshold = Column(Integer, default=80, nullable=False)
     status = Column(SQLEnum(BotStatus), default=BotStatus.EMPTY, nullable=False)
+    # New public/chat presentation fields
+    avatar_url = Column(String(512), nullable=True)
+    welcome_message = Column(Text, nullable=True)
+    is_public = Column(Boolean, default=False, nullable=False)
     created_by = Column(Uuid, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

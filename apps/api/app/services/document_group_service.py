@@ -24,8 +24,8 @@ class DocumentGroupService:
         mime_type: str,
         size_bytes: int,
         storage_path: str,
-        bot_id: UUID | None = None,
         title: str | None = None,
+        folder_id: UUID | None = None,
     ) -> Document:
         """
         Create a document record in the group KB with provenance.
@@ -39,8 +39,8 @@ class DocumentGroupService:
             mime_type: MIME type
             size_bytes: File size
             storage_path: Path where file is stored
-            bot_id: Optional bot that triggered upload
             title: Optional title (defaults to filename)
+            folder_id: Optional folder ID for organization
             
         Returns:
             Created Document object
@@ -57,8 +57,7 @@ class DocumentGroupService:
         doc = Document(
             tenant_id=tenant_id,
             group_id=group_id,
-            bot_id=bot_id,
-            filename=filename,
+            folder_id=folder_id,
             title=title or filename,
             mime=mime_type,
             size=size_bytes,
@@ -87,7 +86,7 @@ class DocumentGroupService:
                 (Document.id == doc_id)
                 & (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at is None)
+                & (Document.deleted_at.is_(None))
             )
         )
 
@@ -107,14 +106,14 @@ class DocumentGroupService:
         )
 
         if not include_deleted:
-            query = query.where(Document.deleted_at is None)
+            query = query.where(Document.deleted_at.is_(None))
 
         # Count
         count_query = select(func.count(Document.id)).where(
             (Document.group_id == group_id) & (Document.tenant_id == tenant_id)
         )
         if not include_deleted:
-            count_query = count_query.where(Document.deleted_at is None)
+            count_query = count_query.where(Document.deleted_at.is_(None))
 
         total = await db.scalar(count_query)
 
@@ -136,12 +135,24 @@ class DocumentGroupService:
         """
         Soft-delete a document (mark deleted_at).
         
+        To avoid potential conflicts, the document title is renamed with a 
+        deletion suffix before being marked deleted.
+        
         Note: Chunks remain in KB but are orphaned. Document can be
         restored by clearing deleted_at if needed.
         """
         doc = await DocumentGroupService.get_document(db, doc_id, group_id, tenant_id)
         if not doc:
             raise ValueError(f"Document {doc_id} not found")
+
+        # Rename document to avoid potential conflicts on recreate
+        ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        suffix = f" __deleted__{ts}"
+        max_len = 255
+        base = doc.title or "document"
+        if len(base) + len(suffix) > max_len:
+            base = base[: max_len - len(suffix)]
+        doc.title = f"{base}{suffix}"
 
         doc.deleted_at = datetime.utcnow()
         await db.flush()
@@ -234,7 +245,7 @@ class DocumentGroupService:
             select(func.count(Document.id)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at is None)
+                & (Document.deleted_at.is_(None))
             )
         )
 
@@ -250,7 +261,7 @@ class DocumentGroupService:
             select(func.sum(Document.size)).where(
                 (Document.group_id == group_id)
                 & (Document.tenant_id == tenant_id)
-                & (Document.deleted_at is None)
+                & (Document.deleted_at.is_(None))
             )
         )
 
@@ -259,6 +270,26 @@ class DocumentGroupService:
             "chunks": chunk_count or 0,
             "total_size_bytes": total_size or 0,
         }
+
+    @staticmethod
+    async def get_documents_by_ids(
+        db: AsyncSession, doc_ids: list[UUID], group_id: UUID, tenant_id: UUID
+    ) -> list[Document]:
+        """Fetch documents by ids with group/tenant isolation (excludes deleted)."""
+        if not doc_ids:
+            return []
+
+        docs = list(
+            await db.scalars(
+                select(Document).where(
+                    Document.id.in_(doc_ids),
+                    Document.group_id == group_id,
+                    Document.tenant_id == tenant_id,
+                    Document.deleted_at.is_(None),
+                )
+            )
+        )
+        return docs
 
     @staticmethod
     async def get_document_provenance(

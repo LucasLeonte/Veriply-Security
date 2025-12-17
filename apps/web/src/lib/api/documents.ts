@@ -2,6 +2,7 @@ import {
     DocumentChunk,
     PaginatedDocumentsResponse,
     DocumentDetailResponse,
+    Document,
 } from "@/types/document";
 import { mockDocumentsApi } from "./mockDocuments";
 import { getAccessToken } from "@/lib/auth";
@@ -55,7 +56,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
             }
             throw new Error("Session expired. Please log in again.");
         }
-        
+
         const error = await response
             .json()
             .catch(() => ({ detail: "Unknown error" }));
@@ -95,20 +96,38 @@ export const documentsApi = {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/groups/${groupId}/documents?${params.toString()}`
         );
-        return handleResponse<PaginatedDocumentsResponse>(response);
+        // Backend may return an array (non-paginated). Normalize to PaginatedDocumentsResponse.
+        const data = await handleResponse<
+            PaginatedDocumentsResponse | Document[]
+        >(response);
+        if (Array.isArray(data)) {
+            return {
+                documents: data as Document[],
+                total: data.length,
+                page,
+                page_size: pageSize,
+                total_pages: Math.max(1, Math.ceil(data.length / pageSize)),
+            } satisfies PaginatedDocumentsResponse;
+        }
+        return data as PaginatedDocumentsResponse;
     },
 
     /**
      * Get document details including chunks
      */
-    async getDocument(documentId: string): Promise<DocumentDetailResponse> {
+    async getDocument(
+        documentId: string,
+        groupId?: string
+    ): Promise<DocumentDetailResponse> {
         if (USE_MOCK_DATA) {
             return mockDocumentsApi.getDocument(documentId);
         }
 
-        const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}`
-        );
+        const url = groupId
+            ? `${API_BASE_URL}/api/v1/groups/${groupId}/documents/${documentId}`
+            : `${API_BASE_URL}/api/v1/documents/${documentId}`;
+
+        const response = await fetchWithAuth(url);
         return handleResponse<DocumentDetailResponse>(response);
     },
 
@@ -118,7 +137,8 @@ export const documentsApi = {
     async uploadDocuments(
         groupId: string,
         files: File[],
-        botId?: string
+        botId?: string,
+        folderId?: string
     ): Promise<{
         id: string;
         document_id: string;
@@ -129,18 +149,27 @@ export const documentsApi = {
             return mockDocumentsApi.uploadDocuments(groupId, files);
         }
 
+        // Backend expects single file per request, so upload first file
+        // TODO: Support batch uploads or loop through files
+        if (files.length === 0) {
+            throw new Error("No files to upload");
+        }
+
         const formData = new FormData();
 
-        files.forEach((file) => {
-            formData.append("files", file);
-        });
+        // Backend expects 'file' (singular)
+        formData.append("file", files[0]);
 
         if (botId) {
             formData.append("bot_id", botId);
         }
 
+        if (folderId) {
+            formData.append("folder_id", folderId);
+        }
+
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/groups/${groupId}/documents`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/upload`,
             {
                 method: "POST",
                 body: formData,
@@ -174,25 +203,64 @@ export const documentsApi = {
     },
 
     /**
-     * Delete multiple documents in bulk
+     * Trigger reprocessing of a document (group-scoped)
      */
-    async bulkDeleteDocuments(botId: string, documentIds: string[]): Promise<{
+    async reprocessDocument(
+        groupId: string,
+        documentId: string
+    ): Promise<{
+        id: string;
+        status: string;
+        message?: string;
+        queued?: boolean;
+    }> {
+        if (USE_MOCK_DATA) {
+            return Promise.resolve({
+                id: documentId,
+                status: "processing",
+                queued: true,
+                message: "Reprocess queued",
+            });
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/${documentId}/reprocess`,
+            {
+                method: "POST",
+            }
+        );
+        return handleResponse<{
+            id: string;
+            status: string;
+            message?: string;
+            queued?: boolean;
+        }>(response);
+    },
+
+    /**
+     * Bulk reprocess documents (max 100)
+     */
+    async bulkReprocessDocuments(
+        groupId: string,
+        documentIds: string[]
+    ): Promise<{
         message: string;
         queued_count: number;
         document_ids: string[];
     }> {
         if (USE_MOCK_DATA) {
-            return mockDocumentsApi.bulkDeleteDocuments(botId, documentIds);
+            return Promise.resolve({
+                message: `Queued ${documentIds.length} document(s) for reprocessing (mock).`,
+                queued_count: documentIds.length,
+                document_ids: documentIds,
+            });
         }
 
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/bulk-delete`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/bulk-reprocess`,
             {
                 method: "POST",
-                body: JSON.stringify({
-                    bot_id: botId,
-                    document_ids: documentIds,
-                }),
+                body: JSON.stringify({ document_ids: documentIds }),
             }
         );
         return handleResponse<{
@@ -203,24 +271,26 @@ export const documentsApi = {
     },
 
     /**
-     * Trigger reprocessing of a document
+     * Bulk delete documents (max 100)
      */
-    async reprocessDocument(
-        documentId: string
-    ): Promise<{ id: string; status: string; queued: boolean }> {
+    async bulkDeleteDocuments(
+        groupId: string,
+        documentIds: string[]
+    ): Promise<void> {
         if (USE_MOCK_DATA) {
-            return mockDocumentsApi.reprocessDocument(documentId);
+            return Promise.resolve();
         }
 
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}/reprocess`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/bulk-delete`,
             {
                 method: "POST",
+                body: JSON.stringify({ document_ids: documentIds }),
             }
         );
-        return handleResponse<{ id: string; status: string; queued: boolean }>(
-            response
-        );
+        if (!response.ok) {
+            throw new Error(`Failed to delete documents: ${response.status}`);
+        }
     },
 
     /**
@@ -236,8 +306,38 @@ export const documentsApi = {
         const response = await fetchWithAuth(
             `${API_BASE_URL}/api/v1/documents/${documentId}/chunks`
         );
-        return handleResponse<{ chunks: DocumentChunk[]; total: number }>(
-            response
+        const data = await handleResponse<
+            { chunks: DocumentChunk[]; total: number } | DocumentChunk[]
+        >(response);
+        if (Array.isArray(data)) {
+            return { chunks: data as DocumentChunk[], total: data.length };
+        }
+        return data as { chunks: DocumentChunk[]; total: number };
+    },
+
+    /**
+     * Move a document to a folder
+     */
+    async moveDocumentToFolder(
+        documentId: string,
+        folderId: string | null,
+        _groupId: string
+    ): Promise<Document> {
+        // Touch unused param to satisfy type checker without changing signature
+        void _groupId;
+        if (USE_MOCK_DATA) {
+            return mockDocumentsApi.getDocument(documentId);
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/documents/${documentId}/move`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    folder_id: folderId,
+                }),
+            }
         );
+        return handleResponse<Document>(response);
     },
 };

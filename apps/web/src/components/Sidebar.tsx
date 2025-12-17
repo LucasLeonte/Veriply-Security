@@ -29,7 +29,7 @@ const NAVIGATION_ITEMS = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/dashboard/bots", icon: Bot, label: "Bots" },
     { href: "/inbox", icon: Inbox, label: "Review Queue" },
-    { href: "/knowledge-base", icon: BookOpen, label: "Knowledge Base" },
+    { href: "/dashboard/knowledge-base", icon: BookOpen, label: "Knowledge Base" },
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/settings", icon: Settings, label: "Settings" },
 ];

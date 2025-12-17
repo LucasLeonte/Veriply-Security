@@ -63,13 +63,13 @@ async def create_document(
     # Note: Document.title maps to the 'filename' column in the database
     doc = Document(
         tenant_id=tenant_uuid,
-        bot_id=bot_uuid,
+        group_id=bot_uuid,
         title=title or filename,  # title attribute maps to filename column
         mime=mime_type,
         size=size_bytes,
         storage_path=storage_path,
         status="uploaded",
-        uploaded_by=uploader_uuid,
+        uploader_id=uploader_uuid,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )

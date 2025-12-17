@@ -6,6 +6,7 @@ import { DocumentCard } from "./DocumentCard";
 import { SearchBar } from "./SearchBar";
 import { Pagination } from "./Pagination";
 import { UploadModal } from "./UploadModal";
+import { MoveToFolderModal } from "./MoveToFolderModal";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { BulkDeleteToolbar } from "../knowledge-base/BulkDeleteToolbar";
 import { BulkDeleteConfirmationModal } from "../modals/BulkDeleteConfirmationModal";
@@ -14,11 +15,16 @@ import { useDocumentDeletion } from "@/hooks/useDocumentDeletion";
 import { Upload, Loader, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import type { Folder } from "@/types/folder";
+import { documentsApi } from "@/lib/api/documents";
+import { useGroup } from "@/contexts/GroupContext";
+
 interface KnowledgeBaseListProps {
     botId: string;
-    onUpload: (files: File[]) => Promise<void>;
+    onUpload: (files: File[], folderId?: string) => Promise<void>;
     onDelete: (documentId: string) => Promise<void>;
     onReprocess: (documentId: string) => Promise<void>;
+    onMove?: (document: Document, folderId: string | null) => Promise<void>;
     documents: Document[];
     totalCount: number;
     currentPage: number;
@@ -27,6 +33,7 @@ interface KnowledgeBaseListProps {
     onSearchChange?: (search: string) => void;
     isLoading: boolean;
     error?: string | null;
+    folders?: Folder[];
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -36,6 +43,7 @@ export function KnowledgeBaseList({
     onUpload,
     onDelete,
     onReprocess,
+    onMove,
     documents,
     totalCount,
     currentPage,
@@ -44,18 +52,31 @@ export function KnowledgeBaseList({
     onSearchChange,
     isLoading,
     error,
+    folders = [],
 }: KnowledgeBaseListProps) {
+    const { currentGroup } = useGroup();
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null);
+    const [moveModalOpen, setMoveModalOpen] = useState(false);
+    const [documentToDelete, setDocumentToDelete] = useState<Document | null>(
+        null
+    );
+    const [documentToMove, setDocumentToMove] = useState<Document | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Bulk deletion state
-    const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<string>>(new Set());
+    const [selectedDocumentIds, setSelectedDocumentIds] = useState<Set<string>>(
+        new Set()
+    );
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
-    const { deleteDocument, bulkDeleteDocuments, deletingIds, isDeleting: isHookDeleting } = useDocumentDeletion();
+    const {
+        deleteDocument,
+        bulkDeleteDocuments,
+        deletingIds,
+        isDeleting: isHookDeleting,
+    } = useDocumentDeletion();
 
     // Debounce search and notify parent
     useEffect(() => {
@@ -109,7 +130,7 @@ export function KnowledgeBaseList({
             setSelectedDocumentIds(new Set());
         } else {
             // Select all on current page
-            const allIds = new Set(documents.map(doc => doc.id));
+            const allIds = new Set(documents.map((doc) => doc.id));
             setSelectedDocumentIds(allIds);
         }
     };
@@ -131,8 +152,8 @@ export function KnowledgeBaseList({
     const handleBulkDeleteConfirm = async () => {
         const documentIds = Array.from(selectedDocumentIds);
         const documentNames = documents
-            .filter(doc => selectedDocumentIds.has(doc.id))
-            .map(doc => doc.filename);
+            .filter((doc) => selectedDocumentIds.has(doc.id))
+            .map((doc) => doc.filename);
 
         try {
             await bulkDeleteDocuments(botId, documentIds, documentNames);
@@ -168,7 +189,10 @@ export function KnowledgeBaseList({
                 <BulkDeleteToolbar
                     selectedCount={selectedDocumentIds.size}
                     totalCount={documents.length}
-                    allSelected={selectedDocumentIds.size === documents.length && documents.length > 0}
+                    allSelected={
+                        selectedDocumentIds.size === documents.length &&
+                        documents.length > 0
+                    }
                     onSelectAll={handleSelectAll}
                     onBulkDelete={handleBulkDeleteClick}
                     disabled={isHookDeleting}
@@ -178,7 +202,8 @@ export function KnowledgeBaseList({
             {/* Document Count */}
             {!isLoading && (
                 <div className="text-sm text-slate-600">
-                    Showing {documents.length} of {totalCount} document{totalCount !== 1 ? "s" : ""}
+                    Showing {documents.length} of {totalCount} document
+                    {totalCount !== 1 ? "s" : ""}
                 </div>
             )}
 
@@ -199,14 +224,18 @@ export function KnowledgeBaseList({
             {/* Empty State */}
             {!isLoading && !error && documents.length === 0 && (
                 <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
-                    <FileText size={48} className="text-slate-300 mx-auto mb-4" />
+                    <FileText
+                        size={48}
+                        className="text-slate-300 mx-auto mb-4"
+                    />
                     {searchQuery ? (
                         <>
                             <h3 className="text-lg font-medium text-slate-900 mb-2">
                                 No documents found
                             </h3>
                             <p className="text-sm text-slate-600">
-                                Try adjusting your search or upload new documents
+                                Try adjusting your search or upload new
+                                documents
                             </p>
                         </>
                     ) : (
@@ -215,7 +244,8 @@ export function KnowledgeBaseList({
                                 No documents yet
                             </h3>
                             <p className="text-sm text-slate-600 mb-4">
-                                Upload your first document to build your knowledge base
+                                Upload your first document to build your
+                                knowledge base
                             </p>
                             <button
                                 onClick={() => setIsUploadModalOpen(true)}
@@ -232,18 +262,32 @@ export function KnowledgeBaseList({
             {/* Document List */}
             {!isLoading && !error && documents.length > 0 && (
                 <div className="space-y-4">
-                    {documents.map((document) => (
-                        <DocumentCard
-                            key={document.id}
-                            document={document}
-                            onView={handleViewDocument}
-                            onDelete={handleDeleteClick}
-                            onReprocess={handleReprocess}
-                            isSelected={selectedDocumentIds.has(document.id)}
-                            onToggleSelection={handleToggleSelection}
-                            isDeleting={deletingIds.has(document.id)}
-                        />
-                    ))}
+                    {documents.map((document) => {
+                        const folderName = document.folder_id
+                            ? folders.find((f) => f.id === document.folder_id)
+                                  ?.name
+                            : undefined;
+
+                        return (
+                            <DocumentCard
+                                key={document.id}
+                                document={document}
+                                onView={handleViewDocument}
+                                onDelete={handleDeleteClick}
+                                onReprocess={handleReprocess}
+                                onMove={(doc) => {
+                                    setDocumentToMove(doc);
+                                    setMoveModalOpen(true);
+                                }}
+                                isSelected={selectedDocumentIds.has(
+                                    document.id
+                                )}
+                                onToggleSelection={handleToggleSelection}
+                                isDeleting={deletingIds.has(document.id)}
+                                folderName={folderName}
+                            />
+                        );
+                    })}
                 </div>
             )}
 
@@ -263,6 +307,33 @@ export function KnowledgeBaseList({
                 isOpen={isUploadModalOpen}
                 onClose={() => setIsUploadModalOpen(false)}
                 onUpload={onUpload}
+                folders={folders}
+            />
+
+            {/* Move to Folder Modal */}
+            <MoveToFolderModal
+                isOpen={moveModalOpen}
+                onClose={() => {
+                    setMoveModalOpen(false);
+                    setDocumentToMove(null);
+                }}
+                onMove={async (folderId) => {
+                    if (!documentToMove || !currentGroup?.id) return;
+                    if (onMove) {
+                        await onMove(documentToMove, folderId);
+                    } else {
+                        await documentsApi.moveDocumentToFolder(
+                            documentToMove.id,
+                            folderId,
+                            currentGroup.id
+                        );
+                    }
+                    setMoveModalOpen(false);
+                    setDocumentToMove(null);
+                }}
+                folders={folders}
+                documentName={documentToMove?.filename}
+                currentFolderId={documentToMove?.folder_id}
             />
 
             {/* Delete Confirmation Dialog */}
@@ -284,8 +355,8 @@ export function KnowledgeBaseList({
                 onConfirm={handleBulkDeleteConfirm}
                 selectedCount={selectedDocumentIds.size}
                 selectedDocuments={documents
-                    .filter(doc => selectedDocumentIds.has(doc.id))
-                    .map(doc => ({ id: doc.id, name: doc.filename }))}
+                    .filter((doc) => selectedDocumentIds.has(doc.id))
+                    .map((doc) => ({ id: doc.id, name: doc.filename }))}
                 isDeleting={isHookDeleting}
             />
         </div>

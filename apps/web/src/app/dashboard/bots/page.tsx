@@ -16,6 +16,7 @@ const ITEMS_PER_PAGE = 20;
 
 export default function BotsPage() {
     const { currentGroup } = useGroup();
+    const groupId = currentGroup?.id ?? null;
     const [page, setPage] = useState(0);
     const [search, setSearch] = useState("");
     const [sortBy, setSortBy] = useState<"name" | "created_at">("name");
@@ -39,7 +40,7 @@ export default function BotsPage() {
 
     const offset = page * ITEMS_PER_PAGE;
     const { data, isLoading, error, refetch } = useBotsQuery(
-        currentGroup.id,
+        groupId,
         ITEMS_PER_PAGE,
         offset,
         debouncedSearch || undefined,
@@ -106,6 +107,27 @@ export default function BotsPage() {
     };
 
     const maxPage = data ? Math.ceil(data.total_count / ITEMS_PER_PAGE) : 0;
+
+    // If no group is selected, prompt the user instead of calling the API
+    if (!groupId) {
+        return (
+            <DashboardLayout>
+                <div className="space-y-6">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                            Bots
+                        </h1>
+                        <p className="text-gray-600">
+                            Select a group to manage its bots.
+                        </p>
+                    </div>
+                    <div className="bg-white rounded-lg shadow p-12 text-center text-gray-600">
+                        Please select a group from the header to view bots.
+                    </div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     return (
         <DashboardLayout>
@@ -283,10 +305,11 @@ export default function BotsPage() {
                                                 <button
                                                     key={i}
                                                     onClick={() => setPage(i)}
-                                                    className={`px-3 py-1 rounded ${page === i
-                                                        ? "bg-blue-600 text-white"
-                                                        : "border border-gray-300 hover:bg-gray-50"
-                                                        }`}
+                                                    className={`px-3 py-1 rounded ${
+                                                        page === i
+                                                            ? "bg-blue-600 text-white"
+                                                            : "border border-gray-300 hover:bg-gray-50"
+                                                    }`}
                                                 >
                                                     {i + 1}
                                                 </button>

@@ -135,6 +135,33 @@ export const botsApi = {
         return handleResponse<Bot>(response);
     },
 
+    async uploadBotAvatar(
+        groupId: string,
+        botId: string,
+        file: File
+    ): Promise<{ avatar_url: string }> {
+        if (USE_MOCK_DATA) {
+            return { avatar_url: URL.createObjectURL(file) };
+        }
+
+        const endpoint = getBotsEndpoint(groupId);
+        const form = new FormData();
+        form.append("file", file);
+
+        // Note: using fetch directly to avoid JSON headers
+        const token = await getAuthToken();
+        const response = await fetch(`${endpoint}/${botId}/avatar`, {
+            method: "POST",
+            body: form,
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        if (!response.ok) {
+            const text = await response.text().catch(() => "");
+            throw new Error(`Failed to upload avatar: ${response.status} ${text}`);
+        }
+        return response.json();
+    },
+
     async deleteBot(groupId: string, botId: string): Promise<void> {
         if (USE_MOCK_DATA) {
             return mockBotsApi.deleteBot(botId);

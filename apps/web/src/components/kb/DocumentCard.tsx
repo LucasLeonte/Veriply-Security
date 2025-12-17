@@ -11,6 +11,8 @@ import {
     Loader,
     User,
     Bot,
+    CheckSquare,
+    Square,
 } from "lucide-react";
 
 interface DocumentCardProps {
@@ -18,9 +20,11 @@ interface DocumentCardProps {
     onView?: (document: Document) => void;
     onDelete?: (document: Document) => void;
     onReprocess?: (document: Document) => void;
+    onMove?: (document: Document) => void;
     isSelected?: boolean;
     onToggleSelection?: (documentId: string) => void;
     isDeleting?: boolean;
+    folderName?: string;
 }
 
 export function DocumentCard({
@@ -28,9 +32,11 @@ export function DocumentCard({
     onView,
     onDelete,
     onReprocess,
+    onMove,
     isSelected = false,
     onToggleSelection,
     isDeleting = false,
+    folderName,
 }: DocumentCardProps) {
     const [showMenu, setShowMenu] = React.useState(false);
 
@@ -38,7 +44,13 @@ export function DocumentCard({
         // Show deleting status if currently being deleted
         if (isDeleting) {
             return {
-                icon: <Loader size={16} className="text-red-500 animate-spin" aria-hidden="true" />,
+                icon: (
+                    <Loader
+                        size={16}
+                        className="text-red-500 animate-spin"
+                        aria-hidden="true"
+                    />
+                ),
                 text: "Deleting...",
                 className: "text-red-500",
             };
@@ -57,19 +69,7 @@ export function DocumentCard({
                     text: "Ready",
                     className: "text-emerald-600",
                 };
-            case "processed":
-                return {
-                    icon: (
-                        <CheckCircle
-                            size={16}
-                            className="text-emerald-600"
-                            aria-hidden="true"
-                        />
-                    ),
-                    text: "Processed",
-                    className: "text-emerald-600",
-                };
-            case "pending":
+            case "uploaded":
                 return {
                     icon: (
                         <Clock
@@ -78,7 +78,7 @@ export function DocumentCard({
                             aria-hidden="true"
                         />
                     ),
-                    text: "Pending",
+                    text: "Uploaded",
                     className: "text-slate-400",
                 };
             case "processing":
@@ -112,13 +112,13 @@ export function DocumentCard({
             case "uploading":
                 return {
                     icon: (
-                        <Clock
+                        <Loader
                             size={16}
-                            className="text-slate-400"
+                            className="text-slate-400 animate-spin"
                             aria-hidden="true"
                         />
                     ),
-                    text: "Uploaded",
+                    text: "Uploading...",
                     className: "text-slate-400",
                 };
             default:
@@ -137,7 +137,10 @@ export function DocumentCard({
     };
 
     const status = getStatusDisplay();
-    const formattedSize = (document.size / 1024).toFixed(1) + " KB";
+    const formattedSize =
+        typeof document.size === "number" && isFinite(document.size)
+            ? (document.size / 1024).toFixed(1) + " KB"
+            : "—";
     const uploadDate = new Date(document.created_at).toLocaleDateString(
         "en-US",
         {
@@ -148,17 +151,25 @@ export function DocumentCard({
     );
 
     return (
-        <div className={`border border-slate-200 rounded-lg p-4 transition-all bg-white ${
-            isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-md"
-        } ${isDeleting ? "opacity-60" : ""}`}>
+        <div
+            className={`border border-slate-200 rounded-lg p-4 transition-all bg-white ${
+                isSelected
+                    ? "ring-2 ring-blue-500 shadow-md"
+                    : "hover:shadow-md"
+            } ${isDeleting ? "opacity-60" : ""}`}
+        >
             <div className="flex items-start gap-3">
                 {/* Selection Checkbox */}
                 {onToggleSelection && (
                     <button
                         onClick={() => onToggleSelection(document.id)}
-                        disabled={isDeleting || document.status === "processing"}
+                        disabled={
+                            isDeleting || document.status === "processing"
+                        }
                         className="flex-shrink-0 mt-1 p-1 rounded hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-label={isSelected ? "Deselect document" : "Select document"}
+                        aria-label={
+                            isSelected ? "Deselect document" : "Select document"
+                        }
                     >
                         {isSelected ? (
                             <CheckSquare className="h-5 w-5 text-blue-600" />
@@ -188,6 +199,15 @@ export function DocumentCard({
                         {document.filename}
                     </button>
 
+                    {/* Folder Tag */}
+                    {folderName && (
+                        <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                                📁 {folderName}
+                            </span>
+                        </div>
+                    )}
+
                     {/* Status and Metadata */}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                         <div
@@ -196,7 +216,7 @@ export function DocumentCard({
                             {status.icon}
                             <span>{status.text}</span>
                         </div>
-                        {(document.status === "ready" || document.status === "processed") && (
+                        {document.status === "ready" && (
                             <>
                                 <span className="text-slate-300">•</span>
                                 <span className="text-sm text-slate-600">
@@ -289,26 +309,58 @@ export function DocumentCard({
                                         View Details
                                     </button>
                                 )}
-                                {onReprocess &&
-                                    document.status !== "processing" && (
-                                        <button
-                                            onClick={() => {
-                                                onReprocess(document);
-                                                setShowMenu(false);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors"
-                                            role="menuitem"
-                                        >
-                                            Reprocess
-                                        </button>
-                                    )}
+                                {onReprocess && (
+                                    <button
+                                        onClick={() => {
+                                            if (
+                                                document.status ===
+                                                    "processing" ||
+                                                isDeleting
+                                            ) {
+                                                return;
+                                            }
+                                            onReprocess(document);
+                                            setShowMenu(false);
+                                        }}
+                                        disabled={
+                                            document.status === "processing" ||
+                                            isDeleting
+                                        }
+                                        title={
+                                            document.status === "processing"
+                                                ? "Cannot reprocess while processing"
+                                                : isDeleting
+                                                ? "Cannot reprocess while deleting"
+                                                : undefined
+                                        }
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                        role="menuitem"
+                                    >
+                                        Reprocess
+                                    </button>
+                                )}
+                                {onMove && (
+                                    <button
+                                        onClick={() => {
+                                            onMove(document);
+                                            setShowMenu(false);
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors"
+                                        role="menuitem"
+                                    >
+                                        Move to Folder
+                                    </button>
+                                )}
                                 {onDelete && (
                                     <button
                                         onClick={() => {
                                             onDelete(document);
                                             setShowMenu(false);
                                         }}
-                                        disabled={document.status === "processing" || isDeleting}
+                                        disabled={
+                                            document.status === "processing" ||
+                                            isDeleting
+                                        }
                                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                         role="menuitem"
                                     >

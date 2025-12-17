@@ -9,6 +9,7 @@ export interface Document {
     id: string;
     group_id: string; // Group scoping
     bot_id?: string; // Optional - for provenance
+    folder_id?: string; // Optional - for organization
     uploader_id: string; // Provenance tracking
     filename: string;
     title?: string;
@@ -40,6 +41,7 @@ export interface UploadDocumentInput {
     file: File;
     group_id: string;
     bot_id?: string; // Optional - track which bot triggered upload
+    folder_id?: string; // Optional - organize in folder
     title?: string;
 }
 

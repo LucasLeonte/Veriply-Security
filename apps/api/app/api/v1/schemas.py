@@ -232,6 +232,9 @@ class BotUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     confidence_threshold: Optional[int] = None
+    avatar_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    is_public: Optional[bool] = None
 
     @field_validator("name")
     @classmethod
@@ -256,6 +259,9 @@ class BotResponse(BaseModel):
     description: Optional[str] = None
     confidence_threshold: int
     status: str
+    avatar_url: Optional[str] = None
+    welcome_message: Optional[str] = None
+    is_public: bool
     created_by: str | UUID
     created_at: datetime
 
@@ -281,14 +287,21 @@ class DocumentResponse(BaseModel):
     tenant_id: str | UUID
     group_id: str | UUID
     bot_id: Optional[str | UUID] = None
+    folder_id: Optional[str | UUID] = None
     filename: str
+    title: Optional[str] = None
     status: str
     uploader_id: str | UUID
+    mime: Optional[str] = None
+    size: Optional[int] = 0
+    storage_path: Optional[str] = None
     created_at: datetime
+    updated_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer('id', 'tenant_id', 'group_id', 'bot_id', 'uploader_id')
+    @field_serializer('id', 'tenant_id', 'group_id', 'bot_id', 'folder_id', 'uploader_id')
     def serialize_uuid(self, value: UUID | str | None) -> str | None:
         """Convert UUID objects to strings."""
         if isinstance(value, UUID):
