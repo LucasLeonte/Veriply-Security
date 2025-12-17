@@ -61,7 +61,6 @@ development_status:
     # Status values: backlog | drafted | in-progress | review | done
     1-5-secrets-management-and-configuration: drafted
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: drafted
-    1-7-api-instrumentation-metrics-and-traces: backlog
     2-1-bot-creation-configuration: done
     2-2-bot-duplication-deletion: done
     2-5-knowledge-base-management-ui: done
@@ -70,7 +69,7 @@ development_status:
     3-2-context-only-answer-generation: drafted
     3-3-citation-generation: done
     3-4-confidence-scoring-routing: drafted
-    3-5-pii-redaction: drafted
+    3-5-pii-redaction: done
     4-4-trust-signals-display: drafted
     4-5-embeddable-widget-generation: drafted
     4-6-widget-security-responsiveness: drafted
@@ -93,3 +92,4 @@ assignments:
     # Format: <epic>-<story>-<slug>: <developer-name>
     2-5-knowledge-base-management-ui: Soulaymane
     2-6-document-deletion: Soulaymane
+    3-4-confidence-scoring-routing: Soulaymane
