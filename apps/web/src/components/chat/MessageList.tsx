@@ -2,16 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChatMessage, Citation } from "@/types/chat";
+import { ChatMessage } from "@/types/chat";
 import { Loader2, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
+import FeedbackBar, { FeedbackSnapshot } from "../FeedbackBar";
 
 interface MessageListProps {
     messages: ChatMessage[];
     botName: string;
     botAvatar?: string;
     streaming: boolean;
+    feedbackState: Record<string, FeedbackSnapshot>;
+    onSubmitFeedback: (args: {
+        messageId: string;
+        answerId?: string;
+        type: "positive" | "negative";
+        reason?: "incorrect" | "not_helpful" | "incomplete" | "harmful" | "other";
+        notes?: string;
+    }) => Promise<{ success: boolean; error?: string } | void>;
 }
 
 export default function MessageList({
@@ -19,6 +28,8 @@ export default function MessageList({
     botName,
     botAvatar,
     streaming,
+    feedbackState,
+    onSubmitFeedback,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
@@ -149,6 +160,13 @@ export default function MessageList({
                                             </div>
                                         </div>
                                     )}
+
+                                    <FeedbackBar
+                                        messageId={message.id}
+                                        answerId={message.answerId}
+                                        state={feedbackState[message.id]}
+                                        onSubmit={onSubmitFeedback}
+                                    />
                                 </div>
                             )}
                         </div>

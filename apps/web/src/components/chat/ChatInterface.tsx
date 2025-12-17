@@ -34,6 +34,9 @@ export default function ChatInterface({
         sendMessage,
         clearHistory,
         retryLastMessage,
+        feedbackState,
+        feedbackError,
+        submitFeedbackForMessage,
     } = useChat(botId);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -147,13 +150,20 @@ export default function ChatInterface({
                         botName={botName}
                         botAvatar={botAvatar}
                         streaming={streaming}
+                        feedbackState={feedbackState}
+                        onSubmitFeedback={submitFeedbackForMessage}
                     />
                 )}
 
                 {/* Error Display */}
-                {error && (
+                {(error || feedbackError) && (
                     <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-red-800 text-sm mb-2">{error}</p>
+                        {error && (
+                            <p className="text-red-800 text-sm mb-2">{error}</p>
+                        )}
+                        {feedbackError && (
+                            <p className="text-red-700 text-xs">{feedbackError}</p>
+                        )}
                         <Button
                             variant="outline"
                             size="sm"

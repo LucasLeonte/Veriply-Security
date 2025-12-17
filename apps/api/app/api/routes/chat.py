@@ -3,7 +3,7 @@
 import json
 import logging
 from typing import AsyncIterator
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -184,6 +184,7 @@ async def chat_query(
                 query=request.query.strip(),
                 context_chunks=search_results,  # Pass SearchResult objects directly
                 conversation_history=conversation_history,
+                answer_id=uuid4(),
             ),
             media_type="text/event-stream",
         )
@@ -201,6 +202,7 @@ async def _stream_llm_response(
     query: str,
     context_chunks: list,  # List[SearchResult]
     conversation_history: list[ChatMessage],
+    answer_id: UUID,
 ) -> AsyncIterator[str]:
     """Stream LLM response tokens as SSE events using LLMService.generate_answer."""
     try:
@@ -252,6 +254,7 @@ async def _stream_llm_response(
             "citations": citations,
             "chunks_used": len(context_chunks),
             "token_count": token_count,
+            "answer_id": str(answer_id),
         }
 
         yield f"data: {json.dumps({'metadata': metadata})}\n\n"
