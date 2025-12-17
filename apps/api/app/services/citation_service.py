@@ -3,42 +3,24 @@
 Implements semantic similarity matching (0.7+ threshold) combined with phrase matching
 to link factual statements in generated answers back to their source document chunks.
 Generates HTML markup with inline citations and confidence scoring.
+Uses Pydantic models from app.schemas.citations to avoid duplication.
 """
 
 import html
 import logging
 import re
-from dataclasses import dataclass
 from typing import List, Optional
 from uuid import uuid4
 
+from app.schemas.citations import (
+    Citation as CitationModel,
+    AnnotatedAnswer as AnnotatedAnswerModel,
+    ConfidenceLevel,
+)
+
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class Citation:
-    """Citation metadata linking answer text to source chunk."""
-
-    id: str
-    chunk_id: str
-    document_id: str
-    document_name: str
-    section: Optional[str] = None
-    page_number: Optional[int] = None
-    similarity_score: float = 0.0
-    chunk_position: int = 0
-    confidence: str = "medium"
-    text_snippet: str = ""
-
-
-@dataclass
-class AnnotatedAnswer:
-    """Answer with inline citations and citation metadata."""
-
-    answer: str
-    answer_html: str
-    citations: List[Citation]
-    missing_citations: List[str]  # Sentences without citations (error case)
+# Note: We reuse Pydantic models (CitationModel, AnnotatedAnswerModel) to reduce duplication
 
 
 class CitationService:
@@ -59,7 +41,7 @@ class CitationService:
         answer_text: str,
         context_chunks: List[dict],
         embedding_model=None,
-    ) -> AnnotatedAnswer:
+    ) -> AnnotatedAnswerModel:
         """Post-process answer to add citations.
 
         Splits answer into sentences, matches each to context chunks using
@@ -90,7 +72,7 @@ class CitationService:
         if not context_chunks:
             logger.warning("No context chunks provided for citation matching")
             # Return answer with no citations
-            return AnnotatedAnswer(
+            return AnnotatedAnswerModel(
                 answer=answer_text,
                 answer_html=f"<p>{answer_text}</p>",
                 citations=[],
@@ -102,8 +84,8 @@ class CitationService:
         logger.debug(f"Split answer into {len(sentences)} sentences")
 
         # Step 2: Match each sentence to chunks
-        citations: List[Citation] = []
-        sentence_citations: dict[int, List[Citation]] = {}
+        citations: List[CitationModel] = []
+        sentence_citations: dict[int, List[CitationModel]] = {}
         missing_citations_list: List[str] = []
 
         for sent_idx, sentence in enumerate(sentences):
@@ -129,13 +111,13 @@ class CitationService:
             for chunk, similarity in matches:
                 # Determine confidence level
                 if similarity >= self.CONFIDENCE_HIGH:
-                    confidence = "high"
+                    confidence = ConfidenceLevel.HIGH
                 elif similarity >= self.CONFIDENCE_LOW:
-                    confidence = "medium"
+                    confidence = ConfidenceLevel.MEDIUM
                 else:
-                    confidence = "low"
+                    confidence = ConfidenceLevel.LOW
 
-                citation = Citation(
+                citation = CitationModel(
                     id=f"c{len(citations) + 1}",
                     chunk_id=chunk.get("chunk_id", ""),
                     document_id=chunk.get("document_id", ""),
@@ -161,7 +143,7 @@ class CitationService:
             answer_text, sentence_citations, citations
         )
 
-        return AnnotatedAnswer(
+        return AnnotatedAnswerModel(
             answer=answer_text,
             answer_html=answer_html,
             citations=citations,

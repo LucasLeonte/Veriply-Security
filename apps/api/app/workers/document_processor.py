@@ -146,6 +146,8 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
         doc.processing_progress = 40
     if hasattr(doc, 'processing_current_step'):
         doc.processing_current_step = "chunking"
+    # Split extracted text into chunks for embedding
+    chunks = _chunk_text(text)
 
     # Choose embedding function
     embed_fn = None
