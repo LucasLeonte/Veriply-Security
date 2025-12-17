@@ -22,3 +22,6 @@ PyPDF2
 python-docx
 aiosmtplib
 email-validator
+presidio-analyzer
+presidio-anonymizer
+spacy
