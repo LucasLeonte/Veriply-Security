@@ -20,9 +20,11 @@ interface DocumentCardProps {
     onView?: (document: Document) => void;
     onDelete?: (document: Document) => void;
     onReprocess?: (document: Document) => void;
+    onMove?: (document: Document) => void;
     isSelected?: boolean;
     onToggleSelection?: (documentId: string) => void;
     isDeleting?: boolean;
+    folderName?: string;
 }
 
 export function DocumentCard({
@@ -30,9 +32,11 @@ export function DocumentCard({
     onView,
     onDelete,
     onReprocess,
+    onMove,
     isSelected = false,
     onToggleSelection,
     isDeleting = false,
+    folderName,
 }: DocumentCardProps) {
     const [showMenu, setShowMenu] = React.useState(false);
 
@@ -40,7 +44,13 @@ export function DocumentCard({
         // Show deleting status if currently being deleted
         if (isDeleting) {
             return {
-                icon: <Loader size={16} className="text-red-500 animate-spin" aria-hidden="true" />,
+                icon: (
+                    <Loader
+                        size={16}
+                        className="text-red-500 animate-spin"
+                        aria-hidden="true"
+                    />
+                ),
                 text: "Deleting...",
                 className: "text-red-500",
             };
@@ -141,17 +151,25 @@ export function DocumentCard({
     );
 
     return (
-        <div className={`border border-slate-200 rounded-lg p-4 transition-all bg-white ${
-            isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:shadow-md"
-        } ${isDeleting ? "opacity-60" : ""}`}>
+        <div
+            className={`border border-slate-200 rounded-lg p-4 transition-all bg-white ${
+                isSelected
+                    ? "ring-2 ring-blue-500 shadow-md"
+                    : "hover:shadow-md"
+            } ${isDeleting ? "opacity-60" : ""}`}
+        >
             <div className="flex items-start gap-3">
                 {/* Selection Checkbox */}
                 {onToggleSelection && (
                     <button
                         onClick={() => onToggleSelection(document.id)}
-                        disabled={isDeleting || document.status === "processing"}
+                        disabled={
+                            isDeleting || document.status === "processing"
+                        }
                         className="flex-shrink-0 mt-1 p-1 rounded hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-label={isSelected ? "Deselect document" : "Select document"}
+                        aria-label={
+                            isSelected ? "Deselect document" : "Select document"
+                        }
                     >
                         {isSelected ? (
                             <CheckSquare className="h-5 w-5 text-blue-600" />
@@ -180,6 +198,15 @@ export function DocumentCard({
                     >
                         {document.filename}
                     </button>
+
+                    {/* Folder Tag */}
+                    {folderName && (
+                        <div className="mt-1">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">
+                                📁 {folderName}
+                            </span>
+                        </div>
+                    )}
 
                     {/* Status and Metadata */}
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -295,13 +322,28 @@ export function DocumentCard({
                                             Reprocess
                                         </button>
                                     )}
+                                {onMove && (
+                                    <button
+                                        onClick={() => {
+                                            onMove(document);
+                                            setShowMenu(false);
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors"
+                                        role="menuitem"
+                                    >
+                                        Move to Folder
+                                    </button>
+                                )}
                                 {onDelete && (
                                     <button
                                         onClick={() => {
                                             onDelete(document);
                                             setShowMenu(false);
                                         }}
-                                        disabled={document.status === "processing" || isDeleting}
+                                        disabled={
+                                            document.status === "processing" ||
+                                            isDeleting
+                                        }
                                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
                                         role="menuitem"
                                     >

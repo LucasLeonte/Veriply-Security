@@ -5,6 +5,7 @@ import { DocumentDetail } from "@/components/kb";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState, useCallback } from "react";
 import {
     useDocumentQuery,
     useDocumentChunks,
@@ -12,6 +13,8 @@ import {
     useReprocessDocument,
 } from "@/hooks/useDocumentsQuery";
 import { useGroup } from "@/contexts/GroupContext";
+import { documentsApi } from "@/lib/api/documents";
+import type { Document } from "@/types/document";
 
 export default function DocumentDetailPage() {
     const params = useParams();
@@ -19,6 +22,8 @@ export default function DocumentDetailPage() {
     const botId = params.botId as string;
     const documentId = params.documentId as string;
     const { currentGroup } = useGroup();
+    const [localDocument, setLocalDocument] = useState<Document | null>(null);
+    const [pollingIntervalRef, setPollingIntervalRef] = useState<NodeJS.Timeout | null>(null);
 
     // Fetch document details
     const { data: documentData, isLoading, refetch } = useDocumentQuery(documentId);
@@ -28,6 +33,47 @@ export default function DocumentDetailPage() {
 
     const { mutate: deleteDocument } = useDeleteDocument();
     const { mutate: reprocessDocument } = useReprocessDocument();
+
+    // Update local document when data changes
+    useEffect(() => {
+        if (documentData) {
+            setLocalDocument(documentData);
+        }
+    }, [documentData]);
+
+    // Poll for document status updates if processing
+    useEffect(() => {
+        if (!localDocument || localDocument.status !== "processing" || !documentId) {
+            // Clear polling if not processing
+            if (pollingIntervalRef) {
+                clearInterval(pollingIntervalRef);
+                setPollingIntervalRef(null);
+            }
+            return;
+        }
+
+        // Immediate poll
+        const pollDocument = async () => {
+            try {
+                const updated = await documentsApi.getDocument(documentId);
+                setLocalDocument(updated as Document);
+            } catch (err) {
+                console.error("Failed to poll document:", err);
+            }
+        };
+
+        pollDocument();
+
+        // Set up recurring polls every 2 seconds
+        const interval = setInterval(pollDocument, 2000);
+        setPollingIntervalRef(interval);
+
+        return () => {
+            if (interval) {
+                clearInterval(interval);
+            }
+        };
+    }, [localDocument?.status, documentId]);
 
     const handleReprocess = async (docId: string) => {
         try {
@@ -52,7 +98,7 @@ export default function DocumentDetailPage() {
     };
 
     // Show loading state while fetching
-    if (isLoading || !documentData) {
+    if (isLoading || !localDocument) {
         return (
             <DashboardLayout>
                 <div className="space-y-6">
@@ -90,7 +136,7 @@ export default function DocumentDetailPage() {
                 {/* Document Header */}
                 <div>
                     <h2 className="text-2xl font-semibold text-slate-900">
-                        {documentData.filename}
+                        {localDocument.filename}
                     </h2>
                     <p className="text-sm text-slate-600 mt-1">
                         Document details and management
@@ -99,7 +145,7 @@ export default function DocumentDetailPage() {
 
                 {/* Document Detail Component */}
                 <DocumentDetail
-                    document={documentData}
+                    document={localDocument}
                     chunks={chunksData?.chunks || []}
                     botId={botId}
                     onReprocess={handleReprocess}

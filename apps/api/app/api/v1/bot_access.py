@@ -9,7 +9,7 @@ import logging
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.services.bot_access_service import BotAccessService
-from app.services.bot_group_service import BotGroupService
+from app.services.bot_service import BotService
 from app.services.group_service import GroupService
 from app.services.audit_service import AuditService
 from pydantic import BaseModel
@@ -67,7 +67,9 @@ async def get_bot_access(
         user_id = UUID(current_user["sub"])
         
         # Get bot to verify it exists and get group_id
-        bot = await BotGroupService.get_bot(session, bot_id, tenant_id)
+        bot = await BotService.get_bot(session, bot_id, tenant_id)
+        if not bot:
+            raise ValueError(f"Bot {bot_id} not found in tenant {tenant_id}")
         group_id = bot.group_id
         
         # Verify user is group member
@@ -121,7 +123,9 @@ async def set_document_access(
         user_id = UUID(current_user["sub"])
         
         # Get bot to verify it exists and get group_id
-        bot = await BotGroupService.get_bot(session, bot_id, tenant_id)
+        bot = await BotService.get_bot(session, bot_id, tenant_id)
+        if not bot:
+            raise ValueError(f"Bot {bot_id} not found in tenant {tenant_id}")
         group_id = bot.group_id
         
         # Verify user is group member
@@ -147,6 +151,8 @@ async def set_document_access(
             db=session,
             actor_id=user_id,
             action="bot_document_access_updated",
+            tenant_id=tenant_id,
+            group_id=group_id,
             details={
                 "bot_id": str(bot_id),
                 "document_id": str(document_id),
@@ -190,7 +196,9 @@ async def set_folder_access(
         user_id = UUID(current_user["sub"])
         
         # Get bot to verify it exists and get group_id
-        bot = await BotGroupService.get_bot(session, bot_id, tenant_id)
+        bot = await BotService.get_bot(session, bot_id, tenant_id)
+        if not bot:
+            raise ValueError(f"Bot {bot_id} not found in tenant {tenant_id}")
         group_id = bot.group_id
         
         # Verify user is group member
@@ -216,6 +224,8 @@ async def set_folder_access(
             db=session,
             actor_id=user_id,
             action="bot_folder_access_updated",
+            tenant_id=tenant_id,
+            group_id=group_id,
             details={
                 "bot_id": str(bot_id),
                 "folder_id": str(folder_id),
@@ -258,7 +268,9 @@ async def bulk_set_access(
         user_id = UUID(current_user["sub"])
         
         # Get bot to verify it exists and get group_id
-        bot = await BotGroupService.get_bot(session, bot_id, tenant_id)
+        bot = await BotService.get_bot(session, bot_id, tenant_id)
+        if not bot:
+            raise ValueError(f"Bot {bot_id} not found in tenant {tenant_id}")
         group_id = bot.group_id
         
         # Verify user is group member
@@ -289,6 +301,8 @@ async def bulk_set_access(
             db=session,
             actor_id=user_id,
             action="bot_bulk_access_updated",
+            tenant_id=tenant_id,
+            group_id=group_id,
             details={
                 "bot_id": str(bot_id),
                 "documents_updated": result["documents_updated"],
