@@ -115,14 +115,19 @@ export const documentsApi = {
     /**
      * Get document details including chunks
      */
-    async getDocument(documentId: string): Promise<DocumentDetailResponse> {
+    async getDocument(
+        documentId: string,
+        groupId?: string
+    ): Promise<DocumentDetailResponse> {
         if (USE_MOCK_DATA) {
             return mockDocumentsApi.getDocument(documentId);
         }
 
-        const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}`
-        );
+        const url = groupId
+            ? `${API_BASE_URL}/api/v1/groups/${groupId}/documents/${documentId}`
+            : `${API_BASE_URL}/api/v1/documents/${documentId}`;
+
+        const response = await fetchWithAuth(url);
         return handleResponse<DocumentDetailResponse>(response);
     },
 
@@ -230,24 +235,39 @@ export const documentsApi = {
     },
 
     /**
-     * Trigger reprocessing of a document
+     * Trigger reprocessing of a document (group-scoped)
      */
     async reprocessDocument(
+        groupId: string,
         documentId: string
-    ): Promise<{ id: string; status: string; queued: boolean }> {
+    ): Promise<{
+        id: string;
+        status: string;
+        message?: string;
+        queued?: boolean;
+    }> {
         if (USE_MOCK_DATA) {
-            return mockDocumentsApi.reprocessDocument(documentId);
+            const result = await mockDocumentsApi.reprocessDocument(documentId);
+            return {
+                id: result.id,
+                status: result.status,
+                queued: result.queued,
+                message: "Reprocess queued",
+            };
         }
 
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}/reprocess`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/${documentId}/reprocess`,
             {
                 method: "POST",
             }
         );
-        return handleResponse<{ id: string; status: string; queued: boolean }>(
-            response
-        );
+        return handleResponse<{
+            id: string;
+            status: string;
+            message?: string;
+            queued?: boolean;
+        }>(response);
     },
 
     /**

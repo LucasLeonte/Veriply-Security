@@ -309,19 +309,36 @@ export function DocumentCard({
                                         View Details
                                     </button>
                                 )}
-                                {onReprocess &&
-                                    document.status !== "processing" && (
-                                        <button
-                                            onClick={() => {
-                                                onReprocess(document);
-                                                setShowMenu(false);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors"
-                                            role="menuitem"
-                                        >
-                                            Reprocess
-                                        </button>
-                                    )}
+                                {onReprocess && (
+                                    <button
+                                        onClick={() => {
+                                            if (
+                                                document.status ===
+                                                    "processing" ||
+                                                isDeleting
+                                            ) {
+                                                return;
+                                            }
+                                            onReprocess(document);
+                                            setShowMenu(false);
+                                        }}
+                                        disabled={
+                                            document.status === "processing" ||
+                                            isDeleting
+                                        }
+                                        title={
+                                            document.status === "processing"
+                                                ? "Cannot reprocess while processing"
+                                                : isDeleting
+                                                ? "Cannot reprocess while deleting"
+                                                : undefined
+                                        }
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                        role="menuitem"
+                                    >
+                                        Reprocess
+                                    </button>
+                                )}
                                 {onMove && (
                                     <button
                                         onClick={() => {

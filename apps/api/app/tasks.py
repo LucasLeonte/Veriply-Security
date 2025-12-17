@@ -7,7 +7,10 @@ returns True immediately. If no loop is running, it runs synchronously.
 import asyncio
 import logging
 from app.workers.document_processor import process_document
-from app.workers.group_document_processor import process_group_document
+from app.workers.group_document_processor import (
+    process_group_document,
+    process_group_document_reprocess,
+)
 from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
@@ -60,5 +63,28 @@ def enqueue_group_document_processing(document_id: str) -> bool:
             return True
         except Exception:
             logger.exception("Synchronous group processing failed for %s", document_id)
+            return False
+
+
+def enqueue_group_document_reprocessing(document_id: str) -> bool:
+    """Schedule reprocessing of an existing group document with rollback safety."""
+
+    async def _runner():
+        try:
+            async with AsyncSessionLocal() as session:
+                await process_group_document_reprocess(document_id, db_session=session)
+        except Exception as e:
+            logger.exception("Background group reprocessing failed for %s: %s", document_id, e)
+
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_runner())
+        return True
+    except RuntimeError:
+        try:
+            asyncio.run(_runner())
+            return True
+        except Exception:
+            logger.exception("Synchronous group reprocessing failed for %s", document_id)
             return False
 

@@ -298,3 +298,80 @@ async def list_document_chunks(
     except Exception as e:
         logger.exception(f"Error listing chunks: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve chunks")
+
+@router.post("/{doc_id}/reprocess", status_code=status.HTTP_202_ACCEPTED)
+async def reprocess_document(
+    group_id: UUID,
+    doc_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Reprocess a document to regenerate chunks and embeddings with rollback.
+
+    Returns immediately (202 Accepted) and processes asynchronously.
+    """
+    try:
+        await check_group_access(group_id, current_user, session)
+
+        doc = await DocumentGroupService.get_document(
+            db=session,
+            doc_id=doc_id,
+            group_id=group_id,
+            tenant_id=UUID(current_user["tenant_id"]),
+        )
+
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        if doc.status not in ["ready", "failed", "uploaded"]:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Cannot reprocess document with status '{doc.status}'. "
+                    "Only documents with status 'ready', 'failed', or 'uploaded' can be reprocessed."
+                ),
+            )
+
+        # Ensure source file exists before queuing
+        storage_path = doc.storage_path or ""
+        base = Path("storage") / "documents"
+        local_path = base / storage_path
+        if not local_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail="Source file not found. Cannot reprocess.",
+            )
+
+        await DocumentGroupService.update_document_status(
+            db=session,
+            doc_id=doc_id,
+            group_id=group_id,
+            tenant_id=UUID(current_user["tenant_id"]),
+            status="processing",
+        )
+
+        await session.commit()
+
+        try:
+            tasks.enqueue_group_document_reprocessing(str(doc_id))
+        except Exception:
+            logger.exception("Failed to enqueue group document reprocessing for %s", doc_id)
+
+        return {
+            "id": str(doc_id),
+            "status": "processing",
+            "message": "Document queued for reprocessing. This will regenerate all chunks and embeddings.",
+            "queued": True,
+        }
+
+    except ValueError as e:
+        await session.rollback()
+        raise HTTPException(status_code=404, detail=str(e))
+    except HTTPException:
+        await session.rollback()
+        raise
+    except Exception as e:
+        await session.rollback()
+        logger.exception(f"Error reprocessing document: {e}")
+        raise HTTPException(status_code=500, detail="Failed to reprocess document")

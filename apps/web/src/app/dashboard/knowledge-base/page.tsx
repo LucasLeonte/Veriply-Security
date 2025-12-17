@@ -1,7 +1,7 @@
 "use client";
 
 import { DashboardLayout } from "@/components";
-import { FolderList } from "@/components/kb";
+import { FolderList, ReprocessModal } from "@/components/kb";
 import { useGroup } from "@/contexts/GroupContext";
 import { foldersApi } from "@/lib/api/folders";
 import { documentsApi } from "@/lib/api/documents";
@@ -29,6 +29,9 @@ export default function GroupKnowledgeBasePage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [moveModalOpen, setMoveModalOpen] = useState(false);
     const [documentToMove, setDocumentToMove] = useState<Document | null>(null);
+    const [documentToReprocess, setDocumentToReprocess] =
+        useState<Document | null>(null);
+    const [isReprocessModalOpen, setIsReprocessModalOpen] = useState(false);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch folders
@@ -87,7 +90,10 @@ export default function GroupKnowledgeBasePage() {
                 const updatedDocs: Document[] = [];
                 for (const docId of processingDocIds) {
                     try {
-                        const updated = await documentsApi.getDocument(docId);
+                        const updated = await documentsApi.getDocument(
+                            docId,
+                            currentGroup.id
+                        );
                         updatedDocs.push(updated as Document);
                     } catch (err) {
                         console.error(
@@ -224,6 +230,41 @@ export default function GroupKnowledgeBasePage() {
         setMoveModalOpen(true);
     };
 
+    const handleOpenReprocessModal = (document: Document) => {
+        setDocumentToReprocess(document);
+        setIsReprocessModalOpen(true);
+    };
+
+    const handleReprocessDocument = async () => {
+        if (!documentToReprocess || !currentGroup?.id) return;
+
+        try {
+            await documentsApi.reprocessDocument(
+                currentGroup.id,
+                documentToReprocess.id
+            );
+
+            // Update document status to processing
+            setDocuments((prev) =>
+                prev.map((d) =>
+                    d.id === documentToReprocess.id
+                        ? { ...d, status: "processing" }
+                        : d
+                )
+            );
+
+            setIsReprocessModalOpen(false);
+            setDocumentToReprocess(null);
+        } catch (err) {
+            console.error("Failed to reprocess document:", err);
+            alert(
+                `Failed to reprocess document: ${
+                    err instanceof Error ? err.message : "Unknown error"
+                }`
+            );
+        }
+    };
+
     const filteredDocuments = documents.filter((doc) => {
         const matchesFolder =
             selectedFolderId === null
@@ -347,7 +388,9 @@ export default function GroupKnowledgeBasePage() {
                                                     )
                                                 );
                                             }}
-                                            onReprocess={async () => {}}
+                                            onReprocess={
+                                                handleOpenReprocessModal
+                                            }
                                             onMove={handleOpenMoveModal}
                                             folderName={folderName}
                                         />
@@ -377,6 +420,17 @@ export default function GroupKnowledgeBasePage() {
                     folders={folders}
                     documentName={documentToMove?.filename}
                     currentFolderId={documentToMove?.folder_id}
+                />
+
+                {/* Reprocess Modal */}
+                <ReprocessModal
+                    isOpen={isReprocessModalOpen}
+                    onClose={() => {
+                        setIsReprocessModalOpen(false);
+                        setDocumentToReprocess(null);
+                    }}
+                    onConfirm={handleReprocessDocument}
+                    documentName={documentToReprocess?.filename}
                 />
             </div>
         </DashboardLayout>
