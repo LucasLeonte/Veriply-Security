@@ -10,18 +10,25 @@ import type { Folder, FolderStats } from "@/types/folder";
 import type { Document } from "@/types/document";
 import { DocumentCard } from "@/components/kb/DocumentCard";
 import { UploadModal } from "@/components/kb/UploadModal";
+import { MoveToFolderModal } from "@/components/kb/MoveToFolderModal";
 import { SearchBar } from "@/components/kb/SearchBar";
 import { Upload, Folder as FolderIcon } from "lucide-react";
 
 export default function GroupKnowledgeBasePage() {
     const { currentGroup } = useGroup();
     const [folders, setFolders] = useState<Folder[]>([]);
-    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
+        null
+    );
     const [documents, setDocuments] = useState<Document[]>([]);
-    const [folderStats, setFolderStats] = useState<Map<string, FolderStats>>(new Map());
+    const [folderStats, setFolderStats] = useState<Map<string, FolderStats>>(
+        new Map()
+    );
     const [isLoading, setIsLoading] = useState(false);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
+    const [moveModalOpen, setMoveModalOpen] = useState(false);
+    const [documentToMove, setDocumentToMove] = useState<Document | null>(null);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch folders
@@ -35,24 +42,30 @@ export default function GroupKnowledgeBasePage() {
                 .then(([fetchedFolders, docsResponse]) => {
                     setFolders(fetchedFolders);
                     setDocuments(docsResponse.documents);
-                    
-                    // Calculate folder stats
-                    const stats = new Map<string, FolderStats>();
-                    fetchedFolders.forEach((folder: Folder) => {
-                        const docCount = docsResponse.documents.filter(
-                            (d: Document) => d.folder_id === folder.id
-                        ).length;
-                        stats.set(folder.id, { document_count: docCount });
-                    });
-                    // Count documents without folder
-                    const noFolderCount = docsResponse.documents.filter((d: Document) => !d.folder_id).length;
-                    stats.set("null", { document_count: noFolderCount });
-                    setFolderStats(stats);
+                    setFolderStats(
+                        buildFolderStats(fetchedFolders, docsResponse.documents)
+                    );
                 })
                 .catch((err) => console.error("Failed to fetch data:", err))
                 .finally(() => setIsLoading(false));
         }
     }, [currentGroup?.id]);
+
+    const buildFolderStats = useCallback(
+        (fetchedFolders: Folder[], docs: Document[]) => {
+            const stats = new Map<string, FolderStats>();
+            fetchedFolders.forEach((folder: Folder) => {
+                const docCount = docs.filter(
+                    (d: Document) => d.folder_id === folder.id
+                ).length;
+                stats.set(folder.id, { document_count: docCount });
+            });
+            // For "All Documents" we want the total count across every folder
+            stats.set("null", { document_count: docs.length });
+            return stats;
+        },
+        []
+    );
 
     // Poll for document status updates
     useEffect(() => {
@@ -77,13 +90,18 @@ export default function GroupKnowledgeBasePage() {
                         const updated = await documentsApi.getDocument(docId);
                         updatedDocs.push(updated as Document);
                     } catch (err) {
-                        console.error(`Failed to fetch document ${docId}:`, err);
+                        console.error(
+                            `Failed to fetch document ${docId}:`,
+                            err
+                        );
                     }
                 }
 
                 if (updatedDocs.length > 0) {
                     setDocuments((prevDocs) => {
-                        const docMap = new Map(prevDocs.map((doc) => [doc.id, doc]));
+                        const docMap = new Map(
+                            prevDocs.map((doc) => [doc.id, doc])
+                        );
                         updatedDocs.forEach((doc) => {
                             docMap.set(doc.id, doc);
                         });
@@ -120,14 +138,22 @@ export default function GroupKnowledgeBasePage() {
 
     const handleCreateFolder = async (name: string) => {
         if (!currentGroup?.id) return;
-        const newFolder = await foldersApi.createFolder(currentGroup.id, { name });
+        const newFolder = await foldersApi.createFolder(currentGroup.id, {
+            name,
+        });
         setFolders((prev) => [...prev, newFolder]);
-        setFolderStats((prev) => new Map(prev).set(newFolder.id, { document_count: 0 }));
+        setFolderStats((prev) =>
+            new Map(prev).set(newFolder.id, { document_count: 0 })
+        );
     };
 
     const handleEditFolder = async (folderId: string, newName: string) => {
         if (!currentGroup?.id) return;
-        const updated = await foldersApi.updateFolder(currentGroup.id, folderId, { name: newName });
+        const updated = await foldersApi.updateFolder(
+            currentGroup.id,
+            folderId,
+            { name: newName }
+        );
         setFolders((prev) =>
             prev.map((f) => (f.id === folderId ? updated : f))
         );
@@ -135,8 +161,9 @@ export default function GroupKnowledgeBasePage() {
 
     const handleDeleteFolder = async (folderId: string) => {
         if (!currentGroup?.id) return;
-        if (!confirm("Delete this folder? Documents will be moved to root.")) return;
-        
+        if (!confirm("Delete this folder? Documents will be moved to root."))
+            return;
+
         await foldersApi.deleteFolder(currentGroup.id, folderId);
         setFolders((prev) => prev.filter((f) => f.id !== folderId));
         setFolderStats((prev) => {
@@ -151,31 +178,90 @@ export default function GroupKnowledgeBasePage() {
 
     const handleUpload = async (files: File[], folderId?: string) => {
         if (!currentGroup?.id) return;
-        // Upload files
+
+        // Upload each file; if a folder is chosen, move after upload (backend upload endpoint is folder-agnostic)
         await Promise.all(
-            files.map((file) =>
-                documentsApi.uploadDocuments(currentGroup.id, [file], undefined, folderId)
-            )
+            files.map(async (file) => {
+                const res = await documentsApi.uploadDocuments(
+                    currentGroup.id,
+                    [file],
+                    undefined,
+                    folderId
+                );
+
+                if (folderId) {
+                    try {
+                        await documentsApi.moveDocumentToFolder(
+                            res.document_id,
+                            folderId,
+                            currentGroup.id
+                        );
+                    } catch (err) {
+                        console.error(
+                            "Failed to move uploaded doc to folder",
+                            err
+                        );
+                    }
+                }
+            })
         );
-        // Refresh documents
-        const docsResponse = await documentsApi.listDocuments(currentGroup.id, 1, 100);
+
+        // Refresh documents to reflect folder assignments and counts
+        const docsResponse = await documentsApi.listDocuments(
+            currentGroup.id,
+            1,
+            100
+        );
         setDocuments(docsResponse.documents);
     };
 
+    const handleMoveDocument = async (folderId: string | null) => {
+        if (!documentToMove || !currentGroup?.id) return;
+        await documentsApi.moveDocumentToFolder(
+            documentToMove.id,
+            folderId,
+            currentGroup.id
+        );
+        // Update the document in the list
+        setDocuments((prev) =>
+            prev.map((d) =>
+                d.id === documentToMove.id
+                    ? { ...d, folder_id: folderId ?? undefined }
+                    : d
+            )
+        );
+        setMoveModalOpen(false);
+        setDocumentToMove(null);
+    };
+
+    const handleOpenMoveModal = (document: Document) => {
+        setDocumentToMove(document);
+        setMoveModalOpen(true);
+    };
+
     const filteredDocuments = documents.filter((doc) => {
-        const matchesFolder = selectedFolderId === null
-            ? !doc.folder_id
-            : doc.folder_id === selectedFolderId;
-        const matchesSearch = !searchQuery ||
+        const matchesFolder =
+            selectedFolderId === null
+                ? true // All Documents shows everything regardless of folder
+                : doc.folder_id === selectedFolderId;
+        const matchesSearch =
+            !searchQuery ||
             doc.filename.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesFolder && matchesSearch;
     });
+
+    // Keep folder stats in sync when docs or folders change
+    useEffect(() => {
+        setFolderStats(buildFolderStats(folders, documents));
+    }, [folders, documents, buildFolderStats]);
 
     if (!currentGroup) {
         return (
             <DashboardLayout>
                 <div className="text-center py-12">
-                    <p className="text-slate-600">Please select a group first</p>
+                    <p className="text-slate-600">
+                        Please select a group first
+                    </p>
                 </div>
             </DashboardLayout>
         );
@@ -237,7 +323,10 @@ export default function GroupKnowledgeBasePage() {
                             </div>
                         ) : filteredDocuments.length === 0 ? (
                             <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
-                                <FolderIcon size={48} className="text-slate-300 mx-auto mb-4" />
+                                <FolderIcon
+                                    size={48}
+                                    className="text-slate-300 mx-auto mb-4"
+                                />
                                 <h3 className="text-lg font-medium text-slate-900 mb-2">
                                     No documents
                                 </h3>
@@ -249,18 +338,36 @@ export default function GroupKnowledgeBasePage() {
                             </div>
                         ) : (
                             <div className="grid gap-4">
-                                {filteredDocuments.map((document) => (
-                                    <DocumentCard
-                                        key={document.id}
-                                        document={document}
-                                        onView={() => {}}
-                                        onDelete={async () => {
-                                            await documentsApi.deleteDocument(currentGroup.id, document.id);
-                                            setDocuments((prev) => prev.filter((d) => d.id !== document.id));
-                                        }}
-                                        onReprocess={async () => {}}
-                                    />
-                                ))}
+                                {filteredDocuments.map((document) => {
+                                    const folderName = document.folder_id
+                                        ? folders.find(
+                                              (f) => f.id === document.folder_id
+                                          )?.name
+                                        : undefined;
+
+                                    return (
+                                        <DocumentCard
+                                            key={document.id}
+                                            document={document}
+                                            onView={() => {}}
+                                            onDelete={async () => {
+                                                await documentsApi.deleteDocument(
+                                                    currentGroup.id,
+                                                    document.id
+                                                );
+                                                setDocuments((prev) =>
+                                                    prev.filter(
+                                                        (d) =>
+                                                            d.id !== document.id
+                                                    )
+                                                );
+                                            }}
+                                            onReprocess={async () => {}}
+                                            onMove={handleOpenMoveModal}
+                                            folderName={folderName}
+                                        />
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -272,6 +379,19 @@ export default function GroupKnowledgeBasePage() {
                     onClose={() => setIsUploadModalOpen(false)}
                     onUpload={handleUpload}
                     folders={folders}
+                />
+
+                {/* Move to Folder Modal */}
+                <MoveToFolderModal
+                    isOpen={moveModalOpen}
+                    onClose={() => {
+                        setMoveModalOpen(false);
+                        setDocumentToMove(null);
+                    }}
+                    onMove={handleMoveDocument}
+                    folders={folders}
+                    documentName={documentToMove?.filename}
+                    currentFolderId={documentToMove?.folder_id}
                 />
             </div>
         </DashboardLayout>

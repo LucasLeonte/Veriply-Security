@@ -24,15 +24,17 @@ export function BotCard({
 
     const handleCardClick = (e: React.MouseEvent) => {
         // Don't navigate if clicking on the menu button or menu items
-        if ((e.target as HTMLElement).closest('.menu-trigger') || 
-            (e.target as HTMLElement).closest('.menu-content')) {
+        if (
+            (e.target as HTMLElement).closest(".menu-trigger") ||
+            (e.target as HTMLElement).closest(".menu-content")
+        ) {
             return;
         }
         router.push(`/dashboard/bots/${bot.id}`);
     };
 
     return (
-        <div 
+        <div
             className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
             onClick={handleCardClick}
         >
