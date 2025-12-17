@@ -157,7 +157,7 @@ development_status:
         blocked_by: 2-1-bot-creation-configuration
 
     2-9-group-kb-folders-bot-allowlist:
-        status: review
+        status: done
         assigned_to: Dario
         blocked_by: null
 
@@ -204,7 +204,7 @@ development_status:
         assigned_to: Lucas
 
     4-1-web-chat-interface:
-        status: review
+        status: done
         assigned_to: Dario
         blocked_by: null
 
