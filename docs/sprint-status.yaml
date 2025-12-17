@@ -83,7 +83,7 @@ ready_status:
     2-2-bot-duplication-deletion: ready
     3-1-semantic-vector-search: ready-for-dev
     3-2-context-only-answer-generation: ready-for-dev
-    3-3-citation-generation: ready-for-dev
+    3-3-citation-generation: ready-for-review
     3-4-confidence-scoring-routing: ready-for-dev
     3-5-pii-redaction: ready-for-dev
     4-4-trust-signals-display: ready-for-dev

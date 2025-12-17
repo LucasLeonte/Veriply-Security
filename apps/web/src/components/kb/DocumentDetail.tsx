@@ -36,7 +36,7 @@ export function DocumentDetail({
             case "processing":
                 return {
                     icon: <Loader size={20} className="text-amber-500 animate-spin" />,
-                    text: `Processing${document.processing_progress ? ` ${document.processing_progress}%` : "..."}`,
+                    text: "Processing...",
                     className: "text-amber-500",
                 };
             case "failed":
@@ -120,6 +120,22 @@ export function DocumentDetail({
                 {status.icon}
                 <span className="font-medium">{status.text}</span>
             </div>
+
+            {/* Progress Bar for Processing */}
+            {document.status === "processing" && document.processing_progress !== undefined && (
+                <div className="space-y-2 p-4 bg-white border border-slate-200 rounded-lg">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-slate-700">{getStepLabel()}</span>
+                        <span className="text-sm font-semibold text-amber-600">{document.processing_progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div
+                            className="bg-amber-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${document.processing_progress}%` }}
+                        ></div>
+                    </div>
+                </div>
+            )}
 
             {/* Error Message */}
             {document.status === "failed" && document.error_message && (
