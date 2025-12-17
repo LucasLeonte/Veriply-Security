@@ -121,6 +121,9 @@ export function useChat(botId: string) {
                         if (metadata?.citations) {
                             lastMsg.citations = metadata.citations;
                         }
+                        if (metadata?.confidence !== undefined) {
+                            lastMsg.confidence = metadata.confidence;
+                        }
                     }
                     return updated;
                 });

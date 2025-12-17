@@ -6,6 +6,7 @@ confidence responses.
 """
 
 import logging
+import json
 from typing import List, Optional
 from uuid import UUID
 
@@ -56,7 +57,7 @@ class ReviewQueueResponse(BaseModel):
 async def get_review_queue(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    current_tenant: str = Depends(get_current_tenant),
+    current_tenant: UUID = Depends(get_current_tenant),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("newest", regex="^(newest|lowest_confidence|highest_confidence)$"),
@@ -73,7 +74,7 @@ async def get_review_queue(
             and_(
                 ConfidenceLog.routing_decision == RoutingDecision.HITL,
                 ConfidenceLog.hitl_resolved == False,
-                ConfidenceLog.tenant_id == UUID(current_tenant),
+                ConfidenceLog.tenant_id == current_tenant,
             )
         )
 
@@ -96,26 +97,33 @@ async def get_review_queue(
         # Convert to response format
         items_response = []
         for item in paginated_items:
+            # Normalize metadata payload (support legacy "metadata" column and strings)
+            raw_metadata = getattr(item, "metadata_json", None) or getattr(item, "metadata", None)
+            metadata = raw_metadata or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+
             # Determine type based on metadata or default to chat
-            item_type = "chat"
-            if item.metadata_json and isinstance(item.metadata_json, dict):
-                item_type = item.metadata_json.get("type", "chat")
+            item_type = metadata.get("type", "chat")
 
             # Parse citations from metadata if available
-            citations = []
-            if item.metadata_json and isinstance(item.metadata_json, dict):
-                citations = item.metadata_json.get("citations", [])
+            citations = metadata.get("citations", []) if isinstance(metadata.get("citations"), list) else []
 
             response_item = ReviewQueueItemResponse(
                 id=str(item.id),
                 type=item_type,
                 timestamp=item.created_at.isoformat(),
                 userQuestion=item.query_text or "Unknown question",
-                aiDraft=item.metadata_json.get("ai_draft", "") if item.metadata_json else "",
+                aiDraft=metadata.get("ai_draft", ""),
                 confidence=float(item.overall_confidence) * 100,  # Convert to percentage
                 citations=citations,
                 status="pending",
-                source=item.metadata_json.get("source", "chatbot") if item.metadata_json else "chatbot",
+                source=metadata.get("source", "chatbot"),
                 metadata={
                     "bot_id": str(item.bot_id),
                     "query_id": str(item.query_id),
@@ -137,9 +145,6 @@ async def get_review_queue(
 
         return ReviewQueueResponse(items=items_response, stats=stats)
 
-    except ValueError as e:
-        logger.error(f"Invalid tenant ID: {current_tenant}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid tenant")
     except Exception as e:
         logger.error(f"Error fetching HITL queue: {e}")
         raise HTTPException(
@@ -153,7 +158,7 @@ async def approve_queue_item(
     item_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    current_tenant: str = Depends(get_current_tenant),
+    current_tenant: UUID = Depends(get_current_tenant),
     edits: Optional[str] = None,
 ):
     """
@@ -168,7 +173,7 @@ async def approve_queue_item(
             select(ConfidenceLog).where(
                 and_(
                     ConfidenceLog.id == item_uuid,
-                    ConfidenceLog.tenant_id == UUID(current_tenant),
+                    ConfidenceLog.tenant_id == current_tenant,
                 )
             )
         )
@@ -219,7 +224,7 @@ async def reject_queue_item(
     item_id: str,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    current_tenant: str = Depends(get_current_tenant),
+    current_tenant: UUID = Depends(get_current_tenant),
     reason: Optional[str] = None,
 ):
     """
@@ -234,7 +239,7 @@ async def reject_queue_item(
             select(ConfidenceLog).where(
                 and_(
                     ConfidenceLog.id == item_uuid,
-                    ConfidenceLog.tenant_id == UUID(current_tenant),
+                    ConfidenceLog.tenant_id == current_tenant,
                 )
             )
         )

@@ -484,7 +484,7 @@ class ConfidenceCalculatorService:
                 threshold_used=Decimal(str(threshold)),
                 routing_decision=result.routing_decision,
                 is_verified_kb=result.is_verified_kb,
-                hitl_resolved=(result.routing_decision == RoutingDecision.AUTO_SEND),
+                hitl_resolved=False,
                 metadata_json=metadata_to_store,
             )
             

@@ -1,22 +1,20 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
         // Get the API base URL from environment or use default
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         
-        // Get auth token from cookies (set by login)
-        const cookieStore = await cookies();
-        const token = cookieStore.get("access_token")?.value;
+        // Get auth token from Authorization header (forwarded from client)
+        const authHeader = request.headers.get("Authorization");
         
         // Build headers with auth token if available
         const headers: HeadersInit = {
             "Content-Type": "application/json",
         };
         
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
+        if (authHeader) {
+            headers.Authorization = authHeader;
         }
         
         // Call the backend HITL endpoint

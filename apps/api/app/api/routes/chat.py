@@ -16,6 +16,7 @@ from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
 from app.services.bot_service import BotService
+from app.services.confidence_service import ConfidenceCalculatorService
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,7 @@ async def chat_query(
     embedding_service = EmbeddingService()
     vector_search_service = VectorSearchService(embedding_service)
     llm_service = LLMService()
+    confidence_service = ConfidenceCalculatorService()
 
     try:
         # Get tenant_id from bot for context retrieval
@@ -165,9 +167,6 @@ async def chat_query(
                 media_type="text/event-stream",
             )
 
-        # Pass SearchResult objects directly to LLM service
-        # LLMService expects List[SearchResult], not list of dicts
-
         # Build conversation history
         conversation_history = []
         if request.conversation_history:
@@ -176,13 +175,54 @@ async def chat_query(
                 for msg in request.conversation_history[-4:]  # Last 4 messages
             ]
 
-        # Stream LLM response
+        # Generate AI draft tokens (not streamed yet)
+        draft_tokens: list[str] = []
+        async for token in llm_service.generate_answer(
+            query=request.query.strip(),
+            context_chunks=search_results,
+            conversation_history=[{"role": m.role, "content": m.content} for m in conversation_history],
+        ):
+            draft_tokens.append(token)
+        ai_draft = "".join(draft_tokens)
+
+        # Prepare citations metadata
+        citations = [
+            {"source": result.document_name or "Unknown", "similarity": result.similarity}
+            for result in search_results
+        ]
+
+        # Calculate confidence score using draft + citations
+        threshold = getattr(bot, "confidence_threshold", 80)
+        is_verified_kb = any(getattr(r, "is_verified", False) for r in search_results)
+        confidence_result = await confidence_service.calculate_confidence(
+            db=db,
+            bot_id=bot_id,
+            tenant_id=tenant_id,
+            query=request.query.strip(),
+            search_results=search_results,
+            confidence_threshold=threshold,
+            is_verified_kb=is_verified_kb,
+            metadata_json={
+                "confidence_threshold": threshold,
+                "ai_draft": ai_draft,
+                "citations": citations,
+            },
+        )
+        confidence_pct = int(confidence_result.overall_score * 100)
+
+        # Routing decision: HITL → wait message; AUTO_SEND → stream draft tokens
+        if confidence_result.routing_decision.value == "hitl":
+            return StreamingResponse(
+                _stream_hitl_wait_response(confidence_pct),
+                media_type="text/event-stream",
+            )
+
+        # Auto-send: stream the precomputed draft tokens with metadata
         return StreamingResponse(
-            _stream_llm_response(
-                llm_service=llm_service,
-                query=request.query.strip(),
-                context_chunks=search_results,  # Pass SearchResult objects directly
-                conversation_history=conversation_history,
+            _stream_precomputed_response(
+                tokens=draft_tokens,
+                citations=citations,
+                extra_metadata={"confidence": confidence_pct},
             ),
             media_type="text/event-stream",
         )
@@ -200,6 +240,7 @@ async def _stream_llm_response(
     query: str,
     context_chunks: list,  # List[SearchResult]
     conversation_history: list[ChatMessage],
+    extra_metadata: dict | None = None,
 ) -> AsyncIterator[str]:
     """Stream LLM response tokens as SSE events using LLMService.generate_answer."""
     try:
@@ -230,6 +271,12 @@ async def _stream_llm_response(
             "chunks_used": len(context_chunks),
             "token_count": token_count,
         }
+        if extra_metadata:
+            try:
+                metadata.update(extra_metadata)
+            except Exception:
+                # Ignore metadata merge issues
+                pass
 
         yield f"data: {json.dumps({'metadata': metadata})}\n\n"
         yield "data: [DONE]\n\n"
@@ -251,8 +298,43 @@ async def _stream_no_context_response() -> AsyncIterator[str]:
     for char in message:
         yield f"data: {json.dumps({'token': char})}\n\n"
 
-    # Send empty metadata
-    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0}})}\n\n"
+    # Send empty metadata with zero confidence
+    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0, 'confidence': 0}})}\n\n"
+    yield "data: [DONE]\n\n"
+
+
+async def _stream_precomputed_response(
+    tokens: list[str],
+    citations: list[dict],
+    extra_metadata: dict | None = None,
+) -> AsyncIterator[str]:
+    """Stream precomputed tokens and final metadata."""
+    token_count = 0
+    for token in tokens:
+        token_count += 1
+        yield f"data: {json.dumps({'token': token})}\n\n"
+
+    metadata = {
+        "citations": citations,
+        "chunks_used": len(citations),
+        "token_count": token_count,
+    }
+    if extra_metadata:
+        try:
+            metadata.update(extra_metadata)
+        except Exception:
+            pass
+
+    yield f"data: {json.dumps({'metadata': metadata})}\n\n"
+    yield "data: [DONE]\n\n"
+
+
+async def _stream_hitl_wait_response(confidence: int) -> AsyncIterator[str]:
+    """Stream HITL wait message to end-user with confidence metadata."""
+    message = "I'm checking with the team for the best answer. You'll hear from us shortly."
+    for ch in message:
+        yield f"data: {json.dumps({'token': ch})}\n\n"
+    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0, 'confidence': confidence}})}\n\n"
     yield "data: [DONE]\n\n"
 
 

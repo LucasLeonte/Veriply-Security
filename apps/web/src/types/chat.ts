@@ -4,6 +4,7 @@ export interface ChatMessage {
     content: string;
     timestamp: number;
     citations?: Citation[];
+    confidence?: number;
 }
 
 export interface Citation {

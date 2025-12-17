@@ -155,6 +155,38 @@ export default function MessageList({
                             </div>
                         )}
                     </div>
+                    {message.role === "assistant" && message.confidence !== undefined && (
+                        <div className="max-w-[70%] text-xs">
+                            <div className="flex items-center gap-2 px-1">
+                                <span className="text-slate-500">Confidence:</span>
+                                <div className="flex items-center gap-1">
+                                    <div className="w-12 h-1 bg-slate-200 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full ${
+                                                message.confidence >= 80
+                                                    ? "bg-emerald-500"
+                                                    : message.confidence >= 60
+                                                    ? "bg-amber-500"
+                                                    : "bg-orange-500"
+                                            }`}
+                                            style={{
+                                                width: `${Math.min(message.confidence, 100)}%`,
+                                            }}
+                                        />
+                                    </div>
+                                    <span className={`font-medium ${
+                                        message.confidence >= 80
+                                            ? "text-emerald-600"
+                                            : message.confidence >= 60
+                                            ? "text-amber-600"
+                                            : "text-orange-600"
+                                    }`}>
+                                        {Math.round(message.confidence)}%
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     {message.role === "user" && (
                         <Avatar className="h-8 w-8 mt-1">
                             <AvatarFallback className="bg-slate-700 text-white text-xs">
