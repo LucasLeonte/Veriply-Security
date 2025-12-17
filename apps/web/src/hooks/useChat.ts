@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ChatMessage, Citation } from "@/types/chat";
 import {
     streamChatQuery,
@@ -16,19 +16,27 @@ export function useChat(botId: string) {
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
+    const sessionIdRef = useRef<string>(uuidv4());
     const lastQueryRef = useRef<string>("");
     const streamingMessageRef = useRef<ChatMessage | null>(null);
+    const contextWindow = useMemo(() => {
+        const configured = Number(process.env.NEXT_PUBLIC_CONTEXT_WINDOW);
+        if (Number.isFinite(configured) && configured > 0 && configured <= 100) {
+            return Math.floor(configured);
+        }
+        return 10;
+    }, []);
 
     // Load chat history on mount
     useEffect(() => {
-        const history = loadChatHistory(botId);
+        const history = loadChatHistory(botId, sessionIdRef.current);
         setMessages(history);
     }, [botId]);
 
     // Save chat history whenever messages change
     useEffect(() => {
         if (messages.length > 0) {
-            saveChatHistory(botId, messages);
+            saveChatHistory(botId, sessionIdRef.current, messages);
         }
     }, [botId, messages]);
 
@@ -37,7 +45,7 @@ export function useChat(botId: string) {
         const handleBeforeUnload = () => {
             // Session-based: clear on unload (as per AC #9)
             // Comment this out if we want persistent history
-            clearStoredHistory(botId);
+            clearStoredHistory(botId, sessionIdRef.current);
         };
 
         window.addEventListener("beforeunload", handleBeforeUnload);
@@ -63,6 +71,7 @@ export function useChat(botId: string) {
                 timestamp: Date.now(),
             };
 
+            const contextPayload = [...messages, userMessage];
             setMessages((prev) => [...prev, userMessage]);
             setLoading(true);
             setStreaming(true);
@@ -80,21 +89,14 @@ export function useChat(botId: string) {
             setMessages((prev) => [...prev, assistantMessage]);
 
             try {
-                // Build conversation history
-                const conversationHistory = messages.slice(-4).map((msg) => ({
-                    role: msg.role,
-                    content: msg.content,
-                }));
-
                 // Stream tokens
                 let fullContent = "";
                 let metadata: any = null;
 
-                for await (const chunk of streamChatQuery(
-                    botId,
-                    query,
-                    conversationHistory
-                )) {
+                for await (const chunk of streamChatQuery(botId, query, {
+                    context: contextPayload,
+                    contextWindow,
+                })) {
                     if (chunk.type === "token") {
                         fullContent += chunk.content;
 
@@ -141,7 +143,7 @@ export function useChat(botId: string) {
                 console.error("Chat error:", err);
             }
         },
-        [botId, messages, loading]
+        [botId, messages, loading, contextWindow]
     );
 
     const retryLastMessage = useCallback(() => {
@@ -156,7 +158,8 @@ export function useChat(botId: string) {
 
     const clearHistory = useCallback(() => {
         setMessages([]);
-        clearStoredHistory(botId);
+        clearStoredHistory(botId, sessionIdRef.current);
+        sessionIdRef.current = uuidv4();
         setError(null);
         setRetryCount(0);
     }, [botId]);
@@ -169,5 +172,6 @@ export function useChat(botId: string) {
         sendMessage,
         retryLastMessage,
         clearHistory,
+        contextWindow,
     };
 }

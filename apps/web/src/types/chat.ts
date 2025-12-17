@@ -22,6 +22,8 @@ export interface BotPublicInfo {
 
 export interface ChatQueryRequest {
     query: string;
+    context?: ChatMessage[];
+    context_window?: number;
     conversation_history?: { role: string; content: string }[];
 }
 

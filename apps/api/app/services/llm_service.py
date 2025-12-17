@@ -76,6 +76,7 @@ class LLMService:
         query: str,
         context_chunks: List[SearchResult],
         conversation_history: Optional[List[dict]] = None,
+        conversation_context: Optional[str] = None,
     ) -> AsyncIterator[str]:
         """Generate context-only answer using LLM with streaming.
 
@@ -95,7 +96,9 @@ class LLMService:
         """
         # Build the structured prompt enforcing context-only behavior
         system_prompt = self._build_system_prompt()
-        user_prompt = self._build_user_prompt(query, context_chunks)
+        user_prompt = self._build_user_prompt(
+            query, context_chunks, conversation_context
+        )
 
         # Build full conversation with history
         messages = self._build_messages(
@@ -156,45 +159,45 @@ When answering:
 - Use the same tone as the source documents"""
 
     def _build_user_prompt(
-        self, query: str, context_chunks: List[SearchResult]
+        self,
+        query: str,
+        context_chunks: List[SearchResult],
+        conversation_context: Optional[str] = None,
     ) -> str:
         """Build user prompt with formatted context chunks.
 
         Args:
             query: User's question
             context_chunks: Retrieved context chunks from vector search
+            conversation_context: Prepared conversation recap for prompt injection
 
         Returns:
             Formatted user prompt with context sections and query
         """
-        # Handle empty context
+        sections: list[str] = []
+
+        if conversation_context:
+            sections.append(f"## Conversation Context\n{conversation_context.strip()}")
+
+        sections.append(self._format_context_chunks(context_chunks))
+
+        sections.append(
+            f"## Current Question\nUser: {query}\n\nAnswer (based ONLY on the context above):"
+        )
+
+        return "\n\n".join(sections)
+
+    def _format_context_chunks(self, context_chunks: List[SearchResult]) -> str:
         if not context_chunks:
-            return f"""Context from our knowledge base:
-[No documents found in knowledge base]
+            return "## Knowledge Base Context\n[No documents found in knowledge base]"
 
----
-
-Question: {query}
-
-Answer (based ONLY on the context above):"""
-
-        # Format context chunks with source labels and separators
         context_sections = []
-        for i, chunk in enumerate(context_chunks):
+        for chunk in context_chunks:
             source = self._format_source(chunk)
             context_sections.append(f"[Source: {source}]\n{chunk.text}")
 
         context_text = "\n---\n".join(context_sections)
-
-        return f"""Context from our knowledge base:
-
-{context_text}
-
----
-
-Question: {query}
-
-Answer (based ONLY on the context above):"""
+        return f"## Knowledge Base Context\n\n{context_text}"
 
     def _format_source(self, chunk: SearchResult) -> str:
         """Format source citation for a chunk.

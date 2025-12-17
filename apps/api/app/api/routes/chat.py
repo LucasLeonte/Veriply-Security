@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,11 +15,12 @@ from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
 from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
-from app.services.bot_service import BotService
+from app.services.context_service import ContextService, DEFAULT_CONTEXT_WINDOW
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bots", tags=["chat"])
+context_service = ContextService()
 
 
 @router.get("/{bot_id}/public", response_model=PublicBotInfo)
@@ -139,6 +140,32 @@ async def chat_query(
             detail="Failed to verify bot access",
         )
 
+    # Prepare conversation context (last N + summary of older)
+    context_window = request.context_window or DEFAULT_CONTEXT_WINDOW
+    context_messages: list[ChatMessage] = []
+
+    if request.context:
+        context_messages = request.context
+    elif request.conversation_history:
+        context_messages = [
+            ChatMessage(role=msg.get("role"), content=msg.get("content", ""))
+            for msg in request.conversation_history
+            if isinstance(msg, dict)
+            and msg.get("role") in {"user", "assistant"}
+            and msg.get("content")
+        ]
+
+    conversation_context = ""
+    try:
+        conversation_context = await context_service.prepare_context(
+            context_messages, context_window
+        )
+    except Exception as context_error:
+        logger.warning(
+            f"Context preparation failed, continuing without context: {context_error}"
+        )
+        conversation_context = ""
+
     # Initialize services
     embedding_service = EmbeddingService()
     vector_search_service = VectorSearchService(embedding_service)
@@ -168,13 +195,10 @@ async def chat_query(
         # Pass SearchResult objects directly to LLM service
         # LLMService expects List[SearchResult], not list of dicts
 
-        # Build conversation history
+        # Build conversation history (only if no formatted context available)
         conversation_history = []
-        if request.conversation_history:
-            conversation_history = [
-                ChatMessage(role=msg["role"], content=msg["content"])
-                for msg in request.conversation_history[-4:]  # Last 4 messages
-            ]
+        if not conversation_context and context_messages:
+            conversation_history = context_messages[-context_window:]
 
         # Stream LLM response
         return StreamingResponse(
@@ -183,6 +207,7 @@ async def chat_query(
                 query=request.query.strip(),
                 context_chunks=search_results,  # Pass SearchResult objects directly
                 conversation_history=conversation_history,
+                conversation_context=conversation_context or None,
             ),
             media_type="text/event-stream",
         )
@@ -200,6 +225,7 @@ async def _stream_llm_response(
     query: str,
     context_chunks: list,  # List[SearchResult]
     conversation_history: list[ChatMessage],
+    conversation_context: Optional[str] = None,
 ) -> AsyncIterator[str]:
     """Stream LLM response tokens as SSE events using LLMService.generate_answer."""
     try:
@@ -215,6 +241,7 @@ async def _stream_llm_response(
             query=query,
             context_chunks=context_chunks,
             conversation_history=history_payload,
+            conversation_context=conversation_context,
         ):
             token_count += 1
             yield f"data: {json.dumps({'token': token})}\n\n"
