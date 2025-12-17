@@ -247,13 +247,12 @@ export const documentsApi = {
         queued?: boolean;
     }> {
         if (USE_MOCK_DATA) {
-            const result = await mockDocumentsApi.reprocessDocument(documentId);
-            return {
-                id: result.id,
-                status: result.status,
-                queued: result.queued,
+            return Promise.resolve({
+                id: documentId,
+                status: "processing",
+                queued: true,
                 message: "Reprocess queued",
-            };
+            });
         }
 
         const response = await fetchWithAuth(
@@ -267,6 +266,39 @@ export const documentsApi = {
             status: string;
             message?: string;
             queued?: boolean;
+        }>(response);
+    },
+
+    /**
+     * Bulk reprocess documents (max 100)
+     */
+    async bulkReprocessDocuments(
+        groupId: string,
+        documentIds: string[]
+    ): Promise<{
+        message: string;
+        queued_count: number;
+        document_ids: string[];
+    }> {
+        if (USE_MOCK_DATA) {
+            return Promise.resolve({
+                message: `Queued ${documentIds.length} document(s) for reprocessing (mock).`,
+                queued_count: documentIds.length,
+                document_ids: documentIds,
+            });
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/bulk-reprocess`,
+            {
+                method: "POST",
+                body: JSON.stringify({ document_ids: documentIds }),
+            }
+        );
+        return handleResponse<{
+            message: string;
+            queued_count: number;
+            document_ids: string[];
         }>(response);
     },
 

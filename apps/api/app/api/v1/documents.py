@@ -1,10 +1,12 @@
 """Documents API routes for group-scoped KB management."""
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
 from pathlib import Path
+from datetime import datetime
 import logging
 
 from app.models import Group, GroupMember, GroupRole
@@ -19,6 +21,10 @@ from app import tasks
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/groups/{group_id}/documents", tags=["documents"])
+
+
+class BulkReprocessRequest(BaseModel):
+    document_ids: list[UUID]
 
 
 async def check_group_access(
@@ -298,6 +304,83 @@ async def list_document_chunks(
     except Exception as e:
         logger.exception(f"Error listing chunks: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve chunks")
+
+
+@router.post("/bulk-reprocess", status_code=status.HTTP_202_ACCEPTED)
+async def bulk_reprocess_documents(
+    group_id: UUID,
+    payload: BulkReprocessRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Reprocess up to 100 documents in the group knowledge base."""
+    try:
+        await check_group_access(group_id, current_user, session)
+
+        if not payload.document_ids:
+            raise HTTPException(status_code=400, detail="No document_ids provided")
+
+        if len(payload.document_ids) > 100:
+            raise HTTPException(status_code=400, detail="Cannot reprocess more than 100 documents at once")
+
+        docs = await DocumentGroupService.get_documents_by_ids(
+            db=session,
+            doc_ids=payload.document_ids,
+            group_id=group_id,
+            tenant_id=UUID(current_user["tenant_id"]),
+        )
+
+        if len(docs) != len(payload.document_ids):
+            raise HTTPException(status_code=404, detail="One or more documents not found")
+
+        invalid_status = [d for d in docs if d.status not in ["ready", "failed", "uploaded"]]
+        if invalid_status:
+            raise HTTPException(
+                status_code=400,
+                detail="All documents must be in status ready, failed, or uploaded",
+            )
+
+        # Validate source file existence
+        base = Path("storage") / "documents"
+        for d in docs:
+            storage_path = d.storage_path or ""
+            local_path = base / storage_path
+            if not local_path.exists():
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Source file not found for document {d.id}",
+                )
+
+        # Mark processing
+        now_ids = []
+        for d in docs:
+            d.status = "processing"
+            d.updated_at = datetime.utcnow()
+            now_ids.append(str(d.id))
+        await session.flush()
+        await session.commit()
+
+        queued = 0
+        for doc_id in now_ids:
+            try:
+                tasks.enqueue_group_document_reprocessing(doc_id)
+                queued += 1
+            except Exception:
+                logger.exception("Failed to enqueue group document reprocessing for %s", doc_id)
+
+        return {
+            "message": f"Queued {queued} document(s) for reprocessing.",
+            "queued_count": queued,
+            "document_ids": now_ids,
+        }
+
+    except HTTPException:
+        await session.rollback()
+        raise
+    except Exception as e:
+        await session.rollback()
+        logger.exception(f"Error bulk reprocessing documents: {e}")
+        raise HTTPException(status_code=500, detail="Failed to bulk reprocess documents")
 
 @router.post("/{doc_id}/reprocess", status_code=status.HTTP_202_ACCEPTED)
 async def reprocess_document(

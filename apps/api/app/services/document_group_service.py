@@ -272,6 +272,26 @@ class DocumentGroupService:
         }
 
     @staticmethod
+    async def get_documents_by_ids(
+        db: AsyncSession, doc_ids: list[UUID], group_id: UUID, tenant_id: UUID
+    ) -> list[Document]:
+        """Fetch documents by ids with group/tenant isolation (excludes deleted)."""
+        if not doc_ids:
+            return []
+
+        docs = list(
+            await db.scalars(
+                select(Document).where(
+                    Document.id.in_(doc_ids),
+                    Document.group_id == group_id,
+                    Document.tenant_id == tenant_id,
+                    Document.deleted_at.is_(None),
+                )
+            )
+        )
+        return docs
+
+    @staticmethod
     async def get_document_provenance(
         db: AsyncSession, doc_id: UUID, group_id: UUID, tenant_id: UUID
     ) -> dict | None:

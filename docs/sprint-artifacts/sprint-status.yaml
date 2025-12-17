@@ -69,7 +69,7 @@ story_location: docs/sprint-artifacts
 development_status:
     # Epic 1: Foundation & Auth
     epic-1:
-        status: contexted
+        status: done
         assigned_to: null
 
     1-1-project-infrastructure-setup:
@@ -113,7 +113,7 @@ development_status:
 
     # Epic 2: Bot & Knowledge Management
     epic-2:
-        status: backlog
+        status: done
         assigned_to: null
 
     2-1-bot-creation-configuration:
@@ -147,7 +147,7 @@ development_status:
         blocked_by: 2-5-knowledge-base-management-ui
 
     2-7-document-reprocessing:
-        status: in-progress
+        status: done
         assigned_to: Lucas
         blocked_by: 2-6-document-deletion
 
