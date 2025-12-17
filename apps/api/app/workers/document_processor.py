@@ -126,11 +126,27 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
         return {"document_id": document_id, "status": "download_failed", "error": str(e)}
 
     # Extract text
+    if hasattr(doc, 'processing_progress'):
+        doc.processing_progress = 20
+    if hasattr(doc, 'processing_current_step'):
+        doc.processing_current_step = "extracting"
+    doc.updated_at = datetime.utcnow()
+    await db_session.flush()
+    try:
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+    
     text = _simple_text_extractor(file_bytes, getattr(doc, "filename", None), getattr(doc, "mime", None))
     if not text:
         logger.warning("No text extracted for document %s", document_id)
 
     # Chunk text
+    if hasattr(doc, 'processing_progress'):
+        doc.processing_progress = 40
+    if hasattr(doc, 'processing_current_step'):
+        doc.processing_current_step = "chunking"
+    # Split extracted text into chunks for embedding
     chunks = _chunk_text(text)
 
     # Choose embedding function

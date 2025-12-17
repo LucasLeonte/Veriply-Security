@@ -10,6 +10,13 @@ export interface Citation {
     source: string;
     url?: string;
     document_name?: string;
+    document_id?: string;
+    chunk_id?: string;
+    page_number?: number;
+    section?: string | null;
+    position?: number;
+    text?: string;
+    similarity?: number;
 }
 
 export interface BotPublicInfo {
