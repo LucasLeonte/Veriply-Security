@@ -104,10 +104,10 @@ development_status:
         completed_date: 2025-12-04
         blocked_by: 1-4-user-login-session-management
 
-    # Story 1.7 (CI Pipeline) - added record: implemented by Kainy
+    # Story 1.7 (CI Pipeline) - marked as needs-revision, unassigned
     1-7-ci-pipeline:
-        status: in-progress
-        assigned_to: Kainy
+        status: needs-revision
+        assigned_to: null
 
     epic-1-retrospective: optional
 
