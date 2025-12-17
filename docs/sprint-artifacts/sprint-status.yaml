@@ -214,8 +214,8 @@ development_status:
         blocked_by: 4-1-web-chat-interface
 
     4-3-user-feedback:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Dario
         blocked_by: 4-1-web-chat-interface
 
     4-4-trust-signals-display:
