@@ -37,6 +37,7 @@ class SearchResult:
     similarity: float
     position: int
     page_number: Optional[int] = None
+    is_verified: bool = False
 
 
 class VectorSearchService:
@@ -145,12 +146,14 @@ class VectorSearchService:
 
             # Extract section from metadata if available
             section = None
+            is_verified = False
             if chunk.metadata_json:
                 try:
                     import json
 
                     metadata = json.loads(chunk.metadata_json)
                     section = metadata.get("section")
+                    is_verified = bool(metadata.get("verified") or metadata.get("is_verified"))
                 except (json.JSONDecodeError, AttributeError):
                     pass
 
@@ -164,6 +167,7 @@ class VectorSearchService:
                     similarity=round(similarity, 4),
                     position=chunk.chunk_index,
                     page_number=chunk.page_number,
+                    is_verified=is_verified,
                 )
             )
 
