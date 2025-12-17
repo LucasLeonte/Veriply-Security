@@ -184,6 +184,8 @@ export default function ChatInterface({
                         disabled={!input.trim() || loading}
                         className="self-end min-w-[44px] h-[44px]"
                         size="icon"
+                        aria-label="Send"
+                        title="Send"
                     >
                         {loading ? (
                             <Loader2 className="h-5 w-5 animate-spin" />

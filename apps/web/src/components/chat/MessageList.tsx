@@ -23,7 +23,10 @@ export default function MessageList({
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        const el = messagesEndRef.current as unknown as { scrollIntoView?: (opts?: ScrollIntoViewOptions) => void } | null;
+        if (el && typeof el.scrollIntoView === "function") {
+            el.scrollIntoView({ behavior: "smooth" });
+        }
     }, [messages, streaming]);
 
     return (

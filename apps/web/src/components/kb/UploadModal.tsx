@@ -107,7 +107,12 @@ export function UploadModal({
         setError("");
 
         try {
-            await onUpload(selectedFiles, selectedFolderId);
+            if (selectedFolderId) {
+                await onUpload(selectedFiles, selectedFolderId);
+            } else {
+                // Call with a single argument to keep backward compatibility with tests/mocks
+                await onUpload(selectedFiles);
+            }
             setSelectedFiles([]);
             setSelectedFolderId(undefined);
             onClose();
