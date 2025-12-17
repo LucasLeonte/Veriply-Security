@@ -69,7 +69,7 @@ story_location: docs/sprint-artifacts
 development_status:
     # Epic 1: Foundation & Auth
     epic-1:
-        status: contexted
+        status: done
         assigned_to: null
 
     1-1-project-infrastructure-setup:
@@ -104,16 +104,16 @@ development_status:
         completed_date: 2025-12-04
         blocked_by: 1-4-user-login-session-management
 
-    # Story 1.7 (CI Pipeline) - added record: implemented by Kainy
+    # Story 1.7 (CI Pipeline) - marked as needs-revision, unassigned
     1-7-ci-pipeline:
-        status: in-progress
-        assigned_to: Kainy
+        status: needs-revision
+        assigned_to: null
 
     epic-1-retrospective: optional
 
     # Epic 2: Bot & Knowledge Management
     epic-2:
-        status: backlog
+        status: done
         assigned_to: null
 
     2-1-bot-creation-configuration:
@@ -147,8 +147,8 @@ development_status:
         blocked_by: 2-5-knowledge-base-management-ui
 
     2-7-document-reprocessing:
-        status: ready-for-dev
-        assigned_to: null
+        status: done
+        assigned_to: Lucas
         blocked_by: 2-6-document-deletion
 
     2-8-bot-isolation-enforcement:
@@ -157,7 +157,7 @@ development_status:
         blocked_by: 2-1-bot-creation-configuration
 
     2-9-group-kb-folders-bot-allowlist:
-        status: review
+        status: done
         assigned_to: Dario
         blocked_by: null
 
@@ -186,8 +186,8 @@ development_status:
         blocked_by: 3-2-context-only-answer-generation
 
     3-4-confidence-scoring-routing:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Soulaymane
         blocked_by: 3-3-citation-generation
 
     3-5-pii-redaction:
@@ -204,13 +204,13 @@ development_status:
         assigned_to: Lucas
 
     4-1-web-chat-interface:
-        status: review
+        status: done
         assigned_to: Dario
         blocked_by: null
 
     4-2-conversation-context:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Kainy
         blocked_by: 4-1-web-chat-interface
 
     4-3-user-feedback:

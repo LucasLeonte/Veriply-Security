@@ -1,7 +1,7 @@
 # Story 2.9: Group KB Folders and Bot Document Allowlist
 
 **Epic:** 2. Bot & Knowledge Management  
-**Status:** review  
+**Status:** done  
 **Assigned to:** Dario  
 **Blocked by:** null
 

@@ -151,13 +151,14 @@ async def chat_query(
         tenant_id = bot.tenant_id
 
         # Retrieve relevant context from vector store
+        # Use higher thresholds to reduce false positives in citations
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
             query=request.query.strip(),
-            k=5,  # Get top 5 chunks
-            similarity_threshold=0.5,
+            k=3,  # Get top 3 chunks (reduced from 5 to minimize noise)
+            similarity_threshold=0.65,  # Raised from 0.5 to 0.65 for higher relevance bar
         )
 
         if not search_results:
@@ -261,10 +262,32 @@ async def _stream_llm_response(
             yield f"data: {json.dumps({'token': token})}\n\n"
 
         # Send metadata at the end
+        # Filter citations to only high-confidence matches (≥0.65 similarity)
+        CITATION_SIMILARITY_THRESHOLD = 0.65
         citations = [
-            {"source": result.document_name or "Unknown", "similarity": result.similarity}
+            {
+                "source": result.document_name or "Unknown",
+                "document_name": result.document_name or "Unknown",
+                "document_id": result.document_id,
+                "chunk_id": result.chunk_id,
+                "page_number": result.page_number,
+                "section": result.section,
+                "position": result.position,
+                "text": result.text,
+                "similarity": result.similarity,
+                "url": f"/api/v1/documents/{result.document_id}/chunks",
+            }
             for result in context_chunks
+            if result.similarity >= CITATION_SIMILARITY_THRESHOLD
         ]
+        
+        # Log low-confidence chunks that were excluded from citations
+        low_confidence = [r for r in context_chunks if r.similarity < CITATION_SIMILARITY_THRESHOLD]
+        if low_confidence:
+            logger.debug(
+                f"Excluded {len(low_confidence)} low-confidence chunk(s) from citations: "
+                f"{[f'{r.document_name}({r.similarity:.2f})' for r in low_confidence]}"
+            )
 
         metadata = {
             "citations": citations,

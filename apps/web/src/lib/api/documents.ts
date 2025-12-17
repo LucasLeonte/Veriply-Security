@@ -115,14 +115,19 @@ export const documentsApi = {
     /**
      * Get document details including chunks
      */
-    async getDocument(documentId: string): Promise<DocumentDetailResponse> {
+    async getDocument(
+        documentId: string,
+        groupId?: string
+    ): Promise<DocumentDetailResponse> {
         if (USE_MOCK_DATA) {
             return mockDocumentsApi.getDocument(documentId);
         }
 
-        const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}`
-        );
+        const url = groupId
+            ? `${API_BASE_URL}/api/v1/groups/${groupId}/documents/${documentId}`
+            : `${API_BASE_URL}/api/v1/documents/${documentId}`;
+
+        const response = await fetchWithAuth(url);
         return handleResponse<DocumentDetailResponse>(response);
     },
 
@@ -198,10 +203,45 @@ export const documentsApi = {
     },
 
     /**
-     * Delete multiple documents in bulk
+     * Trigger reprocessing of a document (group-scoped)
      */
-    async bulkDeleteDocuments(
-        botId: string,
+    async reprocessDocument(
+        groupId: string,
+        documentId: string
+    ): Promise<{
+        id: string;
+        status: string;
+        message?: string;
+        queued?: boolean;
+    }> {
+        if (USE_MOCK_DATA) {
+            return Promise.resolve({
+                id: documentId,
+                status: "processing",
+                queued: true,
+                message: "Reprocess queued",
+            });
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/${documentId}/reprocess`,
+            {
+                method: "POST",
+            }
+        );
+        return handleResponse<{
+            id: string;
+            status: string;
+            message?: string;
+            queued?: boolean;
+        }>(response);
+    },
+
+    /**
+     * Bulk reprocess documents (max 100)
+     */
+    async bulkReprocessDocuments(
+        groupId: string,
         documentIds: string[]
     ): Promise<{
         message: string;
@@ -209,17 +249,18 @@ export const documentsApi = {
         document_ids: string[];
     }> {
         if (USE_MOCK_DATA) {
-            return mockDocumentsApi.bulkDeleteDocuments(botId, documentIds);
+            return Promise.resolve({
+                message: `Queued ${documentIds.length} document(s) for reprocessing (mock).`,
+                queued_count: documentIds.length,
+                document_ids: documentIds,
+            });
         }
 
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/bulk-delete`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/bulk-reprocess`,
             {
                 method: "POST",
-                body: JSON.stringify({
-                    bot_id: botId,
-                    document_ids: documentIds,
-                }),
+                body: JSON.stringify({ document_ids: documentIds }),
             }
         );
         return handleResponse<{
@@ -230,24 +271,26 @@ export const documentsApi = {
     },
 
     /**
-     * Trigger reprocessing of a document
+     * Bulk delete documents (max 100)
      */
-    async reprocessDocument(
-        documentId: string
-    ): Promise<{ id: string; status: string; queued: boolean }> {
+    async bulkDeleteDocuments(
+        groupId: string,
+        documentIds: string[]
+    ): Promise<void> {
         if (USE_MOCK_DATA) {
-            return mockDocumentsApi.reprocessDocument(documentId);
+            return Promise.resolve();
         }
 
         const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/${documentId}/reprocess`,
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/bulk-delete`,
             {
                 method: "POST",
+                body: JSON.stringify({ document_ids: documentIds }),
             }
         );
-        return handleResponse<{ id: string; status: string; queued: boolean }>(
-            response
-        );
+        if (!response.ok) {
+            throw new Error(`Failed to delete documents: ${response.status}`);
+        }
     },
 
     /**

@@ -57,30 +57,6 @@ export function DocumentCard({
         }
 
         switch (document.status) {
-            case "processed":
-                return {
-                    icon: (
-                        <CheckCircle
-                            size={16}
-                            className="text-emerald-600"
-                            aria-hidden="true"
-                        />
-                    ),
-                    text: "Processed",
-                    className: "text-emerald-600",
-                };
-            case "pending":
-                return {
-                    icon: (
-                        <Clock
-                            size={16}
-                            className="text-slate-400"
-                            aria-hidden="true"
-                        />
-                    ),
-                    text: "Pending",
-                    className: "text-slate-400",
-                };
             case "ready":
                 return {
                     icon: (
@@ -240,7 +216,7 @@ export function DocumentCard({
                             {status.icon}
                             <span>{status.text}</span>
                         </div>
-                        {(document.status === "ready" || document.status === "processed") && (
+                        {document.status === "ready" && (
                             <>
                                 <span className="text-slate-300">•</span>
                                 <span className="text-sm text-slate-600">
@@ -333,19 +309,36 @@ export function DocumentCard({
                                         View Details
                                     </button>
                                 )}
-                                {onReprocess &&
-                                    document.status !== "processing" && (
-                                        <button
-                                            onClick={() => {
-                                                onReprocess(document);
-                                                setShowMenu(false);
-                                            }}
-                                            className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors"
-                                            role="menuitem"
-                                        >
-                                            Reprocess
-                                        </button>
-                                    )}
+                                {onReprocess && (
+                                    <button
+                                        onClick={() => {
+                                            if (
+                                                document.status ===
+                                                    "processing" ||
+                                                isDeleting
+                                            ) {
+                                                return;
+                                            }
+                                            onReprocess(document);
+                                            setShowMenu(false);
+                                        }}
+                                        disabled={
+                                            document.status === "processing" ||
+                                            isDeleting
+                                        }
+                                        title={
+                                            document.status === "processing"
+                                                ? "Cannot reprocess while processing"
+                                                : isDeleting
+                                                ? "Cannot reprocess while deleting"
+                                                : undefined
+                                        }
+                                        className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus:bg-slate-50 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                                        role="menuitem"
+                                    >
+                                        Reprocess
+                                    </button>
+                                )}
                                 {onMove && (
                                     <button
                                         onClick={() => {
