@@ -298,6 +298,107 @@ so that I can get answers to my questions.
 -   **Hooks**: `apps/web/src/hooks/useChat.ts` (manage chat state and API calls)
 -   **API Client**: `apps/web/src/lib/api/chat.ts` (SSE event source wrapper)
 -   **Backend**: `apps/api/app/api/routes/chat.py` (query endpoint)
+
+---
+
+## Senior Developer Review (AI)
+
+Reviewer: Dario
+Date: 2025-12-17
+Outcome: Changes Requested — several acceptance criteria are partially implemented and a few operational TODOs remain.
+
+### Summary
+The web chat interface is functionally complete: public chat loads bot info, optimistic user messages, SSE streaming tokens rendered with markdown and citations, error handling with retries, and session-scoped localStorage history. However, a few UX/accessibility items and operational safeguards are still pending.
+
+### Key Findings
+
+High severity:
+- None.
+
+Medium severity:
+- AC2 Loading skeleton is not shown during initial load. Evidence: `apps/web/src/components/chat/ChatInterface.tsx` — component imports `Skeleton` but does not render it when loading.
+- AC5 Focus does not return to input automatically after streaming completes. Evidence: `apps/web/src/components/chat/ChatInterface.tsx` — input focused on mount only; no focus on completion.
+- API test for 403 when bot not public is still TODO. Evidence: Story Tasks 9) Testing - API Tests.
+- SSE timeout handling is TODO. Evidence: Story Tasks 7) Backend - SSE Response Streaming.
+
+Low severity:
+- Screen reader enhancements could be improved (ARIA live regions for streaming; role labels on message bubbles). Evidence: `MessageList.tsx` uses `ReactMarkdown` without ARIA live announcements.
+- Optional character count indicator is not implemented. Evidence: Story Tasks 1) MessageInput component.
+- Sentry logging not wired. Evidence: Story Tasks 4) Error boundary logs to Sentry is TODO.
+
+### Acceptance Criteria Coverage
+
+| AC # | Description | Status | Evidence |
+|------|-------------|--------|----------|
+| 1 | Public chat page shows header (name/avatar), welcome message, input and send; responsive layout | IMPLEMENTED | `ChatInterface.tsx` header and empty-state welcome; input with placeholder and send button |
+| 2 | Loading skeleton during data fetch | PARTIAL | `ChatInterface.tsx` imports `Skeleton` but not rendered; show skeleton in loading states |
+| 3 | Optimistic user message, typing indicator, input cleared/disabled | IMPLEMENTED | `useChat.ts` adds user message immediately; `ChatInterface.tsx` disables input while loading; typing indicator via `MessageList.tsx` |
+| 4 | SSE streaming token-by-token, markdown rendering, inline citations | IMPLEMENTED | `chat.ts` EventSource parsing; `MessageList.tsx` renders markdown; citations shown from `metadata.citations`; backend `chat.py` emits tokens and metadata |
+| 5 | On completion, typing indicator disappears, input re-enabled, focus returns to input | PARTIAL | Indicator stops and input re-enables; focus not returned programmatically |
+| 6 | Friendly error message + retry button; server-side logging | IMPLEMENTED | `ChatInterface.tsx` error block + Retry; `useChat.ts` logs and retries |
+| 7 | Invalid bot URL → not found message | IMPLEMENTED | `apps/web/src/app/chat/[botId]/page.tsx` calls `notFound()` on 404/403 |
+| 8 | Session history persists per session in localStorage | IMPLEMENTED | `chat.ts` load/save/remove with `chat_session_${botId}` |
+| 9 | History cleared on close/leave (session-based) | IMPLEMENTED | `useChat.ts` clears on `beforeunload` |
+| 10 | Mobile responsiveness and touch targets | IMPLEMENTED | Tailwind classes; min 44px on controls |
+| 11 | Screen reader ARIA labels and focus management | PARTIAL | Send button has `aria-label`; add ARIA live region for streaming and improved roles |
+| 12 | Performance responsive and streaming starts quickly | IMPLEMENTED | Optimistic update and token streaming; batching updates in `useChat.ts` |
+
+Summary: 9 of 12 acceptance criteria fully implemented; 3 partial.
+
+### Task Completion Validation
+
+| Task | Marked As | Verified As | Evidence |
+|------|-----------|-------------|----------|
+| 1) Chat page route and components | [x] | VERIFIED COMPLETE | `apps/web/src/app/chat/[botId]/page.tsx`, `ChatInterface.tsx`, `MessageList.tsx` |
+| MessageInput: character count indicator (optional) | [ ] | NOT DONE (optional) | Missing in `ChatInterface.tsx` |
+| Streaming display and markdown | [x] | VERIFIED COMPLETE | `MessageList.tsx` with `ReactMarkdown` |
+| Error boundary w/ Sentry | [x]/[ ] | QUESTIONABLE | Error boundary exists; Sentry wiring TODO |
+| API endpoints (public info, chat/query) | [x] | VERIFIED COMPLETE | `apps/api/app/api/routes/chat.py` |
+| API test 403 not public | [ ] | NOT DONE | Story Tasks note |
+| SSE timeout | [ ] | NOT DONE | Story Tasks note |
+| Component/API tests | [x] | VERIFIED COMPLETE | Vitest tests passing; pytest API tests implemented (minus 403/no-timeout) |
+| E2E Playwright | [ ] | NOT DONE | Story Tasks note |
+
+Summary: Verified most completed tasks; several remaining TODOs are non-blocking but recommended.
+
+### Test Coverage and Gaps
+- Frontend component tests cover primary behaviors (render, send, streaming, error, reset).
+- API tests cover success/validation; missing 403 non-public and timeout scenarios.
+- No E2E Playwright coverage yet (recommended).
+
+### Architectural Alignment
+- Public unauthenticated endpoints correctly guarded by `is_public` (backend enforces). Dashboard chat uses authenticated group context.
+- SSE chosen over WebSockets is appropriate for streaming tokens.
+- Vector search used to construct citations; metadata provided to client.
+
+### Security Notes
+- Markdown rendering configured without dangerous HTML; continue to sanitize inputs.
+- Rate limiting recommended for public chat (`10 req/min/IP`).
+- Consider bot-level abuse protections.
+
+### Best-Practices and References
+- Next.js App Router accessibility: add ARIA live regions for streaming.
+- SSE server timeouts and heartbeat to avoid stale connections.
+
+### Action Items
+
+**Code Changes Required:**
+- [ ] [Med] Render a loading skeleton during initial bot info fetch (AC #2) [file: apps/web/src/components/chat/ChatInterface.tsx]
+- [ ] [Med] Return focus to textarea after streaming completes (AC #5) [file: apps/web/src/components/chat/ChatInterface.tsx]
+- [ ] [Med] Add ARIA live region for streaming responses; improve roles on message bubbles (AC #11) [file: apps/web/src/components/chat/MessageList.tsx]
+- [ ] [Med] Add API test for 403 when bot not public [file: apps/api/tests/]
+- [ ] [Med] Implement SSE timeout handling (5 min max) [file: apps/api/app/api/routes/chat.py]
+- [ ] [Low] Optional: character count indicator in input (Task 1) [file: apps/web/src/components/chat/ChatInterface.tsx]
+- [ ] [Low] Wire error logging to Sentry (Task 4) [file: apps/web/src/components/ErrorBoundary.tsx]
+- [ ] [Low] Add Playwright E2E covering streaming path [file: tests/e2e/]
+
+**Advisory Notes:**
+- Note: Consider rate limiting for `/api/v1/bots/:id/chat/query`.
+- Note: Document public/private behavior for bots in README.
+
+---
+
+Change Log: 2025-12-17 — Senior Developer Review notes appended.
 -   **Services**: `apps/api/app/services/chat_service.py` (RAG integration, LLM calling)
 
 ### Learnings from Previous Story
