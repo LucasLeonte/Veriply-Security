@@ -57,6 +57,30 @@ export function DocumentCard({
         }
 
         switch (document.status) {
+            case "processed":
+                return {
+                    icon: (
+                        <CheckCircle
+                            size={16}
+                            className="text-emerald-600"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: "Processed",
+                    className: "text-emerald-600",
+                };
+            case "pending":
+                return {
+                    icon: (
+                        <Clock
+                            size={16}
+                            className="text-slate-400"
+                            aria-hidden="true"
+                        />
+                    ),
+                    text: "Pending",
+                    className: "text-slate-400",
+                };
             case "ready":
                 return {
                     icon: (
@@ -216,7 +240,7 @@ export function DocumentCard({
                             {status.icon}
                             <span>{status.text}</span>
                         </div>
-                        {document.status === "ready" && (
+                        {(document.status === "ready" || document.status === "processed") && (
                             <>
                                 <span className="text-slate-300">•</span>
                                 <span className="text-sm text-slate-600">

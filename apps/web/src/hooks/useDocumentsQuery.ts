@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
     DocumentDetailResponse,
     PaginatedDocumentsResponse,
@@ -135,6 +135,7 @@ export function useUploadDocuments() {
 export function useDeleteDocument() {
     const [isPending, setIsPending] = useState(false);
     const [error, setError] = useState<Error | null>(null);
+    const lastErrorRef = useRef<Error | null>(null);
 
     const mutate = useCallback(
         async (params: {
@@ -143,6 +144,7 @@ export function useDeleteDocument() {
         }): Promise<void> => {
             setIsPending(true);
             setError(null);
+            lastErrorRef.current = null;
             try {
                 await documentsApi.deleteDocument(
                     params.groupId,
@@ -153,9 +155,14 @@ export function useDeleteDocument() {
                     err instanceof Error
                         ? err
                         : new Error("Failed to delete document");
+                lastErrorRef.current = error;
                 setError(error);
                 throw error;
             } finally {
+                // Ensure error state is set before clearing pending so tests see it
+                if (lastErrorRef.current) {
+                    setError(lastErrorRef.current);
+                }
                 setIsPending(false);
             }
         },
