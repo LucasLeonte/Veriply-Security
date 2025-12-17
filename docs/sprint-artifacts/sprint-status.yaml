@@ -106,9 +106,8 @@ development_status:
 
     # Story 1.7 (CI Pipeline) - added record: implemented by Kainy
     1-7-ci-pipeline:
-        status: done
+        status: in-progress
         assigned_to: Kainy
-        completed_date: 2025-12-04
 
     epic-1-retrospective: optional
 
@@ -192,8 +191,9 @@ development_status:
         blocked_by: 3-3-citation-generation
 
     3-5-pii-redaction:
-        status: in-progress
+        status: done
         assigned_to: Kainy
+        completed_date: 2025-12-16
         blocked_by: 3-2-context-only-answer-generation
 
     epic-3-retrospective: optional
@@ -204,8 +204,8 @@ development_status:
         assigned_to: Lucas
 
     4-1-web-chat-interface:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Dario
         blocked_by: 3-2-context-only-answer-generation
 
     4-2-conversation-context:
