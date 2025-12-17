@@ -2,19 +2,20 @@
 
 import { DashboardLayout } from "@/components";
 import { BotDocumentAccess } from "@/components/bot/BotDocumentAccess";
+import ChatInterface from "@/components/chat/ChatInterface";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Settings, FileText } from "lucide-react";
+import { ArrowLeft, Settings, FileText, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useGroup } from "@/contexts/GroupContext";
 
-type TabType = "settings" | "documents";
+type TabType = "settings" | "documents" | "chat";
 
 export default function BotSettingsPage() {
     const params = useParams();
     const botId = params.botId as string;
     const { currentGroup } = useGroup();
-    const [activeTab, setActiveTab] = useState<TabType>("documents");
+    const [activeTab, setActiveTab] = useState<TabType>("chat");
 
     if (!currentGroup) {
         return (
@@ -54,6 +55,17 @@ export default function BotSettingsPage() {
                 <div className="border-b border-slate-200">
                     <nav className="flex gap-6">
                         <button
+                            onClick={() => setActiveTab("chat")}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === "chat"
+                                    ? "border-emerald-600 text-emerald-600"
+                                    : "border-transparent text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                            <MessageCircle size={16} />
+                            Chat
+                        </button>
+                        <button
                             onClick={() => setActiveTab("documents")}
                             className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
                                 activeTab === "documents"
@@ -80,6 +92,26 @@ export default function BotSettingsPage() {
 
                 {/* Content */}
                 <div className="py-4">
+                    {activeTab === "chat" && (
+                        <div className="space-y-4">
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-800">
+                                <p className="font-medium mb-1">Test Your Bot</p>
+                                <p className="text-emerald-700">
+                                    Chat with your bot to test its responses and document access.
+                                    The bot will search through documents you've granted access to.
+                                </p>
+                            </div>
+
+                            <ChatInterface
+                                botId={botId}
+                                botName="Bot"
+                                botAvatar={undefined}
+                                welcomeMessage="Ask your bot a question using its knowledge base."
+                                isPublic={true}
+                            />
+                        </div>
+                    )}
+
                     {activeTab === "documents" && (
                         <div className="space-y-4">
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
