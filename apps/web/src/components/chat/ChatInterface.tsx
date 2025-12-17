@@ -147,6 +147,7 @@ export default function ChatInterface({
                         botName={botName}
                         botAvatar={botAvatar}
                         streaming={streaming}
+                        botId={botId}
                     />
                 )}
 

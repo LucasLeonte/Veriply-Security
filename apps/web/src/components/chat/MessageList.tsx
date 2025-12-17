@@ -3,15 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatMessage, Citation } from "@/types/chat";
-import { Loader2, FileText } from "lucide-react";
+import { Loader2, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
+import { sendToReviewQueue } from "@/lib/api/chat";
 
 interface MessageListProps {
     messages: ChatMessage[];
     botName: string;
     botAvatar?: string;
     streaming: boolean;
+    botId?: string;
 }
 
 export default function MessageList({
@@ -19,10 +21,13 @@ export default function MessageList({
     botName,
     botAvatar,
     streaming,
+    botId,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
+    const [sentToReview, setSentToReview] = useState<Set<string>>(new Set());
+    const [sendingToReview, setSendingToReview] = useState<Set<string>>(new Set());
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -32,7 +37,51 @@ export default function MessageList({
         }
     }, [messages, streaming]);
 
-    // Highlighting logic has moved into CitationViewer
+    // Auto-send low confidence messages to review queue
+    useEffect(() => {
+        if (!botId) return;
+        
+        messages.forEach((message, idx) => {
+            if (
+                message.role === "assistant" &&
+                message.confidence !== undefined &&
+                message.confidence < 0.8 &&
+                !sentToReview.has(message.id) &&
+                !sendingToReview.has(message.id)
+            ) {
+                // Find the user message before this one
+                let userQuestion = "";
+                for (let i = idx - 1; i >= 0; i--) {
+                    if (messages[i].role === "user") {
+                        userQuestion = messages[i].content;
+                        break;
+                    }
+                }
+                
+                if (userQuestion) {
+                    setSendingToReview(prev => new Set(prev).add(message.id));
+                    
+                    sendToReviewQueue(
+                        botId,
+                        userQuestion,
+                        message.content,
+                        message.confidence,
+                        message.citations
+                    ).then(() => {
+                        setSentToReview(prev => new Set(prev).add(message.id));
+                    }).catch(err => {
+                        console.error("Failed to send to review queue:", err);
+                    }).finally(() => {
+                        setSendingToReview(prev => {
+                            const next = new Set(prev);
+                            next.delete(message.id);
+                            return next;
+                        });
+                    });
+                }
+            }
+        });
+    }, [messages, botId, sentToReview, sendingToReview]);
 
     return (
         <>
@@ -123,6 +172,49 @@ export default function MessageList({
                                     >
                                         {message.content}
                                     </ReactMarkdown>
+                                    {/* Confidence Bar */}
+                                    {message.confidence !== undefined && (
+                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-medium text-slate-500">Certainty</span>
+                                                <span className={`text-xs font-semibold ${
+                                                    message.confidence >= 0.8 ? "text-green-600" : 
+                                                    message.confidence >= 0.6 ? "text-amber-600" : "text-red-600"
+                                                }`}>
+                                                    {Math.round(message.confidence * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                <div 
+                                                    className={`h-full rounded-full transition-all duration-500 ${
+                                                        message.confidence >= 0.8 ? "bg-green-500" : 
+                                                        message.confidence >= 0.6 ? "bg-amber-500" : "bg-red-500"
+                                                    }`}
+                                                    style={{ width: `${Math.round(message.confidence * 100)}%` }}
+                                                />
+                                            </div>
+                                            {message.confidence < 0.8 && (
+                                                <div className="mt-2 flex items-center gap-1.5 text-xs">
+                                                    {sendingToReview.has(message.id) ? (
+                                                        <>
+                                                            <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
+                                                            <span className="text-amber-600">Sending to review queue...</span>
+                                                        </>
+                                                    ) : sentToReview.has(message.id) ? (
+                                                        <>
+                                                            <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                                            <span className="text-green-600">Sent to team for review</span>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <AlertCircle className="h-3 w-3 text-amber-500" />
+                                                            <span className="text-amber-600">Will be sent to team for review</span>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     {message.citations && message.citations.length > 0 && (
                                         <div className="mt-4 pt-3 border-t border-slate-100">
                                             <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
