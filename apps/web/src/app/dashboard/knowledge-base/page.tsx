@@ -179,30 +179,15 @@ export default function GroupKnowledgeBasePage() {
     const handleUpload = async (files: File[], folderId?: string) => {
         if (!currentGroup?.id) return;
 
-        // Upload each file; if a folder is chosen, move after upload (backend upload endpoint is folder-agnostic)
+        // Upload each file with folder_id (backend handles folder assignment atomically)
         await Promise.all(
             files.map(async (file) => {
-                const res = await documentsApi.uploadDocuments(
+                await documentsApi.uploadDocuments(
                     currentGroup.id,
                     [file],
                     undefined,
                     folderId
                 );
-
-                if (folderId) {
-                    try {
-                        await documentsApi.moveDocumentToFolder(
-                            res.document_id,
-                            folderId,
-                            currentGroup.id
-                        );
-                    } catch (err) {
-                        console.error(
-                            "Failed to move uploaded doc to folder",
-                            err
-                        );
-                    }
-                }
             })
         );
 
