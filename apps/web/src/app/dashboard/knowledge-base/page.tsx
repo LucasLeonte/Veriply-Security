@@ -5,6 +5,7 @@ import {
     FolderList,
     ReprocessModal,
     BulkReprocessModal,
+    BulkDeleteModal,
 } from "@/components/kb";
 import { useGroup } from "@/contexts/GroupContext";
 import { foldersApi } from "@/lib/api/folders";
@@ -41,6 +42,7 @@ export default function GroupKnowledgeBasePage() {
     const [isReprocessModalOpen, setIsReprocessModalOpen] = useState(false);
     const [isBulkReprocessModalOpen, setIsBulkReprocessModalOpen] =
         useState(false);
+    const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch folders
@@ -248,6 +250,52 @@ export default function GroupKnowledgeBasePage() {
         );
     };
 
+    const handleOpenBulkDeleteModal = () => {
+        if (!selectedDocumentIds.length) return;
+        const selectedDocs = documents.filter((d) =>
+            selectedDocumentIds.includes(d.id)
+        );
+        const processing = selectedDocs.filter(
+            (d) => d.status === "processing"
+        );
+        if (processing.length > 0) {
+            alert(
+                "Cannot delete documents while processing. Please wait for reprocessing to complete."
+            );
+            return;
+        }
+        if (selectedDocumentIds.length > 100) {
+            alert("You can delete a maximum of 100 documents at once.");
+            return;
+        }
+        setIsBulkDeleteModalOpen(true);
+    };
+
+    const handleBulkDeleteDocuments = async () => {
+        if (!currentGroup?.id || !selectedDocumentIds.length) return;
+
+        try {
+            await documentsApi.bulkDeleteDocuments(
+                currentGroup.id,
+                selectedDocumentIds
+            );
+
+            setDocuments((prev) =>
+                prev.filter((d) => !selectedDocumentIds.includes(d.id))
+            );
+
+            setSelectedDocumentIds([]);
+            setIsBulkDeleteModalOpen(false);
+        } catch (err) {
+            console.error("Failed to bulk delete documents:", err);
+            alert(
+                `Failed to delete documents: ${
+                    err instanceof Error ? err.message : "Unknown error"
+                }`
+            );
+        }
+    };
+
     const handleOpenReprocessModal = (document: Document) => {
         setDocumentToReprocess(document);
         setIsReprocessModalOpen(true);
@@ -417,6 +465,12 @@ export default function GroupKnowledgeBasePage() {
                                             Reprocess Selected
                                         </button>
                                         <button
+                                            onClick={handleOpenBulkDeleteModal}
+                                            className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                        >
+                                            Delete Selected
+                                        </button>
+                                        <button
                                             onClick={() =>
                                                 setSelectedDocumentIds([])
                                             }
@@ -534,6 +588,14 @@ export default function GroupKnowledgeBasePage() {
                     count={selectedDocumentIds.length}
                     onClose={() => setIsBulkReprocessModalOpen(false)}
                     onConfirm={handleBulkReprocessDocuments}
+                />
+
+                {/* Delete Modal */}
+                <BulkDeleteModal
+                    isOpen={isBulkDeleteModalOpen}
+                    count={selectedDocumentIds.length}
+                    onClose={() => setIsBulkDeleteModalOpen(false)}
+                    onConfirm={handleBulkDeleteDocuments}
                 />
 
                 <ReprocessModal

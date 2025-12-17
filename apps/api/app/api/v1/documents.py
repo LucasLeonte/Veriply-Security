@@ -306,6 +306,63 @@ async def list_document_chunks(
         raise HTTPException(status_code=500, detail="Failed to retrieve chunks")
 
 
+@router.post("/bulk-delete", status_code=status.HTTP_204_NO_CONTENT)
+async def bulk_delete_documents(
+    group_id: UUID,
+    payload: BulkReprocessRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Soft-delete multiple documents (max 100) in the group KB."""
+    try:
+        await check_group_access(group_id, current_user, session)
+
+        if not payload.document_ids:
+            raise HTTPException(status_code=400, detail="No document_ids provided")
+
+        if len(payload.document_ids) > 100:
+            raise HTTPException(status_code=400, detail="Cannot delete more than 100 documents at once")
+
+        docs = await DocumentGroupService.get_documents_by_ids(
+            db=session,
+            doc_ids=payload.document_ids,
+            group_id=group_id,
+            tenant_id=UUID(current_user["tenant_id"]),
+        )
+
+        if len(docs) != len(payload.document_ids):
+            raise HTTPException(status_code=404, detail="One or more documents not found")
+
+        for d in docs:
+            try:
+                await DocumentGroupService.soft_delete_document(
+                    db=session,
+                    doc_id=d.id,
+                    group_id=group_id,
+                    tenant_id=UUID(current_user["tenant_id"]),
+                )
+                await AuditService.log_document_delete(
+                    db=session,
+                    actor_id=UUID(current_user["sub"]),
+                    tenant_id=UUID(current_user["tenant_id"]),
+                    group_id=group_id,
+                    document_id=d.id,
+                    filename=d.filename,
+                )
+            except Exception:
+                logger.exception(f"Failed to delete document {d.id}")
+
+        await session.commit()
+        return None
+
+    except HTTPException:
+        await session.rollback()
+        raise
+    except Exception as e:
+        await session.rollback()
+        logger.exception(f"Error bulk deleting documents: {e}")
+        raise HTTPException(status_code=500, detail="Failed to bulk delete documents")
+
 @router.post("/bulk-reprocess", status_code=status.HTTP_202_ACCEPTED)
 async def bulk_reprocess_documents(
     group_id: UUID,

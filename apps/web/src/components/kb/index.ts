@@ -4,6 +4,7 @@ export { UploadModal } from "./UploadModal";
 export { MoveToFolderModal } from "./MoveToFolderModal";
 export { ReprocessModal } from "./ReprocessModal";
 export { BulkReprocessModal } from "./BulkReprocessModal";
+export { BulkDeleteModal } from "./BulkDeleteModal";
 export { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 export { Pagination } from "./Pagination";
 export { KnowledgeBaseList } from "./KnowledgeBaseList";

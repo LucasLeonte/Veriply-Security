@@ -203,38 +203,6 @@ export const documentsApi = {
     },
 
     /**
-     * Delete multiple documents in bulk
-     */
-    async bulkDeleteDocuments(
-        botId: string,
-        documentIds: string[]
-    ): Promise<{
-        message: string;
-        queued_count: number;
-        document_ids: string[];
-    }> {
-        if (USE_MOCK_DATA) {
-            return mockDocumentsApi.bulkDeleteDocuments(botId, documentIds);
-        }
-
-        const response = await fetchWithAuth(
-            `${API_BASE_URL}/api/v1/documents/bulk-delete`,
-            {
-                method: "POST",
-                body: JSON.stringify({
-                    bot_id: botId,
-                    document_ids: documentIds,
-                }),
-            }
-        );
-        return handleResponse<{
-            message: string;
-            queued_count: number;
-            document_ids: string[];
-        }>(response);
-    },
-
-    /**
      * Trigger reprocessing of a document (group-scoped)
      */
     async reprocessDocument(
@@ -300,6 +268,29 @@ export const documentsApi = {
             queued_count: number;
             document_ids: string[];
         }>(response);
+    },
+
+    /**
+     * Bulk delete documents (max 100)
+     */
+    async bulkDeleteDocuments(
+        groupId: string,
+        documentIds: string[]
+    ): Promise<void> {
+        if (USE_MOCK_DATA) {
+            return Promise.resolve();
+        }
+
+        const response = await fetchWithAuth(
+            `${API_BASE_URL}/api/v1/groups/${groupId}/documents/bulk-delete`,
+            {
+                method: "POST",
+                body: JSON.stringify({ document_ids: documentIds }),
+            }
+        );
+        if (!response.ok) {
+            throw new Error(`Failed to delete documents: ${response.status}`);
+        }
     },
 
     /**
