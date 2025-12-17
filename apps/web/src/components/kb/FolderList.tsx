@@ -216,33 +216,35 @@ export function FolderList({
                                         {folder.name}
                                     </span>
                                 </button>
-                                <span className="ml-auto text-xs text-slate-500 tabular-nums text-right">
-                                    {folderStats.get(folder.id)
-                                        ?.document_count || 0}
-                                </span>
-                                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
-                                    <button
-                                        onClick={() => startEdit(folder)}
-                                        className="p-1 hover:bg-slate-200 rounded"
-                                        title="Rename folder"
-                                    >
-                                        <Edit2
-                                            size={14}
-                                            className="text-slate-500"
-                                        />
-                                    </button>
-                                    <button
-                                        onClick={() =>
-                                            onDeleteFolder(folder.id)
-                                        }
-                                        className="p-1 hover:bg-red-100 rounded"
-                                        title="Delete folder"
-                                    >
-                                        <Trash2
-                                            size={14}
-                                            className="text-red-500"
-                                        />
-                                    </button>
+                                <div className="ml-auto flex items-center gap-3">
+                                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
+                                        <button
+                                            onClick={() => startEdit(folder)}
+                                            className="p-1 hover:bg-slate-200 rounded"
+                                            title="Rename folder"
+                                        >
+                                            <Edit2
+                                                size={14}
+                                                className="text-slate-500"
+                                            />
+                                        </button>
+                                        <button
+                                            onClick={() =>
+                                                onDeleteFolder(folder.id)
+                                            }
+                                            className="p-1 hover:bg-red-100 rounded"
+                                            title="Delete folder"
+                                        >
+                                            <Trash2
+                                                size={14}
+                                                className="text-red-500"
+                                            />
+                                        </button>
+                                    </div>
+                                    <span className="text-xs text-slate-500 tabular-nums text-right w-10">
+                                        {folderStats.get(folder.id)
+                                            ?.document_count || 0}
+                                    </span>
                                 </div>
                             </>
                         )}
