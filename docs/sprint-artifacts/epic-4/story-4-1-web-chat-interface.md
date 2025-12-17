@@ -1,7 +1,7 @@
 # Story 4.1: Web Chat Interface
 
 **Epic:** 4. Chat Experience  
-**Status:** review  
+**Status:** done  
 **Assigned to:** Dario  
 **Blocked by:** 3-2-context-only-answer-generation (completed)
 
