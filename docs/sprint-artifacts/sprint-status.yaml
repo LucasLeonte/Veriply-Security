@@ -230,7 +230,7 @@ development_status:
 
     4-6-widget-security-responsiveness:
         status: ready-for-dev
-        assigned_to: null
+        assigned_to: Lucas
         blocked_by: 4-5-embeddable-widget-generation
 
     epic-4-retrospective: optional

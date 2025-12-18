@@ -324,13 +324,13 @@ export function WidgetConfigClient({
                 </div>
 
                 {/* Preview & Code Panel */}
-                <div className="lg:col-span-1">
+                <div className="lg:col-span-1 h-full flex flex-col">
                     {/* Code Snippet */}
-                    <Card className="p-6 mb-6">
+                    <Card className="p-6 mb-6 flex-1 flex flex-col">
                         <h3 className="text-lg font-semibold text-slate-900 mb-3">
                             Embed Code
                         </h3>
-                        <div className="mb-3 p-3 bg-slate-50 rounded-lg max-h-40 overflow-y-auto">
+                        <div className="mb-3 p-3 bg-slate-50 rounded-lg flex-1 overflow-y-auto">
                             <code className="text-xs text-slate-700 whitespace-pre-wrap">
                                 {generateCode()}
                             </code>
@@ -339,7 +339,7 @@ export function WidgetConfigClient({
                             onClick={copyToClipboard}
                             variant="outline"
                             size="sm"
-                            className="w-full"
+                            className="w-full mt-auto"
                         >
                             {copied ? (
                                 <>
@@ -354,98 +354,123 @@ export function WidgetConfigClient({
                             )}
                         </Button>
                     </Card>
-
-                    {/* Preview */}
-                    <Card className="p-6">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-4">
-                            Preview
-                        </h3>
-                        <div className="relative w-full h-96 bg-slate-100 rounded-lg overflow-hidden border-2 border-slate-200">
-                            <div className="absolute w-full h-full">
-                                <div
-                                    className="fixed"
-                                    style={{
-                                        width: "320px",
-                                        height: "480px",
-                                        borderRadius: "12px",
-                                        overflow: "hidden",
-                                        boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-                                        background: "#fff",
-                                        zIndex: 10,
-                                        ...(() => {
-                                            const margin = "12px";
-                                            const positions = {
-                                                "bottom-right": {
-                                                    right: margin,
-                                                    bottom: margin,
-                                                },
-                                                "bottom-left": {
-                                                    left: margin,
-                                                    bottom: margin,
-                                                },
-                                                "top-right": {
-                                                    right: margin,
-                                                    top: margin,
-                                                },
-                                                "top-left": {
-                                                    left: margin,
-                                                    top: margin,
-                                                },
-                                            };
-                                            return (
-                                                positions[config.position] || {}
-                                            );
-                                        })(),
-                                    }}
-                                >
-                                    <div
-                                        className="flex flex-col items-center justify-center h-full bg-gradient-to-b"
-                                        style={{
-                                            backgroundImage: `linear-gradient(to bottom, ${config.primary_color}20, ${config.primary_color}05)`,
-                                        }}
-                                    >
-                                        <button
-                                            style={{
-                                                background:
-                                                    config.primary_color,
-                                                color: "white",
-                                            }}
-                                            className="rounded-full w-12 h-12 flex items-center justify-center shadow-lg hover:opacity-90 transition-opacity mb-4"
-                                        >
-                                            <svg
-                                                width="24"
-                                                height="24"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                            >
-                                                <path
-                                                    d="M4 4H20V16H5.17L4 17.17V4Z"
-                                                    stroke="white"
-                                                    strokeWidth="2"
-                                                />
-                                                <path
-                                                    d="M8 9H16"
-                                                    stroke="white"
-                                                    strokeWidth="2"
-                                                />
-                                                <path
-                                                    d="M8 13H12"
-                                                    stroke="white"
-                                                    strokeWidth="2"
-                                                />
-                                            </svg>
-                                        </button>
-                                        <p className="text-sm text-slate-600 px-4 text-center">
-                                            {config.welcome_message ||
-                                                "Hi! How can I help?"}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
                 </div>
             </div>
+            <WidgetFloatingDemo
+                position={config.position}
+                primaryColor={config.primary_color}
+                welcomeMessage={config.welcome_message}
+                autoOpen={config.auto_open}
+            />
         </div>
+    );
+}
+
+function WidgetFloatingDemo({
+    position,
+    primaryColor,
+    welcomeMessage,
+    autoOpen,
+}: {
+    position: WidgetConfig["position"];
+    primaryColor: string;
+    welcomeMessage: string | null;
+    autoOpen: boolean;
+}) {
+    const [open, setOpen] = useState(autoOpen);
+
+    const margin = "12px";
+    const buttonSize = 56;
+    const gap = 8;
+    const chatOffset = `${buttonSize + gap}px`;
+
+    const posStyle = {
+        "bottom-right": { right: margin, bottom: margin },
+        "bottom-left": { left: margin, bottom: margin },
+        "top-right": { right: margin, top: margin },
+        "top-left": { left: margin, top: margin },
+    } as const;
+
+    const chatPosStyle = {
+        "bottom-right": {
+            right: margin,
+            bottom: `calc(${margin} + ${chatOffset})`,
+        },
+        "bottom-left": {
+            left: margin,
+            bottom: `calc(${margin} + ${chatOffset})`,
+        },
+        "top-right": { right: margin, top: `calc(${margin} + ${chatOffset})` },
+        "top-left": { left: margin, top: `calc(${margin} + ${chatOffset})` },
+    } as const;
+
+    return (
+        <>
+            <button
+                type="button"
+                aria-label="Open chat"
+                onClick={() => setOpen((v) => !v)}
+                style={{
+                    position: "fixed",
+                    zIndex: 2147483648,
+                    width: `${buttonSize}px`,
+                    height: `${buttonSize}px`,
+                    borderRadius: "50%",
+                    border: "none",
+                    cursor: "pointer",
+                    boxShadow: "0 6px 16px rgba(0,0,0,0.25)",
+                    background: primaryColor,
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    ...posStyle[position],
+                }}
+            >
+                <svg
+                    width="26"
+                    height="26"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                >
+                    <path
+                        d="M4 4H20V16H5.17L4 17.17V4Z"
+                        stroke="white"
+                        strokeWidth="2"
+                    />
+                    <path d="M8 9H16" stroke="white" strokeWidth="2" />
+                    <path d="M8 13H12" stroke="white" strokeWidth="2" />
+                </svg>
+            </button>
+
+            {open && (
+                <div
+                    className="fixed"
+                    style={{
+                        width: "320px",
+                        height: "480px",
+                        borderRadius: "12px",
+                        overflow: "hidden",
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                        background: "#fff",
+                        zIndex: 2147483647,
+                        ...chatPosStyle[position],
+                    }}
+                >
+                    <div className="flex flex-col h-full">
+                        <div
+                            className="px-4 py-3 text-white text-sm font-semibold"
+                            style={{ background: primaryColor }}
+                        >
+                            Chat
+                        </div>
+                        <div className="flex-1 flex items-center justify-center px-4 text-sm text-slate-600 bg-white">
+                            {welcomeMessage || "Hi! How can I help?"}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
