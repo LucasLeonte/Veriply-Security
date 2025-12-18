@@ -347,6 +347,40 @@ async def reject_queue_item(
 # WebSocket for Real-Time Queue Updates (AC2)
 # ============================================================================
 
+def verify_websocket_token(token: str) -> dict:
+    """
+    Verify JWT token for WebSocket connection and extract payload.
+    
+    Returns:
+        dict with 'sub' (user_id), 'tenant_id', and other JWT claims
+    
+    Raises:
+        Exception on invalid or expired token
+    """
+    import jwt as pyjwt
+    from app.core.settings import settings
+    
+    JWT_ALGORITHM = "HS256"
+    
+    try:
+        payload = pyjwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=[JWT_ALGORITHM]
+        )
+        
+        if not payload.get("sub") or not payload.get("tenant_id"):
+            raise ValueError("Missing required token claims")
+        
+        return payload
+    except pyjwt.ExpiredSignatureError:
+        raise ValueError("Token has expired")
+    except pyjwt.InvalidTokenError as e:
+        raise ValueError(f"Invalid token: {e}")
+    except Exception as e:
+        raise ValueError(f"Token verification failed: {e}")
+
+
 class ConnectionManager:
     """
     Manages WebSocket connections per tenant.
@@ -423,17 +457,13 @@ async def websocket_queue_updates(
     """
     
     # Authentication: Extract tenant from token
-    # Note: FastAPI WebSocket doesn't support Depends() in the same way,
-    # so we manually verify the token here
     try:
-        from app.api.v1.auth import verify_token
-        
         if not token:
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token required")
             return
         
         # Verify token and extract tenant_id
-        payload = verify_token(token)
+        payload = verify_websocket_token(token)
         tenant_id = UUID(payload.get("tenant_id"))
         user_id = UUID(payload.get("sub"))
         
