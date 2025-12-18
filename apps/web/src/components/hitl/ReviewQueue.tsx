@@ -67,8 +67,8 @@ export function ReviewQueueItemCard({
     };
 
     const confidenceColor = (confidence: number) => {
-        if (confidence >= 0.8) return "bg-emerald-100 text-emerald-700";
-        if (confidence >= 0.6) return "bg-amber-100 text-amber-700";
+        if (confidence > 0.75) return "bg-emerald-100 text-emerald-700";
+        if (confidence > 0.3) return "bg-amber-100 text-amber-700";
         return "bg-orange-100 text-orange-700";
     };
 
@@ -79,7 +79,14 @@ export function ReviewQueueItemCard({
                 <span>Confidence:</span>
                 <div className="flex-1 min-w-[120px] h-2 rounded-full bg-slate-200">
                     <div
-                        className="h-2 rounded-full bg-amber-400"
+                        className={cn(
+                            "h-2 rounded-full",
+                            confidence > 0.75
+                                ? "bg-emerald-400"
+                                : confidence > 0.3
+                                ? "bg-amber-400"
+                                : "bg-orange-400"
+                        )}
                         style={{ width: `${pct}%` }}
                     />
                 </div>

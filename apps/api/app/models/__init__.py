@@ -10,6 +10,7 @@ from .bot_document_access import BotDocumentAccess as BotDocumentAccess
 from .chunk import Chunk as Chunk
 from .embedding import Embedding as Embedding
 from .audit_log import AuditLog as AuditLog
+from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
 
 __all__ = [
     "Base",
@@ -26,4 +27,6 @@ __all__ = [
     "Chunk",
     "Embedding",
     "AuditLog",
+    "ConfidenceLog",
+    "RoutingDecision",
 ]

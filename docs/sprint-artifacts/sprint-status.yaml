@@ -186,7 +186,7 @@ development_status:
         blocked_by: 3-2-context-only-answer-generation
 
     3-4-confidence-scoring-routing:
-        status: in-progress
+        status: review
         assigned_to: Soulaymane
         blocked_by: 3-3-citation-generation
 
@@ -219,7 +219,7 @@ development_status:
         blocked_by: 4-1-web-chat-interface
 
     4-4-trust-signals-display:
-        status: in-progress
+        status: done
         assigned_to: Kainy
         blocked_by: 4-1-web-chat-interface
 

@@ -45,6 +45,7 @@ export default async function ChatPage({ params }: PageProps) {
                 botAvatar={botInfo.avatar_url}
                 welcomeMessage={botInfo.welcome_message}
                 isPublic={botInfo.is_public}
+                confidenceThreshold={botInfo.confidence_threshold}
             />
         </main>
     );

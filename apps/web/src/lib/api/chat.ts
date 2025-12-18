@@ -153,3 +153,44 @@ export function clearChatHistory(botId: string, sessionId: string): void {
         console.error("Failed to clear chat history:", error);
     }
 }
+
+/**
+ * Send a low-confidence message to the review queue for human review
+ */
+export async function sendToReviewQueue(
+    botId: string,
+    userQuestion: string,
+    aiDraft: string,
+    confidence: number,
+    citations?: Array<{ source: string; url?: string }>
+): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/bots/${botId}/review-queue`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                user_question: userQuestion,
+                ai_draft: aiDraft,
+                confidence,
+                citations: citations || [],
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        // Do not cause infinite retry loops on 4xx; surface a clear message instead
+        if (response.status === 404) {
+            return {
+                success: false,
+                message: "Review queue endpoint or bot not found",
+            };
+        }
+
+        throw new Error(`Failed to send to review queue: ${response.statusText}`);
+    }
+
+    return response.json();
+}

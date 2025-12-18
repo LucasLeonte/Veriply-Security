@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,6 +16,7 @@ from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
 from app.services.context_service import ContextService, DEFAULT_CONTEXT_WINDOW
+from app.services.confidence_service import ConfidenceCalculatorService
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ async def get_public_bot_info(
                 or f"Hi! I'm {bot.name}. Ask me anything!"
             ),
             is_public=getattr(bot, "is_public", True),
+            confidence_threshold=getattr(bot, "confidence_threshold", 80),
         )
 
     except HTTPException:
@@ -178,20 +180,20 @@ async def chat_query(
     embedding_service = EmbeddingService()
     vector_search_service = VectorSearchService(embedding_service)
     llm_service = LLMService()
+    confidence_service = ConfidenceCalculatorService()
 
     try:
         # Get tenant_id from bot for context retrieval
         tenant_id = bot.tenant_id
 
         # Retrieve relevant context from vector store
-        # Use higher thresholds to reduce false positives in citations
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
             query=request.query.strip(),
-            k=3,  # Get top 3 chunks (reduced from 5 to minimize noise)
-            similarity_threshold=0.65,  # Raised from 0.5 to 0.65 for higher relevance bar
+            k=3,
+            similarity_threshold=0.5,
         )
 
         if not search_results:
@@ -201,64 +203,39 @@ async def chat_query(
                 media_type="text/event-stream",
             )
 
-        # Pass SearchResult objects directly to LLM service
-        # LLMService expects List[SearchResult], not list of dicts
-
-        # Build conversation history (only if no formatted context available)
-        conversation_history = []
+        # Build conversation history that will be sent to the LLM
+        conversation_history: list[ChatMessage] = []
         if not conversation_context and context_messages:
             conversation_history = context_messages[-context_window:]
 
-        # Stream LLM response
-        return StreamingResponse(
-            _stream_llm_response(
-                llm_service=llm_service,
-                query=request.query.strip(),
-                context_chunks=search_results,  # Pass SearchResult objects directly
-                conversation_history=conversation_history,
-                conversation_context=conversation_context or None,
-            ),
-            media_type="text/event-stream",
-        )
+        # Generate AI draft tokens (not streamed yet);
+        # we hold them until confidence is calculated and routing decided.
+        draft_tokens: list[str] = []
+        async for token in llm_service.generate_answer(
+            query=request.query.strip(),
+            context_chunks=search_results,
+            conversation_history=[
+                {"role": m.role, "content": m.content} for m in conversation_history
+            ],
+            conversation_context=conversation_context or None,
+        ):
+            draft_tokens.append(token)
+        ai_draft = "".join(draft_tokens)
 
-    except Exception as e:
-        logger.error(f"Error processing chat query: {e}")
-        return StreamingResponse(
-            _stream_error_response(str(e)),
-            media_type="text/event-stream",
-        )
-
-
-async def _stream_llm_response(
-    llm_service: LLMService,
-    query: str,
-    context_chunks: list,  # List[SearchResult]
-    conversation_history: list[ChatMessage],
-    conversation_context: Optional[str] = None,
-) -> AsyncIterator[str]:
-    """Stream LLM response tokens as SSE events using LLMService.generate_answer."""
-    try:
-        # Map conversation history to LLM-compatible message dicts
-        history_payload = [
-            {"role": msg.role, "content": msg.content}
-            for msg in conversation_history
+        # Prepare lightweight citations metadata for confidence logging
+        confidence_citations = [
+            {
+                "source": result.document_name or "Unknown",
+                "similarity": result.similarity,
+            }
+            for result in search_results
         ]
 
-        # Stream tokens from LLM service
-        token_count = 0
-        async for token in llm_service.generate_answer(
-            query=query,
-            context_chunks=context_chunks,
-            conversation_history=history_payload,
-            conversation_context=conversation_context,
-        ):
-            token_count += 1
-            yield f"data: {json.dumps({'token': token})}\n\n"
-
-        # Send metadata at the end
-        # Filter citations to only high-confidence matches (≥0.65 similarity)
-        CITATION_SIMILARITY_THRESHOLD = 0.65
-        citations = [
+        # Build detailed citations for streaming metadata.
+        # Use the same threshold as vector search (0.5) so that
+        # every retrieved chunk is surfaced as a source.
+        CITATION_SIMILARITY_THRESHOLD = 0.5
+        streaming_citations = [
             {
                 "source": result.document_name or "Unknown",
                 "document_name": result.document_name or "Unknown",
@@ -271,38 +248,122 @@ async def _stream_llm_response(
                 "similarity": result.similarity,
                 "url": f"/api/v1/documents/{result.document_id}/chunks",
             }
-            for result in context_chunks
+            for result in search_results
             if result.similarity >= CITATION_SIMILARITY_THRESHOLD
         ]
-        
+
         # Log low-confidence chunks that were excluded from citations
-        low_confidence = [r for r in context_chunks if r.similarity < CITATION_SIMILARITY_THRESHOLD]
+        low_confidence = [
+            r for r in search_results if r.similarity < CITATION_SIMILARITY_THRESHOLD
+        ]
         if low_confidence:
             logger.debug(
-                f"Excluded {len(low_confidence)} low-confidence chunk(s) from citations: "
-                f"{[f'{r.document_name}({r.similarity:.2f})' for r in low_confidence]}"
+                "Excluded %d low-confidence chunk(s) from citations: %s",
+                len(low_confidence),
+                [f"{r.document_name}({r.similarity:.2f})" for r in low_confidence],
             )
 
-        # Filter citations to only high-confidence matches
-        # CITATION_SIMILARITY_THRESHOLD = 0.65 filters out low-confidence chunks
-        # that may have false positive relevance. Matches search_results threshold
-        # to ensure consistency between search retrieval and citation display.
-        metadata = {
-            "citations": citations,
-            "chunks_used": len(context_chunks),
-            "token_count": token_count,
-        }
+        # Calculate confidence score using draft + citations
+        threshold = getattr(bot, "confidence_threshold", 80)
+        is_verified_kb = any(
+            getattr(r, "is_verified", False) for r in search_results
+        )
+        confidence_result = await confidence_service.calculate_confidence(
+            db=db,
+            bot_id=bot_id,
+            tenant_id=tenant_id,
+            query=request.query.strip(),
+            search_results=search_results,
+            confidence_threshold=threshold,
+            is_verified_kb=is_verified_kb,
+            metadata_json={
+                "confidence_threshold": threshold,
+                "ai_draft": ai_draft,
+                "citations": confidence_citations,
+            },
+        )
 
-        yield f"data: {json.dumps({'metadata': metadata})}\n\n"
-        yield "data: [DONE]\n\n"
+        # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
+        confidence_value = float(confidence_result.overall_score)
+
+        # Routing decision: send a wait message for HITL, otherwise stream draft
+        if confidence_result.routing_decision.value == "hitl":
+            return StreamingResponse(
+                _stream_hitl_wait_response(confidence_value),
+                media_type="text/event-stream",
+            )
+
+        return StreamingResponse(
+            _stream_precomputed_response(
+                tokens=draft_tokens,
+                citations=streaming_citations,
+                extra_metadata={"confidence": confidence_value},
+            ),
+            media_type="text/event-stream",
+        )
 
     except Exception as e:
-        logger.error(f"Error streaming LLM response: {e}")
-        error_msg = {
-            "error": "Failed to generate response",
-            "detail": str(e),
+        logger.error(f"Error processing chat query: {e}")
+        return StreamingResponse(
+            _stream_error_response(str(e)),
+            media_type="text/event-stream",
+        )
+
+
+@router.get("/{bot_id}/chat/{message_id}/status")
+async def get_message_status(
+    bot_id: UUID,
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check status of a pending verification message.
+
+    Used by frontend to poll for HITL verification completion.
+    When a low-confidence response is pending verification, the frontend
+    polls this endpoint until the status changes to "resolved".
+
+    Args:
+        - bot_id: UUID of the bot
+        - message_id: ID of the pending message
+
+    Returns:
+        - 200: { status: "pending" | "resolved", response?: {...} }
+        - 404: Message not found or not pending
+    """
+    try:
+        # Verify bot exists
+        bot = await db.get(Bot, bot_id)
+        if not bot:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Bot not found",
+            )
+
+        # TODO: Implement message status tracking in database
+        # For now, return pending status as placeholder
+        # In production:
+        # 1. Query message_status table to get current status
+        # 2. If status == "resolved", fetch and return the verified response
+        # 3. If status == "pending", return pending status
+        # 4. If message not found, return 404
+
+        logger.debug(f"Checking status for message {message_id} in bot {bot_id}")
+
+        # Placeholder response - implement when HITL queue is ready
+        return {
+            "status": "pending",
+            "error": "Message status tracking not yet implemented",
         }
-        yield f"data: {json.dumps(error_msg)}\n\n"
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking message status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check message status",
+        )
 
 
 async def _stream_no_context_response() -> AsyncIterator[str]:
@@ -313,8 +374,43 @@ async def _stream_no_context_response() -> AsyncIterator[str]:
     for char in message:
         yield f"data: {json.dumps({'token': char})}\n\n"
 
-    # Send empty metadata
-    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0}})}\n\n"
+    # Send empty metadata with zero confidence
+    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0, 'confidence': 0}})}\n\n"
+    yield "data: [DONE]\n\n"
+
+
+async def _stream_precomputed_response(
+    tokens: list[str],
+    citations: list[dict],
+    extra_metadata: dict | None = None,
+) -> AsyncIterator[str]:
+    """Stream precomputed tokens and final metadata."""
+    token_count = 0
+    for token in tokens:
+        token_count += 1
+        yield f"data: {json.dumps({'token': token})}\n\n"
+
+    metadata = {
+        "citations": citations,
+        "chunks_used": len(citations),
+        "token_count": token_count,
+    }
+    if extra_metadata:
+        try:
+            metadata.update(extra_metadata)
+        except Exception:
+            pass
+
+    yield f"data: {json.dumps({'metadata': metadata})}\n\n"
+    yield "data: [DONE]\n\n"
+
+
+async def _stream_hitl_wait_response(confidence: float) -> AsyncIterator[str]:
+    """Stream HITL wait message to end-user with confidence metadata."""
+    message = "I'm checking with the team for the best answer. You'll hear from us shortly."
+    for ch in message:
+        yield f"data: {json.dumps({'token': ch})}\n\n"
+    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0, 'confidence': confidence}})}\n\n"
     yield "data: [DONE]\n\n"
 
 

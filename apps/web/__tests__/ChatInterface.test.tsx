@@ -18,6 +18,7 @@ describe("ChatInterface", () => {
         botAvatar: undefined,
         welcomeMessage: "Welcome to Test Bot!",
         isPublic: true,
+        confidenceThreshold: 80,
     };
 
     beforeEach(() => {
