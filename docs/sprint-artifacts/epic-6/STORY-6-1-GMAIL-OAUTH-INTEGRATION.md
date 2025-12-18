@@ -1,6 +1,7 @@
 # Story 6.1: Gmail OAuth Integration
 
-Status: drafted
+Status: ready-for-dev
+**Assigned to:** Soulaymane
 
 ## Story
 
@@ -144,3 +145,41 @@ _To be filled by dev agent_
 ### File List
 
 _To be filled by dev agent_
+
+### Implementation checklist (developer-ready)
+
+- [ ] Add DB migration `email_integrations` and apply locally
+- [ ] Implement `apps/api/app/integrations/gmail.py` with OAuth flow helpers
+- [ ] Add routes in `apps/api/app/routes/integrations.py` and register in `app.main`
+- [ ] Implement `apps/api/app/utils/encryption.py` and unit tests
+- [ ] Frontend `GmailConnection.tsx` component + Integrations page
+- [ ] Add integration E2E test (Playwright) for connect/disconnect flow
+
+### Quick local run notes
+
+1. Create Google OAuth credentials (set redirect URI to `http://localhost:3000/api/integrations/gmail/callback`)
+2. Set env vars in `apps/web/.env.local` and API envs:
+
+```powershell
+$env:GOOGLE_CLIENT_ID = '<client_id>'
+$env:GOOGLE_CLIENT_SECRET = '<client_secret>'
+$env:EMAIL_TOKEN_ENCRYPTION_KEY = '<32_byte_base64_key>'
+```
+
+3. Apply DB migrations and run API dev server (from repo root):
+
+```powershell
+Set-Location -Path .\apps\api
+alembic upgrade head
+$env:DATABASE_URL = 'postgresql+asyncpg://user:pass@localhost:5432/veriply_dev'
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+4. Run frontend (from repo root):
+
+```powershell
+Set-Location -Path .\apps\web
+npm run dev
+```
+
+5. Visit Integrations page and click "Connect Gmail" to start flow.
