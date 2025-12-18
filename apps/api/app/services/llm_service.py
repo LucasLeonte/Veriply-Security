@@ -221,7 +221,13 @@ Answer (based ONLY on the context above):"""
             Formatted source string
         """
         parts = [chunk.document_name]
-        iformat_conversation_history(self, conversation_history: List[dict]) -> str:
+        if chunk.section:
+            parts.append(chunk.section)
+        if chunk.page_number:
+            parts.append(f"p. {chunk.page_number}")
+        return " - ".join(parts)
+
+    def _format_conversation_history(self, conversation_history: List[dict]) -> str:
         """Format conversation history into readable context string.
         
         Args:
@@ -235,12 +241,6 @@ Answer (based ONLY on the context above):"""
             role = "User" if msg["role"] == "user" else "Assistant"
             formatted.append(f"{role}: {msg['content']}")
         return "\n".join(formatted)
-
-    def _f chunk.section:
-            parts.append(chunk.section)
-        if chunk.page_number:
-            parts.append(f"p. {chunk.page_number}")
-        return " - ".join(parts)
 
     def _build_messages(
         self,

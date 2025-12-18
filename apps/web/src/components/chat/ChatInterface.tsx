@@ -221,6 +221,12 @@ export default function ChatInterface({
                         ) : (
                             <Send className="h-5 w-5" />
                         )}
+                    </Button>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                    Press Enter to send, Shift+Enter for new line
+                </p>
+            </div>
 
             {/* Clear Conversation Dialog */}
             {showClearDialog && (
@@ -252,12 +258,6 @@ export default function ChatInterface({
                     </Card>
                 </div>
             )}
-                    </Button>
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                    Press Enter to send, Shift+Enter for new line
-                </p>
-            </div>
         </Card>
     );
 }
