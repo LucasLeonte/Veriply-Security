@@ -26,6 +26,7 @@ export interface BotPublicInfo {
     avatar_url?: string;
     welcome_message: string;
     is_public: boolean;
+    confidence_threshold: number;
 }
 
 export interface ChatQueryRequest {

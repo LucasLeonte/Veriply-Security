@@ -32,7 +32,10 @@ class ReviewQueueItemResponse(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp of query")
     userQuestion: str = Field(..., description="Original user question")
     aiDraft: str = Field(..., description="AI-generated draft response")
-    confidence: float = Field(..., description="Confidence score (0-100)")
+    # Confidence is stored in the DB as a 0-1 float; keep the
+    # API contract aligned so the frontend can render a % view
+    # with a simple *100, matching the live chat certainty bar.
+    confidence: float = Field(..., description="Confidence score (0-1)")
     citations: List[dict] = Field(default_factory=list, description="Source citations")
     status: str = Field(default="pending", description="Review status")
     source: str = Field(default="chatbot", description="Source of the question")
@@ -120,7 +123,10 @@ async def get_review_queue(
                 timestamp=item.created_at.isoformat(),
                 userQuestion=item.query_text or "Unknown question",
                 aiDraft=metadata.get("ai_draft", ""),
-                confidence=float(item.overall_confidence) * 100,  # Convert to percentage
+                # Keep confidence on a 0-1 scale so the Review Queue UI
+                # displays the same certainty value as the live chat
+                # bar (which multiplies by 100 for display only).
+                confidence=float(item.overall_confidence),
                 citations=citations,
                 status="pending",
                 source=metadata.get("source", "chatbot"),

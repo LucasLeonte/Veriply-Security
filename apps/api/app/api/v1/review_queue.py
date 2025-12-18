@@ -12,7 +12,7 @@ from typing import Optional, List
 import logging
 from pydantic import BaseModel, Field
 
-from app.models import Bot
+from app.models.bot import Bot
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
 from app.core.database import get_db
 
@@ -55,10 +55,17 @@ async def submit_to_review_queue(
     - `message`: Confirmation message
     - `queue_item_id`: ID of the created review queue item
     """
-    # Verify bot exists
+    # Verify bot exists (best-effort for public chat submissions)
     bot = await session.scalar(select(Bot).where(Bot.id == bot_id))
     if not bot:
-        raise HTTPException(status_code=404, detail="Bot not found")
+        # For public chat flows we don't want hard 404s to break UX or
+        # spam logs; log and return a soft failure instead.
+        logger.warning("Review queue submission for unknown bot_id=%s", bot_id)
+        return {
+            "success": False,
+            "message": "Bot not found for review queue submission",
+            "queue_item_id": None,
+        }
     
     try:
         # Create a new confidence log entry for review

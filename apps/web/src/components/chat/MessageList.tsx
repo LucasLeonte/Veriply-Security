@@ -14,6 +14,8 @@ interface MessageListProps {
     botAvatar?: string;
     streaming: boolean;
     botId?: string;
+    // Bot confidence threshold as percentage (0-100)
+    confidenceThresholdPercent?: number;
 }
 
 export default function MessageList({
@@ -28,6 +30,12 @@ export default function MessageList({
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
     const [sentToReview, setSentToReview] = useState<Set<string>>(new Set());
     const [sendingToReview, setSendingToReview] = useState<Set<string>>(new Set());
+
+    // Default to 80% if not provided
+    const reviewThreshold = Math.min(
+        1,
+        Math.max(0, (typeof confidenceThresholdPercent === "number" ? confidenceThresholdPercent : 80) / 100)
+    );
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -45,7 +53,7 @@ export default function MessageList({
             if (
                 message.role === "assistant" &&
                 message.confidence !== undefined &&
-                message.confidence < 0.8 &&
+                message.confidence < reviewThreshold &&
                 !sentToReview.has(message.id) &&
                 !sendingToReview.has(message.id)
             ) {
@@ -67,10 +75,17 @@ export default function MessageList({
                         message.content,
                         message.confidence,
                         message.citations
-                    ).then(() => {
+                    ).then((result) => {
+                        // Mark as sent even if backend reports logical failure,
+                        // to avoid hammering the endpoint on every render
+                        if (!result?.success) {
+                            console.warn("Review queue send reported failure:", result?.message);
+                        }
                         setSentToReview(prev => new Set(prev).add(message.id));
                     }).catch(err => {
                         console.error("Failed to send to review queue:", err);
+                        // Prevent infinite retry loops on hard failures
+                        setSentToReview(prev => new Set(prev).add(message.id));
                     }).finally(() => {
                         setSendingToReview(prev => {
                             const next = new Set(prev);
@@ -81,7 +96,7 @@ export default function MessageList({
                 }
             }
         });
-    }, [messages, botId, sentToReview, sendingToReview]);
+    }, [messages, botId, sentToReview, sendingToReview, reviewThreshold]);
 
     return (
         <>
@@ -193,7 +208,7 @@ export default function MessageList({
                                                     style={{ width: `${Math.round(message.confidence * 100)}%` }}
                                                 />
                                             </div>
-                                            {message.confidence < 0.8 && (
+                                            {message.confidence < reviewThreshold && (
                                                 <div className="mt-2 flex items-center gap-1.5 text-xs">
                                                     {sendingToReview.has(message.id) ? (
                                                         <>
@@ -222,7 +237,10 @@ export default function MessageList({
                                             </p>
                                             <div className="flex flex-wrap gap-2">
                                                 {message.citations
-                                                    .filter(c => (c.similarity ?? 0) >= 0.65)
+                                                    // Show all citations provided by the backend;
+                                                    // the backend already applies its own
+                                                    // similarity thresholds when building the
+                                                    // citations list.
                                                     .map((citation, idx) => (
                                                         <button
                                                             key={idx}

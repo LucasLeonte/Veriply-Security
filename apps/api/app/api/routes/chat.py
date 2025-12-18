@@ -66,6 +66,7 @@ async def get_public_bot_info(
                 or f"Hi! I'm {bot.name}. Ask me anything!"
             ),
             is_public=getattr(bot, "is_public", True),
+            confidence_threshold=getattr(bot, "confidence_threshold", 80),
         )
 
     except HTTPException:
@@ -151,14 +152,15 @@ async def chat_query(
         tenant_id = bot.tenant_id
 
         # Retrieve relevant context from vector store
-        # Use higher thresholds to reduce false positives in citations
+        # Use a balanced similarity threshold: high enough to avoid noise,
+        # but not so strict that we almost never find context in dev
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
             query=request.query.strip(),
             k=3,  # Get top 3 chunks (reduced from 5 to minimize noise)
-            similarity_threshold=0.65,  # Raised from 0.5 to 0.65 for higher relevance bar
+            similarity_threshold=0.5,
         )
 
         if not search_results:
@@ -209,12 +211,13 @@ async def chat_query(
                 "citations": citations,
             },
         )
-        confidence_pct = int(confidence_result.overall_score * 100)
+        # Keep confidence as 0-1 for the streaming API; UI already expects a 0-1 float.
+        confidence_value = float(confidence_result.overall_score)
 
         # Routing decision: HITL → wait message; AUTO_SEND → stream draft tokens
         if confidence_result.routing_decision.value == "hitl":
             return StreamingResponse(
-                _stream_hitl_wait_response(confidence_pct),
+                _stream_hitl_wait_response(confidence_value),
                 media_type="text/event-stream",
             )
 
@@ -223,7 +226,7 @@ async def chat_query(
             _stream_precomputed_response(
                 tokens=draft_tokens,
                 citations=citations,
-                extra_metadata={"confidence": confidence_pct},
+                extra_metadata={"confidence": confidence_value},
             ),
             media_type="text/event-stream",
         )

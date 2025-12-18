@@ -165,6 +165,14 @@ export async function sendToReviewQueue(
     );
 
     if (!response.ok) {
+        // Do not cause infinite retry loops on 4xx; surface a clear message instead
+        if (response.status === 404) {
+            return {
+                success: false,
+                message: "Review queue endpoint or bot not found",
+            };
+        }
+
         throw new Error(`Failed to send to review queue: ${response.statusText}`);
     }
 

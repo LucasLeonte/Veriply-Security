@@ -345,6 +345,7 @@ export default function BotsPage() {
                 {selectedBotId && (
                     <BotSettingsModal
                         botId={selectedBotId}
+                        groupId={groupId}
                         isOpen={isSettingsModalOpen}
                         onClose={() => {
                             setIsSettingsModalOpen(false);
