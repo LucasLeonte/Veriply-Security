@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { getAccessToken } from "@/lib/auth";
 
 export interface ReviewQueueItem {
     id: string;
@@ -41,17 +40,11 @@ export function useHITLQueue() {
                 setIsLoading(true);
                 setError(null);
 
-                const token = getAccessToken();
-                const headers: Record<string, string> = {
-                    "Content-Type": "application/json",
-                };
-                if (token) {
-                    headers.Authorization = `Bearer ${token}`;
-                }
-
                 const response = await fetch(`/api/hitl/queue`, {
                     method: "GET",
-                    headers,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
                 });
 
                 if (!response.ok) {
@@ -81,17 +74,11 @@ export function useHITLQueue() {
 
     const approveItem = async (itemId: string, edits?: string) => {
         try {
-            const token = getAccessToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
-
             const response = await fetch(`/api/hitl/queue/${itemId}/approve`, {
                 method: "POST",
-                headers,
+                headers: {
+                    "Content-Type": "application/json",
+                },
                 body: JSON.stringify({ edits }),
             });
 
@@ -112,17 +99,11 @@ export function useHITLQueue() {
 
     const rejectItem = async (itemId: string, reason?: string) => {
         try {
-            const token = getAccessToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
-
             const response = await fetch(`/api/hitl/queue/${itemId}/reject`, {
                 method: "POST",
-                headers,
+                headers: {
+                    "Content-Type": "application/json",
+                },
                 body: JSON.stringify({ reason }),
             });
 

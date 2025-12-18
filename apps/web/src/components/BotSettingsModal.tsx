@@ -14,7 +14,6 @@ import { format } from "date-fns";
 
 interface BotSettingsModalProps {
     botId: string;
-    groupId: string;
     isOpen: boolean;
     onClose: () => void;
     onSave?: (bot: Bot) => void;
@@ -23,13 +22,13 @@ interface BotSettingsModalProps {
 
 export function BotSettingsModal({
     botId,
-    groupId,
     isOpen,
     onClose,
     onSave,
     onError,
 }: BotSettingsModalProps) {
-    const { data: bot, isLoading: isLoadingBot } = useBotQuery(groupId, botId);
+    const { data: bot, isLoading: isLoadingBot } = useBotQuery(null, botId);
+    const groupId = bot?.group_id ?? "";
     const {
         mutate: updateBot,
         isPending: isUpdating,
@@ -302,14 +301,7 @@ export function BotSettingsModal({
                                 Created
                             </label>
                             <p className="mt-1 text-sm text-gray-600">
-                                {(() => {
-                                    const d = bot.created_at
-                                        ? new Date(bot.created_at)
-                                        : null;
-                                    return d && !isNaN(d.getTime())
-                                        ? format(d, "PPpp")
-                                        : "Unknown";
-                                })()}
+                                {format(new Date(bot.created_at), "PPpp")}
                             </p>
                         </div>
 
@@ -318,14 +310,7 @@ export function BotSettingsModal({
                                 Last Updated
                             </label>
                             <p className="mt-1 text-sm text-gray-600">
-                                {(() => {
-                                    const d = bot.updated_at
-                                        ? new Date(bot.updated_at)
-                                        : null;
-                                    return d && !isNaN(d.getTime())
-                                        ? format(d, "PPpp")
-                                        : "Unknown";
-                                })()}
+                                {format(new Date(bot.updated_at), "PPpp")}
                             </p>
                         </div>
                     </div>

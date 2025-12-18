@@ -1,5 +1,5 @@
 """Folder service for group-scoped folder management."""
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 from sqlalchemy import select, func, and_, update

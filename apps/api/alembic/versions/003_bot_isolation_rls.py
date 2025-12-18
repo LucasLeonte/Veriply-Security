@@ -1,7 +1,7 @@
 """Add bot isolation RLS policies to documents, chunks, and embeddings
 
 Revision ID: 003_bot_isolation_rls
-Revises: 003_create_documents
+Revises: 002_bots_rls
 Create Date: 2025-12-04 14:00:00.000000
 
 """
@@ -9,7 +9,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '003_bot_isolation_rls'
-down_revision = '003_create_documents'
+down_revision = '002_bots_rls'
 branch_labels = None
 depends_on = None
 

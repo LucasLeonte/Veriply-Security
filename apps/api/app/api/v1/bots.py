@@ -290,7 +290,7 @@ async def upload_bot_avatar(
     if size_bytes > max_size:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File too large. Max 5MB",
+            detail=f"File too large. Max 5MB",
         )
 
     # Generate unique filename and persist under storage/avatars

@@ -1,7 +1,7 @@
 """add pgvector HNSW index for semantic search
 
 Revision ID: 005_add_hnsw_index
-Revises: 005_add_document_status_index
+Revises: 004_create_chunks_table
 Create Date: 2025-12-11 00:00:00.000000
 """
 from alembic import op
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '005_add_hnsw_index'
-down_revision = '005_add_document_status_index'
+down_revision = '004_create_chunks_table'
 branch_labels = None
 depends_on = None
 

@@ -1,5 +1,6 @@
 """Tests for folder service."""
 import pytest
+from uuid import uuid4
 from app.services.folder_service import FolderService
 
 

@@ -22,6 +22,7 @@ from uuid import uuid4
 import jwt
 import os
 from datetime import datetime, timedelta
+from io import BytesIO
 
 JWT_SECRET = os.getenv("JWT_SECRET", "please-change-me")
 JWT_ALGORITHM = "HS256"

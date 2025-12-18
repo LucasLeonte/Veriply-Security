@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ChatMessage, Citation } from "@/types/chat";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ChatMessage } from "@/types/chat";
 import {
     streamChatQuery,
     loadChatHistory,
@@ -9,64 +9,89 @@ import {
     clearChatHistory as clearStoredHistory,
 } from "@/lib/api/chat";
 import { v4 as uuidv4 } from "uuid";
+import {
+    submitFeedback as submitFeedbackApi,
+    FeedbackReason,
+    FeedbackType,
+} from "@/lib/api/feedback";
+import { getAccessToken } from "@/lib/auth";
 
-// Context window size (configurable per bot, default 10 messages)
-const DEFAULT_CONTEXT_WINDOW = 10;
+type FeedbackEntry = {
+    type: FeedbackType;
+    reason?: FeedbackReason;
+    status: "idle" | "pending" | "sent" | "error" | "cooldown";
+    timestamp: number;
+    message?: string;
+    cooldownUntil?: number;
+};
 
-export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTEXT_WINDOW) {
+export function useChat(botId: string) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
-    
-    // Initialize sessionId from sessionStorage to persist across tab switches
-    const sessionIdRef = useRef<string>('');
-    
-    // Set up sessionId on mount
-    useEffect(() => {
-        if (!sessionIdRef.current) {
-            const key = `chat_session_${botId}`;
-            let sessionId = typeof window !== 'undefined' ? sessionStorage.getItem(key) : null;
-            if (!sessionId) {
-                sessionId = uuidv4();
-            }
-            if (typeof window !== 'undefined' && sessionId) {
-                sessionStorage.setItem(key, sessionId);
-            }
-            sessionIdRef.current = sessionId || uuidv4();
-        }
-    }, [botId]);
-    
+    const [feedbackState, setFeedbackState] = useState<Record<string, FeedbackEntry>>({});
+    const [feedbackRateLog, setFeedbackRateLog] = useState<number[]>([]);
+    const [feedbackError, setFeedbackError] = useState<string | null>(null);
     const lastQueryRef = useRef<string>("");
     const streamingMessageRef = useRef<ChatMessage | null>(null);
-    const contextWindow = useMemo(() => {
-        const configured = Number(process.env.NEXT_PUBLIC_CONTEXT_WINDOW);
-        if (Number.isFinite(configured) && configured > 0 && configured <= 100) {
-            return Math.floor(configured);
-        }
-        return 10;
-    }, []);
+    const sessionIdRef = useRef<string>("");
 
-    // Load chat history on mount
+    // Initialize session id for tracking feedback (persist across reloads; reset only when starting a new conversation)
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const key = `chat_session_id_${botId}`;
+        const existing = sessionStorage.getItem(key);
+        if (existing) {
+            sessionIdRef.current = existing;
+        } else {
+            const generated = uuidv4();
+            sessionStorage.setItem(key, generated);
+            sessionIdRef.current = generated;
+        }
+    }, [botId]);
+
+    // Load chat history for current session on mount
     useEffect(() => {
         const history = loadChatHistory(botId, sessionIdRef.current);
         setMessages(history);
     }, [botId]);
 
-    // Save chat history whenever messages change
+    // Load feedback state for this session
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const key = `feedback_state_${botId}_${sessionIdRef.current}`;
+        const stored = sessionStorage.getItem(key);
+        if (stored) {
+            try {
+                setFeedbackState(JSON.parse(stored));
+            } catch (err) {
+                console.error("Failed to load feedback state", err);
+            }
+        }
+    }, [botId]);
+
+    // Save chat history whenever messages change (per-session)
     useEffect(() => {
         if (messages.length > 0) {
-            saveChatHistory(botId, sessionIdRef.current, messages);
+            saveChatHistory(botId, messages, sessionIdRef.current);
         }
     }, [botId, messages]);
 
-    // Clear history on page unload
+    // Persist feedback state per session
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const key = `feedback_state_${botId}_${sessionIdRef.current}`;
+        sessionStorage.setItem(key, JSON.stringify(feedbackState));
+    }, [feedbackState, botId]);
+
+    // Clear current session history on page unload (optional)
     useEffect(() => {
         const handleBeforeUnload = () => {
-            // Session-based: clear on unload (as per AC #9)
-            // Comment this out if we want persistent history
-            clearStoredHistory(botId, sessionIdRef.current);
+            // Keep history persistent across reloads; do not clear by default
+            // If needed, uncomment to clear only current session history:
+            // clearStoredHistory(botId, sessionIdRef.current);
         };
 
         window.addEventListener("beforeunload", handleBeforeUnload);
@@ -92,7 +117,6 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 timestamp: Date.now(),
             };
 
-            const contextPayload = [...messages, userMessage];
             setMessages((prev) => [...prev, userMessage]);
             setLoading(true);
             setStreaming(true);
@@ -110,8 +134,8 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
             setMessages((prev) => [...prev, assistantMessage]);
 
             try {
-                // Build conversation history using context window
-                const conversationHistory = messages.slice(-contextWindowSize).map((msg) => ({
+                // Build conversation history
+                const conversationHistory = messages.slice(-4).map((msg) => ({
                     role: msg.role,
                     content: msg.content,
                 }));
@@ -120,10 +144,15 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 let fullContent = "";
                 let metadata: any = null;
 
-                for await (const chunk of streamChatQuery(botId, query, {
-                    context: contextPayload,
-                    contextWindow,
-                })) {
+                for await (const chunk of streamChatQuery(
+                    botId,
+                    query,
+                    conversationHistory,
+                    {
+                        sessionId: sessionIdRef.current,
+                        messageId: userMessage.id,
+                    }
+                )) {
                     if (chunk.type === "token") {
                         fullContent += chunk.content;
 
@@ -150,20 +179,8 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         if (metadata?.citations) {
                             lastMsg.citations = metadata.citations;
                         }
-                        if (metadata?.confidence !== undefined) {
-                            lastMsg.confidence = metadata.confidence as number;
-                        }
-                        if (metadata?.trust_level) {
-                            lastMsg.trustLevel = metadata.trust_level;
-                        }
-                        if (metadata?.confidence_score) {
-                            lastMsg.confidenceScore = metadata.confidence_score;
-                        }
-                        if (metadata?.source_type) {
-                            lastMsg.sourceType = metadata.source_type;
-                        }
-                        if (metadata?.response_id) {
-                            lastMsg.responseId = metadata.response_id;
+                        if (metadata?.answer_id) {
+                            lastMsg.answerId = metadata.answer_id as string;
                         }
                     }
                     return updated;
@@ -185,7 +202,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 console.error("Chat error:", err);
             }
         },
-        [botId, messages, loading, contextWindow]
+        [botId, messages, loading]
     );
 
     const retryLastMessage = useCallback(() => {
@@ -199,32 +216,169 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     }, [retryCount, sendMessage]);
 
     const clearHistory = useCallback(() => {
+        const oldSession = sessionIdRef.current;
+        const key = `chat_session_id_${botId}`;
         setMessages([]);
-        clearStoredHistory(botId, sessionIdRef.current);
-        // Generate new sessionId and store it for the next conversation
-        const newSessionId = uuidv4();
-        sessionIdRef.current = newSessionId;
-        const key = `chat_session_${botId}`;
-        if (typeof window !== 'undefined') {
-            sessionStorage.setItem(key, newSessionId);
-        }
+        // Do not delete old session messages; keep them available in local history
         setError(null);
         setRetryCount(0);
+        setFeedbackState({});
+        setFeedbackRateLog([]);
+        const newSession = uuidv4();
+        sessionIdRef.current = newSession;
+        sessionStorage.setItem(key, newSession);
+        if (oldSession) {
+            sessionStorage.removeItem(`feedback_state_${botId}_${oldSession}`);
+        }
     }, [botId]);
 
-    // Compute context size (number of messages in context window)
-    const contextSize = Math.min(messages.length, contextWindowSize);
+    const resumeSession = useCallback((sessionId: string) => {
+        // Switch current session id and load messages/feedback state
+        sessionIdRef.current = sessionId;
+        sessionStorage.setItem(`chat_session_id_${botId}`, sessionId);
+        const history = loadChatHistory(botId, sessionId);
+        setMessages(history);
+        setError(null);
+        setRetryCount(0);
+        // Load feedback state for that session if available
+        if (typeof window !== "undefined") {
+            try {
+                const key = `feedback_state_${botId}_${sessionId}`;
+                const stored = sessionStorage.getItem(key);
+                setFeedbackState(stored ? JSON.parse(stored) : {});
+            } catch {
+                setFeedbackState({});
+            }
+        }
+    }, [botId]);
+
+    const submitFeedbackForMessage = useCallback(
+        async (
+            params: {
+                messageId: string;
+                answerId?: string;
+                type: FeedbackType;
+                reason?: FeedbackReason;
+                notes?: string;
+            }
+        ) => {
+            const { messageId, answerId, type, reason, notes } = params;
+            if (!answerId) {
+                const err = "Missing answer identifier for feedback";
+                setFeedbackError(err);
+                return { success: false, error: err };
+            }
+
+            // Fast-fail if user is not authenticated (no stored token)
+            const token = typeof window !== "undefined" ? getAccessToken() : null;
+            if (!token) {
+                const err = "Please log in to provide feedback";
+                setFeedbackError(err);
+                setFeedbackState((prev) => ({
+                    ...prev,
+                    [messageId]: {
+                        type,
+                        reason,
+                        status: "error",
+                        timestamp: Date.now(),
+                        message: err,
+                    },
+                }));
+                return { success: false, error: err };
+            }
+
+            const now = Date.now();
+            const filtered = feedbackRateLog.filter(
+                (ts) => now - ts < 5 * 60 * 1000
+            );
+            if (filtered.length >= 20) {
+                const err = "Please wait before providing more feedback";
+                setFeedbackError(err);
+                setFeedbackRateLog(filtered);
+                setFeedbackState((prev) => ({
+                    ...prev,
+                    [messageId]: {
+                        type,
+                        reason,
+                        status: "cooldown",
+                        timestamp: now,
+                        message: err,
+                        cooldownUntil: now + 60 * 1000,
+                    },
+                }));
+                return { success: false, rateLimited: true };
+            }
+
+            setFeedbackRateLog([...filtered, now]);
+            setFeedbackError(null);
+            setFeedbackState((prev) => ({
+                ...prev,
+                [messageId]: {
+                    type,
+                    reason,
+                    status: "pending",
+                    timestamp: now,
+                },
+            }));
+
+            try {
+                await submitFeedbackApi(botId, {
+                    answer_id: answerId,
+                    message_id: messageId,
+                    type,
+                    reason,
+                    additional_notes: notes,
+                    session_id: sessionIdRef.current,
+                });
+
+                setFeedbackState((prev) => ({
+                    ...prev,
+                    [messageId]: {
+                        type,
+                        reason,
+                        status: "sent",
+                        timestamp: Date.now(),
+                    },
+                }));
+
+                return { success: true };
+            } catch (err: any) {
+                const status = err?.status as number | undefined;
+                const message =
+                    status === 401
+                        ? "Please log in to provide feedback"
+                        : err?.message || "Failed to send feedback";
+                setFeedbackError(message);
+                setFeedbackState((prev) => ({
+                    ...prev,
+                    [messageId]: {
+                        type,
+                        reason,
+                        status: status === 429 ? "cooldown" : "error",
+                        timestamp: Date.now(),
+                        message,
+                        cooldownUntil:
+                            status === 429 ? Date.now() + 60 * 1000 : undefined,
+                    },
+                }));
+                return { success: false, error: message };
+            }
+        },
+        [botId, feedbackRateLog]
+    );
 
     return {
         messages,
         loading,
         streaming,
         error,
-        contextSize,
         sendMessage,
         retryLastMessage,
         clearHistory,
-        contextWindow,
+        resumeSession,
+        feedbackState,
+        feedbackError,
+        submitFeedbackForMessage,
         sessionId: sessionIdRef.current,
     };
 }

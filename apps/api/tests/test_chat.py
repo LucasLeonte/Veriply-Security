@@ -180,7 +180,7 @@ async def test_chat_query_streams_response(client: AsyncClient, test_db_session)
 
 @pytest.mark.asyncio
 async def test_chat_query_with_conversation_history(
-    client: AsyncClient, db_session
+    client: AsyncClient, test_db_session
 ):
     """Test chat query with conversation history."""
     # Create test bot
@@ -200,10 +200,10 @@ async def test_chat_query_with_conversation_history(
         created_by=uuid4(),
     )
 
-    db_session.add(tenant)
-    db_session.add(group)
-    db_session.add(bot)
-    await db_session.commit()
+    test_db_session.add(tenant)
+    test_db_session.add(group)
+    test_db_session.add(bot)
+    await test_db_session.commit()
 
     # Make request with conversation history
     response = await client.post(

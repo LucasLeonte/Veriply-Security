@@ -261,7 +261,7 @@ class BotResponse(BaseModel):
     status: str
     avatar_url: Optional[str] = None
     welcome_message: Optional[str] = None
-    is_public: Optional[bool] = False
+    is_public: bool
     created_by: str | UUID
     created_at: datetime
 

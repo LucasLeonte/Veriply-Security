@@ -1,7 +1,7 @@
 """create chunks table
 
 Revision ID: 004_create_chunks_table
-Revises: 003_bot_isolation_rls
+Revises: 003_create_documents_table
 Create Date: 2025-12-10 00:00:00.000000
 """
 from alembic import op
@@ -10,7 +10,7 @@ from sqlalchemy.dialects import postgresql as pg
 
 # revision identifiers, used by Alembic.
 revision = '004_create_chunks_table'
-down_revision = '003_bot_isolation_rls'
+down_revision = '003_create_documents_table'
 branch_labels = None
 depends_on = None
 

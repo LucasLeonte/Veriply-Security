@@ -141,7 +141,6 @@ export default function BotSettingsPage() {
                                     botAvatar={bot.avatar_url}
                                     welcomeMessage={bot.welcome_message || bot.description || `Hi! I'm ${bot.name}`}
                                     isPublic={bot.is_public}
-                                    confidenceThreshold={bot.confidence_threshold}
                                 />
                             ) : null}
                         </div>
