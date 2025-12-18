@@ -19,7 +19,25 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
-    const sessionIdRef = useRef<string>(uuidv4());
+    
+    // Initialize sessionId from sessionStorage to persist across tab switches
+    const sessionIdRef = useRef<string>('');
+    
+    // Set up sessionId on mount
+    useEffect(() => {
+        if (!sessionIdRef.current) {
+            const key = `chat_session_${botId}`;
+            let sessionId = typeof window !== 'undefined' ? sessionStorage.getItem(key) : null;
+            if (!sessionId) {
+                sessionId = uuidv4();
+            }
+            if (typeof window !== 'undefined' && sessionId) {
+                sessionStorage.setItem(key, sessionId);
+            }
+            sessionIdRef.current = sessionId || uuidv4();
+        }
+    }, [botId]);
+    
     const lastQueryRef = useRef<string>("");
     const streamingMessageRef = useRef<ChatMessage | null>(null);
     const contextWindow = useMemo(() => {
@@ -168,7 +186,13 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     const clearHistory = useCallback(() => {
         setMessages([]);
         clearStoredHistory(botId, sessionIdRef.current);
-        sessionIdRef.current = uuidv4();
+        // Generate new sessionId and store it for the next conversation
+        const newSessionId = uuidv4();
+        sessionIdRef.current = newSessionId;
+        const key = `chat_session_${botId}`;
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem(key, newSessionId);
+        }
         setError(null);
         setRetryCount(0);
     }, [botId]);

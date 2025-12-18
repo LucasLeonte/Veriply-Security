@@ -246,11 +246,11 @@ export default function ChatInterface({
             {/* Clear Conversation Dialog */}
             {showClearDialog && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <Card className="w-full max-w-md p-6 m-4">
+                    <Card className="w-full max-w-md p-6 m-4 bg-white shadow-lg">
                         <h3 className="text-lg font-semibold text-slate-900 mb-2">
                             Start New Conversation?
                         </h3>
-                        <p className="text-slate-600 mb-4">
+                        <p className="text-slate-700 mb-4">
                             This will clear your conversation history. This action cannot be undone.
                         </p>
                         <div className="flex gap-3 justify-end">
