@@ -194,3 +194,30 @@ export async function sendToReviewQueue(
 
     return response.json();
 }
+
+/**
+ * Poll HITL message status until resolved.
+ */
+export async function getHitlMessageStatus(
+    botId: string,
+    messageId: string
+): Promise<
+    | { status: "pending"; message_id: string }
+    | { status: "resolved"; message_id: string; response?: { answer?: string; citations?: any[]; resolved_at?: string | null } }
+> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/bots/${botId}/chat/${messageId}/status`,
+        {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch HITL status: ${response.statusText}`);
+    }
+
+    return response.json();
+}

@@ -14,6 +14,10 @@ export interface ChatMessage {
     confidenceScore?: number;
     sourceType?: SourceType;
     responseId?: string;
+    // HITL tracking
+    hitlStatus?: "pending" | "resolved";
+    hitlMessageId?: string;
+    hitlResolvedAt?: string | null;
 }
 
 export interface Citation {

@@ -98,17 +98,27 @@ export function useHITLQueue() {
                 return;
             }
 
-            // Get API base URL from environment or default to localhost:8000
-            const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            // Determine WebSocket protocol based on current page
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             
-            // Extract host from API URL and determine WebSocket protocol
-            const apiUrl = new URL(apiBaseUrl);
-            const protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
-            const wsHost = apiUrl.host;
+            // For development: connect to backend directly on localhost:8000
+            // For production: use the same host as the current page
+            const isLocalhost = window.location.hostname === "localhost" || 
+                               window.location.hostname === "127.0.0.1" ||
+                               window.location.hostname === "0.0.0.0";
+            
+            let wsHost: string;
+            if (isLocalhost) {
+                // In development, backend is on port 8000
+                wsHost = "localhost:8000";
+            } else {
+                // In production, backend is on the same host as frontend
+                wsHost = window.location.host;
+            }
             
             const wsUrl = `${protocol}//${wsHost}/api/v1/hitl/ws/queue?token=${encodeURIComponent(token)}`;
             
-            console.log(`Connecting to WebSocket: ${protocol}//${wsHost}/api/v1/hitl/ws/queue`);
+            console.log(`Connecting to WebSocket: ${wsUrl}`);
 
             const ws = new WebSocket(wsUrl);
 

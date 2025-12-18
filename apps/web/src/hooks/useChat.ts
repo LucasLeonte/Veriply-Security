@@ -7,6 +7,7 @@ import {
     loadChatHistory,
     saveChatHistory,
     clearChatHistory as clearStoredHistory,
+    getHitlMessageStatus,
 } from "@/lib/api/chat";
 import { v4 as uuidv4 } from "uuid";
 
@@ -19,6 +20,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
+    const hitlPollersRef = useRef<Record<string, NodeJS.Timeout>>({});
     
     // Initialize sessionId from sessionStorage to persist across tab switches
     const sessionIdRef = useRef<string>('');
@@ -62,18 +64,88 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     }, [botId, messages]);
 
     // Clear history on page unload
-    useEffect(() => {
-        const handleBeforeUnload = () => {
-            // Session-based: clear on unload (as per AC #9)
-            // Comment this out if we want persistent history
-            clearStoredHistory(botId, sessionIdRef.current);
-        };
+    // NOTE: Commented out to persist chat history across page refreshes
+    // useEffect(() => {
+    //     const handleBeforeUnload = () => {
+    //         // Session-based: clear on unload (as per AC #9)
+    //         // Comment this out if we want persistent history
+    //         clearStoredHistory(botId, sessionIdRef.current);
+    //     };
 
-        window.addEventListener("beforeunload", handleBeforeUnload);
-        return () => {
-            window.removeEventListener("beforeunload", handleBeforeUnload);
-        };
-    }, [botId]);
+    //     window.addEventListener("beforeunload", handleBeforeUnload);
+    //     return () => {
+    //         window.removeEventListener("beforeunload", handleBeforeUnload);
+    //     };
+    // }, [botId]);
+
+    const stopHitlPolling = useCallback((messageId: string) => {
+        const handle = hitlPollersRef.current[messageId];
+        if (handle) {
+            clearInterval(handle);
+            delete hitlPollersRef.current[messageId];
+        }
+    }, []);
+
+    const startHitlPolling = useCallback(
+        (botId: string, messageId: string, assistantMessageId: string) => {
+            stopHitlPolling(messageId);
+
+            const poll = async () => {
+                try {
+                    const status = await getHitlMessageStatus(botId, messageId);
+
+                    if (status.status === "resolved") {
+                        stopHitlPolling(messageId);
+
+                        const resolvedAnswer = status.response?.answer || "";
+                        const resolvedCitations = status.response?.citations || [];
+
+                        setMessages((prev) =>
+                            prev.map((msg) =>
+                                msg.id === assistantMessageId
+                                    ? {
+                                          ...msg,
+                                          content: resolvedAnswer || msg.content,
+                                          citations: resolvedCitations,
+                                          trustLevel: "verified",
+                                          sourceType: "hitl",
+                                          hitlStatus: "resolved",
+                                          hitlMessageId: messageId,
+                                          responseId: messageId,
+                                          hitlResolvedAt: status.response?.resolved_at ?? null,
+                                      }
+                                    : msg
+                            )
+                        );
+                    }
+                } catch (err) {
+                    console.error("Failed to poll HITL status:", err);
+                }
+            };
+
+            // Initial poll and interval
+            void poll();
+            const handle = setInterval(poll, 4000);
+            hitlPollersRef.current[messageId] = handle;
+        },
+        [stopHitlPolling]
+    );
+
+    // Restart polling for any pending HITL items that were restored from history
+    useEffect(() => {
+        messages.forEach((msg) => {
+            const hitlId = msg.hitlMessageId;
+            if (!hitlId) return;
+
+            if (msg.hitlStatus === "pending" && !hitlPollersRef.current[hitlId]) {
+                startHitlPolling(botId, hitlId, msg.id);
+            }
+
+            if (msg.hitlStatus === "resolved") {
+                stopHitlPolling(hitlId);
+            }
+        });
+    }, [messages, botId, startHitlPolling, stopHitlPolling]);
 
     const sendMessage = useCallback(
         async (query: string) => {
@@ -105,6 +177,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 timestamp: Date.now(),
                 citations: [],
             };
+            const assistantMessageId = assistantMessage.id;
 
             streamingMessageRef.current = assistantMessage;
             setMessages((prev) => [...prev, assistantMessage]);
@@ -165,9 +238,20 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         if (metadata?.response_id) {
                             lastMsg.responseId = metadata.response_id;
                         }
+                        if (metadata?.status === "hitl_pending" && metadata?.message_id) {
+                            lastMsg.hitlStatus = "pending";
+                            lastMsg.hitlMessageId = metadata.message_id as string;
+                            lastMsg.sourceType = "hitl";
+                            lastMsg.trustLevel = "pending";
+                        }
                     }
                     return updated;
                 });
+
+                // Start HITL polling if needed
+                if (metadata?.status === "hitl_pending" && metadata?.message_id) {
+                    startHitlPolling(botId, metadata.message_id as string, assistantMessageId);
+                }
 
                 setStreaming(false);
                 setLoading(false);
@@ -185,7 +269,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 console.error("Chat error:", err);
             }
         },
-        [botId, messages, loading, contextWindow]
+        [botId, messages, loading, contextWindow, startHitlPolling]
     );
 
     const retryLastMessage = useCallback(() => {
@@ -211,6 +295,16 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         setError(null);
         setRetryCount(0);
     }, [botId]);
+
+    // Cleanup all HITL pollers on unmount
+    useEffect(() => {
+        return () => {
+            Object.values(hitlPollersRef.current).forEach((handle) => {
+                clearInterval(handle);
+            });
+            hitlPollersRef.current = {};
+        };
+    }, []);
 
     // Compute context size (number of messages in context window)
     const contextSize = Math.min(messages.length, contextWindowSize);

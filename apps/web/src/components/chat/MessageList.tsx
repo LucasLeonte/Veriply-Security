@@ -3,13 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatMessage, Citation } from "@/types/chat";
-import { Loader2, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, FileText, AlertCircle, CheckCircle2, CheckCircle2 as CheckIcon } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
 import { sendToReviewQueue } from "@/lib/api/chat";
 import ContextSummary from "./ContextSummary";
 import TrustBadge from "./TrustBadge";
-import PendingVerification from "./PendingVerification";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -127,28 +126,37 @@ export default function MessageList({
                                 </AvatarFallback>
                             </Avatar>
                         )}
-                        {/* Pending verification state */}
-                        {message.role === "assistant" && message.trustLevel === "pending" && botId ? (
-                            <div className="max-w-[70%]">
-                                <PendingVerification
-                                    messageId={message.id}
-                                    botId={botId}
-                                />
-                            </div>
-                        ) : (
-                            <div
-                                className={`max-w-[70%] rounded-lg px-4 py-2 shadow-sm ${
-                                    message.role === "user"
-                                        ? "bg-sky-600 text-white rounded-br-sm"
-                                        : "bg-white border border-slate-100 rounded-bl-sm"
-                                }`}
-                            >
-                                {message.role === "user" ? (
-                                    <p className="text-sm whitespace-pre-wrap">
-                                        {message.content}
-                                    </p>
-                                ) : (
-                                    <div className="prose prose-sm max-w-none">
+                        <div
+                            className={`max-w-[70%] rounded-lg px-4 py-2 shadow-sm ${
+                                message.role === "user"
+                                    ? "bg-sky-600 text-white rounded-br-sm"
+                                    : "bg-white border border-slate-100 rounded-bl-sm"
+                            }`}
+                        >
+                            {/* HITL status inline indicator */}
+                            {message.role === "assistant" && message.hitlStatus === "pending" && (
+                                <div className="mb-2 flex items-center gap-2 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    <span>Awaiting human review...</span>
+                                </div>
+                            )}
+                            {message.role === "assistant" && message.hitlStatus === "resolved" && (
+                                <div className="mb-2 flex items-center gap-2 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                                    <CheckIcon className="h-3.5 w-3.5" />
+                                    <span>
+                                        Reviewed by a human
+                                        {message.hitlResolvedAt
+                                            ? ` • ${new Date(message.hitlResolvedAt).toLocaleString()}`
+                                            : ""}
+                                    </span>
+                                </div>
+                            )}
+                            {message.role === "user" ? (
+                                <p className="text-sm whitespace-pre-wrap">
+                                    {message.content}
+                                </p>
+                            ) : (
+                                <div className="prose prose-sm max-w-none">
                                         <ReactMarkdown
                                             components={{
                                                 p: ({ children }) => (
@@ -208,7 +216,7 @@ export default function MessageList({
                                             {message.content}
                                         </ReactMarkdown>
 
-                                        {message.confidence !== undefined && (
+                                        {message.confidence !== undefined && message.confidence > 0 && (
                                             <div className="mt-3 pt-3 border-t border-slate-100">
                                                 <div className="flex items-center gap-2 mb-1">
                                                     <span className="text-xs font-medium text-slate-500">
@@ -307,7 +315,6 @@ export default function MessageList({
                                     </div>
                                 )}
                             </div>
-                        )}
                         {message.role === "user" && (
                             <Avatar className="h-8 w-8 mt-1">
                                 <AvatarFallback className="bg-slate-700 text-white text-xs">

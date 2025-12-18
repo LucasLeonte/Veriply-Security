@@ -28,6 +28,16 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+
+class ApproveQueueItemRequest(BaseModel):
+    """Request to approve a review queue item."""
+    edits: Optional[str] = Field(None, description="Optional edited response text")
+
+
+class RejectQueueItemRequest(BaseModel):
+    """Request to reject a review queue item."""
+    reason: Optional[str] = Field(None, description="Optional rejection reason")
+
 router = APIRouter(prefix="/api/v1/hitl", tags=["hitl"])
 
 
@@ -186,10 +196,10 @@ async def get_review_queue(
 @router.post("/queue/{item_id}/approve")
 async def approve_queue_item(
     item_id: str,
+    request: ApproveQueueItemRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: UUID = Depends(get_current_tenant),
-    edits: Optional[str] = None,
 ):
     """
     Approve a review queue item (mark as resolved by human).
@@ -198,6 +208,8 @@ async def approve_queue_item(
     """
     try:
         item_uuid = UUID(item_id)
+        
+        logger.debug(f"Approving HITL item {item_id} by user {current_user.id}")
         
         # Find the item
         result = await db.execute(
@@ -211,28 +223,45 @@ async def approve_queue_item(
         item = result.scalars().first()
 
         if not item:
+            logger.warning(f"HITL item {item_id} not found for tenant {current_tenant}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Item not found",
             )
+
+        logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
 
         # Mark as resolved
         item.hitl_resolved = True
         item.resolution_user_id = current_user.id
         item.resolution_timestamp = __import__('datetime').datetime.utcnow()
 
-        # Store edits in metadata if provided
-        if edits:
-            if not item.metadata_json:
-                item.metadata_json = {}
-            item.metadata_json["human_edits"] = edits
-            item.metadata_json["resolution_action"] = "approved_with_edits"
-        else:
-            if not item.metadata_json:
-                item.metadata_json = {}
-            item.metadata_json["resolution_action"] = "approved"
+        # Store edits in metadata if provided; reassign the dict so JSON changes persist
+        metadata = dict(item.metadata_json or {})
 
+        if request.edits:
+            metadata["human_edits"] = request.edits
+            metadata["human_final_answer"] = request.edits
+            metadata["resolution_action"] = "approved_with_edits"
+            logger.debug(f"Approval with edits: {request.edits[:50]}...")
+        else:
+            # Default to AI draft as the approved answer if no edits supplied
+            ai_draft = metadata.get("ai_draft", "")
+            metadata["human_final_answer"] = ai_draft
+            metadata["resolution_action"] = "approved"
+            logger.debug("Approval without edits - using AI draft")
+
+        item.metadata_json = metadata
+
+        logger.debug(f"Committing approval for item {item_id}")
         await db.commit()
+        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
+        
+        # Build response with the approved answer
+        resolved_answer = (
+            request.edits
+            or item.metadata_json.get("ai_draft", "")
+        )
         
         # Publish resolution event to Redis for real-time updates
         try:
@@ -249,7 +278,12 @@ async def approve_queue_item(
         except Exception as e:
             logger.warning(f"Failed to publish approval event to Redis: {e}")
 
-        return {"status": "approved", "item_id": item_id}
+        return {
+            "status": "approved",
+            "item_id": item_id,
+            "resolved_answer": resolved_answer,
+            "citations": item.metadata_json.get("citations", []),
+        }
 
     except ValueError:
         raise HTTPException(
@@ -257,21 +291,24 @@ async def approve_queue_item(
             detail="Invalid item ID",
         )
     except Exception as e:
-        logger.error(f"Error approving item {item_id}: {e}")
-        await db.rollback()
+        logger.error(f"❌ Error approving item {item_id}: {type(e).__name__}: {e}", exc_info=True)
+        try:
+            await db.rollback()
+        except Exception as rollback_error:
+            logger.error(f"Rollback failed after approval error: {rollback_error}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to approve item",
+            detail=f"Failed to approve item: {str(e)}",
         )
 
 
 @router.post("/queue/{item_id}/reject")
 async def reject_queue_item(
     item_id: str,
+    request: RejectQueueItemRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: UUID = Depends(get_current_tenant),
-    reason: Optional[str] = None,
 ):
     """
     Reject a review queue item (mark as resolved with rejection).
@@ -280,6 +317,8 @@ async def reject_queue_item(
     """
     try:
         item_uuid = UUID(item_id)
+        
+        logger.debug(f"Rejecting HITL item {item_id} by user {current_user.id}")
         
         # Find the item
         result = await db.execute(
@@ -293,24 +332,31 @@ async def reject_queue_item(
         item = result.scalars().first()
 
         if not item:
+            logger.warning(f"HITL item {item_id} not found for tenant {current_tenant}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Item not found",
             )
+
+        logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
 
         # Mark as resolved
         item.hitl_resolved = True
         item.resolution_user_id = current_user.id
         item.resolution_timestamp = __import__('datetime').datetime.utcnow()
 
-        # Store rejection reason
-        if not item.metadata_json:
-            item.metadata_json = {}
-        item.metadata_json["resolution_action"] = "rejected"
-        if reason:
-            item.metadata_json["rejection_reason"] = reason
+        # Store rejection reason; reassign metadata so JSON updates persist
+        metadata = dict(item.metadata_json or {})
+        metadata["resolution_action"] = "rejected"
+        if request.reason:
+            metadata["rejection_reason"] = request.reason
+            logger.debug(f"Rejection reason: {request.reason[:50]}...")
 
+        item.metadata_json = metadata
+
+        logger.debug(f"Committing rejection for item {item_id}")
         await db.commit()
+        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (rejected)")
         
         # Publish resolution event to Redis for real-time updates
         try:
@@ -335,11 +381,14 @@ async def reject_queue_item(
             detail="Invalid item ID",
         )
     except Exception as e:
-        logger.error(f"Error rejecting item {item_id}: {e}")
-        await db.rollback()
+        logger.error(f"❌ Error rejecting item {item_id}: {type(e).__name__}: {e}", exc_info=True)
+        try:
+            await db.rollback()
+        except Exception as rollback_error:
+            logger.error(f"Rollback failed after rejection error: {rollback_error}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to reject item",
+            detail=f"Failed to reject item: {str(e)}",
         )
 
 
@@ -480,10 +529,11 @@ async def websocket_queue_updates(
     pubsub = None
     heartbeat_task = None
     pubsub_task = None
+    should_close = asyncio.Event()
     
     try:
         # Connect to Redis
-        redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
         pubsub = redis_client.pubsub()
         
         # Subscribe to tenant-specific channel
@@ -494,23 +544,28 @@ async def websocket_queue_updates(
         # Create background tasks for heartbeat and pub-sub listening
         async def send_heartbeat():
             """Send heartbeat every 30 seconds to keep connection alive."""
-            while True:
-                try:
+            try:
+                while True:
                     await asyncio.sleep(30)
+                    if should_close.is_set():
+                        break
                     await websocket.send_json({
                         "type": "heartbeat",
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.warning(f"Heartbeat send failed: {e}")
-                    break
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                logger.error(f"Heartbeat task error: {e}")
+                should_close.set()
+                raise
         
         async def listen_pubsub():
             """Listen for messages from Redis pub-sub."""
             try:
                 async for message in pubsub.listen():
+                    if should_close.is_set():
+                        break
                     if message["type"] == "message":
                         try:
                             data = json.loads(message["data"])
@@ -525,23 +580,84 @@ async def websocket_queue_updates(
                 pass
             except Exception as e:
                 logger.error(f"PubSub listen error: {e}")
+                should_close.set()
+                raise
         
-        # Start background tasks
+        async def receive_loop():
+            """Listen for client messages."""
+            try:
+                while True:
+                    if should_close.is_set():
+                        break
+                    try:
+                        # Use timeout to periodically check if should_close is set
+                        data = await asyncio.wait_for(websocket.receive_text(), timeout=60)
+                        # Client can send {"action": "ping"} to verify connection is alive
+                        if data:
+                            try:
+                                msg = json.loads(data)
+                                if msg.get("action") == "ping":
+                                    await websocket.send_json({"type": "pong"})
+                            except json.JSONDecodeError:
+                                pass
+                    except asyncio.TimeoutError:
+                        # Timeout is normal, just check if we should close and continue
+                        continue
+                    except WebSocketDisconnect:
+                        # Client disconnected cleanly
+                        logger.info(f"Client disconnected")
+                        should_close.set()
+                        break
+                    except Exception as e:
+                        # Log error but don't raise - let heartbeat/pubsub continue
+                        logger.warning(f"Receive loop warning (non-fatal): {e}")
+            except asyncio.CancelledError:
+                pass
+        
+        # Start all three tasks
         heartbeat_task = asyncio.create_task(send_heartbeat())
         pubsub_task = asyncio.create_task(listen_pubsub())
+        receive_task = asyncio.create_task(receive_loop())
         
-        # Listen for client messages (keep-alive check)
-        while True:
-            data = await websocket.receive_text()
-            # Client can send {"action": "ping"} to verify connection is alive
-            if data:
-                try:
-                    msg = json.loads(data)
-                    if msg.get("action") == "ping":
-                        await websocket.send_json({"type": "pong"})
-                except json.JSONDecodeError:
-                    pass
-    
+        # Monitor all tasks concurrently
+        # If heartbeat or pubsub fails, should_close.set() signals clean shutdown
+        # If receive_loop fails non-fatally, it logs warning but continues
+        tasks = [heartbeat_task, pubsub_task, receive_task]
+        
+        try:
+            while True:
+                # Check if any background task has failed
+                done, pending = await asyncio.wait(tasks, timeout=5, return_when=asyncio.FIRST_EXCEPTION)
+                
+                for task in done:
+                    try:
+                        await task  # Get result to check for exceptions
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as e:
+                        logger.error(f"Background task failed: {e}")
+                        should_close.set()
+                        raise
+                
+                # If should_close is set, break and cleanup
+                if should_close.is_set():
+                    break
+                
+                # If no done tasks, continue monitoring
+                if not done:
+                    continue
+        
+        except WebSocketDisconnect:
+            logger.info(f"User {user_id} disconnected from HITL queue")
+        except Exception as e:
+            logger.error(f"WebSocket error for tenant {tenant_id}: {e}")
+            try:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": str(e),
+                })
+            except:
+                pass
     except WebSocketDisconnect:
         logger.info(f"User {user_id} disconnected from HITL queue")
     except Exception as e:
@@ -554,18 +670,35 @@ async def websocket_queue_updates(
         except:
             pass
     finally:
+        # Signal background tasks to stop
+        should_close.set()
+        
         # Cleanup
         connection_manager.disconnect(websocket, tenant_id)
         
+        # Cancel all tasks
         if heartbeat_task:
             heartbeat_task.cancel()
         if pubsub_task:
             pubsub_task.cancel()
+        if 'receive_task' in locals():
+            receive_task.cancel()
+        
+        # Wait for tasks to finish gracefully
+        tasks_to_wait = [t for t in [heartbeat_task, pubsub_task, locals().get('receive_task')] if t]
+        if tasks_to_wait:
+            await asyncio.gather(*tasks_to_wait, return_exceptions=True)
         
         if pubsub:
-            await pubsub.unsubscribe(f"hitl_queue:{tenant_id}")
-            await pubsub.close()
+            try:
+                await pubsub.unsubscribe(f"hitl_queue:{tenant_id}")
+                await pubsub.close()
+            except:
+                pass
         
         if redis_client:
-            await redis_client.close()
+            try:
+                await redis_client.close()
+            except:
+                pass
 
