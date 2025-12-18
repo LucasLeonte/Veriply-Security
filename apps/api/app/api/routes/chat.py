@@ -232,8 +232,10 @@ async def chat_query(
             for result in search_results
         ]
 
-        # Build detailed citations for streaming metadata
-        CITATION_SIMILARITY_THRESHOLD = 0.65
+        # Build detailed citations for streaming metadata.
+        # Use the same threshold as vector search (0.5) so that
+        # every retrieved chunk is surfaced as a source.
+        CITATION_SIMILARITY_THRESHOLD = 0.5
         streaming_citations = [
             {
                 "source": result.document_name or "Unknown",

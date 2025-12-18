@@ -202,8 +202,8 @@ export default function MessageList({
                                             <div className="flex items-center gap-2 mb-1">
                                                 <span className="text-xs font-medium text-slate-500">Certainty</span>
                                                 <span className={`text-xs font-semibold ${
-                                                    message.confidence >= 0.8 ? "text-green-600" : 
-                                                    message.confidence >= 0.6 ? "text-amber-600" : "text-red-600"
+                                                    message.confidence > 0.75 ? "text-green-600" : 
+                                                    message.confidence > 0.3 ? "text-amber-600" : "text-red-600"
                                                 }`}>
                                                     {Math.round(message.confidence * 100)}%
                                                 </span>
@@ -211,8 +211,8 @@ export default function MessageList({
                                             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                                 <div 
                                                     className={`h-full rounded-full transition-all duration-500 ${
-                                                        message.confidence >= 0.8 ? "bg-green-500" : 
-                                                        message.confidence >= 0.6 ? "bg-amber-500" : "bg-red-500"
+                                                        message.confidence > 0.75 ? "bg-green-500" : 
+                                                        message.confidence > 0.3 ? "bg-amber-500" : "bg-red-500"
                                                     }`}
                                                     style={{ width: `${Math.round(message.confidence * 100)}%` }}
                                                 />
