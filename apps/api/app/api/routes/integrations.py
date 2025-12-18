@@ -5,6 +5,7 @@ import logging
 from typing import Optional
 from uuid import uuid4
 from datetime import datetime
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request, HTTPException, status
 from fastapi.responses import RedirectResponse
@@ -37,8 +38,8 @@ async def gmail_authorize(request: Request):
     auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         f"?response_type=code&client_id={client_id}"
-        f"&scope={httpx.utils.quote(scope)}&access_type=offline&prompt=consent"
-        f"&redirect_uri={httpx.utils.quote(redirect_uri)}&state={state}"
+        f"&scope={quote(scope)}&access_type=offline&prompt=consent"
+        f"&redirect_uri={quote(redirect_uri)}&state={state}"
     )
 
     return RedirectResponse(auth_url)
