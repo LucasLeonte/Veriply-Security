@@ -1,7 +1,7 @@
 # Story 4.4: Trust Signals Display
 
 **Epic:** 4. Chat Experience  
-**Status:** ready-for-dev  
+**Status:** done  
 **Assigned to:** Unassigned  
 **Blocked by:** 4-1-web-chat-interface
 **Context:** docs/sprint-artifacts/epic-4/story-4-4.context.xml

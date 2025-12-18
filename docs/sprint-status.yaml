@@ -70,7 +70,7 @@ development_status:
     3-3-citation-generation: done
     3-4-confidence-scoring-routing: drafted
     3-5-pii-redaction: done
-    4-4-trust-signals-display: drafted
+    4-4-trust-signals-display: done
     4-5-embeddable-widget-generation: drafted
     4-6-widget-security-responsiveness: drafted
     4-1-web-chat-interface: done
