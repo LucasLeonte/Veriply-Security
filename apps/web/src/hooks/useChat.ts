@@ -10,7 +10,10 @@ import {
 } from "@/lib/api/chat";
 import { v4 as uuidv4 } from "uuid";
 
-export function useChat(botId: string) {
+// Context window size (configurable per bot, default 10 messages)
+const DEFAULT_CONTEXT_WINDOW = 10;
+
+export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTEXT_WINDOW) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState(false);
@@ -89,6 +92,12 @@ export function useChat(botId: string) {
             setMessages((prev) => [...prev, assistantMessage]);
 
             try {
+                // Build conversation history using context window
+                const conversationHistory = messages.slice(-contextWindowSize).map((msg) => ({
+                    role: msg.role,
+                    content: msg.content,
+                }));
+
                 // Stream tokens
                 let fullContent = "";
                 let metadata: any = null;
@@ -164,11 +173,15 @@ export function useChat(botId: string) {
         setRetryCount(0);
     }, [botId]);
 
+    // Compute context size (number of messages in context window)
+    const contextSize = Math.min(messages.length, contextWindowSize);
+
     return {
         messages,
         loading,
         streaming,
         error,
+        contextSize,
         sendMessage,
         retryLastMessage,
         clearHistory,

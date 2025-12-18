@@ -6,12 +6,14 @@ import { ChatMessage, Citation } from "@/types/chat";
 import { Loader2, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
+import ContextSummary from "./ContextSummary";
 
 interface MessageListProps {
     messages: ChatMessage[];
     botName: string;
     botAvatar?: string;
     streaming: boolean;
+    contextWindowSize?: number;
 }
 
 export default function MessageList({
@@ -19,6 +21,7 @@ export default function MessageList({
     botName,
     botAvatar,
     streaming,
+    contextWindowSize = 10,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
@@ -37,6 +40,11 @@ export default function MessageList({
     return (
         <>
             <div className="space-y-4">
+                {/* Context Summary (shown when messages exceed context window) */}
+                <ContextSummary
+                    messages={messages}
+                    contextWindowSize={contextWindowSize}
+                />
                 {messages.map((message) => (
                     <div
                         key={message.id}

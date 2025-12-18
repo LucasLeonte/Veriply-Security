@@ -26,11 +26,13 @@ export default function ChatInterface({
     isPublic,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
+    const [showClearDialog, setShowClearDialog] = useState(false);
     const {
         messages,
         loading,
         streaming,
         error,
+        contextSize,
         sendMessage,
         clearHistory,
         retryLastMessage,
@@ -129,7 +131,7 @@ export default function ChatInterface({
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={handleResetConversation}
+                        onClick={() => setShowClearDialog(true)}
                         disabled={messages.length === 0 || loading}
                         title="Start new conversation"
                     >
@@ -189,14 +191,12 @@ export default function ChatInterface({
 
             {/* Input */}
             <div className="p-4 border-t border-slate-200">
-                <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
-                    <span>
-                        Context: {contextCount} message{contextCount === 1 ? "" : "s"}
-                        {summarizedCount > 0
-                            ? ` (+${summarizedCount} summarized)`
-                            : ""}
-                    </span>
-                </div>
+                {/* Context Indicator */}
+                {messages.length > 0 && (
+                    <div className="mb-2 text-xs text-slate-500">
+                        Context: {contextSize} message{contextSize !== 1 ? 's' : ''}
+                    </div>
+                )}
                 <div className="flex gap-2">
                     <Textarea
                         ref={textareaRef}
@@ -221,6 +221,37 @@ export default function ChatInterface({
                         ) : (
                             <Send className="h-5 w-5" />
                         )}
+
+            {/* Clear Conversation Dialog */}
+            {showClearDialog && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <Card className="w-full max-w-md p-6 m-4">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                            Start New Conversation?
+                        </h3>
+                        <p className="text-slate-600 mb-4">
+                            This will clear your conversation history. This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowClearDialog(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                onClick={() => {
+                                    clearHistory();
+                                    setShowClearDialog(false);
+                                }}
+                            >
+                                Clear History
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
+            )}
                     </Button>
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
