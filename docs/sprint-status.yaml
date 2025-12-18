@@ -64,6 +64,7 @@ development_status:
     1-7-api-instrumentation-metrics-and-traces: backlog
     2-1-bot-creation-configuration: done
     2-2-bot-duplication-deletion: done
+    2-4-document-processing-pipeline: done
     2-5-knowledge-base-management-ui: done
     2-6-document-deletion: in-progress
     3-1-semantic-vector-search: drafted
