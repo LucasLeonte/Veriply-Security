@@ -38,8 +38,9 @@ export function useChat(botId: string) {
     const streamingMessageRef = useRef<ChatMessage | null>(null);
     const sessionIdRef = useRef<string>("");
 
-    // Initialize session id for tracking feedback (one per session)
-    if (typeof window !== "undefined" && !sessionIdRef.current) {
+    // Initialize session id for tracking feedback (persist across reloads; reset only when starting a new conversation)
+    useEffect(() => {
+        if (typeof window === "undefined") return;
         const key = `chat_session_id_${botId}`;
         const existing = sessionStorage.getItem(key);
         if (existing) {
@@ -49,7 +50,7 @@ export function useChat(botId: string) {
             sessionStorage.setItem(key, generated);
             sessionIdRef.current = generated;
         }
-    }
+    }, [botId]);
 
     // Load chat history on mount
     useEffect(() => {
@@ -215,10 +216,20 @@ export function useChat(botId: string) {
     }, [retryCount, sendMessage]);
 
     const clearHistory = useCallback(() => {
+        const oldSession = sessionIdRef.current;
+        const key = `chat_session_id_${botId}`;
         setMessages([]);
         clearStoredHistory(botId);
         setError(null);
         setRetryCount(0);
+        setFeedbackState({});
+        setFeedbackRateLog([]);
+        const newSession = uuidv4();
+        sessionIdRef.current = newSession;
+        sessionStorage.setItem(key, newSession);
+        if (oldSession) {
+            sessionStorage.removeItem(`feedback_state_${botId}_${oldSession}`);
+        }
     }, [botId]);
 
     const submitFeedbackForMessage = useCallback(
