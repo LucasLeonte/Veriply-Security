@@ -242,27 +242,27 @@ development_status:
 
     5-1-hitl-queue-view:
         status: ready-for-dev
-        assigned_to: Lucas
+        assigned_to: null
         blocked_by: 3-4-confidence-scoring-routing
 
     5-2-draft-review-interface:
         status: ready-for-dev
-        assigned_to: Lucas
+        assigned_to: null
         blocked_by: 5-1-hitl-queue-view
 
     5-3-approve-edit-flow:
         status: ready-for-dev
-        assigned_to: Lucas
+        assigned_to: null
         blocked_by: 5-2-draft-review-interface
 
     5-4-rejection-flow:
         status: ready-for-dev
-        assigned_to: Lucas
+        assigned_to: null
         blocked_by: 5-2-draft-review-interface
 
     5-5-keyboard-shortcuts-filtering:
         status: ready-for-dev
-        assigned_to: Lucas
+        assigned_to: null
         blocked_by: 5-2-draft-review-interface
 
     epic-5-retrospective: optional
