@@ -219,7 +219,7 @@ development_status:
         blocked_by: 4-1-web-chat-interface
 
     4-4-trust-signals-display:
-        status: in-progress
+        status: done
         assigned_to: Kainy
         blocked_by: 4-1-web-chat-interface
 
