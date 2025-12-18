@@ -1,8 +1,8 @@
 # Story 1.7: CI Pipeline - Lint, Tests, and Smoke E2E
 
 **Epic:** 1. Foundation & Auth  
-**Status:** Ready for Dev  
-**Assigned to:** Kainy  
+**Status:** Review  
+**Assigned to:** Unassigned  
 **Blocked by:** None
 
 ## Story

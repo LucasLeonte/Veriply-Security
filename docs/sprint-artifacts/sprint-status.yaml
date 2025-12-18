@@ -104,9 +104,9 @@ development_status:
         completed_date: 2025-12-04
         blocked_by: 1-4-user-login-session-management
 
-    # Story 1.7 (CI Pipeline) - marked as needs-revision, unassigned
+    # Story 1.7 (CI Pipeline) - ready for review
     1-7-ci-pipeline:
-        status: needs-revision
+        status: ready-for-dev
         assigned_to: null
 
     epic-1-retrospective: optional
