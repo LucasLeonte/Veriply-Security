@@ -2,20 +2,23 @@
 
 import json
 import logging
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.auth import get_current_user
 from app.models.bot import Bot
+from app.models import ChatMessageLog
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
+from app.schemas.chat_history import ChatHistoryItem
 from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
-from app.services.bot_service import BotService
 
 logger = logging.getLogger(__name__)
 
@@ -159,15 +162,25 @@ async def chat_query(
             similarity_threshold=0.65,  # Raised from 0.5 to 0.65 for higher relevance bar
         )
 
+        # Persist the user message for audit/history
+        await _persist_chat_message(
+            db,
+            tenant_id=tenant_id,
+            bot_id=bot_id,
+            role="user",
+            content=request.query.strip(),
+            session_id=request.session_id,
+            client_message_id=request.message_id,
+            answer_id=None,
+        )
+        await db.commit()
+
         if not search_results:
             # No relevant context found
             return StreamingResponse(
                 _stream_no_context_response(),
                 media_type="text/event-stream",
             )
-
-        # Pass SearchResult objects directly to LLM service
-        # LLMService expects List[SearchResult], not list of dicts
 
         # Build conversation history
         conversation_history = []
@@ -185,6 +198,10 @@ async def chat_query(
                 context_chunks=search_results,  # Pass SearchResult objects directly
                 conversation_history=conversation_history,
                 answer_id=uuid4(),
+                db=db,
+                tenant_id=tenant_id,
+                bot_id=bot_id,
+                session_id=request.session_id,
             ),
             media_type="text/event-stream",
         )
@@ -203,6 +220,10 @@ async def _stream_llm_response(
     context_chunks: list,  # List[SearchResult]
     conversation_history: list[ChatMessage],
     answer_id: UUID,
+    db: AsyncSession,
+    tenant_id: UUID,
+    bot_id: UUID,
+    session_id: Optional[str],
 ) -> AsyncIterator[str]:
     """Stream LLM response tokens as SSE events using LLMService.generate_answer."""
     try:
@@ -214,12 +235,14 @@ async def _stream_llm_response(
 
         # Stream tokens from LLM service
         token_count = 0
+        answer_text = ""
         async for token in llm_service.generate_answer(
             query=query,
             context_chunks=context_chunks,
             conversation_history=history_payload,
         ):
             token_count += 1
+            answer_text += token
             yield f"data: {json.dumps({'token': token})}\n\n"
 
         # Send metadata at the end
@@ -255,7 +278,24 @@ async def _stream_llm_response(
             "chunks_used": len(context_chunks),
             "token_count": token_count,
             "answer_id": str(answer_id),
+            "session_id": session_id,
         }
+
+        try:
+            await _persist_chat_message(
+                db,
+                tenant_id=tenant_id,
+                bot_id=bot_id,
+                role="assistant",
+                content=answer_text,
+                session_id=session_id,
+                client_message_id=None,
+                answer_id=answer_id,
+                citations=citations,
+            )
+            await db.commit()
+        except Exception as log_err:
+            logger.error(f"Failed to persist chat message log: {log_err}")
 
         yield f"data: {json.dumps({'metadata': metadata})}\n\n"
         yield "data: [DONE]\n\n"
@@ -286,3 +326,91 @@ async def _stream_error_response(error: str) -> AsyncIterator[str]:
     """Stream an error response."""
     yield f"data: {json.dumps({'error': 'Sorry, I encountered an issue. Please try again.', 'detail': error})}\n\n"
     yield "data: [DONE]\n\n"
+
+
+async def _persist_chat_message(
+    db: AsyncSession,
+    *,
+    tenant_id: UUID,
+    bot_id: UUID,
+    role: str,
+    content: str,
+    session_id: Optional[str],
+    client_message_id: Optional[str],
+    answer_id: Optional[UUID],
+    citations: Optional[list] = None,
+):
+    record = ChatMessageLog(
+        tenant_id=tenant_id,
+        bot_id=bot_id,
+        role=role,
+        content=content,
+        session_id=session_id,
+        client_message_id=client_message_id,
+        answer_id=answer_id,
+        citations=citations,
+    )
+    db.add(record)
+    await db.flush()
+    return record
+
+
+@router.get("/{bot_id}/history", response_model=list[ChatHistoryItem])
+async def list_chat_history(
+    bot_id: UUID,
+    session_id: Optional[str] = Query(default=None, max_length=255),
+    answer_id: Optional[UUID] = None,
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List chat history for a bot (admin/owner only)."""
+    tenant_id = UUID(current_user["tenant_id"])
+
+    if current_user.get("role") not in {"owner", "admin"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin or owner role required",
+        )
+
+    bot = await db.get(Bot, bot_id)
+    if not bot or bot.tenant_id != tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Bot not found",
+        )
+
+    stmt = (
+        select(ChatMessageLog)
+        .where(
+            ChatMessageLog.bot_id == bot_id,
+            ChatMessageLog.tenant_id == tenant_id,
+        )
+        .order_by(ChatMessageLog.created_at.asc())
+        .offset(offset)
+        .limit(limit)
+    )
+
+    if session_id:
+        stmt = stmt.where(ChatMessageLog.session_id == session_id)
+    if answer_id:
+        stmt = stmt.where(ChatMessageLog.answer_id == answer_id)
+
+    result = await db.scalars(stmt)
+    records = list(result)
+    return [
+        ChatHistoryItem(
+            id=str(r.id),
+            bot_id=str(r.bot_id),
+            tenant_id=str(r.tenant_id),
+            role=r.role,
+            content=r.content,
+            session_id=r.session_id,
+            client_message_id=r.client_message_id,
+            answer_id=str(r.answer_id) if r.answer_id else None,
+            citations=r.citations or [],
+            created_at=r.created_at,
+        )
+        for r in records
+    ]

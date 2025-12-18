@@ -146,7 +146,11 @@ export function useChat(botId: string) {
                 for await (const chunk of streamChatQuery(
                     botId,
                     query,
-                    conversationHistory
+                    conversationHistory,
+                    {
+                        sessionId: sessionIdRef.current,
+                        messageId: userMessage.id,
+                    }
                 )) {
                     if (chunk.type === "token") {
                         fullContent += chunk.content;

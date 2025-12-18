@@ -33,7 +33,8 @@ export async function getBotPublicInfo(botId: string): Promise<BotPublicInfo> {
 export async function* streamChatQuery(
     botId: string,
     query: string,
-    conversationHistory?: { role: string; content: string }[]
+    conversationHistory?: { role: string; content: string }[],
+    options?: { sessionId?: string; messageId?: string }
 ): AsyncGenerator<
     { type: "token"; content: string } | { type: "metadata"; data: Record<string, unknown> },
     void,
@@ -50,6 +51,8 @@ export async function* streamChatQuery(
                 query,
                 stream: true,
                 conversation_history: conversationHistory,
+                session_id: options?.sessionId,
+                message_id: options?.messageId,
             }),
         }
     );

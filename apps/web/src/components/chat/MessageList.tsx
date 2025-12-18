@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChatMessage } from "@/types/chat";
+import { ChatMessage, Citation } from "@/types/chat";
 import { Loader2, FileText } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";

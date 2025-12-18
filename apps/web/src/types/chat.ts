@@ -42,4 +42,20 @@ export interface StreamMetadata {
     citations: Citation[];
     confidence?: number;
     chunks_used?: number;
+    token_count?: number;
+    answer_id?: string;
+    session_id?: string;
+}
+
+export interface ChatHistoryEntry {
+    id: string;
+    bot_id: string;
+    tenant_id: string;
+    role: string;
+    content: string;
+    session_id?: string | null;
+    client_message_id?: string | null;
+    answer_id?: string | null;
+    citations: Citation[];
+    created_at: string;
 }

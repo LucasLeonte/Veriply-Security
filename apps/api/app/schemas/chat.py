@@ -9,6 +9,8 @@ class ChatQueryRequest(BaseModel):
 
     query: str = Field(..., min_length=1, max_length=5000)
     conversation_history: Optional[list[dict]] = Field(default=None)
+    session_id: Optional[str] = Field(default=None, max_length=255)
+    message_id: Optional[str] = Field(default=None, max_length=255)
 
 
 class ChatMessage(BaseModel):
