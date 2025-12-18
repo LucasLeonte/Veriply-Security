@@ -18,6 +18,7 @@ describe("ChatInterface", () => {
         botAvatar: undefined,
         welcomeMessage: "Welcome to Test Bot!",
         isPublic: true,
+        confidenceThreshold: 80,
     };
 
     beforeEach(() => {
@@ -134,7 +135,18 @@ describe("ChatInterface", () => {
         const clearButton = screen.getByTitle("Start new conversation");
         await user.click(clearButton);
 
-        expect(mockClearHistory).toHaveBeenCalledOnce();
+        // Confirmation dialog should appear
+        await waitFor(() => {
+            expect(screen.getByText("Start New Conversation?")).toBeInTheDocument();
+        });
+
+        // Click the confirm button
+        const confirmButton = screen.getByText("Clear History");
+        await user.click(confirmButton);
+
+        await waitFor(() => {
+            expect(mockClearHistory).toHaveBeenCalledOnce();
+        });
     });
 
     it("sends message when Enter key pressed", async () => {

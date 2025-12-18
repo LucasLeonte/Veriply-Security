@@ -1,7 +1,7 @@
 """Add groups, group_members, and update bot/document/chunk models for group scoping and provenance.
 
 Revision ID: 006_add_groups_and_provenance
-Revises: 005_add_hnsw_index
+Revises: 006_add_missing_document_columns
 Create Date: 2025-12-11 10:00:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '006_add_groups_and_provenance'
-down_revision = '005_add_hnsw_index'
+down_revision = '006_add_missing_document_columns'
 branch_labels = None
 depends_on = None
 

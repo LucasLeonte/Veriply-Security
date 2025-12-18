@@ -76,6 +76,7 @@ class LLMService:
         query: str,
         context_chunks: List[SearchResult],
         conversation_history: Optional[List[dict]] = None,
+        conversation_context: Optional[str] = None,
     ) -> AsyncIterator[str]:
         """Generate context-only answer using LLM with streaming.
 
@@ -95,7 +96,14 @@ class LLMService:
         """
         # Build the structured prompt enforcing context-only behavior
         system_prompt = self._build_system_prompt()
-        user_prompt = self._build_user_prompt(query, context_chunks)
+
+        # Determine conversation context string: prefer explicit value if provided,
+        # otherwise derive it from the conversation history.
+        derived_context: Optional[str] = conversation_context
+        if derived_context is None and conversation_history:
+            derived_context = self._format_conversation_history(conversation_history)
+
+        user_prompt = self._build_user_prompt(query, context_chunks, derived_context)
 
         # Build full conversation with history
         messages = self._build_messages(
@@ -156,20 +164,28 @@ When answering:
 - Use the same tone as the source documents"""
 
     def _build_user_prompt(
-        self, query: str, context_chunks: List[SearchResult]
+        self, query: str, context_chunks: List[SearchResult], conversation_context: Optional[str] = None
     ) -> str:
-        """Build user prompt with formatted context chunks.
+        """Build user prompt with formatted context chunks and conversation history.
 
         Args:
             query: User's question
             context_chunks: Retrieved context chunks from vector search
+            conversation_context: Formatted conversation history (optional)
 
         Returns:
-            Formatted user prompt with context sections and query
+            Formatted user prompt with context sections, conversation history, and query
         """
+        # Build conversation context section if provided
+        conversation_section = ""
+        if conversation_context:
+            conversation_section = f"""## Conversation Context
+{conversation_context}
+
+"""
         # Handle empty context
         if not context_chunks:
-            return f"""Context from our knowledge base:
+            return f"""{conversation_section}Context from our knowledge base:
 [No documents found in knowledge base]
 
 ---
@@ -186,7 +202,7 @@ Answer (based ONLY on the context above):"""
 
         context_text = "\n---\n".join(context_sections)
 
-        return f"""Context from our knowledge base:
+        return f"""{conversation_section}Context from our knowledge base:
 
 {context_text}
 
@@ -212,30 +228,43 @@ Answer (based ONLY on the context above):"""
             parts.append(f"p. {chunk.page_number}")
         return " - ".join(parts)
 
+    def _format_conversation_history(self, conversation_history: List[dict]) -> str:
+        """Format conversation history into readable context string.
+        
+        Args:
+            conversation_history: List of message dicts with role and content
+            
+        Returns:
+            Formatted string with conversation history
+        """
+        formatted = []
+        for msg in conversation_history:
+            role = "User" if msg["role"] == "user" else "Assistant"
+            formatted.append(f"{role}: {msg['content']}")
+        return "\n".join(formatted)
+
     def _build_messages(
         self,
         system_prompt: str,
         user_prompt: str,
         conversation_history: Optional[List[dict]] = None,
     ) -> List[dict]:
-        """Build message list with system prompt and conversation history.
+        """Build message list with system prompt only (history in user prompt).
 
         Args:
             system_prompt: System instructions
-            user_prompt: Current user prompt with context
-            conversation_history: Previous messages (role/content dicts)
+            user_prompt: Current user prompt with context and history
+            conversation_history: Not used (history embedded in user_prompt)
 
         Returns:
             List of message dicts for LLM API
         """
-        messages = [{"role": "system", "content": system_prompt}]
-
-        # Add conversation history if provided
-        if conversation_history:
-            messages.extend(conversation_history)
-
-        # Add current user prompt
-        messages.append({"role": "user", "content": user_prompt})
+        # Only system and current user message
+        # History is embedded in the user_prompt structure
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
 
         return messages
 

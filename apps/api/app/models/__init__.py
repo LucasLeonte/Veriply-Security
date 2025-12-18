@@ -18,6 +18,7 @@ from .feedback import (
     ModerationAlert as ModerationAlert,
     UserAbuseSuspicion as UserAbuseSuspicion,
 )
+from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
 
 __all__ = [
     "Base",
@@ -40,4 +41,6 @@ __all__ = [
     "FeedbackReason",
     "ModerationAlert",
     "UserAbuseSuspicion",
+    "ConfidenceLog",
+    "RoutingDecision",
 ]
