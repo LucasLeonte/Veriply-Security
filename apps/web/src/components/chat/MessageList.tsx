@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatMessage, Citation } from "@/types/chat";
-import { Loader2, FileText } from "lucide-react";
+import { Loader2, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
+import { sendToReviewQueue } from "@/lib/api/chat";
 import ContextSummary from "./ContextSummary";
 import TrustBadge from "./TrustBadge";
 import PendingVerification from "./PendingVerification";
@@ -15,6 +16,9 @@ interface MessageListProps {
     botName: string;
     botAvatar?: string;
     streaming: boolean;
+    botId?: string;
+    // Bot confidence threshold as percentage (0-100)
+    confidenceThresholdPercent?: number;
     contextWindowSize?: number;
 }
 
@@ -23,11 +27,21 @@ export default function MessageList({
     botName,
     botAvatar,
     streaming,
+    botId,
+    confidenceThresholdPercent,
     contextWindowSize = 10,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
+    const [sentToReview, setSentToReview] = useState<Set<string>>(new Set());
+    const [sendingToReview, setSendingToReview] = useState<Set<string>>(new Set());
+
+    // Default to 80% if not provided
+    const reviewThreshold = Math.min(
+        1,
+        Math.max(0, (typeof confidenceThresholdPercent === "number" ? confidenceThresholdPercent : 80) / 100)
+    );
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -37,7 +51,58 @@ export default function MessageList({
         }
     }, [messages, streaming]);
 
-    // Highlighting logic has moved into CitationViewer
+    // Auto-send low confidence messages to review queue
+    useEffect(() => {
+        if (!botId) return;
+        
+        messages.forEach((message, idx) => {
+            if (
+                message.role === "assistant" &&
+                message.confidence !== undefined &&
+                message.confidence < reviewThreshold &&
+                !sentToReview.has(message.id) &&
+                !sendingToReview.has(message.id)
+            ) {
+                // Find the user message before this one
+                let userQuestion = "";
+                for (let i = idx - 1; i >= 0; i--) {
+                    if (messages[i].role === "user") {
+                        userQuestion = messages[i].content;
+                        break;
+                    }
+                }
+                
+                if (userQuestion) {
+                    setSendingToReview(prev => new Set(prev).add(message.id));
+                    
+                    sendToReviewQueue(
+                        botId,
+                        userQuestion,
+                        message.content,
+                        message.confidence,
+                        message.citations
+                    ).then((result) => {
+                        // Mark as sent even if backend reports logical failure,
+                        // to avoid hammering the endpoint on every render
+                        if (!result?.success) {
+                            console.warn("Review queue send reported failure:", result?.message);
+                        }
+                        setSentToReview(prev => new Set(prev).add(message.id));
+                    }).catch(err => {
+                        console.error("Failed to send to review queue:", err);
+                        // Prevent infinite retry loops on hard failures
+                        setSentToReview(prev => new Set(prev).add(message.id));
+                    }).finally(() => {
+                        setSendingToReview(prev => {
+                            const next = new Set(prev);
+                            next.delete(message.id);
+                            return next;
+                        });
+                    });
+                }
+            }
+        });
+    }, [messages, botId, sentToReview, sendingToReview, reviewThreshold]);
 
     return (
         <>
@@ -63,11 +128,11 @@ export default function MessageList({
                             </Avatar>
                         )}
                         {/* Pending verification state */}
-                        {message.role === "assistant" && message.trustLevel === "pending" ? (
+                        {message.role === "assistant" && message.trustLevel === "pending" && botId ? (
                             <div className="max-w-[70%]">
                                 <PendingVerification
                                     messageId={message.id}
-                                    botId={message.id.split("-")[0]} // Extract bot ID from message context
+                                    botId={botId}
                                 />
                             </div>
                         ) : (
@@ -142,42 +207,103 @@ export default function MessageList({
                                         >
                                             {message.content}
                                         </ReactMarkdown>
+
+                                        {message.confidence !== undefined && (
+                                            <div className="mt-3 pt-3 border-t border-slate-100">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-xs font-medium text-slate-500">
+                                                        Certainty
+                                                    </span>
+                                                    <span
+                                                        className={`text-xs font-semibold ${
+                                                            message.confidence > 0.75
+                                                                ? "text-green-600"
+                                                                : message.confidence > 0.3
+                                                                ? "text-amber-600"
+                                                                : "text-red-600"
+                                                        }`}
+                                                    >
+                                                        {Math.round(message.confidence * 100)}%
+                                                    </span>
+                                                </div>
+                                                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${
+                                                            message.confidence > 0.75
+                                                                ? "bg-green-500"
+                                                                : message.confidence > 0.3
+                                                                ? "bg-amber-500"
+                                                                : "bg-red-500"
+                                                        }`}
+                                                        style={{
+                                                            width: `${Math.round(
+                                                                message.confidence * 100
+                                                            )}%`,
+                                                        }}
+                                                    />
+                                                </div>
+                                                {message.confidence < reviewThreshold && (
+                                                    <div className="mt-2 flex items-center gap-1.5 text-xs">
+                                                        {sendingToReview.has(message.id) ? (
+                                                            <>
+                                                                <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
+                                                                <span className="text-amber-600">
+                                                                    Sending to review queue...
+                                                                </span>
+                                                            </>
+                                                        ) : sentToReview.has(message.id) ? (
+                                                            <>
+                                                                <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                                                <span className="text-green-600">
+                                                                    Sent to team for review
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <AlertCircle className="h-3 w-3 text-amber-500" />
+                                                                <span className="text-amber-600">
+                                                                    Will be sent to team for review
+                                                                </span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
                                         {message.citations && message.citations.length > 0 && (
                                             <div className="mt-4 pt-3 border-t border-slate-100">
                                                 <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                                                     Sources
                                                 </p>
                                                 <div className="flex flex-wrap gap-2">
-                                                    {message.citations
-                                                        .filter(c => (c.similarity ?? 0) >= 0.65)
-                                                        .map((citation, idx) => (
-                                                            <button
-                                                                key={idx}
-                                                                onClick={() => {
-                                                                    setSelectedCitation(citation);
-                                                                    setSelectedMessageText(message.content);
-                                                                }}
-                                                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 rounded text-xs font-medium text-slate-600 hover:text-sky-700 transition-colors"
-                                                            >
-                                                                <FileText size={12} />
-                                                                <span className="truncate max-w-[150px]">
-                                                                    {citation.document_name || citation.source}
-                                                                </span>
-                                                            </button>
-                                                        ))}
+                                                    {message.citations.map((citation, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setSelectedCitation(citation);
+                                                                setSelectedMessageText(message.content);
+                                                            }}
+                                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 rounded text-xs font-medium text-slate-600 hover:text-sky-700 transition-colors"
+                                                        >
+                                                            <FileText size={12} />
+                                                            <span className="truncate max-w-[150px]">
+                                                                {citation.document_name || citation.source}
+                                                            </span>
+                                                        </button>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
-                                        {/* Trust Badge - displayed after citations/content */}
-                                        {message.trustLevel && (
+
+                                        {message.trustLevel ? (
                                             <div className="mt-4 pt-3 border-t border-slate-100">
                                                 <TrustBadge
                                                     trustLevel={message.trustLevel}
                                                     confidenceScore={message.confidenceScore}
                                                 />
                                             </div>
-                                        )}
-                                        {/* Feedback icons placeholder - can be added later */}
+                                        ) : null}
                                     </div>
                                 )}
                             </div>

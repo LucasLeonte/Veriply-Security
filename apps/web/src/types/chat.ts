@@ -7,6 +7,9 @@ export interface ChatMessage {
     content: string;
     timestamp: number;
     citations?: Citation[];
+    // Overall model confidence as 0–1 float
+    confidence?: number;
+    // Optional routing/verification metadata
     trustLevel?: TrustLevel;
     confidenceScore?: number;
     sourceType?: SourceType;
@@ -32,6 +35,7 @@ export interface BotPublicInfo {
     avatar_url?: string;
     welcome_message: string;
     is_public: boolean;
+    confidence_threshold: number;
 }
 
 export interface ChatQueryRequest {

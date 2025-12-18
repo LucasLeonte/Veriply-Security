@@ -1,7 +1,6 @@
 """Tests for chat endpoints with trust metadata."""
 
 import pytest
-import json
 from uuid import uuid4
 from fastapi.testclient import TestClient
 

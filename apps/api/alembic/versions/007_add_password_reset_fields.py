@@ -1,11 +1,10 @@
 """Add password reset fields to users table."""
 from alembic import op
 import sqlalchemy as sa
-from datetime import datetime
 
 # revision identifiers, used by Alembic.
-revision = '007'
-down_revision = '006'
+revision = '007_add_password_reset_fields'
+down_revision = '006_add_groups_and_provenance'
 branch_labels = None
 depends_on = None
 

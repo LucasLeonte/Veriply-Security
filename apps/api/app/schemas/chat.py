@@ -1,7 +1,6 @@
 """Schemas for chat endpoints."""
 
 from typing import List, Literal, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field, conint
 
@@ -66,3 +65,4 @@ class PublicBotInfo(BaseModel):
     avatar_url: Optional[str] = None
     welcome_message: str
     is_public: bool
+    confidence_threshold: int

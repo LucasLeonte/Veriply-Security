@@ -69,7 +69,7 @@ development_status:
     3-1-semantic-vector-search: drafted
     3-2-context-only-answer-generation: drafted
     3-3-citation-generation: done
-    3-4-confidence-scoring-routing: drafted
+    3-4-confidence-scoring-routing: done
     3-5-pii-redaction: done
     4-1-web-chat-interface: done
     4-2-conversation-context: done
@@ -84,6 +84,8 @@ ready_status:
     2-2-bot-duplication-deletion: ready
     3-1-semantic-vector-search: ready-for-dev
     3-2-context-only-answer-generation: ready-for-dev
+    3-3-citation-generation: ready-for-review
+    3-4-confidence-scoring-routing: ready-for-review
     3-3-citation-generation: ready-for-dev
     3-4-confidence-scoring-routing: ready-for-dev
     3-5-pii-redaction: ready-for-dev
