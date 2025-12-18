@@ -60,7 +60,8 @@ development_status:
     # Format: <epic>-<story>-<slug>: <status>
     # Status values: backlog | drafted | in-progress | review | done
     1-5-secrets-management-and-configuration: drafted
-    1-6-ci-pipeline-lint-tests-and-smoke-e2e: drafted
+    1-6-ci-pipeline-lint-tests-and-smoke-e2e: in-progress  # back to 1.6 due to troubles
+    1-7-api-instrumentation-metrics-and-traces: backlog
     2-1-bot-creation-configuration: done
     2-2-bot-duplication-deletion: done
     2-5-knowledge-base-management-ui: done
@@ -70,11 +71,11 @@ development_status:
     3-3-citation-generation: done
     3-4-confidence-scoring-routing: drafted
     3-5-pii-redaction: done
-    4-4-trust-signals-display: drafted
+    4-1-web-chat-interface: done
+    4-2-conversation-context: done
+    4-4-trust-signals-display: review
     4-5-embeddable-widget-generation: drafted
     4-6-widget-security-responsiveness: drafted
-    4-1-web-chat-interface: done
-    2-9-group-kb-folders-bot-allowlist: done
 ready_status:
     # Mark stories ready after context is generated
     1-5-secrets-management-and-configuration: ready
@@ -83,7 +84,7 @@ ready_status:
     2-2-bot-duplication-deletion: ready
     3-1-semantic-vector-search: ready-for-dev
     3-2-context-only-answer-generation: ready-for-dev
-    3-3-citation-generation: ready-for-review
+    3-3-citation-generation: ready-for-dev
     3-4-confidence-scoring-routing: ready-for-dev
     3-5-pii-redaction: ready-for-dev
     4-4-trust-signals-display: ready-for-dev
@@ -92,6 +93,7 @@ ready_status:
 
 assignments:
     # Format: <epic>-<story>-<slug>: <developer-name>
+    1-6-ci-pipeline-lint-tests-and-smoke-e2e: Kainy  # resumed work on CI pipeline
+    1-7-api-instrumentation-metrics-and-traces: Kainy
     2-5-knowledge-base-management-ui: Soulaymane
     2-6-document-deletion: Soulaymane
-    3-4-confidence-scoring-routing: Soulaymane

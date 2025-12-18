@@ -1,9 +1,16 @@
+export type TrustLevel = "verified" | "ai_generated" | "pending";
+export type SourceType = "verified_kb" | "rag" | "hitl";
+
 export interface ChatMessage {
     id: string;
     role: "user" | "assistant";
     content: string;
     timestamp: number;
     citations?: Citation[];
+    trustLevel?: TrustLevel;
+    confidenceScore?: number;
+    sourceType?: SourceType;
+    responseId?: string;
 }
 
 export interface Citation {

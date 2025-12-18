@@ -1,6 +1,7 @@
 """Schemas for chat endpoints."""
 
 from typing import List, Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field, conint
 
@@ -12,6 +13,10 @@ class ChatMessage(BaseModel):
     content: str
     citations: Optional[list[dict]] = None
     timestamp: Optional[int] = None
+    trust_level: Optional[Literal["verified", "ai_generated", "pending"]] = None
+    confidence_score: Optional[float] = None
+    source_type: Optional[Literal["verified_kb", "rag", "hitl"]] = None
+    response_id: Optional[str] = None
 
 
 class ChatQueryRequest(BaseModel):
@@ -31,6 +36,26 @@ class ChatQueryRequest(BaseModel):
     )
     # Deprecated: kept for backward compatibility with earlier clients
     conversation_history: Optional[list[dict]] = Field(default=None)
+
+
+class ChatQueryResponse(BaseModel):
+    """Response for chat query with trust metadata."""
+
+    response: str
+    citations: Optional[list[dict]] = None
+    trust_level: Literal["verified", "ai_generated", "pending"]
+    confidence_score: float
+    source_type: Literal["verified_kb", "rag", "hitl"]
+    response_id: str
+    chunks_used: int = 0
+
+
+class MessageStatusResponse(BaseModel):
+    """Response for checking message/verification status."""
+
+    status: Literal["pending", "resolved", "error"]
+    response: Optional[ChatQueryResponse] = None
+    error: Optional[str] = None
 
 
 class PublicBotInfo(BaseModel):

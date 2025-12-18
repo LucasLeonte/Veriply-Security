@@ -76,7 +76,6 @@ class LLMService:
         query: str,
         context_chunks: List[SearchResult],
         conversation_history: Optional[List[dict]] = None,
-        conversation_context: Optional[str] = None,
     ) -> AsyncIterator[str]:
         """Generate context-only answer using LLM with streaming.
 
@@ -195,7 +194,7 @@ Answer (based ONLY on the context above):"""
 
         # Format context chunks with source labels and separators
         context_sections = []
-        for chunk in context_chunks:
+        for i, chunk in enumerate(context_chunks):
             source = self._format_source(chunk)
             context_sections.append(f"[Source: {source}]\n{chunk.text}")
 
