@@ -3,7 +3,7 @@
 import json
 import logging
 from typing import AsyncIterator, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -188,14 +188,12 @@ async def chat_query(
         tenant_id = bot.tenant_id
 
         # Retrieve relevant context from vector store
-        # Use a balanced similarity threshold: high enough to avoid noise,
-        # but not so strict that we almost never find context in dev
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
             query=request.query.strip(),
-            k=3,  # Get top 3 chunks (reduced from 5 to minimize noise)
+            k=3,
             similarity_threshold=0.5,
         )
 
@@ -206,11 +204,8 @@ async def chat_query(
                 media_type="text/event-stream",
             )
 
-        # Pass SearchResult objects directly to LLM service
-        # LLMService expects List[SearchResult], not list of dicts
-
-        # Build conversation history
-        conversation_history = []
+        # Build conversation history that will be sent to the LLM
+        conversation_history: list[ChatMessage] = []
         if not conversation_context and context_messages:
             conversation_history = context_messages[-context_window:]
 
@@ -220,15 +215,20 @@ async def chat_query(
         async for token in llm_service.generate_answer(
             query=request.query.strip(),
             context_chunks=search_results,
-            conversation_history=[{"role": m.role, "content": m.content} for m in conversation_history],
-            conversation_context=conversation_context,
+            conversation_history=[
+                {"role": m.role, "content": m.content} for m in conversation_history
+            ],
+            conversation_context=conversation_context or None,
         ):
             draft_tokens.append(token)
         ai_draft = "".join(draft_tokens)
 
         # Prepare lightweight citations metadata for confidence logging
         confidence_citations = [
-            {"source": result.document_name or "Unknown", "similarity": result.similarity}
+            {
+                "source": result.document_name or "Unknown",
+                "similarity": result.similarity,
+            }
             for result in search_results
         ]
 
@@ -254,16 +254,21 @@ async def chat_query(
         ]
 
         # Log low-confidence chunks that were excluded from citations
-        low_confidence = [r for r in search_results if r.similarity < CITATION_SIMILARITY_THRESHOLD]
+        low_confidence = [
+            r for r in search_results if r.similarity < CITATION_SIMILARITY_THRESHOLD
+        ]
         if low_confidence:
             logger.debug(
-                f"Excluded {len(low_confidence)} low-confidence chunk(s) from citations: "
-                f"{[f'{r.document_name}({r.similarity:.2f})' for r in low_confidence]}"
+                "Excluded %d low-confidence chunk(s) from citations: %s",
+                len(low_confidence),
+                [f"{r.document_name}({r.similarity:.2f})" for r in low_confidence],
             )
 
         # Calculate confidence score using draft + citations
         threshold = getattr(bot, "confidence_threshold", 80)
-        is_verified_kb = any(getattr(r, "is_verified", False) for r in search_results)
+        is_verified_kb = any(
+            getattr(r, "is_verified", False) for r in search_results
+        )
         confidence_result = await confidence_service.calculate_confidence(
             db=db,
             bot_id=bot_id,
@@ -278,17 +283,17 @@ async def chat_query(
                 "citations": confidence_citations,
             },
         )
-        # Keep confidence as 0-1 for the streaming API; UI already expects a 0-1 float.
+
+        # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
         confidence_value = float(confidence_result.overall_score)
 
-        # Routing decision: HITL  wait message; AUTO_SEND  stream draft tokens
+        # Routing decision: send a wait message for HITL, otherwise stream draft
         if confidence_result.routing_decision.value == "hitl":
             return StreamingResponse(
                 _stream_hitl_wait_response(confidence_value),
                 media_type="text/event-stream",
             )
 
-        # Auto-send: stream the precomputed draft tokens with metadata
         return StreamingResponse(
             _stream_precomputed_response(
                 tokens=draft_tokens,
@@ -303,6 +308,62 @@ async def chat_query(
         return StreamingResponse(
             _stream_error_response(str(e)),
             media_type="text/event-stream",
+        )
+
+
+@router.get("/{bot_id}/chat/{message_id}/status")
+async def get_message_status(
+    bot_id: UUID,
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check status of a pending verification message.
+
+    Used by frontend to poll for HITL verification completion.
+    When a low-confidence response is pending verification, the frontend
+    polls this endpoint until the status changes to "resolved".
+
+    Args:
+        - bot_id: UUID of the bot
+        - message_id: ID of the pending message
+
+    Returns:
+        - 200: { status: "pending" | "resolved", response?: {...} }
+        - 404: Message not found or not pending
+    """
+    try:
+        # Verify bot exists
+        bot = await db.get(Bot, bot_id)
+        if not bot:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Bot not found",
+            )
+
+        # TODO: Implement message status tracking in database
+        # For now, return pending status as placeholder
+        # In production:
+        # 1. Query message_status table to get current status
+        # 2. If status == "resolved", fetch and return the verified response
+        # 3. If status == "pending", return pending status
+        # 4. If message not found, return 404
+
+        logger.debug(f"Checking status for message {message_id} in bot {bot_id}")
+
+        # Placeholder response - implement when HITL queue is ready
+        return {
+            "status": "pending",
+            "error": "Message status tracking not yet implemented",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking message status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check message status",
         )
 
 
