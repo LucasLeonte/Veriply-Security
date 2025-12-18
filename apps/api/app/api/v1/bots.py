@@ -8,10 +8,11 @@ import logging
 from pathlib import Path
 import uuid
 
-from app.models import Group, GroupMember, GroupRole
+from app.models import Group, GroupMember, GroupRole, WidgetConfig
 from app.core.auth import get_current_user
 from app.core.database import get_db
 from app.api.v1.schemas import BotCreate, BotUpdate, BotResponse
+from app.schemas.widget import WidgetConfigResponse, WidgetConfigUpdate
 from app.services.bot_group_service import BotGroupService
 from app.services.audit_service import AuditService
 from app.core.settings import settings
@@ -384,3 +385,72 @@ async def delete_bot(
         await session.rollback()
         logger.exception(f"Error deleting bot: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete bot")
+
+
+
+@router.get("/{bot_id}/widget/config", response_model=WidgetConfigResponse)
+async def get_widget_config(
+    group_id: UUID,
+    bot_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Get widget config for a bot (owner/manager)."""
+    await check_group_access(group_id, current_user, session)
+
+    from sqlalchemy import select
+
+    result = await session.execute(select(WidgetConfig).where(WidgetConfig.bot_id == bot_id))
+    cfg = result.scalar_one_or_none()
+
+    if cfg is None:
+        # Default values
+        return WidgetConfigResponse(
+            bot_id=str(bot_id),
+            position="bottom-right",
+            primary_color="#3B82F6",
+            welcome_message=None,
+            auto_open=False,
+        )
+
+    return WidgetConfigResponse(**cfg.to_dict())
+
+
+@router.put("/{bot_id}/widget/config", response_model=WidgetConfigResponse)
+async def update_widget_config(
+    group_id: UUID,
+    bot_id: UUID,
+    payload: WidgetConfigUpdate,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Update widget settings (requires manager or admin)."""
+    await check_group_access(group_id, current_user, session, required_role=GroupRole.MANAGER)
+
+    from sqlalchemy import select
+
+    result = await session.execute(select(WidgetConfig).where(WidgetConfig.bot_id == bot_id))
+    cfg = result.scalar_one_or_none()
+
+    if cfg is None:
+        cfg = WidgetConfig(
+            bot_id=bot_id,
+            position=payload.position or "bottom-right",
+            primary_color=payload.primary_color or "#3B82F6",
+            welcome_message=payload.welcome_message,
+            auto_open=bool(payload.auto_open) if payload.auto_open is not None else False,
+        )
+        session.add(cfg)
+    else:
+        if payload.position is not None:
+            cfg.position = payload.position
+        if payload.primary_color is not None:
+            cfg.primary_color = payload.primary_color
+        if payload.welcome_message is not None:
+            cfg.welcome_message = payload.welcome_message
+        if payload.auto_open is not None:
+            cfg.auto_open = payload.auto_open
+
+    await session.commit()
+    await session.refresh(cfg)
+    return WidgetConfigResponse(**cfg.to_dict())

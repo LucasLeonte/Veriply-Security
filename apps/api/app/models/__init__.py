@@ -10,6 +10,7 @@ from .bot_document_access import BotDocumentAccess as BotDocumentAccess
 from .chunk import Chunk as Chunk
 from .embedding import Embedding as Embedding
 from .audit_log import AuditLog as AuditLog
+from .widget_config import WidgetConfig as WidgetConfig
 
 __all__ = [
     "Base",
@@ -26,4 +27,5 @@ __all__ = [
     "Chunk",
     "Embedding",
     "AuditLog",
+    "WidgetConfig",
 ]

@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.models.bot import Bot
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
+from app.schemas.widget import WidgetConfigResponse
+from app.models import WidgetConfig
 from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
@@ -149,7 +151,7 @@ async def chat_query(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Context window must be between 1 and 100",
         )
-    
+
     context_messages: list[ChatMessage] = []
 
     if request.context:
@@ -322,3 +324,37 @@ async def _stream_error_response(error: str) -> AsyncIterator[str]:
     """Stream an error response."""
     yield f"data: {json.dumps({'error': 'Sorry, I encountered an issue. Please try again.', 'detail': error})}\n\n"
     yield "data: [DONE]\n\n"
+
+
+@router.get("/{bot_id}/widget/config", response_model=WidgetConfigResponse)
+async def get_public_widget_config(
+    bot_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public widget configuration for a bot (no auth).
+
+    Returns defaults if no explicit config exists. Only allowed if bot is public.
+    """
+    # Validate bot exists and public
+    bot = await db.get(Bot, bot_id)
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    if hasattr(bot, "is_public") and not bot.is_public:
+        raise HTTPException(status_code=403, detail="Bot is not public")
+
+    from sqlalchemy import select
+    result = await db.execute(select(WidgetConfig).where(WidgetConfig.bot_id == bot_id))
+    cfg = result.scalar_one_or_none()
+
+    if cfg is None:
+        # Compose defaults with bot welcome message if present
+        return WidgetConfigResponse(
+            bot_id=str(bot_id),
+            position="bottom-right",
+            primary_color="#3B82F6",
+            welcome_message=getattr(bot, "welcome_message", None),
+            auto_open=False,
+        )
+
+    return WidgetConfigResponse(**cfg.to_dict())

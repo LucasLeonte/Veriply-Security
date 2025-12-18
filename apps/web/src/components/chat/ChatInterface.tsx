@@ -16,6 +16,7 @@ interface ChatInterfaceProps {
     botAvatar?: string;
     welcomeMessage: string;
     isPublic: boolean;
+    embedded?: boolean;
 }
 
 export default function ChatInterface({
@@ -24,6 +25,7 @@ export default function ChatInterface({
     botAvatar,
     welcomeMessage,
     isPublic,
+    embedded = false,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const [showClearDialog, setShowClearDialog] = useState(false);
@@ -39,20 +41,24 @@ export default function ChatInterface({
         contextWindow,
         sessionId,
     } = useChat(botId);
-    
+
     // Validate message structure at runtime for defensive programming
     const validateMessages = (msgs: any[]) => {
-        return msgs.every(msg => 
-            typeof msg === 'object' && 
-            ['user', 'assistant'].includes(msg.role) && 
-            typeof msg.content === 'string'
+        return msgs.every(
+            (msg) =>
+                typeof msg === "object" &&
+                ["user", "assistant"].includes(msg.role) &&
+                typeof msg.content === "string"
         );
     };
-    
+
     if (messages.length > 0 && !validateMessages(messages)) {
-        console.warn('[ChatInterface] Invalid message structure detected:', messages);
+        console.warn(
+            "[ChatInterface] Invalid message structure detected:",
+            messages
+        );
     }
-    
+
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const contextCount = Math.min(messages.length, contextWindow);
@@ -116,7 +122,13 @@ export default function ChatInterface({
     }
 
     return (
-        <Card className="w-full max-w-4xl h-[90vh] flex flex-col shadow-lg">
+        <Card
+            className={
+                embedded
+                    ? "w-full h-full flex flex-col border-0 shadow-none"
+                    : "w-full max-w-4xl h-[90vh] flex flex-col shadow-lg"
+            }
+        >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
                 <div className="flex items-center gap-3">
@@ -140,7 +152,13 @@ export default function ChatInterface({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className={`text-[10px] px-2 py-1 rounded-full border ${isPublic ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                    <span
+                        className={`text-[10px] px-2 py-1 rounded-full border ${
+                            isPublic
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-slate-100 text-slate-600 border-slate-200"
+                        }`}
+                    >
                         {isPublic ? "Public" : "Private"}
                     </span>
                     <Button
@@ -209,7 +227,8 @@ export default function ChatInterface({
                 {/* Context Indicator */}
                 {messages.length > 0 && (
                     <div className="mb-2 text-xs text-slate-500">
-                        Context: {contextSize} message{contextSize !== 1 ? 's' : ''}
+                        Context: {contextSize} message
+                        {contextSize !== 1 ? "s" : ""}
                     </div>
                 )}
                 <div className="flex gap-2">
@@ -251,7 +270,8 @@ export default function ChatInterface({
                             Start New Conversation?
                         </h3>
                         <p className="text-slate-700 mb-4">
-                            This will clear your conversation history. This action cannot be undone.
+                            This will clear your conversation history. This
+                            action cannot be undone.
                         </p>
                         <div className="flex gap-3 justify-end">
                             <Button

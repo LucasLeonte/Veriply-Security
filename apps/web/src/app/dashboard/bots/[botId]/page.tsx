@@ -4,7 +4,13 @@ import { DashboardLayout } from "@/components";
 import { BotDocumentAccess } from "@/components/bot/BotDocumentAccess";
 import ChatInterface from "@/components/chat/ChatInterface";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Settings, FileText, MessageCircle } from "lucide-react";
+import {
+    ArrowLeft,
+    Settings,
+    FileText,
+    MessageCircle,
+    Settings2,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useGroup } from "@/contexts/GroupContext";
@@ -37,7 +43,9 @@ export default function BotSettingsPage() {
         return (
             <DashboardLayout>
                 <div className="text-center py-12">
-                    <p className="text-slate-600">Please select a group first</p>
+                    <p className="text-slate-600">
+                        Please select a group first
+                    </p>
                 </div>
             </DashboardLayout>
         );
@@ -58,13 +66,22 @@ export default function BotSettingsPage() {
                 </div>
 
                 {/* Header */}
-                <div>
-                    <h2 className="text-2xl font-semibold text-slate-900">
-                        Bot Settings
-                    </h2>
-                    <p className="text-sm text-slate-600 mt-1">
-                        Configure bot access and settings
-                    </p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-semibold text-slate-900">
+                            Bot Settings
+                        </h2>
+                        <p className="text-sm text-slate-600 mt-1">
+                            Configure bot access and settings
+                        </p>
+                    </div>
+                    <Link
+                        href={`/dashboard/groups/${currentGroup.id}/bots/${botId}/widget`}
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    >
+                        <Settings2 size={16} />
+                        Widget Configuration
+                    </Link>
                 </div>
 
                 {/* Tabs */}
@@ -111,23 +128,34 @@ export default function BotSettingsPage() {
                     {activeTab === "chat" && (
                         <div className="space-y-4">
                             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-800">
-                                <p className="font-medium mb-1">Test Your Bot</p>
+                                <p className="font-medium mb-1">
+                                    Test Your Bot
+                                </p>
                                 <p className="text-emerald-700">
-                                    Chat with your bot to test its responses and document access.
-                                    The bot will search through documents you've granted access to.
+                                    Chat with your bot to test its responses and
+                                    document access. The bot will search through
+                                    documents you've granted access to.
                                 </p>
                             </div>
 
                             {loading ? (
-                                <div className="p-6 text-slate-600">Loading bot…</div>
+                                <div className="p-6 text-slate-600">
+                                    Loading bot…
+                                </div>
                             ) : error ? (
-                                <div className="p-6 text-red-700 bg-red-50 border border-red-200 rounded">{error}</div>
+                                <div className="p-6 text-red-700 bg-red-50 border border-red-200 rounded">
+                                    {error}
+                                </div>
                             ) : bot ? (
                                 <ChatInterface
                                     botId={botId}
                                     botName={bot.name}
                                     botAvatar={bot.avatar_url}
-                                    welcomeMessage={bot.welcome_message || bot.description || `Hi! I'm ${bot.name}`}
+                                    welcomeMessage={
+                                        bot.welcome_message ||
+                                        bot.description ||
+                                        `Hi! I'm ${bot.name}`
+                                    }
                                     isPublic={bot.is_public}
                                 />
                             ) : null}
@@ -137,21 +165,30 @@ export default function BotSettingsPage() {
                     {activeTab === "documents" && (
                         <div className="space-y-4">
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-                                <p className="font-medium mb-1">Document Access Control</p>
+                                <p className="font-medium mb-1">
+                                    Document Access Control
+                                </p>
                                 <p className="text-blue-700">
-                                    Control which documents and folders this bot can access.
-                                    Folder settings apply to all documents in that folder unless
-                                    overridden by explicit document settings.
+                                    Control which documents and folders this bot
+                                    can access. Folder settings apply to all
+                                    documents in that folder unless overridden
+                                    by explicit document settings.
                                 </p>
                             </div>
 
-                            <BotDocumentAccess botId={botId} groupId={currentGroup.id} />
+                            <BotDocumentAccess
+                                botId={botId}
+                                groupId={currentGroup.id}
+                            />
                         </div>
                     )}
 
                     {activeTab === "settings" && currentGroup && (
                         <div className="bg-white border border-slate-200 rounded-lg p-6">
-                            <BotGeneralSettings groupId={currentGroup.id} botId={botId} />
+                            <BotGeneralSettings
+                                groupId={currentGroup.id}
+                                botId={botId}
+                            />
                         </div>
                     )}
                 </div>

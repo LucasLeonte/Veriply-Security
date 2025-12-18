@@ -7,6 +7,7 @@ interface PageProps {
     params: {
         botId: string;
     };
+    searchParams?: Record<string, string | string[] | undefined>;
 }
 
 export async function generateMetadata({
@@ -26,7 +27,7 @@ export async function generateMetadata({
     }
 }
 
-export default async function ChatPage({ params }: PageProps) {
+export default async function ChatPage({ params, searchParams }: PageProps) {
     const resolvedParams = await params;
     let botInfo;
 
@@ -37,14 +38,28 @@ export default async function ChatPage({ params }: PageProps) {
         notFound();
     }
 
+    const embedded =
+        (typeof searchParams?.embedded === "string" &&
+            searchParams?.embedded === "true") ||
+        (Array.isArray(searchParams?.embedded) &&
+            searchParams?.embedded[0] === "true");
+
     return (
-        <main className="h-screen w-full flex items-center justify-center bg-slate-50">
+        <main
+            className={
+                embedded
+                    ? "w-full h-full bg-transparent"
+                    : "h-screen w-full flex items-center justify-center bg-slate-50"
+            }
+            style={embedded ? { height: "100%", width: "100%" } : undefined}
+        >
             <ChatInterface
                 botId={resolvedParams.botId}
                 botName={botInfo.name}
                 botAvatar={botInfo.avatar_url}
                 welcomeMessage={botInfo.welcome_message}
                 isPublic={botInfo.is_public}
+                embedded={embedded}
             />
         </main>
     );
