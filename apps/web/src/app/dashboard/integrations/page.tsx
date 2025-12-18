@@ -14,6 +14,14 @@ export default function IntegrationsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [authToken, setAuthToken] = useState<string>("");
+
+    // Get auth token from localStorage (client-side only)
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            setAuthToken(localStorage.getItem("access_token") || "");
+        }
+    }, []);
 
     // Check for success message from OAuth callback
     useEffect(() => {
@@ -28,15 +36,19 @@ export default function IntegrationsPage() {
     }, [searchParams, router]);
 
     const fetchIntegrations = async () => {
+        if (!authToken) {
+            setLoading(false);
+            return; // Wait for token to be loaded
+        }
+        
         setLoading(true);
         setError(null);
 
         try {
-            // TODO: Get token from auth context
-            const token = localStorage.getItem("auth_token") || "";
-            const response = await listIntegrations(token);
+            const response = await listIntegrations(authToken);
             setIntegrations(response.integrations);
         } catch (err: any) {
+            console.error("Failed to load integrations:", err);
             setError(err.message || "Failed to load integrations");
         } finally {
             setLoading(false);
@@ -45,7 +57,7 @@ export default function IntegrationsPage() {
 
     useEffect(() => {
         fetchIntegrations();
-    }, []);
+    }, [authToken]); // Re-fetch when token is loaded
 
     const gmailIntegration =
         integrations.find((i) => i.provider === "gmail") || null;
@@ -81,11 +93,20 @@ export default function IntegrationsPage() {
                 </div>
             )}
 
+            {!authToken && !loading && (
+                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-3">
+                    <AlertCircle className="h-5 w-5 text-yellow-600" />
+                    <span className="text-sm text-yellow-800">
+                        Not authenticated. Please log in to manage integrations.
+                    </span>
+                </div>
+            )}
+
             <div className="space-y-4">
                 <GmailConnection
                     integration={gmailIntegration}
                     onDisconnect={handleGmailDisconnect}
-                    token={localStorage.getItem("auth_token") || ""}
+                    token={authToken}
                 />
 
                 {/* Placeholder for Outlook integration (Story 6.2) */}
