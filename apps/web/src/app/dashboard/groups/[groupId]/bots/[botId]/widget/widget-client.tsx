@@ -85,7 +85,7 @@ export function WidgetConfigClient({
             }
         };
         fetchConfig();
-    }, [groupId, botId, toast]);
+    }, [groupId, botId]);
 
     const handleSave = async () => {
         if (!config) return;
