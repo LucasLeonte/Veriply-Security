@@ -150,6 +150,18 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         if (metadata?.citations) {
                             lastMsg.citations = metadata.citations;
                         }
+                        if (metadata?.trust_level) {
+                            lastMsg.trustLevel = metadata.trust_level;
+                        }
+                        if (metadata?.confidence_score) {
+                            lastMsg.confidenceScore = metadata.confidence_score;
+                        }
+                        if (metadata?.source_type) {
+                            lastMsg.sourceType = metadata.source_type;
+                        }
+                        if (metadata?.response_id) {
+                            lastMsg.responseId = metadata.response_id;
+                        }
                     }
                     return updated;
                 });

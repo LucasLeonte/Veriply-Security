@@ -3,7 +3,7 @@
 import json
 import logging
 from typing import AsyncIterator, Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -229,6 +229,62 @@ async def chat_query(
         )
 
 
+@router.get("/{bot_id}/chat/{message_id}/status")
+async def get_message_status(
+    bot_id: UUID,
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check status of a pending verification message.
+
+    Used by frontend to poll for HITL verification completion.
+    When a low-confidence response is pending verification, the frontend
+    polls this endpoint until the status changes to "resolved".
+
+    Args:
+        - bot_id: UUID of the bot
+        - message_id: ID of the pending message
+
+    Returns:
+        - 200: { status: "pending" | "resolved", response?: {...} }
+        - 404: Message not found or not pending
+    """
+    try:
+        # Verify bot exists
+        bot = await db.get(Bot, bot_id)
+        if not bot:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Bot not found",
+            )
+
+        # TODO: Implement message status tracking in database
+        # For now, return pending status as placeholder
+        # In production:
+        # 1. Query message_status table to get current status
+        # 2. If status == "resolved", fetch and return the verified response
+        # 3. If status == "pending", return pending status
+        # 4. If message not found, return 404
+
+        logger.debug(f"Checking status for message {message_id} in bot {bot_id}")
+
+        # Placeholder response - implement when HITL queue is ready
+        return {
+            "status": "pending",
+            "error": "Message status tracking not yet implemented",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking message status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to check message status",
+        )
+
+
 async def _stream_llm_response(
     llm_service: LLMService,
     query: str,
@@ -255,6 +311,19 @@ async def _stream_llm_response(
             token_count += 1
             yield f"data: {json.dumps({'token': token})}\n\n"
 
+        # Calculate trust level based on source and confidence
+        # For now, we treat all RAG responses as ai_generated
+        # TODO: Integrate VerifiedKBService to check if from Verified KB
+        trust_level = "ai_generated"
+        source_type = "rag"
+        
+        # Calculate confidence score from average similarity of chunks
+        if context_chunks:
+            avg_similarity = sum(chunk.similarity for chunk in context_chunks) / len(context_chunks)
+            confidence_score = avg_similarity * 100  # Convert to percentage
+        else:
+            confidence_score = 0.0
+        
         # Send metadata at the end
         # Filter citations to only high-confidence matches (≥0.65 similarity)
         CITATION_SIMILARITY_THRESHOLD = 0.65
@@ -291,6 +360,10 @@ async def _stream_llm_response(
             "citations": citations,
             "chunks_used": len(context_chunks),
             "token_count": token_count,
+            "trust_level": trust_level,
+            "confidence_score": round(confidence_score, 2),
+            "source_type": source_type,
+            "response_id": str(uuid4()),
         }
 
         yield f"data: {json.dumps({'metadata': metadata})}\n\n"
