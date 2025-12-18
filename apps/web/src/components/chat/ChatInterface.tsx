@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Loader2, RefreshCw } from "lucide-react";
+import { Send, Loader2, RefreshCw, Clock3 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useChat } from "@/hooks/useChat";
 import MessageList from "./MessageList";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { getUserSessions } from "@/lib/api/chat";
 
 interface ChatInterfaceProps {
     botId: string;
@@ -34,11 +36,14 @@ export default function ChatInterface({
         sendMessage,
         clearHistory,
         retryLastMessage,
+        resumeSession,
         feedbackState,
         feedbackError,
         submitFeedbackForMessage,
     } = useChat(botId);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const [historyOpen, setHistoryOpen] = useState(false);
+    const [userSessions, setUserSessions] = useState<Array<{ id: string; title: string; lastTimestamp: number; count: number }>>([]);
 
     // Auto-focus input on mount
     useEffect(() => {
@@ -88,6 +93,7 @@ export default function ChatInterface({
     }
 
     return (
+        <>
         <Card className="w-full max-w-4xl h-[90vh] flex flex-col shadow-lg">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
@@ -115,6 +121,17 @@ export default function ChatInterface({
                     <span className={`text-[10px] px-2 py-1 rounded-full border ${isPublic ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
                         {isPublic ? "Public" : "Private"}
                     </span>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            setUserSessions(getUserSessions(botId));
+                            setHistoryOpen(true);
+                        }}
+                        title="Your conversations"
+                    >
+                        <Clock3 className="h-4 w-4" />
+                    </Button>
                     <Button
                         variant="ghost"
                         size="sm"
@@ -209,5 +226,40 @@ export default function ChatInterface({
                 </p>
             </div>
         </Card>
+
+        <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+            <DialogContent className="max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>Your conversations</DialogTitle>
+                </DialogHeader>
+                {userSessions.length === 0 ? (
+                    <p className="text-sm text-slate-600">No conversations yet.</p>
+                ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-200 rounded-md">
+                        {userSessions.map((s) => (
+                            <div key={s.id} className="p-3 flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm text-slate-900 line-clamp-1">{s.title}</p>
+                                    <p className="text-[11px] text-slate-500">
+                                        {new Date(s.lastTimestamp).toLocaleString()} • {s.count} message{s.count !== 1 ? "s" : ""}
+                                    </p>
+                                    <p className="text-[11px] text-slate-500 font-mono mt-1">{s.id}</p>
+                                </div>
+                                <Button
+                                    size="sm"
+                                    onClick={() => {
+                                        resumeSession(s.id);
+                                        setHistoryOpen(false);
+                                    }}
+                                >
+                                    Open
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

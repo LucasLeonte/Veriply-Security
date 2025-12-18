@@ -5,13 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { fetchChatHistory } from "@/lib/api/chatHistory";
+import { saveChatHistory } from "@/lib/api/chat";
 import { ChatHistoryEntry } from "@/types/chat";
 
 interface ChatHistoryPanelProps {
     botId: string;
+    onResumeChat?: () => void;
 }
 
-export function ChatHistoryPanel({ botId }: ChatHistoryPanelProps) {
+export function ChatHistoryPanel({ botId, onResumeChat }: ChatHistoryPanelProps) {
     const [historyEntries, setHistoryEntries] = useState<ChatHistoryEntry[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState<string | null>(null);
@@ -181,6 +183,57 @@ export function ChatHistoryPanel({ botId }: ChatHistoryPanelProps) {
                     <div className="border border-slate-200 rounded-lg bg-white shadow-sm p-3 min-h-[320px]">
                         {selectedConversation ? (
                             <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-xs text-slate-500">
+                                        Session: <span className="font-mono">{selectedConversation.sessionId}</span>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        onClick={async () => {
+                                            if (!selectedConversation.sessionId || selectedConversation.sessionId === "unspecified") {
+                                                return;
+                                            }
+                                            try {
+                                                // Persist chosen session id so Chat uses it on mount
+                                                if (typeof window !== "undefined") {
+                                                    sessionStorage.setItem(
+                                                        `chat_session_id_${botId}`,
+                                                        selectedConversation.sessionId
+                                                    );
+                                                }
+
+                                                // Load messages from API for this session and map to ChatMessage[]
+                                                const entries = await fetchChatHistory(botId, {
+                                                    sessionId: selectedConversation.sessionId,
+                                                    limit: 500,
+                                                });
+
+                                                const mapped = entries
+                                                    .sort(
+                                                        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                                                    )
+                                                    .map((e) => ({
+                                                        id: (e.role === "user" ? (e.client_message_id || e.id) : e.id) as string,
+                                                        role: (e.role === "user" ? "user" : "assistant") as "user" | "assistant",
+                                                        content: e.content,
+                                                        timestamp: new Date(e.created_at).getTime(),
+                                                        citations: e.citations || [],
+                                                        answerId: e.answer_id || undefined,
+                                                    }));
+
+                                                // Store as the current chat history for ChatInterface
+                                                saveChatHistory(botId, mapped);
+
+                                                // Switch to Chat tab
+                                                onResumeChat?.();
+                                            } catch (err) {
+                                                console.error("Failed to resume conversation", err);
+                                            }
+                                        }}
+                                    >
+                                        Resume in Chat
+                                    </Button>
+                                </div>
                                 {selectedConversation.entries.map((entry) => (
                                     <div
                                         key={entry.id}

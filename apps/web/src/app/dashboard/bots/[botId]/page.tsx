@@ -175,7 +175,10 @@ export default function BotSettingsPage() {
                                     View past conversations for this bot. History is available to owners/admins only.
                                 </p>
                             </div>
-                            <ChatHistoryPanel botId={botId} />
+                            <ChatHistoryPanel
+                                botId={botId}
+                                onResumeChat={() => setActiveTab("chat")}
+                            />
                         </div>
                     )}
                 </div>

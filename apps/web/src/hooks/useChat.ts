@@ -52,9 +52,9 @@ export function useChat(botId: string) {
         }
     }, [botId]);
 
-    // Load chat history on mount
+    // Load chat history for current session on mount
     useEffect(() => {
-        const history = loadChatHistory(botId);
+        const history = loadChatHistory(botId, sessionIdRef.current);
         setMessages(history);
     }, [botId]);
 
@@ -72,10 +72,10 @@ export function useChat(botId: string) {
         }
     }, [botId]);
 
-    // Save chat history whenever messages change
+    // Save chat history whenever messages change (per-session)
     useEffect(() => {
         if (messages.length > 0) {
-            saveChatHistory(botId, messages);
+            saveChatHistory(botId, messages, sessionIdRef.current);
         }
     }, [botId, messages]);
 
@@ -86,12 +86,12 @@ export function useChat(botId: string) {
         sessionStorage.setItem(key, JSON.stringify(feedbackState));
     }, [feedbackState, botId]);
 
-    // Clear history on page unload
+    // Clear current session history on page unload (optional)
     useEffect(() => {
         const handleBeforeUnload = () => {
-            // Session-based: clear on unload (as per AC #9)
-            // Comment this out if we want persistent history
-            clearStoredHistory(botId);
+            // Keep history persistent across reloads; do not clear by default
+            // If needed, uncomment to clear only current session history:
+            // clearStoredHistory(botId, sessionIdRef.current);
         };
 
         window.addEventListener("beforeunload", handleBeforeUnload);
@@ -219,7 +219,7 @@ export function useChat(botId: string) {
         const oldSession = sessionIdRef.current;
         const key = `chat_session_id_${botId}`;
         setMessages([]);
-        clearStoredHistory(botId);
+        // Do not delete old session messages; keep them available in local history
         setError(null);
         setRetryCount(0);
         setFeedbackState({});
@@ -229,6 +229,26 @@ export function useChat(botId: string) {
         sessionStorage.setItem(key, newSession);
         if (oldSession) {
             sessionStorage.removeItem(`feedback_state_${botId}_${oldSession}`);
+        }
+    }, [botId]);
+
+    const resumeSession = useCallback((sessionId: string) => {
+        // Switch current session id and load messages/feedback state
+        sessionIdRef.current = sessionId;
+        sessionStorage.setItem(`chat_session_id_${botId}`, sessionId);
+        const history = loadChatHistory(botId, sessionId);
+        setMessages(history);
+        setError(null);
+        setRetryCount(0);
+        // Load feedback state for that session if available
+        if (typeof window !== "undefined") {
+            try {
+                const key = `feedback_state_${botId}_${sessionId}`;
+                const stored = sessionStorage.getItem(key);
+                setFeedbackState(stored ? JSON.parse(stored) : {});
+            } catch {
+                setFeedbackState({});
+            }
         }
     }, [botId]);
 
@@ -355,6 +375,7 @@ export function useChat(botId: string) {
         sendMessage,
         retryLastMessage,
         clearHistory,
+        resumeSession,
         feedbackState,
         feedbackError,
         submitFeedbackForMessage,
