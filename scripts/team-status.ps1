@@ -151,12 +151,21 @@ foreach ($line in $lines) {
         $currentStatus = $null
         $currentAssigned = $null
     }
+    # Reset if we hit an epic or other top-level key (not a story)
+    elseif ($line -match '^\s+[a-z]+-\d+:\s*$') {
+        if ($currentStory -and $currentStatus -eq 'ready-for-dev' -and $currentAssigned -eq 'null') {
+            $availableStories += $currentStory
+        }
+        $currentStory = $null
+        $currentStatus = $null
+        $currentAssigned = $null
+    }
     
-    if ($line -match '^\s+status:\s*(.+)$') {
+    if ($currentStory -and $line -match '^\s+status:\s*(.+)$') {
         $currentStatus = $Matches[1].Trim()
     }
     
-    if ($line -match '^\s+assigned_to:\s*(.+)$') {
+    if ($currentStory -and $line -match '^\s+assigned_to:\s*(.+)$') {
         $currentAssigned = $Matches[1].Trim()
     }
 }
