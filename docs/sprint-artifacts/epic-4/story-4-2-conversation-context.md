@@ -1,9 +1,9 @@
 # Story 4.2: Conversation Context
 
 **Epic:** 4. Chat Experience  
-**Status:** ready-for-dev  
-**Assigned to:** Unassigned  
-**Blocked by:** 4-1-web-chat-interface
+**Status:** review  
+**Assigned to:** Kainy
+**Blocked by:** 4-1-web-chat-interface (completed)
 
 ## Story
 
