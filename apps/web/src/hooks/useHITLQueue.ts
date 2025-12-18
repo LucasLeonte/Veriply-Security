@@ -7,6 +7,7 @@ export interface ReviewQueueItem {
     timestamp: string;
     userQuestion: string;
     aiDraft: string;
+    botName: string;
     confidence: number;
     citations: Array<{
         source: string;

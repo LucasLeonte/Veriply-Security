@@ -18,6 +18,7 @@ from sqlalchemy import (
     Boolean,
     JSON,
 )
+from sqlalchemy.orm import relationship
 from .base import Base
 
 
@@ -78,6 +79,9 @@ class ConfidenceLog(Base):
     
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    bot = relationship("Bot", lazy="joined")
     
     # Indexes for common queries
     __table_args__ = (

@@ -148,7 +148,7 @@ export function ReviewQueueItemCard({
                             Needs Review
                         </span>
                         <span className="text-xs text-slate-500">
-                            {formatTime(item.timestamp)} • Support Bot
+                            {formatTime(item.timestamp)} • {item.botName}
                         </span>
                     </div>
                     {confidenceBar(item.confidence)}
@@ -415,10 +415,10 @@ export function ReviewQueue({
                             <CheckCircle className="w-6 h-6 text-green-600" />
                         </div>
                         <h3 className="text-lg font-medium text-slate-900 mb-1">
-                            All caught up!
+                            No items pending review.
                         </h3>
                         <p className="text-slate-500">
-                            No items pending review. Great work! 🎉
+                            Nice work! 🎉
                         </p>
                     </div>
                 ) : (

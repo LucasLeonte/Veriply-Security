@@ -13,11 +13,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, and_
+from sqlalchemy.orm import joinedload
 
 from app.core.database import get_db
 from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
+from app.models.bot import Bot
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ class ReviewQueueItemResponse(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp of query")
     userQuestion: str = Field(..., description="Original user question")
     aiDraft: str = Field(..., description="AI-generated draft response")
+    botName: str = Field(..., description="Name of the bot that generated the response")
     # Confidence is stored in the DB as a 0-1 float; keep the
     # API contract aligned so the frontend can render a % view
     # with a simple *100, matching the live chat certainty bar.
@@ -63,35 +66,43 @@ async def get_review_queue(
     current_tenant: UUID = Depends(get_current_tenant),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    sort_by: str = Query("newest", regex="^(newest|lowest_confidence|highest_confidence)$"),
+    sort_by: str = Query("oldest", regex="^(oldest|newest|lowest_confidence|highest_confidence)$"),
 ) -> ReviewQueueResponse:
     """
     Get pending HITL review items for the current tenant.
     
     Returns questions with confidence scores below bot thresholds that need
-    human review. Items are sorted by creation date (newest first) or confidence.
+    human review. Items are sorted by creation date (oldest first by default) or confidence.
+    
+    Sorting options:
+    - oldest: oldest items first (default, per AC requirement)
+    - newest: newest items first
+    - lowest_confidence: lowest confidence scores first
+    - highest_confidence: highest confidence scores first
     """
     try:
-        # Query pending HITL items for this tenant
+        # Query pending HITL items for this tenant with eager-loaded Bot
         query_stmt = select(ConfidenceLog).where(
             and_(
                 ConfidenceLog.routing_decision == RoutingDecision.HITL,
                 ConfidenceLog.hitl_resolved.is_(False),
                 ConfidenceLog.tenant_id == current_tenant,
             )
-        )
+        ).options(joinedload(ConfidenceLog.bot))
 
-        # Sort based on parameter
+        # Sort based on parameter (oldest first by default per AC1)
         if sort_by == "lowest_confidence":
             query_stmt = query_stmt.order_by(ConfidenceLog.overall_confidence.asc())
         elif sort_by == "highest_confidence":
             query_stmt = query_stmt.order_by(ConfidenceLog.overall_confidence.desc())
-        else:  # newest (default)
+        elif sort_by == "newest":
             query_stmt = query_stmt.order_by(desc(ConfidenceLog.created_at))
+        else:  # oldest (default)
+            query_stmt = query_stmt.order_by(ConfidenceLog.created_at.asc())
 
         # Execute query with pagination
         result = await db.execute(query_stmt)
-        all_items = result.scalars().all()
+        all_items = result.unique().scalars().all()
 
         # Get stats
         total = len(all_items)
@@ -117,12 +128,21 @@ async def get_review_queue(
             # Parse citations from metadata if available
             citations = metadata.get("citations", []) if isinstance(metadata.get("citations"), list) else []
 
+            # Get bot name (with fallback if relationship not loaded)
+            bot_name = "Unknown Bot"
+            if hasattr(item, 'bot') and item.bot:
+                bot_name = item.bot.name
+            else:
+                # Fallback: use metadata if bot relationship not loaded
+                bot_name = metadata.get("bot_name", "Unknown Bot")
+
             response_item = ReviewQueueItemResponse(
                 id=str(item.id),
                 type=item_type,
                 timestamp=item.created_at.isoformat(),
                 userQuestion=item.query_text or "Unknown question",
                 aiDraft=metadata.get("ai_draft", ""),
+                botName=bot_name,
                 # Keep confidence on a 0-1 scale so the Review Queue UI
                 # displays the same certainty value as the live chat
                 # bar (which multiplies by 100 for display only).
