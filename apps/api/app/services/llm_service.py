@@ -76,6 +76,7 @@ class LLMService:
         query: str,
         context_chunks: List[SearchResult],
         conversation_history: Optional[List[dict]] = None,
+        conversation_context: Optional[str] = None,
     ) -> AsyncIterator[str]:
         """Generate context-only answer using LLM with streaming.
 
@@ -95,13 +96,14 @@ class LLMService:
         """
         # Build the structured prompt enforcing context-only behavior
         system_prompt = self._build_system_prompt()
-        
-        # Format conversation history for context if provided
-        conversation_context = None
-        if conversation_history:
-            conversation_context = self._format_conversation_history(conversation_history)
-        
-        user_prompt = self._build_user_prompt(query, context_chunks, conversation_context)
+
+        # Determine conversation context string: prefer explicit value if provided,
+        # otherwise derive it from the conversation history.
+        derived_context: Optional[str] = conversation_context
+        if derived_context is None and conversation_history:
+            derived_context = self._format_conversation_history(conversation_history)
+
+        user_prompt = self._build_user_prompt(query, context_chunks, derived_context)
 
         # Build full conversation with history
         messages = self._build_messages(
