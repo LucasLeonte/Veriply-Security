@@ -186,5 +186,6 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         retryLastMessage,
         clearHistory,
         contextWindow,
+        sessionId: sessionIdRef.current,
     };
 }

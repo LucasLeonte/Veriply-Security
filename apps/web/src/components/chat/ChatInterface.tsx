@@ -37,7 +37,22 @@ export default function ChatInterface({
         clearHistory,
         retryLastMessage,
         contextWindow,
+        sessionId,
     } = useChat(botId);
+    
+    // Validate message structure at runtime for defensive programming
+    const validateMessages = (msgs: any[]) => {
+        return msgs.every(msg => 
+            typeof msg === 'object' && 
+            ['user', 'assistant'].includes(msg.role) && 
+            typeof msg.content === 'string'
+        );
+    };
+    
+    if (messages.length > 0 && !validateMessages(messages)) {
+        console.warn('[ChatInterface] Invalid message structure detected:', messages);
+    }
+    
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const contextCount = Math.min(messages.length, contextWindow);

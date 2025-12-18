@@ -142,6 +142,14 @@ async def chat_query(
 
     # Prepare conversation context (last N + summary of older)
     context_window = request.context_window or DEFAULT_CONTEXT_WINDOW
+    
+    # Validate context window size
+    if context_window < 1 or context_window > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Context window must be between 1 and 100",
+        )
+    
     context_messages: list[ChatMessage] = []
 
     if request.context:
@@ -275,6 +283,10 @@ async def _stream_llm_response(
                 f"{[f'{r.document_name}({r.similarity:.2f})' for r in low_confidence]}"
             )
 
+        # Filter citations to only high-confidence matches
+        # CITATION_SIMILARITY_THRESHOLD = 0.65 filters out low-confidence chunks
+        # that may have false positive relevance. Matches search_results threshold
+        # to ensure consistency between search retrieval and citation display.
         metadata = {
             "citations": citations,
             "chunks_used": len(context_chunks),
