@@ -33,7 +33,10 @@ export async function getBotPublicInfo(botId: string): Promise<BotPublicInfo> {
 export async function* streamChatQuery(
     botId: string,
     query: string,
-    conversationHistory?: { role: string; content: string }[]
+    options?: {
+        context?: ChatMessage[];
+        contextWindow?: number;
+    }
 ): AsyncGenerator<
     { type: "token"; content: string } | { type: "metadata"; data: Record<string, unknown> },
     void,
@@ -49,7 +52,13 @@ export async function* streamChatQuery(
             body: JSON.stringify({
                 query,
                 stream: true,
-                conversation_history: conversationHistory,
+                context: options?.context?.map((msg) => ({
+                    role: msg.role,
+                    content: msg.content,
+                    citations: msg.citations,
+                    timestamp: msg.timestamp,
+                })),
+                context_window: options?.contextWindow,
             }),
         }
     );
@@ -99,11 +108,11 @@ export async function* streamChatQuery(
 /**
  * Load chat history from localStorage for a specific bot
  */
-export function loadChatHistory(botId: string): ChatMessage[] {
+export function loadChatHistory(botId: string, sessionId: string): ChatMessage[] {
     if (typeof window === "undefined") return [];
 
     try {
-        const stored = localStorage.getItem(`chat_session_${botId}`);
+        const stored = localStorage.getItem(`chat_history_${botId}_${sessionId}`);
         if (!stored) return [];
         return JSON.parse(stored);
     } catch (error) {
@@ -115,11 +124,18 @@ export function loadChatHistory(botId: string): ChatMessage[] {
 /**
  * Save chat history to localStorage for a specific bot
  */
-export function saveChatHistory(botId: string, messages: ChatMessage[]): void {
+export function saveChatHistory(
+    botId: string,
+    sessionId: string,
+    messages: ChatMessage[]
+): void {
     if (typeof window === "undefined") return;
 
     try {
-        localStorage.setItem(`chat_session_${botId}`, JSON.stringify(messages));
+        localStorage.setItem(
+            `chat_history_${botId}_${sessionId}`,
+            JSON.stringify(messages)
+        );
     } catch (error) {
         console.error("Failed to save chat history:", error);
     }
@@ -128,11 +144,11 @@ export function saveChatHistory(botId: string, messages: ChatMessage[]): void {
 /**
  * Clear chat history for a specific bot
  */
-export function clearChatHistory(botId: string): void {
+export function clearChatHistory(botId: string, sessionId: string): void {
     if (typeof window === "undefined") return;
 
     try {
-        localStorage.removeItem(`chat_session_${botId}`);
+        localStorage.removeItem(`chat_history_${botId}_${sessionId}`);
     } catch (error) {
         console.error("Failed to clear chat history:", error);
     }

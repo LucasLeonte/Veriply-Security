@@ -104,9 +104,9 @@ development_status:
         completed_date: 2025-12-04
         blocked_by: 1-4-user-login-session-management
 
-    # Story 1.7 (CI Pipeline) - marked as needs-revision, unassigned
+    # Story 1.7 (CI Pipeline) - ready for review
     1-7-ci-pipeline:
-        status: needs-revision
+        status: ready-for-dev
         assigned_to: null
 
     epic-1-retrospective: optional
@@ -209,9 +209,9 @@ development_status:
         blocked_by: null
 
     4-2-conversation-context:
-        status: in-progress
+        status: done
         assigned_to: Kainy
-        blocked_by: 4-1-web-chat-interface
+        blocked_by: nulls
 
     4-3-user-feedback:
         status: in-progress
@@ -219,13 +219,13 @@ development_status:
         blocked_by: 4-1-web-chat-interface
 
     4-4-trust-signals-display:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Kainy
         blocked_by: 4-1-web-chat-interface
 
     4-5-embeddable-widget-generation:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Lucas
         blocked_by: 4-1-web-chat-interface
 
     4-6-widget-security-responsiveness:

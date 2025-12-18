@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,11 +16,13 @@ from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
 from app.services.bot_service import BotService
+from app.services.context_service import ContextService, DEFAULT_CONTEXT_WINDOW
 from app.services.confidence_service import ConfidenceCalculatorService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bots", tags=["chat"])
+context_service = ContextService()
 
 
 @router.get("/{bot_id}/public", response_model=PublicBotInfo)
@@ -141,6 +143,40 @@ async def chat_query(
             detail="Failed to verify bot access",
         )
 
+    # Prepare conversation context (last N + summary of older)
+    context_window = request.context_window or DEFAULT_CONTEXT_WINDOW
+    
+    # Validate context window size
+    if context_window < 1 or context_window > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Context window must be between 1 and 100",
+        )
+    
+    context_messages: list[ChatMessage] = []
+
+    if request.context:
+        context_messages = request.context
+    elif request.conversation_history:
+        context_messages = [
+            ChatMessage(role=msg.get("role"), content=msg.get("content", ""))
+            for msg in request.conversation_history
+            if isinstance(msg, dict)
+            and msg.get("role") in {"user", "assistant"}
+            and msg.get("content")
+        ]
+
+    conversation_context = ""
+    try:
+        conversation_context = await context_service.prepare_context(
+            context_messages, context_window
+        )
+    except Exception as context_error:
+        logger.warning(
+            f"Context preparation failed, continuing without context: {context_error}"
+        )
+        conversation_context = ""
+
     # Initialize services
     embedding_service = EmbeddingService()
     vector_search_service = VectorSearchService(embedding_service)
@@ -170,29 +206,58 @@ async def chat_query(
                 media_type="text/event-stream",
             )
 
+        # Pass SearchResult objects directly to LLM service
+        # LLMService expects List[SearchResult], not list of dicts
+
         # Build conversation history
         conversation_history = []
-        if request.conversation_history:
-            conversation_history = [
-                ChatMessage(role=msg["role"], content=msg["content"])
-                for msg in request.conversation_history[-4:]  # Last 4 messages
-            ]
+        if not conversation_context and context_messages:
+            conversation_history = context_messages[-context_window:]
 
-        # Generate AI draft tokens (not streamed yet)
+        # Generate AI draft tokens (not streamed yet);
+        # we hold them until confidence is calculated and routing decided.
         draft_tokens: list[str] = []
         async for token in llm_service.generate_answer(
             query=request.query.strip(),
             context_chunks=search_results,
             conversation_history=[{"role": m.role, "content": m.content} for m in conversation_history],
+            conversation_context=conversation_context,
         ):
             draft_tokens.append(token)
         ai_draft = "".join(draft_tokens)
 
-        # Prepare citations metadata
-        citations = [
+        # Prepare lightweight citations metadata for confidence logging
+        confidence_citations = [
             {"source": result.document_name or "Unknown", "similarity": result.similarity}
             for result in search_results
         ]
+
+        # Build detailed citations for streaming metadata
+        CITATION_SIMILARITY_THRESHOLD = 0.65
+        streaming_citations = [
+            {
+                "source": result.document_name or "Unknown",
+                "document_name": result.document_name or "Unknown",
+                "document_id": result.document_id,
+                "chunk_id": result.chunk_id,
+                "page_number": result.page_number,
+                "section": result.section,
+                "position": result.position,
+                "text": result.text,
+                "similarity": result.similarity,
+                "url": f"/api/v1/documents/{result.document_id}/chunks",
+            }
+            for result in search_results
+            if result.similarity >= CITATION_SIMILARITY_THRESHOLD
+        ]
+
+        # Log low-confidence chunks that were excluded from citations
+        low_confidence = [r for r in search_results if r.similarity < CITATION_SIMILARITY_THRESHOLD]
+        if low_confidence:
+            logger.debug(
+                f"Excluded {len(low_confidence)} low-confidence chunk(s) from citations: "
+                f"{[f'{r.document_name}({r.similarity:.2f})' for r in low_confidence]}"
+            )
 
         # Calculate confidence score using draft + citations
         threshold = getattr(bot, "confidence_threshold", 80)
@@ -208,13 +273,13 @@ async def chat_query(
             metadata_json={
                 "confidence_threshold": threshold,
                 "ai_draft": ai_draft,
-                "citations": citations,
+                "citations": confidence_citations,
             },
         )
         # Keep confidence as 0-1 for the streaming API; UI already expects a 0-1 float.
         confidence_value = float(confidence_result.overall_score)
 
-        # Routing decision: HITL → wait message; AUTO_SEND → stream draft tokens
+        # Routing decision: HITL  wait message; AUTO_SEND  stream draft tokens
         if confidence_result.routing_decision.value == "hitl":
             return StreamingResponse(
                 _stream_hitl_wait_response(confidence_value),
@@ -225,7 +290,7 @@ async def chat_query(
         return StreamingResponse(
             _stream_precomputed_response(
                 tokens=draft_tokens,
-                citations=citations,
+                citations=streaming_citations,
                 extra_metadata={"confidence": confidence_value},
             ),
             media_type="text/event-stream",
@@ -237,83 +302,6 @@ async def chat_query(
             _stream_error_response(str(e)),
             media_type="text/event-stream",
         )
-
-
-async def _stream_llm_response(
-    llm_service: LLMService,
-    query: str,
-    context_chunks: list,  # List[SearchResult]
-    conversation_history: list[ChatMessage],
-    extra_metadata: dict | None = None,
-) -> AsyncIterator[str]:
-    """Stream LLM response tokens as SSE events using LLMService.generate_answer."""
-    try:
-        # Map conversation history to LLM-compatible message dicts
-        history_payload = [
-            {"role": msg.role, "content": msg.content}
-            for msg in conversation_history
-        ]
-
-        # Stream tokens from LLM service
-        token_count = 0
-        async for token in llm_service.generate_answer(
-            query=query,
-            context_chunks=context_chunks,
-            conversation_history=history_payload,
-        ):
-            token_count += 1
-            yield f"data: {json.dumps({'token': token})}\n\n"
-
-        # Send metadata at the end
-        # Filter citations to only high-confidence matches (≥0.65 similarity)
-        CITATION_SIMILARITY_THRESHOLD = 0.65
-        citations = [
-            {
-                "source": result.document_name or "Unknown",
-                "document_name": result.document_name or "Unknown",
-                "document_id": result.document_id,
-                "chunk_id": result.chunk_id,
-                "page_number": result.page_number,
-                "section": result.section,
-                "position": result.position,
-                "text": result.text,
-                "similarity": result.similarity,
-                "url": f"/api/v1/documents/{result.document_id}/chunks",
-            }
-            for result in context_chunks
-            if result.similarity >= CITATION_SIMILARITY_THRESHOLD
-        ]
-        
-        # Log low-confidence chunks that were excluded from citations
-        low_confidence = [r for r in context_chunks if r.similarity < CITATION_SIMILARITY_THRESHOLD]
-        if low_confidence:
-            logger.debug(
-                f"Excluded {len(low_confidence)} low-confidence chunk(s) from citations: "
-                f"{[f'{r.document_name}({r.similarity:.2f})' for r in low_confidence]}"
-            )
-
-        metadata = {
-            "citations": citations,
-            "chunks_used": len(context_chunks),
-            "token_count": token_count,
-        }
-        if extra_metadata:
-            try:
-                metadata.update(extra_metadata)
-            except Exception:
-                # Ignore metadata merge issues
-                pass
-
-        yield f"data: {json.dumps({'metadata': metadata})}\n\n"
-        yield "data: [DONE]\n\n"
-
-    except Exception as e:
-        logger.error(f"Error streaming LLM response: {e}")
-        error_msg = {
-            "error": "Failed to generate response",
-            "detail": str(e),
-        }
-        yield f"data: {json.dumps(error_msg)}\n\n"
 
 
 async def _stream_no_context_response() -> AsyncIterator[str]:
@@ -355,7 +343,7 @@ async def _stream_precomputed_response(
     yield "data: [DONE]\n\n"
 
 
-async def _stream_hitl_wait_response(confidence: int) -> AsyncIterator[str]:
+async def _stream_hitl_wait_response(confidence: float) -> AsyncIterator[str]:
     """Stream HITL wait message to end-user with confidence metadata."""
     message = "I'm checking with the team for the best answer. You'll hear from us shortly."
     for ch in message:

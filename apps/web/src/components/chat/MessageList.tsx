@@ -7,6 +7,7 @@ import { Loader2, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
 import { sendToReviewQueue } from "@/lib/api/chat";
+import ContextSummary from "./ContextSummary";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -16,6 +17,7 @@ interface MessageListProps {
     botId?: string;
     // Bot confidence threshold as percentage (0-100)
     confidenceThresholdPercent?: number;
+    contextWindowSize?: number;
 }
 
 export default function MessageList({
@@ -24,6 +26,8 @@ export default function MessageList({
     botAvatar,
     streaming,
     botId,
+    confidenceThresholdPercent,
+    contextWindowSize = 10,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
@@ -101,6 +105,11 @@ export default function MessageList({
     return (
         <>
             <div className="space-y-4">
+                {/* Context Summary (shown when messages exceed context window) */}
+                <ContextSummary
+                    messages={messages}
+                    contextWindowSize={contextWindowSize}
+                />
                 {messages.map((message) => (
                     <div
                         key={message.id}
