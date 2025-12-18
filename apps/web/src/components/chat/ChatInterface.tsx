@@ -44,6 +44,16 @@ export default function ChatInterface({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [historyOpen, setHistoryOpen] = useState(false);
     const [userSessions, setUserSessions] = useState<Array<{ id: string; title: string; lastTimestamp: number; count: number }>>([]);
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+        typeof window !== "undefined" ? sessionStorage.getItem(`chat_session_id_${botId}`) : null
+    );
+
+    const refreshSessions = () => {
+        const list = getUserSessions(botId);
+        setUserSessions(list);
+        const current = typeof window !== "undefined" ? sessionStorage.getItem(`chat_session_id_${botId}`) : null;
+        setSelectedSessionId(current);
+    };
 
     // Auto-focus input on mount
     useEffect(() => {
@@ -57,6 +67,12 @@ export default function ChatInterface({
             textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
         }
     }, [input]);
+
+    // Refresh sessions when messages change (keeps sidebar index fresh)
+    useEffect(() => {
+        refreshSessions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [messages.length, botId]);
 
 
     const handleSend = async () => {
@@ -94,7 +110,53 @@ export default function ChatInterface({
 
     return (
         <>
-        <Card className="w-full max-w-4xl h-[90vh] flex flex-col shadow-lg">
+        <div className="w-full max-w-6xl h-[90vh] flex gap-4">
+            {/* Sidebar (Your chats) */}
+            <aside className="hidden md:flex md:flex-col w-[260px] border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden">
+                <div className="p-3 border-b border-slate-200 flex items-center justify-between">
+                    <p className="text-sm font-medium text-slate-800">Your chats</p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            clearHistory();
+                            // update selected session id to the newly generated one
+                            const sid = sessionStorage.getItem(`chat_session_id_${botId}`);
+                            setSelectedSessionId(sid);
+                            refreshSessions();
+                        }}
+                        title="Start new conversation"
+                    >
+                        New
+                    </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                    {userSessions.length === 0 ? (
+                        <div className="p-4 text-sm text-slate-600">No conversations yet.</div>
+                    ) : (
+                        userSessions.map((s) => (
+                            <button
+                                key={s.id}
+                                onClick={() => {
+                                    resumeSession(s.id);
+                                    setSelectedSessionId(s.id);
+                                }}
+                                className={`w-full text-left p-3 transition-colors ${
+                                    selectedSessionId === s.id ? "bg-sky-50" : "hover:bg-slate-50"
+                                }`}
+                            >
+                                <p className="text-sm text-slate-900 line-clamp-1">{s.title}</p>
+                                <p className="text-[11px] text-slate-500">
+                                    {new Date(s.lastTimestamp).toLocaleString()} • {s.count} message{s.count !== 1 ? "s" : ""}
+                                </p>
+                            </button>
+                        ))
+                    )}
+                </div>
+            </aside>
+
+            {/* Chat panel */}
+            <Card className="flex-1 h-full flex flex-col shadow-lg">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
                 <div className="flex items-center gap-3">
@@ -121,7 +183,9 @@ export default function ChatInterface({
                     <span className={`text-[10px] px-2 py-1 rounded-full border ${isPublic ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
                         {isPublic ? "Public" : "Private"}
                     </span>
+                    {/* Mobile-only: open your chats */}
                     <Button
+                        className="md:hidden"
                         variant="ghost"
                         size="sm"
                         onClick={() => {
@@ -225,7 +289,8 @@ export default function ChatInterface({
                     Press Enter to send, Shift+Enter for new line
                 </p>
             </div>
-        </Card>
+            </Card>
+        </div>
 
         <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
             <DialogContent className="max-w-lg">
@@ -250,6 +315,7 @@ export default function ChatInterface({
                                     onClick={() => {
                                         resumeSession(s.id);
                                         setHistoryOpen(false);
+                                        setSelectedSessionId(s.id);
                                     }}
                                 >
                                     Open
