@@ -150,6 +150,9 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         if (metadata?.citations) {
                             lastMsg.citations = metadata.citations;
                         }
+                        if (metadata?.confidence !== undefined) {
+                            lastMsg.confidence = metadata.confidence as number;
+                        }
                         if (metadata?.trust_level) {
                             lastMsg.trustLevel = metadata.trust_level;
                         }

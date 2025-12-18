@@ -1,7 +1,6 @@
 """Schemas for chat endpoints."""
 
 from typing import List, Literal, Optional
-from uuid import UUID
 
 from pydantic import BaseModel, Field, conint
 

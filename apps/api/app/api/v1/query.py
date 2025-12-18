@@ -6,9 +6,8 @@ frontend and tests for Story 3.4.
 """
 
 import logging
-import math
 from uuid import UUID, uuid4
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +20,7 @@ from app.models.bot import Bot
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
 from app.schemas.query import QueryMetadata
 from app.services.embedding_service import EmbeddingService, EmbeddingError
-from app.services.vector_search_service import VectorSearchService, SearchResult
+from app.services.vector_search_service import VectorSearchService
 
 logger = logging.getLogger(__name__)
 

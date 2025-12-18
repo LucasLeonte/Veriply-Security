@@ -2,8 +2,8 @@
 
 import json
 import logging
-from typing import AsyncIterator, Optional
-from uuid import UUID, uuid4
+from typing import AsyncIterator
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -15,7 +15,6 @@ from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
 from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
-from app.services.bot_service import BotService
 from app.services.context_service import ContextService, DEFAULT_CONTEXT_WINDOW
 from app.services.confidence_service import ConfidenceCalculatorService
 

@@ -1,11 +1,4 @@
 """Quick test to verify HITL endpoint is registered."""
-import asyncio
-import sys
-from pathlib import Path
-
-# Add app to path
-app_path = Path(__file__).parent / "app"
-sys.path.insert(0, str(Path(__file__).parent))
 
 from app.main import app
 

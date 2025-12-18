@@ -76,7 +76,7 @@ async def get_review_queue(
         query_stmt = select(ConfidenceLog).where(
             and_(
                 ConfidenceLog.routing_decision == RoutingDecision.HITL,
-                ConfidenceLog.hitl_resolved == False,
+                ConfidenceLog.hitl_resolved.is_(False),
                 ConfidenceLog.tenant_id == current_tenant,
             )
         )

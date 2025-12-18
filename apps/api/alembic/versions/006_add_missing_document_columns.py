@@ -6,8 +6,6 @@ Create Date: 2025-12-16 11:00:00.000000
 
 """
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = '006_add_missing_document_columns'

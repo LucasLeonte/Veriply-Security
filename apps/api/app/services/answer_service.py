@@ -144,9 +144,6 @@ class AnswerGenerationService:
                 for chunk in search_results
             ]
 
-            # Determine Verified KB presence
-            is_verified_kb = any(chunk.is_verified for chunk in search_results)
-
             logger.info(
                 f"Vector search returned {len(search_results)} chunks "
                 f"(latency: {search_latency_ms}ms)"
@@ -375,9 +372,7 @@ class AnswerGenerationService:
             )
 
         # Step 5: High confidence - return the generated answer as iterator
-        logger.debug(
-            f"Auto-send: returning generated answer"
-        )
+        logger.debug("Auto-send: returning generated answer")
 
         # Create an async generator that yields the already-generated draft tokens
         async def answer_generator() -> AsyncIterator[str]:
