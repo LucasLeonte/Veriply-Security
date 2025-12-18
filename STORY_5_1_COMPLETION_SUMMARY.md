@@ -4,7 +4,7 @@
 **Title**: HITL Queue View  
 **Status**: ✅ Ready for Review  
 **Branch**: `feature/5-1-hitl-queue-view`  
-**Developer**: Lucas  
+**Developer**: Kainy
 **Date Completed**: 2025-01-06
 
 ---

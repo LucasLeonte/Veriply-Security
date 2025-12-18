@@ -98,9 +98,17 @@ export function useHITLQueue() {
                 return;
             }
 
-            // Determine protocol (ws or wss based on current page protocol)
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            const wsUrl = `${protocol}//${window.location.host}/api/v1/hitl/ws/queue?token=${encodeURIComponent(token)}`;
+            // Get API base URL from environment or default to localhost:8000
+            const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            
+            // Extract host from API URL and determine WebSocket protocol
+            const apiUrl = new URL(apiBaseUrl);
+            const protocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+            const wsHost = apiUrl.host;
+            
+            const wsUrl = `${protocol}//${wsHost}/api/v1/hitl/ws/queue?token=${encodeURIComponent(token)}`;
+            
+            console.log(`Connecting to WebSocket: ${protocol}//${wsHost}/api/v1/hitl/ws/queue`);
 
             const ws = new WebSocket(wsUrl);
 
@@ -143,11 +151,19 @@ export function useHITLQueue() {
             };
 
             ws.onerror = (event) => {
-                console.error("WebSocket error:", event);
+                console.error("WebSocket error:", {
+                    readyState: ws.readyState,
+                    url: wsUrl,
+                    event: event
+                });
             };
 
-            ws.onclose = () => {
-                console.log("WebSocket closed, attempting reconnection...");
+            ws.onclose = (event) => {
+                console.log("WebSocket closed:", {
+                    code: event.code,
+                    reason: event.reason || "No reason provided",
+                    wasClean: event.wasClean
+                });
                 wsRef.current = null;
 
                 // Attempt to reconnect with exponential backoff
@@ -155,20 +171,21 @@ export function useHITLQueue() {
                     const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
                     reconnectAttemptsRef.current += 1;
                     
+                    console.log(`WebSocket reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms...`);
+                    
                     setTimeout(() => {
-                        console.log(`WebSocket reconnect attempt ${reconnectAttemptsRef.current}...`);
                         connectWebSocket();
                     }, delay);
                 } else {
                     // Max reconnect attempts reached, fall back to polling
-                    console.log("Max WebSocket reconnect attempts reached, falling back to polling");
+                    console.warn("Max WebSocket reconnect attempts reached, falling back to polling");
                     startPolling();
                 }
             };
 
             wsRef.current = ws;
         } catch (err) {
-            console.error("Failed to connect WebSocket:", err);
+            console.error("Failed to create WebSocket:", err);
             startPolling();
         }
     }, [fetchQueue]);
