@@ -148,7 +148,7 @@ export function ReviewQueueItemCard({
                             Needs Review
                         </span>
                         <span className="text-xs text-slate-500">
-                            {formatTime(item.timestamp)} • Support Bot
+                            {formatTime(item.timestamp)} • {item.botName}
                         </span>
                     </div>
                     {confidenceBar(item.confidence)}
@@ -182,12 +182,23 @@ export function ReviewQueueItemCard({
                         )}
                     </div>
                     {editMode ? (
-                        <textarea
-                            value={editedDraft}
-                            onChange={(e) => setEditedDraft(e.target.value)}
-                            className="w-full p-3 rounded border border-sky-200 bg-white text-slate-700 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
-                            rows={6}
-                        />
+                        <div className="space-y-2">
+                            <label className="text-xs font-medium text-slate-600">
+                                Edit AI Response
+                            </label>
+                            <textarea
+                                value={editedDraft}
+                                onChange={(e) => setEditedDraft(e.target.value)}
+                                className="w-full p-4 rounded-lg border-2 border-sky-300 bg-white text-slate-700 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 resize-y"
+                                rows={12}
+                                placeholder="Edit the response here..."
+                                autoFocus
+                            />
+                            <div className="flex items-center justify-between text-xs text-slate-500">
+                                <span>{editedDraft.length} characters</span>
+                                <span className="text-slate-400">Press Shift+Enter for new line</span>
+                            </div>
+                        </div>
                     ) : (
                         <p className="text-slate-800 text-base leading-relaxed">
                             {item.aiDraft}
@@ -267,6 +278,9 @@ export function ReviewQueueItemCard({
                         </>
                     ) : (
                         <>
+                            <div className="px-3 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs font-medium text-amber-700">
+                                Editing Mode
+                            </div>
                             <Button
                                 onClick={() => {
                                     setEditMode(false);
@@ -274,7 +288,9 @@ export function ReviewQueueItemCard({
                                 }}
                                 variant="outline"
                                 size="sm"
+                                className="gap-2"
                             >
+                                <XCircle className="w-4 h-4" />
                                 Cancel
                             </Button>
                             <div className="flex-1" />
@@ -415,11 +431,8 @@ export function ReviewQueue({
                             <CheckCircle className="w-6 h-6 text-green-600" />
                         </div>
                         <h3 className="text-lg font-medium text-slate-900 mb-1">
-                            All caught up!
+                            No items pending review. Nice work!
                         </h3>
-                        <p className="text-slate-500">
-                            No items pending review. Great work! 🎉
-                        </p>
                     </div>
                 ) : (
                     <div className="space-y-4">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Loader2, CheckCircle } from "lucide-react";
@@ -64,7 +64,7 @@ export default function PendingVerification({
             <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 rounded text-sm text-green-800">
                     <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>✓ We have an answer for you!</span>
+                    <span>Ô£ô We have an answer for you!</span>
                 </div>
                 {resolvedResponse && (
                     <div className="px-4 py-2 bg-white border border-slate-100 rounded-lg shadow-sm">

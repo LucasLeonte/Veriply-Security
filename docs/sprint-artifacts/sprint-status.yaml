@@ -241,7 +241,7 @@ development_status:
         assigned_to: Lucas
 
     5-1-hitl-queue-view:
-        status: in-progress
+        status: review
         assigned_to: Kainy
         blocked_by: 3-4-confidence-scoring-routing
 
