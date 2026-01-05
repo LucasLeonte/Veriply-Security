@@ -86,7 +86,8 @@ async def get_review_queue(
     Get pending HITL review items for the current tenant.
     
     Returns questions with confidence scores below bot thresholds that need
-    human review. Items are sorted by creation date (oldest first by default) or confidence.
+    human review. Items are filtered by tenant and by groups the user has access to.
+    Items are sorted by creation date (oldest first by default) or confidence.
     
     Sorting options:
     - oldest: oldest items first (default, per AC requirement)
@@ -95,12 +96,25 @@ async def get_review_queue(
     - highest_confidence: highest confidence scores first
     """
     try:
-        # Query pending HITL items for this tenant with eager-loaded Bot
+        # Get user's group memberships to filter by accessible groups
+        from app.models import GroupMember
+        from sqlalchemy import func
+        
+        # Subquery to get group IDs user has access to
+        user_groups_subquery = select(GroupMember.group_id).where(
+            GroupMember.user_id == current_user.id
+        ).subquery()
+        
+        # Query pending HITL items for this tenant, filtered by user's accessible groups
         query_stmt = select(ConfidenceLog).where(
             and_(
                 ConfidenceLog.routing_decision == RoutingDecision.HITL,
                 ConfidenceLog.hitl_resolved.is_(False),
                 ConfidenceLog.tenant_id == current_tenant,
+                # Filter by groups user has access to (or null group_id for tenant-wide bots)
+                func.coalesce(ConfidenceLog.group_id, None).in_(
+                    select(GroupMember.group_id).where(GroupMember.user_id == current_user.id)
+                ) | ConfidenceLog.group_id.is_(None)
             )
         ).options(joinedload(ConfidenceLog.bot))
 
