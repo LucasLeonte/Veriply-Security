@@ -16,7 +16,7 @@ interface ChatInterfaceProps {
     botAvatar?: string;
     welcomeMessage: string;
     isPublic: boolean;
-    embedded?: boolean;
+    confidenceThreshold: number; // 0-100 percentage from bot config
 }
 
 export default function ChatInterface({
@@ -25,7 +25,7 @@ export default function ChatInterface({
     botAvatar,
     welcomeMessage,
     isPublic,
-    embedded = false,
+    confidenceThreshold,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const [showClearDialog, setShowClearDialog] = useState(false);
@@ -203,6 +203,8 @@ export default function ChatInterface({
                         botName={botName}
                         botAvatar={botAvatar}
                         streaming={streaming}
+                        botId={botId}
+                        confidenceThresholdPercent={confidenceThreshold}
                     />
                 )}
 

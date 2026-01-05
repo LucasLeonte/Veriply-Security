@@ -1,6 +1,5 @@
 """Tests for bot access service."""
 import pytest
-from uuid import uuid4
 from app.services.bot_access_service import BotAccessService
 
 

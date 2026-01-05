@@ -186,7 +186,7 @@ development_status:
         blocked_by: 3-2-context-only-answer-generation
 
     3-4-confidence-scoring-routing:
-        status: in-progress
+        status: review
         assigned_to: Soulaymane
         blocked_by: 3-3-citation-generation
 
@@ -219,7 +219,7 @@ development_status:
         blocked_by: 4-1-web-chat-interface
 
     4-4-trust-signals-display:
-        status: in-progress
+        status: done
         assigned_to: Kainy
         blocked_by: 4-1-web-chat-interface
 
@@ -241,13 +241,13 @@ development_status:
         assigned_to: Lucas
 
     5-1-hitl-queue-view:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Kainy
         blocked_by: 3-4-confidence-scoring-routing
 
     5-2-draft-review-interface:
         status: ready-for-dev
-        assigned_to: Lucas
+        assigned_to: null
         blocked_by: 5-1-hitl-queue-view
 
     5-3-approve-edit-flow:

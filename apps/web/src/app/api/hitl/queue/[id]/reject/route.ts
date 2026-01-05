@@ -5,20 +5,35 @@ export async function POST(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        // In production, add authentication check here
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const authHeader = request.headers.get("Authorization");
 
         const { reason } = await request.json();
         const { id: itemId } = await params;
 
-        // In production, update the database and log rejection reason
-        console.log(`Rejecting item ${itemId}`, { reason });
+        const headers: HeadersInit = {
+            "Content-Type": "application/json",
+        };
+        if (authHeader) {
+            headers.Authorization = authHeader;
+        }
 
-        return NextResponse.json({
-            success: true,
-            itemId,
-            action: "rejected",
-            reason: reason || "No reason provided",
+        const response = await fetch(`${apiBaseUrl}/api/v1/hitl/queue/${itemId}/reject`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ rejection_reason: reason }),
         });
+
+        if (!response.ok) {
+            console.error(`Failed to reject item: ${response.status} ${response.statusText}`);
+            return NextResponse.json(
+                { error: "Failed to reject item" },
+                { status: response.status }
+            );
+        }
+
+        const data = await response.json();
+        return NextResponse.json(data);
     } catch (error) {
         console.error("Error rejecting item:", error);
         return NextResponse.json(

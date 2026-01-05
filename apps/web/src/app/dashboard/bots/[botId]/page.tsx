@@ -157,6 +157,7 @@ export default function BotSettingsPage() {
                                         `Hi! I'm ${bot.name}`
                                     }
                                     isPublic={bot.is_public}
+                                    confidenceThreshold={bot.confidence_threshold}
                                 />
                             ) : null}
                         </div>

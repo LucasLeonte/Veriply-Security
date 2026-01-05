@@ -59,7 +59,7 @@ export default async function ChatPage({ params, searchParams }: PageProps) {
                 botAvatar={botInfo.avatar_url}
                 welcomeMessage={botInfo.welcome_message}
                 isPublic={botInfo.is_public}
-                embedded={embedded}
+                confidenceThreshold={botInfo.confidence_threshold}
             />
         </main>
     );
