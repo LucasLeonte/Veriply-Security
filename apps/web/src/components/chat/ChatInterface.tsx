@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
     welcomeMessage: string;
     isPublic: boolean;
     confidenceThreshold: number; // 0-100 percentage from bot config
+    embedded?: boolean; // whether to display in embedded mode
 }
 
 export default function ChatInterface({
@@ -26,6 +27,7 @@ export default function ChatInterface({
     welcomeMessage,
     isPublic,
     confidenceThreshold,
+    embedded = false,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const [showClearDialog, setShowClearDialog] = useState(false);
@@ -122,13 +124,7 @@ export default function ChatInterface({
     }
 
     return (
-        <Card
-            className={
-                embedded
-                    ? "w-full h-full flex flex-col border-0 shadow-none"
-                    : "w-full max-w-4xl h-[90vh] flex flex-col shadow-lg"
-            }
-        >
+        <Card className="w-full max-w-4xl h-[90vh] flex flex-col shadow-lg">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-200">
                 <div className="flex items-center gap-3">

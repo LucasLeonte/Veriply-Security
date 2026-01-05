@@ -7,7 +7,19 @@ import { Input } from "../../../../../../../components/ui/input";
 import { Textarea } from "../../../../../../../components/ui/textarea";
 import { useToast } from "../../../../../../../hooks/useToast";
 import { getAccessToken } from "../../../../../../../lib/auth";
-import { Copy, Check, Settings2 } from "lucide-react";
+import {
+    Copy,
+    Check,
+    Settings2,
+    ArrowLeft,
+    MessageCircle,
+    FileText,
+    Settings,
+} from "lucide-react";
+import Link from "next/link";
+import ChatInterface from "../../../../../../../components/chat/ChatInterface";
+import { Bot } from "../../../../../../../types/bot";
+import { botsApi } from "../../../../../../../lib/api/bots";
 
 interface WidgetConfig {
     bot_id: string;
@@ -32,6 +44,7 @@ export function WidgetConfigClient({
     botId: string;
 }) {
     const [config, setConfig] = useState<WidgetConfig | null>(null);
+    const [bot, setBot] = useState<Bot | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -54,7 +67,9 @@ export function WidgetConfigClient({
         const fetchConfig = async () => {
             try {
                 const token = getAccessToken();
-                const response = await fetch(
+
+                // Fetch widget config
+                const configResponse = await fetch(
                     `/api/widget-config?groupId=${groupId}&botId=${botId}`,
                     {
                         credentials: "include",
@@ -63,9 +78,14 @@ export function WidgetConfigClient({
                             : undefined,
                     }
                 );
-                if (response.ok) {
-                    const data = await response.json();
-                    setConfig(data);
+
+                // Fetch bot details using API helper
+                const botData = await botsApi.getBotDetails(groupId, botId);
+
+                if (configResponse.ok) {
+                    const configData = await configResponse.json();
+                    setConfig(configData);
+                    setBot(botData);
                 } else {
                     toast({
                         title: "Error",
@@ -77,7 +97,7 @@ export function WidgetConfigClient({
                 console.error("Failed to fetch config:", error);
                 toast({
                     title: "Error",
-                    description: "Failed to load widget config",
+                    description: "Failed to load widget config or bot details",
                     variant: "destructive",
                 });
             } finally {
@@ -193,17 +213,50 @@ export function WidgetConfigClient({
     }
 
     return (
-        <div className="container max-w-5xl py-8">
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2 mb-2">
-                    <Settings2 className="h-8 w-8" />
-                    Widget Configuration
-                </h1>
-                <p className="text-slate-600">
-                    Customize and embed your bot widget on external websites
-                </p>
+        <div className="space-y-6">
+            {/* Breadcrumb */}
+            <div className="flex items-center gap-2">
+                <Link
+                    href="/dashboard/bots"
+                    className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+                >
+                    <ArrowLeft size={16} />
+                    Back to Bots
+                </Link>
             </div>
 
+            {/* Tabs */}
+            <div className="border-b border-slate-200">
+                <nav className="flex gap-6">
+                    <Link
+                        href={`/dashboard/bots/${botId}`}
+                        className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                    >
+                        <MessageCircle size={16} />
+                        Chat
+                    </Link>
+                    <Link
+                        href={`/dashboard/bots/${botId}`}
+                        className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                    >
+                        <FileText size={16} />
+                        Document Access
+                    </Link>
+                    <Link
+                        href={`/dashboard/bots/${botId}`}
+                        className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                    >
+                        <Settings size={16} />
+                        General Settings
+                    </Link>
+                    <span className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-emerald-600 text-emerald-600 transition-colors">
+                        <Settings2 size={16} />
+                        Widget Configuration
+                    </span>
+                </nav>
+            </div>
+
+            {/* Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Settings Panel */}
                 <div className="lg:col-span-2">
@@ -361,6 +414,8 @@ export function WidgetConfigClient({
                 primaryColor={config.primary_color}
                 welcomeMessage={config.welcome_message}
                 autoOpen={config.auto_open}
+                bot={bot}
+                botId={botId}
             />
         </div>
     );
@@ -371,11 +426,15 @@ function WidgetFloatingDemo({
     primaryColor,
     welcomeMessage,
     autoOpen,
+    bot,
+    botId,
 }: {
     position: WidgetConfig["position"];
     primaryColor: string;
     welcomeMessage: string | null;
     autoOpen: boolean;
+    bot: Bot | null;
+    botId: string;
 }) {
     const [open, setOpen] = useState(autoOpen);
 
@@ -444,12 +503,12 @@ function WidgetFloatingDemo({
                 </svg>
             </button>
 
-            {open && (
+            {open && bot && (
                 <div
                     className="fixed"
                     style={{
-                        width: "320px",
-                        height: "480px",
+                        width: "400px",
+                        height: "600px",
                         borderRadius: "12px",
                         overflow: "hidden",
                         boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
@@ -460,13 +519,33 @@ function WidgetFloatingDemo({
                 >
                     <div className="flex flex-col h-full">
                         <div
-                            className="px-4 py-3 text-white text-sm font-semibold"
+                            className="px-4 py-3 text-white text-sm font-semibold flex items-center justify-between"
                             style={{ background: primaryColor }}
                         >
-                            Chat
+                            <span>Chat with {bot.name}</span>
+                            <button
+                                onClick={() => setOpen(false)}
+                                className="text-white hover:opacity-80"
+                                aria-label="Close chat"
+                            >
+                                ✕
+                            </button>
                         </div>
-                        <div className="flex-1 flex items-center justify-center px-4 text-sm text-slate-600 bg-white">
-                            {welcomeMessage || "Hi! How can I help?"}
+                        <div className="flex-1 overflow-hidden">
+                            <ChatInterface
+                                botId={botId}
+                                botName={bot.name}
+                                botAvatar={bot.avatar_url}
+                                welcomeMessage={
+                                    welcomeMessage ||
+                                    bot.welcome_message ||
+                                    bot.description ||
+                                    `Hi! I'm ${bot.name}`
+                                }
+                                isPublic={bot.is_public}
+                                confidenceThreshold={bot.confidence_threshold}
+                                embedded={true}
+                            />
                         </div>
                     </div>
                 </div>

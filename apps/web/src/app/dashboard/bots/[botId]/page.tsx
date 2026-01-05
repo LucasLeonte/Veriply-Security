@@ -65,25 +65,6 @@ export default function BotSettingsPage() {
                     </Link>
                 </div>
 
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-2xl font-semibold text-slate-900">
-                            Bot Settings
-                        </h2>
-                        <p className="text-sm text-slate-600 mt-1">
-                            Configure bot access and settings
-                        </p>
-                    </div>
-                    <Link
-                        href={`/dashboard/groups/${currentGroup.id}/bots/${botId}/widget`}
-                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                    >
-                        <Settings2 size={16} />
-                        Widget Configuration
-                    </Link>
-                </div>
-
                 {/* Tabs */}
                 <div className="border-b border-slate-200">
                     <nav className="flex gap-6">
@@ -120,6 +101,13 @@ export default function BotSettingsPage() {
                             <Settings size={16} />
                             General Settings
                         </button>
+                        <Link
+                            href={`/dashboard/groups/${currentGroup.id}/bots/${botId}/widget`}
+                            className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                        >
+                            <Settings2 size={16} />
+                            Widget Configuration
+                        </Link>
                     </nav>
                 </div>
 
@@ -157,7 +145,9 @@ export default function BotSettingsPage() {
                                         `Hi! I'm ${bot.name}`
                                     }
                                     isPublic={bot.is_public}
-                                    confidenceThreshold={bot.confidence_threshold}
+                                    confidenceThreshold={
+                                        bot.confidence_threshold
+                                    }
                                 />
                             ) : null}
                         </div>
