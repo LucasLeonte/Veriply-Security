@@ -45,6 +45,7 @@ export default function ChatInterface({
         resumeSession,
         feedbackState,
         submitFeedbackForMessage,
+        startNewSession,
     } = useChat(botId);
 
     // Validate message structure at runtime for defensive programming
@@ -154,7 +155,8 @@ export default function ChatInterface({
                             variant="outline"
                             size="sm"
                             onClick={() => {
-                                clearHistory();
+                                startNewSession();
+                                // update selected session id to the newly generated one
                             }}
                             title="Start new conversation"
                         >
@@ -228,7 +230,7 @@ export default function ChatInterface({
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setShowClearDialog(true)}
-                                disabled={messages.length === 0 || loading}
+                                disabled={loading}
                                 title="Start new conversation"
                             >
                                 <RefreshCw className="h-4 w-4" />

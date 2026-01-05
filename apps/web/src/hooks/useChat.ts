@@ -257,6 +257,21 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         setFeedbackRateLog([]);
     }, [botId]);
 
+    const startNewSession = useCallback(() => {
+        // Just reset the state and generate a new ID, preserving the old history in storage
+        setMessages([]);
+        const newSessionId = uuidv4();
+        sessionIdRef.current = newSessionId;
+        const key = `chat_session_${botId}`;
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem(key, newSessionId);
+        }
+        setError(null);
+        setRetryCount(0);
+        setFeedbackState({});
+        setFeedbackRateLog([]);
+    }, [botId]);
+
     const resumeSession = useCallback((sessionId: string) => {
         sessionIdRef.current = sessionId;
         const key = `chat_session_${botId}`;
@@ -412,5 +427,6 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         feedbackState,
         feedbackError,
         submitFeedbackForMessage,
+        startNewSession,
     };
 }

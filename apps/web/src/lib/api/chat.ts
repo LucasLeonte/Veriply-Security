@@ -167,6 +167,17 @@ export function clearChatHistory(botId: string, sessionId: string): void {
 
     try {
         localStorage.removeItem(`chat_history_${botId}_${sessionId}`);
+
+        // Also remove from index
+        const indexKey = `chat_session_index_${botId}`;
+        const indexRaw = localStorage.getItem(indexKey);
+        if (indexRaw) {
+            try {
+                const index = JSON.parse(indexRaw) as Array<{ id: string }>;
+                const newIndex = index.filter(i => i.id !== sessionId);
+                localStorage.setItem(indexKey, JSON.stringify(newIndex));
+            } catch { }
+        }
     } catch (error) {
         console.error("Failed to clear chat history:", error);
     }
