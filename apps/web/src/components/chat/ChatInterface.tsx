@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { X, Send, Loader2, RefreshCw, Clock3 } from "lucide-react";
+import { X, Send, Loader2, RefreshCw, Clock3, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +10,7 @@ import { useChat } from "@/hooks/useChat";
 import MessageList from "./MessageList";
 import ContextSummary from "../ContextSummary";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getUserSessions } from "@/lib/api/chat";
+import { getUserSessions, clearChatHistory } from "@/lib/api/chat";
 
 interface ChatInterfaceProps {
     botId: string;
@@ -76,6 +76,19 @@ export default function ChatInterface({
     const refreshSessions = () => {
         const list = getUserSessions(botId);
         setUserSessions(list);
+    };
+
+    const handleDeleteSession = (e: React.MouseEvent, sId: string) => {
+        e.stopPropagation();
+        if (loading) return;
+
+        if (window.confirm("Are you sure you want to delete this conversation?")) {
+            clearChatHistory(botId, sId);
+            refreshSessions();
+            if (sId === sessionId) {
+                startNewSession();
+            }
+        }
     };
 
     const contextCount = Math.min(messages.length, contextWindow);
@@ -173,13 +186,26 @@ export default function ChatInterface({
                                     onClick={() => {
                                         resumeSession(s.id);
                                     }}
-                                    className={`w-full text-left p-3 transition-colors ${selectedSessionId === s.id ? "bg-sky-50" : "hover:bg-slate-50"
+                                    className={`w-full text-left p-3 transition-colors group ${selectedSessionId === s.id ? "bg-sky-50" : "hover:bg-slate-50"
                                         }`}
                                 >
-                                    <p className="text-sm text-slate-900 line-clamp-1">{s.title}</p>
-                                    <p className="text-[11px] text-slate-500">
-                                        {new Date(s.lastTimestamp).toLocaleString()} • {s.count} message{s.count !== 1 ? "s" : ""}
-                                    </p>
+                                    <div className="flex items-center justify-between w-full">
+                                        <div className="flex-1 min-w-0 pr-2">
+                                            <p className="text-sm text-slate-900 line-clamp-1">{s.title}</p>
+                                            <p className="text-[11px] text-slate-500">
+                                                {new Date(s.lastTimestamp).toLocaleString()} • {s.count} message{s.count !== 1 ? "s" : ""}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-slate-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => handleDeleteSession(e, s.id)}
+                                            title="Delete conversation"
+                                        >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </div>
                                 </button>
                             ))
                         )}
@@ -393,6 +419,15 @@ export default function ChatInterface({
                                         }}
                                     >
                                         Open
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 p-0"
+                                        onClick={(e) => handleDeleteSession(e, s.id)}
+                                        title="Delete conversation"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>
                             ))}
