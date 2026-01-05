@@ -137,7 +137,6 @@ export function WidgetConfigClient({
                     body: JSON.stringify({
                         position: config.position,
                         primary_color: config.primary_color,
-                        welcome_message: config.welcome_message,
                         auto_open: config.auto_open,
                     }),
                 }
@@ -176,11 +175,7 @@ export function WidgetConfigClient({
     data-bot-id="${config.bot_id}"
     data-position="${config.position}"
     data-primary-color="${config.primary_color}"
-    ${
-        config.welcome_message
-            ? `data-welcome-message="${config.welcome_message}"`
-            : ""
-    }
+    data-origin="${base}"
     ${config.auto_open ? 'data-auto-open="true"' : ""}
 ><\/script>`;
     };
@@ -321,31 +316,6 @@ export function WidgetConfigClient({
                             </div>
                         </div>
 
-                        {/* Welcome Message */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-slate-900 mb-2">
-                                Welcome Message{" "}
-                                <span className="text-slate-500">
-                                    ({config.welcome_message?.length || 0}/200)
-                                </span>
-                            </label>
-                            <Textarea
-                                    value={config.welcome_message || ""}
-                                    onChange={(e) =>
-                                        setConfig({
-                                            ...config,
-                                            welcome_message: e.target.value.slice(
-                                                0,
-                                                200
-                                            ),
-                                        })
-                                    }
-                                    placeholder={`Hi! I'm ${bot?.name ?? "the bot"}. How can I help you?`}
-                                    className="min-h-[100px]"
-                                    maxLength={200}
-                                />
-                        </div>
-
                         {/* Auto-open */}
                         <div className="mb-6">
                             <label className="flex items-center gap-3 cursor-pointer">
@@ -412,7 +382,6 @@ export function WidgetConfigClient({
             <WidgetFloatingDemo
                 position={config.position}
                 primaryColor={config.primary_color}
-                welcomeMessage={config.welcome_message}
                 autoOpen={config.auto_open}
                 bot={bot}
                 botId={botId}
@@ -424,14 +393,12 @@ export function WidgetConfigClient({
 function WidgetFloatingDemo({
     position,
     primaryColor,
-    welcomeMessage,
     autoOpen,
     bot,
     botId,
 }: {
     position: WidgetConfig["position"];
     primaryColor: string;
-    welcomeMessage: string | null;
     autoOpen: boolean;
     bot: Bot | null;
     botId: string;
@@ -546,18 +513,13 @@ function WidgetFloatingDemo({
                         </button>
                     </div>
                     {/* Chat Interface */}
-                    <div className="flex-1 overflow-hidden">
+                    <div className="flex-1 overflow-hidden h-full">
                         <ChatInterface
                             key={`${botId}-${colorChangeKey}`}
                             botId={botId}
                             botName={bot.name}
                             botAvatar={bot.avatar_url}
-                            welcomeMessage={
-                                welcomeMessage ||
-                                bot.welcome_message ||
-                                bot.description ||
-                                `Hi! I'm ${bot.name}. How can I help you?`
-                            }
+                            description={bot.description}
                             isPublic={bot.is_public}
                             confidenceThreshold={bot.confidence_threshold}
                             embedded={true}

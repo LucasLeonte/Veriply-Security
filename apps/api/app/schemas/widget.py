@@ -8,7 +8,6 @@ class WidgetConfigResponse(BaseModel):
     bot_id: str
     position: str = "bottom-right"
     primary_color: str = "#3B82F6"
-    welcome_message: Optional[str] = None
     auto_open: bool = False
 
 
@@ -17,7 +16,6 @@ class WidgetConfigUpdate(BaseModel):
     primary_color: Optional[str] = Field(
         default=None, description="Hex color like #3B82F6"
     )
-    welcome_message: Optional[str] = Field(default=None, max_length=200)
     auto_open: Optional[bool] = None
 
     @field_validator("position")

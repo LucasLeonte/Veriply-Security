@@ -20,7 +20,6 @@ class Bot(Base):
     status = Column(SQLEnum(BotStatus), default=BotStatus.EMPTY, nullable=False)
     # New public/chat presentation fields
     avatar_url = Column(String(512), nullable=True)
-    welcome_message = Column(Text, nullable=True)
     is_public = Column(Boolean, default=False, nullable=False)
     created_by = Column(Uuid, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

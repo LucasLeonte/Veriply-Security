@@ -16,7 +16,8 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:\n    op.create_table(
+def upgrade() -> None:
+    op.create_table(
         'widget_configs',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column('bot_id', postgresql.UUID(as_uuid=True), nullable=False),

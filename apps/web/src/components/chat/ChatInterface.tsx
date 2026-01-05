@@ -14,7 +14,7 @@ interface ChatInterfaceProps {
     botId: string;
     botName: string;
     botAvatar?: string;
-    welcomeMessage: string;
+    description?: string;
     isPublic: boolean;
     confidenceThreshold: number; // 0-100 percentage from bot config
     embedded?: boolean; // whether to display in embedded mode
@@ -24,7 +24,7 @@ export default function ChatInterface({
     botId,
     botName,
     botAvatar,
-    welcomeMessage,
+    description,
     isPublic,
     confidenceThreshold,
     embedded = false,
@@ -194,7 +194,7 @@ export default function ChatInterface({
                             </AvatarFallback>
                         </Avatar>
                         <h2 className="text-xl font-semibold text-slate-900 mb-2">
-                            {welcomeMessage || `Hi! I'm ${botName}`}
+                            {description || `Hi! I'm ${botName}`}
                         </h2>
                         <p className="text-slate-600 max-w-md">
                             Ask me a question and I'll do my best to help you

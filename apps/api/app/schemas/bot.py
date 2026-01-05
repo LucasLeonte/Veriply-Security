@@ -34,6 +34,8 @@ class BotUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=50, description="Bot name (2-50 chars)")
     description: Optional[str] = Field(None, max_length=500, description="Bot description (optional, max 500 chars)")
     confidence_threshold: Optional[int] = Field(None, ge=0, le=100, description="Confidence threshold (0-100)")
+    avatar_url: Optional[str] = Field(None, description="Bot avatar URL")
+    is_public: Optional[bool] = Field(None, description="Whether bot is publicly accessible")
 
     @field_validator('name')
     @classmethod
@@ -66,6 +68,8 @@ class BotResponse(BaseModel):
     name: str
     description: Optional[str] = None
     confidence_threshold: int
+    avatar_url: Optional[str] = None
+    is_public: bool = False
     status: BotStatus
     created_by: UUID
     created_at: datetime

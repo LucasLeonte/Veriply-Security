@@ -18,7 +18,7 @@ export async function generateMetadata({
         const bot = await getBotPublicInfo(resolvedParams.botId);
         return {
             title: `Chat with ${bot.name} | Veriply`,
-            description: bot.welcome_message || `Ask ${bot.name} questions`,
+            description: bot.description || `Ask ${bot.name} questions`,
         };
     } catch {
         return {
@@ -29,37 +29,43 @@ export async function generateMetadata({
 
 export default async function ChatPage({ params, searchParams }: PageProps) {
     const resolvedParams = await params;
+    const resolvedSearchParams = await searchParams;
     let botInfo;
 
     try {
         botInfo = await getBotPublicInfo(resolvedParams.botId);
-    } catch {
+    } catch (error) {
+        const errorMsg =
+            error instanceof Error ? error.message : "Unknown error";
+        console.error(
+            `[ChatPage] Failed to load public bot ${resolvedParams.botId}: ${errorMsg}`
+        );
         // Bot not found or not public
         notFound();
     }
 
     const embedded =
-        (typeof searchParams?.embedded === "string" &&
-            searchParams?.embedded === "true") ||
-        (Array.isArray(searchParams?.embedded) &&
-            searchParams?.embedded[0] === "true");
+        (typeof resolvedSearchParams?.embedded === "string" &&
+            resolvedSearchParams?.embedded === "true") ||
+        (Array.isArray(resolvedSearchParams?.embedded) &&
+            resolvedSearchParams?.embedded[0] === "true");
 
     return (
         <main
             className={
                 embedded
-                    ? "w-full h-full bg-transparent"
+                    ? "w-full h-screen bg-transparent"
                     : "h-screen w-full flex items-center justify-center bg-slate-50"
             }
-            style={embedded ? { height: "100%", width: "100%" } : undefined}
         >
             <ChatInterface
                 botId={resolvedParams.botId}
                 botName={botInfo.name}
                 botAvatar={botInfo.avatar_url}
-                welcomeMessage={botInfo.welcome_message}
+                description={botInfo.description}
                 isPublic={botInfo.is_public}
                 confidenceThreshold={botInfo.confidence_threshold}
+                embedded={embedded}
             />
         </main>
     );

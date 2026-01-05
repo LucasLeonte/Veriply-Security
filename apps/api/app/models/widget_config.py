@@ -26,7 +26,6 @@ class WidgetConfig(Base):
     )
     position: Mapped[str] = mapped_column(String(20), default=WidgetPosition.BOTTOM_RIGHT)
     primary_color: Mapped[str] = mapped_column(String(7), default="#3B82F6")
-    welcome_message: Mapped[str | None] = mapped_column(String(200), nullable=True)
     auto_open: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -37,6 +36,5 @@ class WidgetConfig(Base):
             "bot_id": str(self.bot_id),
             "position": self.position,
             "primary_color": self.primary_color,
-            "welcome_message": self.welcome_message,
             "auto_open": self.auto_open,
         }

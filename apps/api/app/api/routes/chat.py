@@ -5,7 +5,7 @@ import logging
 from typing import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +29,7 @@ context_service = ContextService()
 @router.get("/{bot_id}/public", response_model=PublicBotInfo)
 async def get_public_bot_info(
     bot_id: UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -42,6 +43,11 @@ async def get_public_bot_info(
         - 404: Bot not found
         - 403: Bot is not public
     """
+    # Add CORS headers for widget embedding
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
     try:
         # Get bot without tenant/user context (public endpoint)
         bot = await db.get(Bot, bot_id)
@@ -62,12 +68,8 @@ async def get_public_bot_info(
         return PublicBotInfo(
             id=str(bot.id),
             name=bot.name,
+            description=bot.description,
             avatar_url=getattr(bot, "avatar_url", None),
-            welcome_message=(
-                getattr(bot, "welcome_message", None)
-                or bot.description
-                or f"Hi! I'm {bot.name}. Ask me anything!"
-            ),
             is_public=getattr(bot, "is_public", True),
             confidence_threshold=getattr(bot, "confidence_threshold", 80),
         )
@@ -200,10 +202,14 @@ async def chat_query(
 
         if not search_results:
             # No relevant context found
-            return StreamingResponse(
+            response = StreamingResponse(
                 _stream_no_context_response(),
                 media_type="text/event-stream",
             )
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
 
         # Build conversation history that will be sent to the LLM
         conversation_history: list[ChatMessage] = []
@@ -290,12 +296,16 @@ async def chat_query(
 
         # Routing decision: send a wait message for HITL, otherwise stream draft
         if confidence_result.routing_decision.value == "hitl":
-            return StreamingResponse(
+            response = StreamingResponse(
                 _stream_hitl_wait_response(confidence_value),
                 media_type="text/event-stream",
             )
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
 
-        return StreamingResponse(
+        response = StreamingResponse(
             _stream_precomputed_response(
                 tokens=draft_tokens,
                 citations=streaming_citations,
@@ -303,13 +313,21 @@ async def chat_query(
             ),
             media_type="text/event-stream",
         )
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
     except Exception as e:
         logger.error(f"Error processing chat query: {e}")
-        return StreamingResponse(
+        response = StreamingResponse(
             _stream_error_response(str(e)),
             media_type="text/event-stream",
         )
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
 
 @router.get("/{bot_id}/chat/{message_id}/status")

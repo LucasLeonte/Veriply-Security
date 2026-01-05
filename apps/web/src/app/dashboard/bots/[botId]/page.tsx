@@ -148,11 +148,7 @@ export default function BotSettingsPage() {
                                     botId={botId}
                                     botName={bot.name}
                                     botAvatar={bot.avatar_url}
-                                    welcomeMessage={
-                                        bot.welcome_message ||
-                                        bot.description ||
-                                        `Hi! I'm ${bot.name}`
-                                    }
+                                    description={bot.description}
                                     isPublic={bot.is_public}
                                     confidenceThreshold={
                                         bot.confidence_threshold
