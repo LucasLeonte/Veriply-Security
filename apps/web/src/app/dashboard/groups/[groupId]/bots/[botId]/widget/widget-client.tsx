@@ -149,13 +149,24 @@ export function WidgetConfigClient({
                     description: "Widget config saved",
                 });
             } else {
-                throw new Error("Save failed");
+                const errorData = await response.text();
+                console.error(
+                    "Save response error:",
+                    response.status,
+                    errorData
+                );
+                throw new Error(
+                    `Save failed: ${response.status} ${response.statusText}`
+                );
             }
         } catch (error) {
             console.error("Failed to save config:", error);
             toast({
                 title: "Error",
-                description: "Failed to save config",
+                description:
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to save config",
                 variant: "destructive",
             });
         } finally {

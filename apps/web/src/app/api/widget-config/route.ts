@@ -60,22 +60,38 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
         );
     }
 
-    const target = buildTarget(groupId, botId);
-    const payload = await request.json();
+    try {
+        const target = buildTarget(groupId, botId);
+        const payload = await request.json();
 
-    const upstream = await fetch(target, {
-        method: "PUT",
-        headers: forwardHeaders(request),
-        body: JSON.stringify(payload),
-        cache: "no-store",
-    });
+        const upstream = await fetch(target, {
+            method: "PUT",
+            headers: forwardHeaders(request),
+            body: JSON.stringify(payload),
+            cache: "no-store",
+        });
 
-    const body = await upstream.text();
-    return new NextResponse(body, {
-        status: upstream.status,
-        headers: {
-            "content-type":
-                upstream.headers.get("content-type") || "application/json",
-        },
-    });
+        const body = await upstream.text();
+
+        if (!upstream.ok) {
+            console.error(
+                `Widget config save failed: ${upstream.status} ${upstream.statusText}`,
+                body
+            );
+        }
+
+        return new NextResponse(body, {
+            status: upstream.status,
+            headers: {
+                "content-type":
+                    upstream.headers.get("content-type") || "application/json",
+            },
+        });
+    } catch (error) {
+        console.error("Widget config PUT error:", error);
+        return NextResponse.json(
+            { detail: "Failed to save widget config" },
+            { status: 500 }
+        );
+    }
 }

@@ -437,7 +437,6 @@ async def update_widget_config(
             bot_id=bot_id,
             position=payload.position or "bottom-right",
             primary_color=payload.primary_color or "#3B82F6",
-            welcome_message=payload.welcome_message,
             auto_open=bool(payload.auto_open) if payload.auto_open is not None else False,
         )
         session.add(cfg)
@@ -446,8 +445,6 @@ async def update_widget_config(
             cfg.position = payload.position
         if payload.primary_color is not None:
             cfg.primary_color = payload.primary_color
-        if payload.welcome_message is not None:
-            cfg.welcome_message = payload.welcome_message
         if payload.auto_open is not None:
             cfg.auto_open = payload.auto_open
 
