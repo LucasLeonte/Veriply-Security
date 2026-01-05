@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { getAccessToken } from "@/lib/auth";
 
 export interface ReviewQueueItem {
@@ -7,6 +7,7 @@ export interface ReviewQueueItem {
     timestamp: string;
     userQuestion: string;
     aiDraft: string;
+    botName: string;
     confidence: number;
     citations: Array<{
         source: string;
@@ -34,49 +35,219 @@ export function useHITLQueue() {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
+    
+    // WebSocket and polling state
+    const wsRef = useRef<WebSocket | null>(null);
+    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const reconnectAttemptsRef = useRef(0);
+    const maxReconnectAttemptsRef = useRef(5);
 
+    // Fetch queue data from REST API
+    const fetchQueue = useCallback(async () => {
+        try {
+            setError(null);
+
+            const token = getAccessToken();
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+            };
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+
+            const response = await fetch(`/api/hitl/queue`, {
+                method: "GET",
+                headers,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch HITL queue: ${response.statusText}`);
+            }
+
+            const data: { items: ReviewQueueItem[]; stats: HITLQueueStats } =
+                await response.json();
+
+            setItems(data.items || []);
+            setStats(data.stats || {
+                total: 0,
+                pending: 0,
+                chat: 0,
+                email: 0,
+            });
+            
+            // Reset reconnect attempts on successful fetch
+            reconnectAttemptsRef.current = 0;
+        } catch (err) {
+            setError(err instanceof Error ? err : new Error("Unknown error"));
+            console.error("Failed to fetch HITL queue:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    // Connect to WebSocket for real-time updates
+    const connectWebSocket = useCallback(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            return; // Already connected
+        }
+
+        try {
+            const token = getAccessToken();
+            if (!token) {
+                console.warn("No auth token available for WebSocket");
+                return;
+            }
+
+            // Determine WebSocket protocol based on current page
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            
+            // For development: connect to backend directly on localhost:8000
+            // For production: use the same host as the current page
+            const isLocalhost = window.location.hostname === "localhost" || 
+                               window.location.hostname === "127.0.0.1" ||
+                               window.location.hostname === "0.0.0.0";
+            
+            let wsHost: string;
+            if (isLocalhost) {
+                // In development, backend is on port 8000
+                wsHost = "localhost:8000";
+            } else {
+                // In production, backend is on the same host as frontend
+                wsHost = window.location.host;
+            }
+            
+            const wsUrl = `${protocol}//${wsHost}/api/v1/hitl/ws/queue?token=${encodeURIComponent(token)}`;
+            
+            console.log(`Connecting to WebSocket: ${wsUrl}`);
+
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                console.log("WebSocket connected for HITL queue updates");
+                reconnectAttemptsRef.current = 0;
+                
+                // Clear polling once WebSocket is connected
+                if (pollingIntervalRef.current) {
+                    clearInterval(pollingIntervalRef.current);
+                    pollingIntervalRef.current = null;
+                }
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+
+                    if (message.type === "heartbeat") {
+                        // Keep-alive message, no action needed
+                        console.debug("Heartbeat received");
+                    } else if (message.type === "queue_update") {
+                        // Real-time queue update received
+                        console.log("Queue update received:", message.data);
+                        
+                        if (message.data.action === "item_resolved") {
+                            // Item was approved/rejected, refresh queue
+                            fetchQueue();
+                        } else if (message.data.action === "new_item") {
+                            // New item added to queue, refresh queue
+                            fetchQueue();
+                        }
+                    } else if (message.type === "pong") {
+                        // Response to our ping, connection is alive
+                        console.debug("Pong received");
+                    }
+                } catch (err) {
+                    console.error("Failed to parse WebSocket message:", err);
+                }
+            };
+
+            ws.onerror = (event) => {
+                console.error("WebSocket error:", {
+                    readyState: ws.readyState,
+                    url: wsUrl,
+                    event: event
+                });
+            };
+
+            ws.onclose = (event) => {
+                console.log("WebSocket closed:", {
+                    code: event.code,
+                    reason: event.reason || "No reason provided",
+                    wasClean: event.wasClean
+                });
+                wsRef.current = null;
+
+                // Attempt to reconnect with exponential backoff
+                if (reconnectAttemptsRef.current < maxReconnectAttemptsRef.current) {
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+                    reconnectAttemptsRef.current += 1;
+                    
+                    console.log(`WebSocket reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms...`);
+                    
+                    setTimeout(() => {
+                        connectWebSocket();
+                    }, delay);
+                } else {
+                    // Max reconnect attempts reached, fall back to polling
+                    console.warn("Max WebSocket reconnect attempts reached, falling back to polling");
+                    startPolling();
+                }
+            };
+
+            wsRef.current = ws;
+        } catch (err) {
+            console.error("Failed to create WebSocket:", err);
+            startPolling();
+        }
+    }, [fetchQueue]);
+
+    // Fallback polling when WebSocket fails
+    const startPolling = useCallback(() => {
+        if (pollingIntervalRef.current) {
+            return; // Already polling
+        }
+
+        console.log("Starting fallback polling for queue updates (every 5 seconds)");
+        
+        // Poll every 5 seconds
+        pollingIntervalRef.current = setInterval(() => {
+            fetchQueue();
+        }, 5000);
+    }, [fetchQueue]);
+
+    // Initial setup: fetch queue and connect WebSocket
     useEffect(() => {
-        const fetchQueue = async () => {
-            try {
-                setIsLoading(true);
-                setError(null);
+        setIsLoading(true);
+        fetchQueue();
+        connectWebSocket();
 
-                const token = getAccessToken();
-                const headers: Record<string, string> = {
-                    "Content-Type": "application/json",
-                };
-                if (token) {
-                    headers.Authorization = `Bearer ${token}`;
-                }
+        // If WebSocket fails to connect quickly, start polling as fallback
+        const pollFallbackTimeout = setTimeout(() => {
+            if (wsRef.current?.readyState !== WebSocket.OPEN && !pollingIntervalRef.current) {
+                console.log("WebSocket not connected after 2 seconds, starting polling fallback");
+                startPolling();
+            }
+        }, 2000);
 
-                const response = await fetch(`/api/hitl/queue`, {
-                    method: "GET",
-                    headers,
-                });
+        return () => {
+            clearTimeout(pollFallbackTimeout);
+        };
+    }, []);
 
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch HITL queue: ${response.statusText}`);
-                }
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            // Close WebSocket
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
 
-                const data: { items: ReviewQueueItem[]; stats: HITLQueueStats } =
-                    await response.json();
-
-                setItems(data.items || []);
-                setStats(data.stats || {
-                    total: 0,
-                    pending: 0,
-                    chat: 0,
-                    email: 0,
-                });
-            } catch (err) {
-                setError(err instanceof Error ? err : new Error("Unknown error"));
-                console.error("Failed to fetch HITL queue:", err);
-            } finally {
-                setIsLoading(false);
+            // Clear polling
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
             }
         };
-
-        fetchQueue();
     }, []);
 
     const approveItem = async (itemId: string, edits?: string) => {
@@ -99,11 +270,11 @@ export function useHITLQueue() {
                 throw new Error("Failed to approve item");
             }
 
-            setItems((prev) =>
-                prev.map((item) =>
-                    item.id === itemId ? { ...item, status: "approved" } : item
-                )
-            );
+            // Remove item from local state immediately for optimistic update
+            setItems((prev) => prev.filter((item) => item.id !== itemId));
+
+            // Refresh queue from server
+            fetchQueue();
         } catch (err) {
             console.error("Failed to approve item:", err);
             throw err;
@@ -130,11 +301,11 @@ export function useHITLQueue() {
                 throw new Error("Failed to reject item");
             }
 
-            setItems((prev) =>
-                prev.map((item) =>
-                    item.id === itemId ? { ...item, status: "rejected" } : item
-                )
-            );
+            // Remove item from local state immediately for optimistic update
+            setItems((prev) => prev.filter((item) => item.id !== itemId));
+
+            // Refresh queue from server
+            fetchQueue();
         } catch (err) {
             console.error("Failed to reject item:", err);
             throw err;

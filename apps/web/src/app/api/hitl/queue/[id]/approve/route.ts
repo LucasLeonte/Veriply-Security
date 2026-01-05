@@ -21,7 +21,7 @@ export async function POST(
         const response = await fetch(`${apiBaseUrl}/api/v1/hitl/queue/${itemId}/approve`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ edited_response: edits }),
+            body: JSON.stringify({ edits }),
         });
 
         if (!response.ok) {

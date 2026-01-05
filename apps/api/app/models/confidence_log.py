@@ -18,6 +18,7 @@ from sqlalchemy import (
     Boolean,
     JSON,
 )
+from sqlalchemy.orm import relationship
 from .base import Base
 
 
@@ -71,6 +72,8 @@ class ConfidenceLog(Base):
     threshold_used = Column(Numeric(4, 3), nullable=False)  # Bot threshold at query time
     routing_decision = Column(SQLEnum(RoutingDecision), nullable=False)
     is_verified_kb = Column(Boolean, default=False, nullable=False)
+    
+    # HITL Review
     hitl_resolved = Column(Boolean, default=False, nullable=False)
     resolution_user_id = Column(Uuid, ForeignKey("users.id"), nullable=True)
     resolution_timestamp = Column(DateTime, nullable=True)
@@ -78,6 +81,9 @@ class ConfidenceLog(Base):
     
     # Metadata
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    bot = relationship("Bot", lazy="joined")
     
     # Indexes for common queries
     __table_args__ = (

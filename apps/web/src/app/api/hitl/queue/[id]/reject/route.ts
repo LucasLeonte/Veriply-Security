@@ -21,7 +21,7 @@ export async function POST(
         const response = await fetch(`${apiBaseUrl}/api/v1/hitl/queue/${itemId}/reject`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ rejection_reason: reason }),
+            body: JSON.stringify({ reason }),
         });
 
         if (!response.ok) {
