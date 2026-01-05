@@ -16,6 +16,7 @@ from app.api.v1 import bot_access
 from app.api.v1 import query as query_v1  # Story 3.4: Confidence-based query
 from app.api.routes import query
 from app.api.routes import chat
+from app.api.routes import chat_history
 from app.api.routes import feedback
 from app.api.routes import hitl  # Story 3.4: HITL review queue
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
@@ -60,6 +61,7 @@ app.include_router(bot_access.router)  # Bot access: /api/v1/bots/{bot_id}/acces
 app.include_router(hitl.router)  # HITL review queue: /api/v1/hitl/queue
 app.include_router(query.router, prefix="/api/v1")  # Legacy: /api/v1/query
 app.include_router(chat.router, prefix="/api/v1")  # Public chat: /api/v1/bots/{bot_id}/public, /api/v1/bots/{bot_id}/chat/query
+app.include_router(chat_history.router, prefix="/api/v1")  # Authenticated chat history
 app.include_router(feedback.router, prefix="/api/v1")  # Feedback collection and analytics
 app.include_router(document_detail_router, prefix="/api/v1")  # Legacy: /api/v1/documents/{id} operations
 

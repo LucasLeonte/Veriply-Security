@@ -19,10 +19,10 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
-    
+
     // Initialize sessionId from sessionStorage to persist across tab switches
     const sessionIdRef = useRef<string>('');
-    
+
     // Set up sessionId on mount
     useEffect(() => {
         if (!sessionIdRef.current) {
@@ -37,7 +37,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
             sessionIdRef.current = sessionId || uuidv4();
         }
     }, [botId]);
-    
+
     const lastQueryRef = useRef<string>("");
     const streamingMessageRef = useRef<ChatMessage | null>(null);
     const contextWindow = useMemo(() => {
@@ -176,7 +176,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 setLoading(false);
                 setError(
                     err.message ||
-                        "Sorry, I encountered an issue. Please try again."
+                    "Sorry, I encountered an issue. Please try again."
                 );
 
                 // Remove incomplete assistant message
@@ -212,6 +212,18 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         setRetryCount(0);
     }, [botId]);
 
+    const resumeSession = useCallback((sessionId: string) => {
+        sessionIdRef.current = sessionId;
+        const key = `chat_session_${botId}`;
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem(key, sessionId);
+        }
+        const history = loadChatHistory(botId, sessionId);
+        setMessages(history);
+        setError(null);
+        setRetryCount(0);
+    }, [botId]);
+
     // Compute context size (number of messages in context window)
     const contextSize = Math.min(messages.length, contextWindowSize);
 
@@ -226,5 +238,6 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         clearHistory,
         contextWindow,
         sessionId: sessionIdRef.current,
+        resumeSession,
     };
 }

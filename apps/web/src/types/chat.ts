@@ -55,3 +55,17 @@ export interface StreamMetadata {
     confidence?: number;
     chunks_used?: number;
 }
+
+// Server-stored chat history entries
+export interface ChatHistoryEntry {
+    id: string;
+    bot_id: string;
+    tenant_id: string;
+    role: "user" | "assistant";
+    content: string;
+    session_id?: string | null;
+    client_message_id?: string | null;
+    answer_id?: string | null;
+    citations?: Citation[];
+    created_at: string;
+}
