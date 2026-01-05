@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "../../../../../../../components/ui/card";
 import { Button } from "../../../../../../../components/ui/button";
 import { Input } from "../../../../../../../components/ui/input";
@@ -229,21 +229,21 @@ export function WidgetConfigClient({
             <div className="border-b border-slate-200">
                 <nav className="flex gap-6">
                     <Link
-                        href={`/dashboard/bots/${botId}`}
+                        href={`/dashboard/bots/${botId}?tab=chat`}
                         className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
                     >
                         <MessageCircle size={16} />
                         Chat
                     </Link>
                     <Link
-                        href={`/dashboard/bots/${botId}`}
+                        href={`/dashboard/bots/${botId}?tab=documents`}
                         className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
                     >
                         <FileText size={16} />
                         Document Access
                     </Link>
                     <Link
-                        href={`/dashboard/bots/${botId}`}
+                        href={`/dashboard/bots/${botId}?tab=settings`}
                         className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
                     >
                         <Settings size={16} />
@@ -330,20 +330,20 @@ export function WidgetConfigClient({
                                 </span>
                             </label>
                             <Textarea
-                                value={config.welcome_message || ""}
-                                onChange={(e) =>
-                                    setConfig({
-                                        ...config,
-                                        welcome_message: e.target.value.slice(
-                                            0,
-                                            200
-                                        ),
-                                    })
-                                }
-                                placeholder="Hi! How can I help you?"
-                                className="min-h-[100px]"
-                                maxLength={200}
-                            />
+                                    value={config.welcome_message || ""}
+                                    onChange={(e) =>
+                                        setConfig({
+                                            ...config,
+                                            welcome_message: e.target.value.slice(
+                                                0,
+                                                200
+                                            ),
+                                        })
+                                    }
+                                    placeholder={`Hi! I'm ${bot?.name ?? "the bot"}. How can I help you?`}
+                                    className="min-h-[100px]"
+                                    maxLength={200}
+                                />
                         </div>
 
                         {/* Auto-open */}
@@ -437,6 +437,20 @@ function WidgetFloatingDemo({
     botId: string;
 }) {
     const [open, setOpen] = useState(autoOpen);
+    const [colorChangeKey, setColorChangeKey] = useState(0);
+    const prevColorRef = useRef<string>(primaryColor);
+
+    // Force ChatInterface remount when color actually changes
+    useEffect(() => {
+        if (prevColorRef.current !== primaryColor) {
+            prevColorRef.current = primaryColor;
+            setColorChangeKey((prev) => prev + 1);
+            if (typeof window !== "undefined") {
+                const key = `chat_session_${botId}`;
+                sessionStorage.removeItem(key);
+            }
+        }
+    }, [primaryColor, botId]);
 
     const margin = "12px";
     const buttonSize = 56;
@@ -505,7 +519,7 @@ function WidgetFloatingDemo({
 
             {open && bot && (
                 <div
-                    className="fixed"
+                    className="fixed flex flex-col"
                     style={{
                         width: "400px",
                         height: "600px",
@@ -517,36 +531,37 @@ function WidgetFloatingDemo({
                         ...chatPosStyle[position],
                     }}
                 >
-                    <div className="flex flex-col h-full">
-                        <div
-                            className="px-4 py-3 text-white text-sm font-semibold flex items-center justify-between"
-                            style={{ background: primaryColor }}
+                    {/* Custom Header */}
+                    <div
+                        className="px-4 py-3 text-white text-sm font-semibold flex items-center justify-between flex-shrink-0"
+                        style={{ background: primaryColor }}
+                    >
+                        <span>Chat with {bot.name}</span>
+                        <button
+                            onClick={() => setOpen(false)}
+                            className="text-white hover:opacity-80 transition-opacity"
+                            aria-label="Close chat"
                         >
-                            <span>Chat with {bot.name}</span>
-                            <button
-                                onClick={() => setOpen(false)}
-                                className="text-white hover:opacity-80"
-                                aria-label="Close chat"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                            <ChatInterface
-                                botId={botId}
-                                botName={bot.name}
-                                botAvatar={bot.avatar_url}
-                                welcomeMessage={
-                                    welcomeMessage ||
-                                    bot.welcome_message ||
-                                    bot.description ||
-                                    `Hi! I'm ${bot.name}`
-                                }
-                                isPublic={bot.is_public}
-                                confidenceThreshold={bot.confidence_threshold}
-                                embedded={true}
-                            />
-                        </div>
+                            ✕
+                        </button>
+                    </div>
+                    {/* Chat Interface */}
+                    <div className="flex-1 overflow-hidden">
+                        <ChatInterface
+                            key={`${botId}-${colorChangeKey}`}
+                            botId={botId}
+                            botName={bot.name}
+                            botAvatar={bot.avatar_url}
+                            welcomeMessage={
+                                welcomeMessage ||
+                                bot.welcome_message ||
+                                bot.description ||
+                                `Hi! I'm ${bot.name}. How can I help you?`
+                            }
+                            isPublic={bot.is_public}
+                            confidenceThreshold={bot.confidence_threshold}
+                            embedded={true}
+                        />
                     </div>
                 </div>
             )}

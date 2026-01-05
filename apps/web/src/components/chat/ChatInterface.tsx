@@ -124,50 +124,58 @@ export default function ChatInterface({
     }
 
     return (
-        <Card className="w-full max-w-4xl h-[90vh] flex flex-col shadow-lg">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200">
-                <div className="flex items-center gap-3">
-                    <Avatar className="h-10 w-10">
-                        <AvatarImage src={botAvatar} alt={botName} />
-                        <AvatarFallback className="bg-sky-500 text-white">
-                            {botName.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <h1 className="font-semibold text-slate-900">
-                            {botName}
-                        </h1>
-                        <p className="text-xs text-slate-500">
-                            {streaming
-                                ? "Typing..."
-                                : loading
-                                ? "Thinking..."
-                                : "Online"}
-                        </p>
+        <Card
+            className={
+                embedded
+                    ? "w-full h-full flex flex-col border-0 shadow-none"
+                    : "w-full max-w-4xl h-[90vh] flex flex-col shadow-lg"
+            }
+        >
+            {/* Header - hidden in embedded mode */}
+            {!embedded && (
+                <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                    <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                            <AvatarImage src={botAvatar} alt={botName} />
+                            <AvatarFallback className="bg-sky-500 text-white">
+                                {botName.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <h1 className="font-semibold text-slate-900">
+                                {botName}
+                            </h1>
+                            <p className="text-xs text-slate-500">
+                                {streaming
+                                    ? "Typing..."
+                                    : loading
+                                    ? "Thinking..."
+                                    : "Online"}
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span
+                            className={`text-[10px] px-2 py-1 rounded-full border ${
+                                isPublic
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                            }`}
+                        >
+                            {isPublic ? "Public" : "Private"}
+                        </span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowClearDialog(true)}
+                            disabled={messages.length === 0 || loading}
+                            title="Start new conversation"
+                        >
+                            <RefreshCw className="h-4 w-4" />
+                        </Button>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <span
-                        className={`text-[10px] px-2 py-1 rounded-full border ${
-                            isPublic
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                : "bg-slate-100 text-slate-600 border-slate-200"
-                        }`}
-                    >
-                        {isPublic ? "Public" : "Private"}
-                    </span>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowClearDialog(true)}
-                        disabled={messages.length === 0 || loading}
-                        title="Start new conversation"
-                    >
-                        <RefreshCw className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
+            )}
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4">
@@ -223,7 +231,7 @@ export default function ChatInterface({
             {/* Input */}
             <div className="p-4 border-t border-slate-200">
                 {/* Context Indicator */}
-                {messages.length > 0 && (
+                {!embedded && messages.length > 0 && (
                     <div className="mb-2 text-xs text-slate-500">
                         Context: {contextSize} message
                         {contextSize !== 1 ? "s" : ""}
@@ -255,9 +263,11 @@ export default function ChatInterface({
                         )}
                     </Button>
                 </div>
-                <p className="text-xs text-slate-500 mt-2">
-                    Press Enter to send, Shift+Enter for new line
-                </p>
+                {!embedded && (
+                    <p className="text-xs text-slate-500 mt-2">
+                        Press Enter to send, Shift+Enter for new line
+                    </p>
+                )}
             </div>
 
             {/* Clear Conversation Dialog */}

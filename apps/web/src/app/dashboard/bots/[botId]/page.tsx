@@ -3,7 +3,7 @@
 import { DashboardLayout } from "@/components";
 import { BotDocumentAccess } from "@/components/bot/BotDocumentAccess";
 import ChatInterface from "@/components/chat/ChatInterface";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
     Settings,
@@ -22,12 +22,21 @@ type TabType = "settings" | "documents" | "chat";
 
 export default function BotSettingsPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const botId = params.botId as string;
     const { currentGroup } = useGroup();
     const [activeTab, setActiveTab] = useState<TabType>("chat");
     const [bot, setBot] = useState<Bot | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Set active tab from query parameter
+    useEffect(() => {
+        const tab = searchParams.get("tab") as TabType | null;
+        if (tab && ["chat", "documents", "settings"].includes(tab)) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (!currentGroup) return;
