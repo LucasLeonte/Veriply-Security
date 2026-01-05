@@ -24,8 +24,8 @@ from .base import Base
 
 class RoutingDecision(str, enum.Enum):
     """Routing decision outcomes."""
-    AUTO_SEND = "auto_send"
-    HITL = "hitl"
+    AUTO_SEND = "AUTO_SEND"
+    HITL = "HITL"
 
 
 class ConfidenceLog(Base):

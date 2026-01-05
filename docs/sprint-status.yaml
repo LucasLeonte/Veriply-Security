@@ -60,7 +60,7 @@ development_status:
     # Format: <epic>-<story>-<slug>: <status>
     # Status values: backlog | drafted | in-progress | review | done
     5-1-hitl-queue-view: done
-    5-2-draft-review-interface: in-progress
+    5-2-draft-review-interface: review
     1-5-secrets-management-and-configuration: drafted
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: in-progress  # back to 1.6 due to troubles
     1-7-api-instrumentation-metrics-and-traces: backlog

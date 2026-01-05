@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
     Clock,
     MessageCircle,
@@ -9,6 +10,7 @@ import {
     XCircle,
     Edit2,
     Copy,
+    Eye,
 } from "lucide-react";
 import { ReviewQueueItem } from "@/hooks/useHITLQueue";
 import { Button } from "@/components/ui/button";
@@ -29,6 +31,7 @@ export function ReviewQueueItemCard({
     onApprove,
     onReject,
 }: ReviewQueueItemCardProps) {
+    const router = useRouter();
     const [isApproving, setIsApproving] = useState(false);
     const [isRejecting, setIsRejecting] = useState(false);
     const [editMode, setEditMode] = useState(false);
@@ -132,6 +135,18 @@ export function ReviewQueueItemCard({
                                 {item.userQuestion}
                             </p>
                         </div>
+                        <Button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/inbox/${item.id}`);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="ml-3"
+                        >
+                            <Eye className="w-4 h-4 mr-1" />
+                            Review
+                        </Button>
                     </div>
                 </div>
             </div>

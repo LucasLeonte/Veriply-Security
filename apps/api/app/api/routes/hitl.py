@@ -59,6 +59,34 @@ class ReviewQueueItemResponse(BaseModel):
     metadata: Optional[dict] = Field(default=None, description="Additional metadata")
 
 
+class ContextChunk(BaseModel):
+    """Context chunk with source document information."""
+    chunk_id: str = Field(..., description="Unique chunk identifier")
+    document_id: str = Field(..., description="Source document ID")
+    document_name: str = Field(..., description="Source document name")
+    section: Optional[str] = Field(None, description="Document section")
+    text: str = Field(..., description="Chunk text content")
+    similarity: float = Field(..., description="Similarity score (0-1)")
+    page_number: Optional[int] = Field(None, description="Page number if available")
+
+
+class ReviewQueueItemDetailResponse(BaseModel):
+    """Detailed review queue item with context chunks."""
+    id: str = Field(..., description="Confidence log ID")
+    type: str = Field(default="chat", description="Type of query (chat/email)")
+    timestamp: str = Field(..., description="ISO timestamp of query")
+    userQuestion: str = Field(..., description="Original user question")
+    aiDraft: str = Field(..., description="AI-generated draft response")
+    botName: str = Field(..., description="Name of the bot that generated the response")
+    confidence: float = Field(..., description="Confidence score (0-1)")
+    citations: List[dict] = Field(default_factory=list, description="Source citations")
+    contextChunks: List[ContextChunk] = Field(default_factory=list, description="Retrieved context chunks")
+    status: str = Field(default="pending", description="Review status")
+    source: str = Field(default="chatbot", description="Source of the question")
+    timeInQueue: str = Field(..., description="Time waiting in queue (human readable)")
+    metadata: Optional[dict] = Field(default=None, description="Additional metadata")
+
+
 class ReviewQueueStatsResponse(BaseModel):
     """Statistics about the review queue."""
     total: int = Field(..., description="Total items in queue")
@@ -204,6 +232,124 @@ async def get_review_queue(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to fetch review queue",
+        )
+
+
+@router.get("/queue/{item_id}", response_model=ReviewQueueItemDetailResponse)
+async def get_queue_item_detail(
+    item_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: UUID = Depends(get_current_tenant),
+) -> ReviewQueueItemDetailResponse:
+    """
+    Get detailed information about a specific HITL queue item.
+    
+    Returns full context chunks with source documents for review interface.
+    This endpoint supports AC1 (split view with query + context + draft).
+    """
+    try:
+        item_uuid = UUID(item_id)
+        
+        # Query the specific item with Bot relationship loaded
+        result = await db.execute(
+            select(ConfidenceLog).where(
+                and_(
+                    ConfidenceLog.id == item_uuid,
+                    ConfidenceLog.tenant_id == current_tenant,
+                    ConfidenceLog.routing_decision == RoutingDecision.HITL,
+                )
+            ).options(joinedload(ConfidenceLog.bot))
+        )
+        item = result.scalars().first()
+        
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found",
+            )
+        
+        # Parse metadata
+        raw_metadata = getattr(item, "metadata_json", None) or {}
+        if isinstance(raw_metadata, str):
+            try:
+                raw_metadata = json.loads(raw_metadata)
+            except Exception:
+                raw_metadata = {}
+        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+        
+        # Extract context chunks from metadata
+        context_chunks = []
+        search_results = metadata.get("search_results", [])
+        if isinstance(search_results, list):
+            for chunk_data in search_results:
+                if isinstance(chunk_data, dict):
+                    context_chunks.append(ContextChunk(
+                        chunk_id=chunk_data.get("chunk_id", ""),
+                        document_id=chunk_data.get("document_id", ""),
+                        document_name=chunk_data.get("document_name", "Unknown"),
+                        section=chunk_data.get("section"),
+                        text=chunk_data.get("text", ""),
+                        similarity=float(chunk_data.get("similarity", 0.0)),
+                        page_number=chunk_data.get("page_number"),
+                    ))
+        
+        # Get citations
+        citations = metadata.get("citations", [])
+        if not isinstance(citations, list):
+            citations = []
+        
+        # Get bot name
+        bot_name = "Unknown Bot"
+        if hasattr(item, 'bot') and item.bot:
+            bot_name = item.bot.name
+        else:
+            bot_name = metadata.get("bot_name", "Unknown Bot")
+        
+        # Calculate time in queue
+        time_diff = datetime.utcnow() - item.created_at
+        minutes = int(time_diff.total_seconds() / 60)
+        if minutes < 1:
+            time_in_queue = "just now"
+        elif minutes < 60:
+            time_in_queue = f"{minutes}m"
+        elif minutes < 1440:  # Less than 24 hours
+            hours = minutes // 60
+            time_in_queue = f"{hours}h"
+        else:
+            days = minutes // 1440
+            time_in_queue = f"{days}d"
+        
+        return ReviewQueueItemDetailResponse(
+            id=str(item.id),
+            type=metadata.get("type", "chat"),
+            timestamp=item.created_at.isoformat(),
+            userQuestion=item.query_text or "Unknown question",
+            aiDraft=metadata.get("ai_draft", ""),
+            botName=bot_name,
+            confidence=float(item.overall_confidence),
+            citations=citations,
+            contextChunks=context_chunks,
+            status="pending" if not item.hitl_resolved else "resolved",
+            source=metadata.get("source", "chatbot"),
+            timeInQueue=time_in_queue,
+            metadata={
+                "bot_id": str(item.bot_id),
+                "query_id": str(item.query_id),
+                "is_verified_kb": item.is_verified_kb,
+            },
+        )
+    
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item ID",
+        )
+    except Exception as e:
+        logger.error(f"Error fetching queue item detail: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch item detail",
         )
 
 
