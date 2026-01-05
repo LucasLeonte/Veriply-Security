@@ -1,4 +1,4 @@
-import { BotPublicInfo, ChatMessage } from "@/types/chat";
+﻿import { BotPublicInfo, ChatMessage } from "@/types/chat";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 

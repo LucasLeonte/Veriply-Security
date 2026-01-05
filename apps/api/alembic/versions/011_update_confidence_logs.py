@@ -1,7 +1,7 @@
 """Update confidence_logs schema for HITL and audit fields
 
 Revision ID: 011_update_confidence_logs
-Revises: 010_create_confidence_logs
+Revises: 011_sync_confidence_logs_schema
 Create Date: 2025-12-17
 """
 
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "011_update_confidence_logs"
-down_revision = "010_create_confidence_logs"
+down_revision = "011_sync_confidence_logs_schema"
 branch_labels = None
 depends_on = None
 

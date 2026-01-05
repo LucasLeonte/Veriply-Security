@@ -59,6 +59,8 @@ status:
 development_status:
     # Format: <epic>-<story>-<slug>: <status>
     # Status values: backlog | drafted | in-progress | review | done
+    5-1-hitl-queue-view: done
+    5-2-draft-review-interface: in-progress
     1-5-secrets-management-and-configuration: drafted
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: in-progress  # back to 1.6 due to troubles
     1-7-api-instrumentation-metrics-and-traces: backlog
@@ -96,6 +98,7 @@ ready_status:
 
 assignments:
     # Format: <epic>-<story>-<slug>: <developer-name>
+    5-2-draft-review-interface: Kainy
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: Kainy  # resumed work on CI pipeline
     1-7-api-instrumentation-metrics-and-traces: Kainy
     2-5-knowledge-base-management-ui: Soulaymane

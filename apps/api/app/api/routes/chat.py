@@ -1,4 +1,4 @@
-"""Chat endpoint for public bot interactions."""
+﻿"""Chat endpoint for public bot interactions."""
 
 import json
 import logging
@@ -283,7 +283,7 @@ async def chat_query(
             },
         )
 
-        # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
+        # Keep confidence as 0ÔÇô1 for the streaming API; UI expects a float in [0,1].
         confidence_value = float(confidence_result.overall_score)
 
         # Routing decision: send a wait message for HITL, otherwise stream draft
