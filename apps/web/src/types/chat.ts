@@ -14,6 +14,7 @@ export interface ChatMessage {
     confidenceScore?: number;
     sourceType?: SourceType;
     responseId?: string;
+    answerId?: string;
 }
 
 export interface Citation {

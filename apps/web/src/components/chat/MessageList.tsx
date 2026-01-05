@@ -10,6 +10,7 @@ import { sendToReviewQueue } from "@/lib/api/chat";
 import ContextSummary from "./ContextSummary";
 import TrustBadge from "./TrustBadge";
 import PendingVerification from "./PendingVerification";
+import FeedbackBar, { FeedbackSnapshot } from "../FeedbackBar";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -20,6 +21,14 @@ interface MessageListProps {
     // Bot confidence threshold as percentage (0-100)
     confidenceThresholdPercent?: number;
     contextWindowSize?: number;
+    feedbackState?: Record<string, FeedbackSnapshot>;
+    onSubmitFeedback?: (args: {
+        messageId: string;
+        answerId?: string;
+        type: "positive" | "negative";
+        reason?: "incorrect" | "not_helpful" | "incomplete" | "harmful" | "other";
+        notes?: string;
+    }) => Promise<{ success: boolean; error?: string } | void>;
 }
 
 export default function MessageList({
@@ -30,6 +39,8 @@ export default function MessageList({
     botId,
     confidenceThresholdPercent,
     contextWindowSize = 10,
+    feedbackState = {},
+    onSubmitFeedback,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
@@ -54,7 +65,7 @@ export default function MessageList({
     // Auto-send low confidence messages to review queue
     useEffect(() => {
         if (!botId) return;
-        
+
         messages.forEach((message, idx) => {
             if (
                 message.role === "assistant" &&
@@ -71,10 +82,10 @@ export default function MessageList({
                         break;
                     }
                 }
-                
+
                 if (userQuestion) {
                     setSendingToReview(prev => new Set(prev).add(message.id));
-                    
+
                     sendToReviewQueue(
                         botId,
                         userQuestion,
@@ -115,9 +126,8 @@ export default function MessageList({
                 {messages.map((message) => (
                     <div
                         key={message.id}
-                        className={`flex gap-3 ${
-                            message.role === "user" ? "justify-end" : "justify-start"
-                        }`}
+                        className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"
+                            }`}
                     >
                         {message.role === "assistant" && (
                             <Avatar className="h-8 w-8 mt-1">
@@ -137,11 +147,10 @@ export default function MessageList({
                             </div>
                         ) : (
                             <div
-                                className={`max-w-[70%] rounded-lg px-4 py-2 shadow-sm ${
-                                    message.role === "user"
+                                className={`max-w-[70%] rounded-lg px-4 py-2 shadow-sm ${message.role === "user"
                                         ? "bg-sky-600 text-white rounded-br-sm"
                                         : "bg-white border border-slate-100 rounded-bl-sm"
-                                }`}
+                                    }`}
                             >
                                 {message.role === "user" ? (
                                     <p className="text-sm whitespace-pre-wrap">
@@ -215,26 +224,24 @@ export default function MessageList({
                                                         Certainty
                                                     </span>
                                                     <span
-                                                        className={`text-xs font-semibold ${
-                                                            message.confidence > 0.75
+                                                        className={`text-xs font-semibold ${message.confidence > 0.75
                                                                 ? "text-green-600"
                                                                 : message.confidence > 0.3
-                                                                ? "text-amber-600"
-                                                                : "text-red-600"
-                                                        }`}
+                                                                    ? "text-amber-600"
+                                                                    : "text-red-600"
+                                                            }`}
                                                     >
                                                         {Math.round(message.confidence * 100)}%
                                                     </span>
                                                 </div>
                                                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                                                     <div
-                                                        className={`h-full rounded-full transition-all duration-500 ${
-                                                            message.confidence > 0.75
+                                                        className={`h-full rounded-full transition-all duration-500 ${message.confidence > 0.75
                                                                 ? "bg-green-500"
                                                                 : message.confidence > 0.3
-                                                                ? "bg-amber-500"
-                                                                : "bg-red-500"
-                                                        }`}
+                                                                    ? "bg-amber-500"
+                                                                    : "bg-red-500"
+                                                            }`}
                                                         style={{
                                                             width: `${Math.round(
                                                                 message.confidence * 100
@@ -306,6 +313,16 @@ export default function MessageList({
                                         ) : null}
                                     </div>
                                 )}
+                            </div>
+                        )}
+                        {message.role === "assistant" && onSubmitFeedback && (
+                            <div className="mt-1 ml-10">
+                                <FeedbackBar
+                                    messageId={message.id}
+                                    answerId={message.answerId}
+                                    state={feedbackState[message.id]}
+                                    onSubmit={onSubmitFeedback}
+                                />
                             </div>
                         )}
                         {message.role === "user" && (

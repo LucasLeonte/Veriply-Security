@@ -43,6 +43,8 @@ export default function ChatInterface({
         contextWindow,
         sessionId,
         resumeSession,
+        feedbackState,
+        submitFeedbackForMessage,
     } = useChat(botId);
 
     // Validate message structure at runtime for defensive programming
@@ -266,6 +268,8 @@ export default function ChatInterface({
                                 streaming={streaming}
                                 botId={botId}
                                 confidenceThresholdPercent={confidenceThreshold}
+                                feedbackState={feedbackState}
+                                onSubmitFeedback={submitFeedbackForMessage}
                             />
                         )}
 
