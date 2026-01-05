@@ -46,7 +46,7 @@
         button.type = "button";
         button.setAttribute("aria-label", "Open chat");
         button.style.position = "fixed";
-        button.style.zIndex = "2147483646";
+        button.style.zIndex = "2147483647";
         button.style.width = "56px";
         button.style.height = "56px";
         button.style.borderRadius = "50%";
@@ -79,16 +79,27 @@
             '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4H20V16H5.17L4 17.17V4Z" stroke="white" stroke-width="2"/><path d="M8 9H16" stroke="white" stroke-width="2"/><path d="M8 13H12" stroke="white" stroke-width="2"/></svg>';
 
         button.addEventListener("click", function () {
-            var visible = container.style.display !== "none";
-            container.style.display = visible ? "none" : "block";
+            container.style.display =
+                container.style.display === "none" ? "block" : "none";
+        });
+
+        // Listen for close message from iframe
+        window.addEventListener("message", function (event) {
+            if (event.data.type === "veriply-widget-close") {
+                container.style.display = "none";
+            }
         });
 
         var iframe = document.createElement("iframe");
         var origin =
             script.getAttribute("data-origin") || location.origin || "";
         var base = origin.replace(/\/$/, "");
-        iframe.src =
-            base + "/chat/" + encodeURIComponent(botId) + "?embedded=true";
+        var iframeSrc =
+            base +
+            "/public/chat/" +
+            encodeURIComponent(botId) +
+            "?embedded=true";
+        iframe.src = iframeSrc;
         iframe.setAttribute(
             "sandbox",
             "allow-same-origin allow-forms allow-popups allow-scripts"
