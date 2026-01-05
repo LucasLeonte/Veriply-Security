@@ -298,6 +298,7 @@ async def chat_query(
                 tokens=draft_tokens,
                 citations=streaming_citations,
                 extra_metadata={"confidence": confidence_value},
+                response_id=confidence_result.query_id,
             ),
             media_type="text/event-stream",
         )
@@ -383,6 +384,7 @@ async def _stream_precomputed_response(
     tokens: list[str],
     citations: list[dict],
     extra_metadata: dict | None = None,
+    response_id: UUID | None = None,
 ) -> AsyncIterator[str]:
     """Stream precomputed tokens and final metadata."""
     token_count = 0
@@ -395,6 +397,9 @@ async def _stream_precomputed_response(
         "chunks_used": len(citations),
         "token_count": token_count,
     }
+    if response_id:
+        metadata["response_id"] = str(response_id)
+        
     if extra_metadata:
         try:
             metadata.update(extra_metadata)

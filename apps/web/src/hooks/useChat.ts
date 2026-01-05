@@ -207,6 +207,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         }
                         if (metadata?.response_id) {
                             lastMsg.responseId = metadata.response_id;
+                            lastMsg.answerId = metadata.response_id;
                         }
                     }
                     return updated;
@@ -308,6 +309,19 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
             if (!answerId) {
                 const err = "Missing answer identifier for feedback";
                 setFeedbackError(err);
+
+                // Also update the local state for this message so the UI shows the error
+                setFeedbackState((prev) => ({
+                    ...prev,
+                    [messageId]: {
+                        type,
+                        reason,
+                        status: "error",
+                        timestamp: Date.now(),
+                        message: err,
+                    },
+                }));
+
                 return { success: false, error: err };
             }
 
