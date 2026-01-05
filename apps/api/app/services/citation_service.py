@@ -9,8 +9,7 @@ Uses Pydantic models from app.schemas.citations to avoid duplication.
 import html
 import logging
 import re
-from typing import List, Optional
-from uuid import uuid4
+from typing import List
 
 from app.schemas.citations import (
     Citation as CitationModel,
@@ -253,7 +252,7 @@ class CitationService:
         self,
         answer_text: str,
         sentence_citations: dict[int, List[str]],
-        citations: List[Citation],
+        citations: List[CitationModel],
     ) -> str:
         """Inject citation spans into HTML markup.
 
@@ -267,9 +266,6 @@ class CitationService:
         Returns:
             HTML string with embedded citations
         """
-        # Build citation lookup map
-        citation_map = {c.id: c for c in citations}
-
         # Split into sentences and wrap with citations
         sentences = self._split_into_sentences(answer_text)
         html_parts = []

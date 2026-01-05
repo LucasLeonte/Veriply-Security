@@ -1,7 +1,7 @@
 # Story 2.4: Document Processing Pipeline
 
 **Epic:** 2. Bot & Knowledge Management  
-**Status:** Drafted  
+**Status:** done  
 **Assigned to:** null  
 **Blocked by:** 2-3-document-upload-api
 

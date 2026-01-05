@@ -33,8 +33,10 @@ export async function getBotPublicInfo(botId: string): Promise<BotPublicInfo> {
 export async function* streamChatQuery(
     botId: string,
     query: string,
-    conversationHistory?: { role: string; content: string }[],
-    options?: { sessionId?: string; messageId?: string }
+    options?: {
+        context?: ChatMessage[];
+        contextWindow?: number;
+    }
 ): AsyncGenerator<
     { type: "token"; content: string } | { type: "metadata"; data: Record<string, unknown> },
     void,
@@ -50,9 +52,13 @@ export async function* streamChatQuery(
             body: JSON.stringify({
                 query,
                 stream: true,
-                conversation_history: conversationHistory,
-                session_id: options?.sessionId,
-                message_id: options?.messageId,
+                context: options?.context?.map((msg) => ({
+                    role: msg.role,
+                    content: msg.content,
+                    citations: msg.citations,
+                    timestamp: msg.timestamp,
+                })),
+                context_window: options?.contextWindow,
             }),
         }
     );
@@ -102,31 +108,13 @@ export async function* streamChatQuery(
 /**
  * Load chat history from localStorage for a specific bot
  */
-export function loadChatHistory(botId: string, sessionId?: string): ChatMessage[] {
+export function loadChatHistory(botId: string, sessionId: string): ChatMessage[] {
     if (typeof window === "undefined") return [];
 
     try {
-        const sid = sessionId || (typeof window !== "undefined" ? sessionStorage.getItem(`chat_session_id_${botId}`) || "" : "");
-
-        // Prefer per-session storage key
-        if (sid) {
-            const perSession = localStorage.getItem(`chat_history_${botId}_${sid}`);
-            if (perSession) {
-                return JSON.parse(perSession);
-            }
-        }
-
-        // Fallback to legacy single-session key and migrate if sessionId provided
-        const legacy = localStorage.getItem(`chat_session_${botId}`);
-        if (!legacy) return [];
-        const parsed = JSON.parse(legacy);
-        if (sid) {
-            try {
-                localStorage.setItem(`chat_history_${botId}_${sid}`, legacy);
-                // Do not remove legacy immediately to avoid data loss in other tabs
-            } catch {}
-        }
-        return parsed;
+        const stored = localStorage.getItem(`chat_history_${botId}_${sessionId}`);
+        if (!stored) return [];
+        return JSON.parse(stored);
     } catch (error) {
         console.error("Failed to load chat history:", error);
         return [];
@@ -136,35 +124,18 @@ export function loadChatHistory(botId: string, sessionId?: string): ChatMessage[
 /**
  * Save chat history to localStorage for a specific bot
  */
-export function saveChatHistory(botId: string, messages: ChatMessage[], sessionId?: string): void {
+export function saveChatHistory(
+    botId: string,
+    sessionId: string,
+    messages: ChatMessage[]
+): void {
     if (typeof window === "undefined") return;
 
     try {
-        const sid = sessionId || sessionStorage.getItem(`chat_session_id_${botId}`) || "";
-        if (!sid) {
-            // As a last resort, keep legacy behavior
-            localStorage.setItem(`chat_session_${botId}`, JSON.stringify(messages));
-            return;
-        }
-        localStorage.setItem(`chat_history_${botId}_${sid}`, JSON.stringify(messages));
-
-        // Maintain a simple sessions index per bot for this browser
-        const indexKey = `chat_session_index_${botId}`;
-        const indexRaw = localStorage.getItem(indexKey);
-        let index: Array<{ id: string; title: string; lastTimestamp: number; count: number }> = [];
-        if (indexRaw) {
-            try { index = JSON.parse(indexRaw); } catch {}
-        }
-
-        const lastTimestamp = messages.length ? messages[messages.length - 1].timestamp : Date.now();
-        const firstUserMsg = messages.find((m) => m.role === "user");
-        const title = firstUserMsg?.content?.slice(0, 80) || "Conversation";
-
-        const existingIdx = index.findIndex((i) => i.id === sid);
-        const entry = { id: sid, title, lastTimestamp, count: messages.length };
-        if (existingIdx >= 0) index[existingIdx] = entry; else index.push(entry);
-        index.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
-        localStorage.setItem(indexKey, JSON.stringify(index));
+        localStorage.setItem(
+            `chat_history_${botId}_${sessionId}`,
+            JSON.stringify(messages)
+        );
     } catch (error) {
         console.error("Failed to save chat history:", error);
     }
@@ -173,31 +144,53 @@ export function saveChatHistory(botId: string, messages: ChatMessage[], sessionI
 /**
  * Clear chat history for a specific bot
  */
-export function clearChatHistory(botId: string, sessionId?: string): void {
+export function clearChatHistory(botId: string, sessionId: string): void {
     if (typeof window === "undefined") return;
 
     try {
-        const sid = sessionId || sessionStorage.getItem(`chat_session_id_${botId}`) || "";
-        if (sid) {
-            localStorage.removeItem(`chat_history_${botId}_${sid}`);
-        } else {
-            localStorage.removeItem(`chat_session_${botId}`);
-        }
+        localStorage.removeItem(`chat_history_${botId}_${sessionId}`);
     } catch (error) {
         console.error("Failed to clear chat history:", error);
     }
 }
 
-export function getUserSessions(botId: string): Array<{ id: string; title: string; lastTimestamp: number; count: number }> {
-    if (typeof window === "undefined") return [];
-    try {
-        const indexKey = `chat_session_index_${botId}`;
-        const indexRaw = localStorage.getItem(indexKey);
-        if (!indexRaw) return [];
-        const index = JSON.parse(indexRaw) as Array<{ id: string; title: string; lastTimestamp: number; count: number }>;
-        return Array.isArray(index) ? index : [];
-    } catch (e) {
-        console.error("Failed to get user sessions index", e);
-        return [];
+/**
+ * Send a low-confidence message to the review queue for human review
+ */
+export async function sendToReviewQueue(
+    botId: string,
+    userQuestion: string,
+    aiDraft: string,
+    confidence: number,
+    citations?: Array<{ source: string; url?: string }>
+): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/bots/${botId}/review-queue`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                user_question: userQuestion,
+                ai_draft: aiDraft,
+                confidence,
+                citations: citations || [],
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        // Do not cause infinite retry loops on 4xx; surface a clear message instead
+        if (response.status === 404) {
+            return {
+                success: false,
+                message: "Review queue endpoint or bot not found",
+            };
+        }
+
+        throw new Error(`Failed to send to review queue: ${response.statusText}`);
     }
+
+    return response.json();
 }

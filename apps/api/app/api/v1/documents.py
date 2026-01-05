@@ -12,7 +12,6 @@ import logging
 from app.models import Group, GroupMember, GroupRole
 from app.core.auth import get_current_user
 from app.core.database import get_db
-from app.core.settings import settings
 from app.api.v1.schemas import DocumentResponse, ChunkResponse
 from app.services.document_group_service import DocumentGroupService
 from app.services.audit_service import AuditService
