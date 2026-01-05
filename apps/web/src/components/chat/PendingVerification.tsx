@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, CheckCircle } from "lucide-react";
 import TrustBadge from "./TrustBadge";
 import { ChatMessage } from "@/types/chat";
@@ -25,12 +25,10 @@ export default function PendingVerification({
         null
     );
     const [error, setError] = useState<string | null>(null);
-    const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const aggressivePollingRef = useRef<boolean>(false);
 
     // Poll for verification status
     useEffect(() => {
-        const checkStatus = async () => {
+        const pollInterval = setInterval(async () => {
             try {
                 const response = await fetch(
                     `/api/v1/bots/${botId}/chat/${messageId}/status`
@@ -46,11 +44,7 @@ export default function PendingVerification({
                     setStatus("resolved");
                     setResolvedResponse(data.response);
                     onVerified?.(data.response);
-                    if (pollingIntervalRef.current) {
-                        clearInterval(pollingIntervalRef.current);
-                        pollingIntervalRef.current = null;
-                    }
-                    return true; // resolved
+                    clearInterval(pollInterval);
                 }
             } catch (err) {
                 console.error("Error polling verification status:", err);
@@ -58,45 +52,11 @@ export default function PendingVerification({
                 setError(
                     err instanceof Error ? err.message : "Unknown error"
                 );
-                if (pollingIntervalRef.current) {
-                    clearInterval(pollingIntervalRef.current);
-                    pollingIntervalRef.current = null;
-                }
-                return true; // error
+                clearInterval(pollInterval);
             }
-            return false; // still pending
-        };
+        }, 2000); // Poll every 2 seconds
 
-        // Start with regular polling
-        let pollInterval = 2000;
-        
-        pollingIntervalRef.current = setInterval(async () => {
-            const isDone = await checkStatus();
-            
-            // If still pending after 5 seconds, switch to more aggressive polling (every 500ms)
-            if (!isDone && !aggressivePollingRef.current) {
-                const elapsed = Date.now() - startTime;
-                if (elapsed > 5000) {
-                    aggressivePollingRef.current = true;
-                    if (pollingIntervalRef.current) {
-                        clearInterval(pollingIntervalRef.current);
-                    }
-                    pollingInterval = 500;
-                    pollingIntervalRef.current = setInterval(async () => {
-                        await checkStatus();
-                    }, pollingInterval);
-                }
-            }
-        }, pollInterval);
-
-        const startTime = Date.now();
-
-        return () => {
-            if (pollingIntervalRef.current) {
-                clearInterval(pollingIntervalRef.current);
-                pollingIntervalRef.current = null;
-            }
-        };
+        return () => clearInterval(pollInterval);
     }, [messageId, botId, onVerified]);
 
     if (status === "resolved") {
@@ -104,7 +64,7 @@ export default function PendingVerification({
             <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-200 rounded text-sm text-green-800">
                     <CheckCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>✓ We have an answer for you!</span>
+                    <span>Ô£ô We have an answer for you!</span>
                 </div>
                 {resolvedResponse && (
                     <div className="px-4 py-2 bg-white border border-slate-100 rounded-lg shadow-sm">

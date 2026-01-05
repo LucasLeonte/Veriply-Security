@@ -1,4 +1,4 @@
-export type TrustLevel = "verified" | "ai_generated" | "pending";
+﻿export type TrustLevel = "verified" | "ai_generated" | "pending";
 export type SourceType = "verified_kb" | "rag" | "hitl";
 
 export interface ChatMessage {
@@ -7,17 +7,13 @@ export interface ChatMessage {
     content: string;
     timestamp: number;
     citations?: Citation[];
-    // Overall model confidence as 0–1 float
+    // Overall model confidence as 0ÔÇô1 float
     confidence?: number;
     // Optional routing/verification metadata
     trustLevel?: TrustLevel;
     confidenceScore?: number;
     sourceType?: SourceType;
     responseId?: string;
-    // HITL tracking
-    hitlStatus?: "pending" | "resolved";
-    hitlMessageId?: string;
-    hitlResolvedAt?: string | null;
 }
 
 export interface Citation {

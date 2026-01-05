@@ -1,4 +1,4 @@
-"""Chat endpoint for public bot interactions."""
+﻿"""Chat endpoint for public bot interactions."""
 
 import json
 import logging
@@ -7,12 +7,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.bot import Bot
-from app.models.confidence_log import ConfidenceLog
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
 from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
@@ -285,14 +283,13 @@ async def chat_query(
             },
         )
 
-        # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
+        # Keep confidence as 0ÔÇô1 for the streaming API; UI expects a float in [0,1].
         confidence_value = float(confidence_result.overall_score)
 
         # Routing decision: send a wait message for HITL, otherwise stream draft
         if confidence_result.routing_decision.value == "hitl":
-            message_id = str(confidence_result.query_id)
             return StreamingResponse(
-                _stream_hitl_wait_response(message_id),
+                _stream_hitl_wait_response(confidence_value),
                 media_type="text/event-stream",
             )
 
@@ -343,65 +340,20 @@ async def get_message_status(
                 detail="Bot not found",
             )
 
+        # TODO: Implement message status tracking in database
+        # For now, return pending status as placeholder
+        # In production:
+        # 1. Query message_status table to get current status
+        # 2. If status == "resolved", fetch and return the verified response
+        # 3. If status == "pending", return pending status
+        # 4. If message not found, return 404
+
         logger.debug(f"Checking status for message {message_id} in bot {bot_id}")
 
-        # Validate message ID format and look up confidence log by query_id
-        try:
-            query_uuid = UUID(message_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid message ID",
-            )
-
-        stmt = select(ConfidenceLog).where(
-            ConfidenceLog.bot_id == bot_id,
-            ConfidenceLog.query_id == query_uuid,
-        )
-        result = await db.execute(stmt)
-        log_entry = result.scalars().first()
-
-        if not log_entry:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Message not found",
-            )
-
-        # Normalize metadata payload
-        raw_metadata = getattr(log_entry, "metadata_json", None) or {}
-        if isinstance(raw_metadata, str):
-            try:
-                raw_metadata = json.loads(raw_metadata)
-            except Exception:
-                raw_metadata = {}
-        if not isinstance(raw_metadata, dict):
-            raw_metadata = {}
-
-        if not log_entry.hitl_resolved:
-            return {
-                "status": "pending",
-                "message_id": str(log_entry.query_id),
-            }
-
-        resolved_answer = (
-            raw_metadata.get("human_final_answer")
-            or raw_metadata.get("human_edits")
-            or raw_metadata.get("ai_draft")
-            or ""
-        )
-
+        # Placeholder response - implement when HITL queue is ready
         return {
-            "status": "resolved",
-            "message_id": str(log_entry.query_id),
-            "response": {
-                "answer": resolved_answer,
-                "citations": raw_metadata.get("citations", []),
-                "resolved_at": (
-                    log_entry.resolution_timestamp.isoformat()
-                    if getattr(log_entry, "resolution_timestamp", None)
-                    else None
-                ),
-            },
+            "status": "pending",
+            "error": "Message status tracking not yet implemented",
         }
 
     except HTTPException:
@@ -453,12 +405,12 @@ async def _stream_precomputed_response(
     yield "data: [DONE]\n\n"
 
 
-async def _stream_hitl_wait_response(message_id: str) -> AsyncIterator[str]:
-    """Stream HITL wait message to end-user without exposing confidence."""
+async def _stream_hitl_wait_response(confidence: float) -> AsyncIterator[str]:
+    """Stream HITL wait message to end-user with confidence metadata."""
     message = "I'm checking with the team for the best answer. You'll hear from us shortly."
     for ch in message:
         yield f"data: {json.dumps({'token': ch})}\n\n"
-    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0, 'status': 'hitl_pending', 'message_id': message_id}})}\n\n"
+    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0, 'confidence': confidence}})}\n\n"
     yield "data: [DONE]\n\n"
 
 

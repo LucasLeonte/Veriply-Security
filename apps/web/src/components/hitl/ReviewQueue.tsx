@@ -431,11 +431,8 @@ export function ReviewQueue({
                             <CheckCircle className="w-6 h-6 text-green-600" />
                         </div>
                         <h3 className="text-lg font-medium text-slate-900 mb-1">
-                            No items pending review.
+                            No items pending review. Nice work!
                         </h3>
-                        <p className="text-slate-500">
-                            Nice work! 🎉
-                        </p>
                     </div>
                 ) : (
                     <div className="space-y-4">
