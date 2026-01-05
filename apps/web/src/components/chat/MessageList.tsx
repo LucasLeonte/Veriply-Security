@@ -138,7 +138,7 @@ export default function MessageList({
                             </Avatar>
                         )}
 
-                        <div className={`flex flex-col gap-1 max-w-[70%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[75%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
                             {/* Pending verification state */}
                             {message.role === "assistant" && message.trustLevel === "pending" && botId ? (
                                 <div className="w-full">
@@ -149,9 +149,9 @@ export default function MessageList({
                                 </div>
                             ) : (
                                 <div
-                                    className={`w-full rounded-lg px-4 py-2 shadow-sm ${message.role === "user"
-                                        ? "bg-sky-600 text-white rounded-br-sm text-right"
-                                        : "bg-white border border-slate-100 rounded-bl-sm text-left"
+                                    className={`w-full px-5 py-3 shadow-sm ${message.role === "user"
+                                        ? "bg-gradient-to-br from-sky-600 to-blue-600 text-white rounded-2xl rounded-tr-sm"
+                                        : "bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-sm"
                                         }`}
                                 >
                                     {message.role === "user" ? (
@@ -163,7 +163,7 @@ export default function MessageList({
                                             <ReactMarkdown
                                                 components={{
                                                     p: ({ children }) => (
-                                                        <p className="text-slate-800 leading-relaxed mb-2 last:mb-0">
+                                                        <p className="text-slate-700 leading-relaxed mb-3 last:mb-0">
                                                             {children}
                                                         </p>
                                                     ),
