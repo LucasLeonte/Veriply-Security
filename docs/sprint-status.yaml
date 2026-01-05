@@ -66,6 +66,7 @@ development_status:
     1-7-api-instrumentation-metrics-and-traces: backlog
     2-1-bot-creation-configuration: done
     2-2-bot-duplication-deletion: done
+    2-4-document-processing-pipeline: done
     2-5-knowledge-base-management-ui: done
     2-6-document-deletion: in-progress
     3-1-semantic-vector-search: drafted
@@ -87,9 +88,9 @@ ready_status:
     3-1-semantic-vector-search: ready-for-dev
     3-2-context-only-answer-generation: ready-for-dev
     3-3-citation-generation: ready-for-review
-    3-4-confidence-scoring-routing: done
+    3-4-confidence-scoring-routing: ready-for-review
     3-3-citation-generation: ready-for-dev
-    3-4-confidence-scoring-routing: done
+    3-4-confidence-scoring-routing: ready-for-dev
     3-5-pii-redaction: ready-for-dev
     4-4-trust-signals-display: done
     4-5-embeddable-widget-generation: ready-for-dev
@@ -102,4 +103,3 @@ assignments:
     1-7-api-instrumentation-metrics-and-traces: Kainy
     2-5-knowledge-base-management-ui: Soulaymane
     2-6-document-deletion: Soulaymane
-  6-1-gmail-oauth-integration: Dario

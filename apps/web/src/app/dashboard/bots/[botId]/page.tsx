@@ -3,8 +3,9 @@
 import { DashboardLayout } from "@/components";
 import { BotDocumentAccess } from "@/components/bot/BotDocumentAccess";
 import ChatInterface from "@/components/chat/ChatInterface";
+import ChatHistoryPanel from "@/components/chat/ChatHistoryPanel";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Settings, FileText, MessageCircle } from "lucide-react";
+import { ArrowLeft, Settings, FileText, MessageCircle, Clock3 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useGroup } from "@/contexts/GroupContext";
@@ -12,7 +13,7 @@ import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import BotGeneralSettings from "@/components/bot/BotGeneralSettings";
 
-type TabType = "settings" | "documents" | "chat";
+type TabType = "settings" | "documents" | "chat" | "history";
 
 export default function BotSettingsPage() {
     const params = useParams();
@@ -69,7 +70,7 @@ export default function BotSettingsPage() {
 
                 {/* Tabs */}
                 <div className="border-b border-slate-200">
-                    <nav className="flex gap-6">
+                    <nav className="flex gap-6 flex-wrap">
                         <button
                             onClick={() => setActiveTab("chat")}
                             className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -102,6 +103,17 @@ export default function BotSettingsPage() {
                         >
                             <Settings size={16} />
                             General Settings
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("history")}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === "history"
+                                    ? "border-emerald-600 text-emerald-600"
+                                    : "border-transparent text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                            <Clock3 size={16} />
+                            History
                         </button>
                     </nav>
                 </div>
@@ -153,6 +165,21 @@ export default function BotSettingsPage() {
                     {activeTab === "settings" && currentGroup && (
                         <div className="bg-white border border-slate-200 rounded-lg p-6">
                             <BotGeneralSettings groupId={currentGroup.id} botId={botId} />
+                        </div>
+                    )}
+
+                    {activeTab === "history" && (
+                        <div className="space-y-4">
+                            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-800">
+                                <p className="font-medium mb-1">Conversation History</p>
+                                <p className="text-slate-700">
+                                    View past conversations for this bot. History is available to owners/admins only.
+                                </p>
+                            </div>
+                            <ChatHistoryPanel
+                                botId={botId}
+                                onResumeChat={() => setActiveTab("chat")}
+                            />
                         </div>
                     )}
                 </div>

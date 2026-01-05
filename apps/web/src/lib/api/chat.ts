@@ -136,6 +136,24 @@ export function saveChatHistory(
             `chat_history_${botId}_${sessionId}`,
             JSON.stringify(messages)
         );
+
+        // Maintain a simple sessions index per bot for this browser
+        const indexKey = `chat_session_index_${botId}`;
+        const indexRaw = localStorage.getItem(indexKey);
+        let index: Array<{ id: string; title: string; lastTimestamp: number; count: number }> = [];
+        if (indexRaw) {
+            try { index = JSON.parse(indexRaw); } catch { }
+        }
+
+        const lastTimestamp = messages.length ? messages[messages.length - 1].timestamp : Date.now();
+        const firstUserMsg = messages.find((m) => m.role === "user");
+        const title = firstUserMsg?.content?.slice(0, 80) || "Conversation";
+
+        const existingIdx = index.findIndex((i) => i.id === sessionId);
+        const entry = { id: sessionId, title, lastTimestamp, count: messages.length };
+        if (existingIdx >= 0) index[existingIdx] = entry; else index.push(entry);
+        index.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+        localStorage.setItem(indexKey, JSON.stringify(index));
     } catch (error) {
         console.error("Failed to save chat history:", error);
     }
@@ -149,6 +167,17 @@ export function clearChatHistory(botId: string, sessionId: string): void {
 
     try {
         localStorage.removeItem(`chat_history_${botId}_${sessionId}`);
+
+        // Also remove from index
+        const indexKey = `chat_session_index_${botId}`;
+        const indexRaw = localStorage.getItem(indexKey);
+        if (indexRaw) {
+            try {
+                const index = JSON.parse(indexRaw) as Array<{ id: string }>;
+                const newIndex = index.filter(i => i.id !== sessionId);
+                localStorage.setItem(indexKey, JSON.stringify(newIndex));
+            } catch { }
+        }
     } catch (error) {
         console.error("Failed to clear chat history:", error);
     }
@@ -193,4 +222,18 @@ export async function sendToReviewQueue(
     }
 
     return response.json();
+}
+
+export function getUserSessions(botId: string): Array<{ id: string; title: string; lastTimestamp: number; count: number }> {
+    if (typeof window === "undefined") return [];
+    try {
+        const indexKey = `chat_session_index_${botId}`;
+        const indexRaw = localStorage.getItem(indexKey);
+        if (!indexRaw) return [];
+        const index = JSON.parse(indexRaw) as Array<{ id: string; title: string; lastTimestamp: number; count: number }>;
+        return Array.isArray(index) ? index : [];
+    } catch (e) {
+        console.error("Failed to get user sessions index", e);
+        return [];
+    }
 }

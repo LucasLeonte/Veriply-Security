@@ -35,6 +35,8 @@ class ChatQueryRequest(BaseModel):
     )
     # Deprecated: kept for backward compatibility with earlier clients
     conversation_history: Optional[list[dict]] = Field(default=None)
+    session_id: Optional[str] = Field(default=None, max_length=255)
+    message_id: Optional[str] = Field(default=None, max_length=255)
 
 
 class ChatQueryResponse(BaseModel):
