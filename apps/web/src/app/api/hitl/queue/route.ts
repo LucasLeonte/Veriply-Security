@@ -17,8 +17,12 @@ export async function GET(request: NextRequest) {
             headers.Authorization = authHeader;
         }
         
-        // Call the backend HITL endpoint
-        const response = await fetch(`${apiBaseUrl}/api/v1/hitl/queue`, {
+        // Get query parameters from request URL
+        const { searchParams } = new URL(request.url);
+        const sortBy = searchParams.get('sort_by') || 'oldest';
+        
+        // Call the backend HITL endpoint with sort parameter
+        const response = await fetch(`${apiBaseUrl}/api/v1/hitl/queue?sort_by=${sortBy}`, {
             method: "GET",
             headers,
         });

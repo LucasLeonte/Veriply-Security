@@ -98,7 +98,7 @@ async def get_review_queue(
         # Query pending HITL items for this tenant with eager-loaded Bot
         query_stmt = select(ConfidenceLog).where(
             and_(
-                ConfidenceLog.routing_decision == RoutingDecision.HITL,
+                ConfidenceLog.routing_decision == RoutingDecision.hitl,
                 ConfidenceLog.hitl_resolved.is_(False),
                 ConfidenceLog.tenant_id == current_tenant,
             )
@@ -118,8 +118,28 @@ async def get_review_queue(
         result = await db.execute(query_stmt)
         all_items = result.unique().scalars().all()
 
-        # Get stats
+        # Get stats from ALL items (not paginated)
         total = len(all_items)
+        
+        # Calculate type counts from ALL items before pagination
+        all_chat_count = 0
+        all_email_count = 0
+        for item in all_items:
+            raw_metadata = getattr(item, "metadata_json", None) or getattr(item, "metadata", None)
+            metadata = raw_metadata or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            item_type = metadata.get("type", "chat")
+            if item_type == "chat":
+                all_chat_count += 1
+            elif item_type == "email":
+                all_email_count += 1
+        
         paginated_items = all_items[offset : offset + limit]
 
         # Convert to response format
@@ -172,15 +192,12 @@ async def get_review_queue(
             )
             items_response.append(response_item)
 
-        # Calculate type counts
-        chat_count = sum(1 for item in items_response if item.type == "chat")
-        email_count = sum(1 for item in items_response if item.type == "email")
-
+        # Use pre-calculated stats from ALL items (not just paginated ones)
         stats = ReviewQueueStatsResponse(
             total=total,
             pending=total,
-            chat=chat_count,
-            email=email_count,
+            chat=all_chat_count,
+            email=all_email_count,
         )
 
         return ReviewQueueResponse(items=items_response, stats=stats)

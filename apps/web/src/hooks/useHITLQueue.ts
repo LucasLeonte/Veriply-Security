@@ -25,7 +25,7 @@ export interface HITLQueueStats {
     email: number;
 }
 
-export function useHITLQueue() {
+export function useHITLQueue(sortBy: string = "oldest") {
     const [items, setItems] = useState<ReviewQueueItem[]>([]);
     const [stats, setStats] = useState<HITLQueueStats>({
         total: 0,
@@ -55,7 +55,7 @@ export function useHITLQueue() {
                 headers.Authorization = `Bearer ${token}`;
             }
 
-            const response = await fetch(`/api/hitl/queue`, {
+            const response = await fetch(`/api/hitl/queue?sort_by=${sortBy}`, {
                 method: "GET",
                 headers,
             });
@@ -83,7 +83,7 @@ export function useHITLQueue() {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [sortBy]);
 
     // Connect to WebSocket for real-time updates
     const connectWebSocket = useCallback(() => {
@@ -231,7 +231,12 @@ export function useHITLQueue() {
         return () => {
             clearTimeout(pollFallbackTimeout);
         };
-    }, []);
+    }, [fetchQueue, connectWebSocket, startPolling]);
+    
+    // Refetch when sortBy changes
+    useEffect(() => {
+        fetchQueue();
+    }, [sortBy]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -319,5 +324,6 @@ export function useHITLQueue() {
         error,
         approveItem,
         rejectItem,
+        refetch: fetchQueue,
     };
 }

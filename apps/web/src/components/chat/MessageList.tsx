@@ -47,6 +47,9 @@ export default function MessageList({
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
     const [sentToReview, setSentToReview] = useState<Set<string>>(new Set());
     const [sendingToReview, setSendingToReview] = useState<Set<string>>(new Set());
+    
+    // Use ref to track submission attempts across renders (persists between useEffect calls)
+    const submissionAttemptsRef = useRef<Set<string>>(new Set());
 
     // Default to 80% if not provided
     const reviewThreshold = Math.min(
@@ -67,6 +70,9 @@ export default function MessageList({
         if (!botId) return;
 
         messages.forEach((message, idx) => {
+            // Skip if already processed using ref (guards against concurrent useEffect runs)
+            if (submissionAttemptsRef.current.has(message.id)) return;
+            
             if (
                 message.role === "assistant" &&
                 message.confidence !== undefined &&
@@ -74,6 +80,9 @@ export default function MessageList({
                 !sentToReview.has(message.id) &&
                 !sendingToReview.has(message.id)
             ) {
+                // Mark as attempted immediately to prevent duplicate calls
+                submissionAttemptsRef.current.add(message.id);
+                
                 // Find the user message before this one
                 let userQuestion = "";
                 for (let i = idx - 1; i >= 0; i--) {
@@ -110,6 +119,9 @@ export default function MessageList({
                             return next;
                         });
                     });
+                } else {
+                    // No user question found, remove from attempts so it can retry
+                    submissionAttemptsRef.current.delete(message.id);
                 }
             }
         });

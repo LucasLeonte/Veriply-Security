@@ -332,6 +332,8 @@ interface ReviewQueueProps {
     isLoading: boolean;
     onApprove: (itemId: string, edits?: string) => Promise<void>;
     onReject: (itemId: string, reason?: string) => Promise<void>;
+    sortBy?: string;
+    onSortChange?: (sortBy: string) => void;
 }
 
 export function ReviewQueue({
@@ -340,6 +342,8 @@ export function ReviewQueue({
     isLoading,
     onApprove,
     onReject,
+    sortBy = "oldest",
+    onSortChange,
 }: ReviewQueueProps) {
     const [selectedId, setSelectedId] = useState<string | null>(
         items.length > 0 ? items[0].id : null
@@ -416,10 +420,15 @@ export function ReviewQueue({
                     </button>
                     <div className="ml-auto flex items-center gap-2">
                         <span className="text-sm text-slate-500">Sort:</span>
-                        <select className="text-sm border-0 bg-transparent text-slate-700 font-medium focus:ring-0 cursor-pointer">
-                            <option>Newest first</option>
-                            <option>Lowest confidence</option>
-                            <option>Highest confidence</option>
+                        <select 
+                            className="text-sm border-0 bg-transparent text-slate-700 font-medium focus:ring-0 cursor-pointer"
+                            value={sortBy}
+                            onChange={(e) => onSortChange?.(e.target.value)}
+                        >
+                            <option value="oldest">Oldest first</option>
+                            <option value="newest">Newest first</option>
+                            <option value="lowest_confidence">Lowest confidence</option>
+                            <option value="highest_confidence">Highest confidence</option>
                         </select>
                     </div>
                 </div>
