@@ -264,6 +264,7 @@ export function ReviewQueueItemCard({
                                 <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-500 text-[11px] flex items-center gap-1">
                                     <Edit2 className="w-3 h-3" />
                                     Click to edit
+                                    <kbd className="ml-1 px-1 py-0.5 bg-slate-300 text-slate-700 rounded text-[10px]">E</kbd>
                                 </span>
                             )}
                         </p>
