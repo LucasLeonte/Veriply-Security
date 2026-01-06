@@ -1,5 +1,3 @@
-"use client";
-
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -11,11 +9,15 @@ import {
     Edit2,
     Copy,
     Eye,
+    Filter as FilterIcon,
 } from "lucide-react";
 import { ReviewQueueItem } from "@/hooks/useHITLQueue";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { ShortcutHelpModal } from "./ShortcutHelpModal";
+import { QueueFilters, FilterState } from "./QueueFilters";
 
 interface ReviewQueueItemCardProps {
     item: ReviewQueueItem;
@@ -209,7 +211,10 @@ export function ReviewQueueItemCard({
     }
 
     return (
-        <div className="bg-white rounded-xl border-2 border-sky-200 shadow-sm mb-4 overflow-hidden">
+        <div
+            className="bg-white rounded-xl border-2 border-sky-200 shadow-sm mb-4 overflow-hidden"
+            data-item-id={item.id}
+        >
             <div className="p-5">
                 {/* Item Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -244,6 +249,7 @@ export function ReviewQueueItemCard({
                             : "border-slate-200 hover:border-slate-300 hover:bg-slate-100/50 cursor-pointer"
                     )}
                     onClick={() => !editMode && setEditMode(true)}
+                    data-action="edit"
                 >
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
@@ -441,6 +447,8 @@ interface ReviewQueueProps {
     onReject: (itemId: string, reason?: string) => Promise<void>;
     sortBy?: string;
     onSortChange?: (sortBy: string) => void;
+    filters?: FilterState;
+    onFiltersChange?: (filters: FilterState) => void;
 }
 
 export function ReviewQueue({
@@ -451,6 +459,8 @@ export function ReviewQueue({
     onReject,
     sortBy = "oldest",
     onSortChange,
+    filters = {},
+    onFiltersChange,
 }: ReviewQueueProps) {
     const [selectedId, setSelectedId] = useState<string | null>(
         items.length > 0 ? items[0].id : null
@@ -458,10 +468,94 @@ export function ReviewQueue({
     const [filterType, setFilterType] = useState<"all" | "chat" | "email">(
         "all"
     );
+    const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+    const [showFilters, setShowFilters] = useState(false);
 
     const filteredItems = items.filter((item) => {
         if (filterType === "all") return item.status === "pending";
         return item.type === filterType && item.status === "pending";
+    });
+
+    // Get selected item index for navigation
+    const selectedIndex = filteredItems.findIndex(
+        (item) => item.id === selectedId
+    );
+    const selectedItem =
+        selectedIndex >= 0 ? filteredItems[selectedIndex] : null;
+
+    // AC 5.5: Keyboard shortcuts
+    useKeyboardShortcuts({
+        shortcuts: [
+            {
+                key: "a",
+                description: "Approve current draft",
+                action: () => {
+                    if (selectedItem) {
+                        handleApprove(selectedItem.id);
+                    }
+                },
+                disabled: !selectedItem,
+            },
+            {
+                key: "r",
+                description: "Reject current draft",
+                action: () => {
+                    if (selectedItem) {
+                        handleReject(selectedItem.id);
+                    }
+                },
+                disabled: !selectedItem,
+            },
+            {
+                key: "e",
+                description: "Focus on edit field",
+                action: () => {
+                    // This will be handled in ReviewQueueItemCard
+                    const editButton = document.querySelector(
+                        `[data-item-id="${selectedId}"] [data-action="edit"]`
+                    ) as HTMLButtonElement;
+                    editButton?.click();
+                },
+                disabled: !selectedItem,
+            },
+            {
+                key: "n",
+                description: "Skip to next item",
+                action: () => {
+                    if (selectedIndex < filteredItems.length - 1) {
+                        setSelectedId(filteredItems[selectedIndex + 1].id);
+                    }
+                },
+                disabled: selectedIndex >= filteredItems.length - 1,
+            },
+            {
+                key: "ArrowLeft",
+                description: "Navigate to previous item",
+                action: () => {
+                    if (selectedIndex > 0) {
+                        setSelectedId(filteredItems[selectedIndex - 1].id);
+                    }
+                },
+                disabled: selectedIndex <= 0,
+            },
+            {
+                key: "ArrowRight",
+                description: "Navigate to next item",
+                action: () => {
+                    if (selectedIndex < filteredItems.length - 1) {
+                        setSelectedId(filteredItems[selectedIndex + 1].id);
+                    }
+                },
+                disabled: selectedIndex >= filteredItems.length - 1,
+            },
+            {
+                key: "?",
+                description: "Show shortcut help",
+                action: () => setShowShortcutHelp(!showShortcutHelp),
+            },
+        ],
+        enabled: true,
+        ignoreWhenInputFocused: true,
     });
 
     // AC1: Auto-load next item when current item is removed
@@ -508,9 +602,12 @@ export function ReviewQueue({
                             Review Queue
                         </h1>
                         <p className="text-sm text-slate-500 mt-0.5">
+                            {/* AC 5.5: Show filtered count in header */}
                             {filteredItems.length} item
-                            {filteredItems.length !== 1 ? "s" : ""} pending
-                            review
+                            {filteredItems.length !== 1 ? "s" : ""}
+                            {Object.values(filters).filter(Boolean).length > 0
+                                ? ` (filtered from ${stats.pending} total)`
+                                : " pending review"}
                         </p>
                     </div>
                 </div>
@@ -553,6 +650,29 @@ export function ReviewQueue({
                         Email ({stats.email})
                     </button>
                     <div className="ml-auto flex items-center gap-2">
+                        {/* Filters Button (AC 5.5) */}
+                        <button
+                            onClick={() => setShowFilters(!showFilters)}
+                            className={cn(
+                                "px-3 py-1.5 text-sm font-medium rounded-lg flex items-center gap-2",
+                                showFilters || Object.keys(filters).length > 0
+                                    ? "bg-sky-100 text-sky-700"
+                                    : "text-slate-600 hover:bg-slate-100 border border-slate-300"
+                            )}
+                        >
+                            <FilterIcon className="w-4 h-4" />
+                            Filters
+                            {Object.values(filters).filter(Boolean).length >
+                                0 && (
+                                <span className="px-1.5 py-0.5 text-xs bg-sky-600 text-white rounded-full">
+                                    {
+                                        Object.values(filters).filter(Boolean)
+                                            .length
+                                    }
+                                </span>
+                            )}
+                        </button>
+
                         <span className="text-sm text-slate-500">Sort:</span>
                         <select
                             className="text-sm border-0 bg-transparent text-slate-700 font-medium focus:ring-0 cursor-pointer"
@@ -570,6 +690,17 @@ export function ReviewQueue({
                         </select>
                     </div>
                 </div>
+
+                {/* Filter Panel (AC 5.5) */}
+                {showFilters && onFiltersChange && (
+                    <div className="mb-6">
+                        <QueueFilters
+                            filters={filters}
+                            onFiltersChange={onFiltersChange}
+                            onClose={() => setShowFilters(false)}
+                        />
+                    </div>
+                )}
 
                 {/* Queue Items */}
                 {filteredItems.length === 0 ? (
@@ -600,6 +731,12 @@ export function ReviewQueue({
                     </div>
                 )}
             </div>
+
+            {/* Shortcut Help Modal (AC 5.5) */}
+            <ShortcutHelpModal
+                isOpen={showShortcutHelp}
+                onClose={() => setShowShortcutHelp(false)}
+            />
         </div>
     );
 }

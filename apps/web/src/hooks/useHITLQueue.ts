@@ -25,7 +25,17 @@ export interface HITLQueueStats {
     email: number;
 }
 
-export function useHITLQueue(sortBy: string = "oldest") {
+export interface HITLQueueFilters {
+    botId?: string;
+    dateFrom?: string; // ISO date string
+    dateTo?: string; // ISO date string
+    status?: "pending" | "in-progress";
+}
+
+export function useHITLQueue(
+    sortBy: string = "oldest",
+    filters?: HITLQueueFilters
+) {
     const [items, setItems] = useState<ReviewQueueItem[]>([]);
     const [stats, setStats] = useState<HITLQueueStats>({
         total: 0,
@@ -35,7 +45,7 @@ export function useHITLQueue(sortBy: string = "oldest") {
     });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
-    
+
     // WebSocket and polling state
     const wsRef = useRef<WebSocket | null>(null);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -55,26 +65,48 @@ export function useHITLQueue(sortBy: string = "oldest") {
                 headers.Authorization = `Bearer ${token}`;
             }
 
-            const response = await fetch(`/api/hitl/queue?sort_by=${sortBy}`, {
-                method: "GET",
-                headers,
-            });
+            // Build query parameters with filters (AC 5.5)
+            const params = new URLSearchParams({ sort_by: sortBy });
+            if (filters?.botId) {
+                params.append("bot_id", filters.botId);
+            }
+            if (filters?.dateFrom) {
+                params.append("date_from", filters.dateFrom);
+            }
+            if (filters?.dateTo) {
+                params.append("date_to", filters.dateTo);
+            }
+            if (filters?.status) {
+                params.append("status_filter", filters.status);
+            }
+
+            const response = await fetch(
+                `/api/hitl/queue?${params.toString()}`,
+                {
+                    method: "GET",
+                    headers,
+                }
+            );
 
             if (!response.ok) {
-                throw new Error(`Failed to fetch HITL queue: ${response.statusText}`);
+                throw new Error(
+                    `Failed to fetch HITL queue: ${response.statusText}`
+                );
             }
 
             const data: { items: ReviewQueueItem[]; stats: HITLQueueStats } =
                 await response.json();
 
             setItems(data.items || []);
-            setStats(data.stats || {
-                total: 0,
-                pending: 0,
-                chat: 0,
-                email: 0,
-            });
-            
+            setStats(
+                data.stats || {
+                    total: 0,
+                    pending: 0,
+                    chat: 0,
+                    email: 0,
+                }
+            );
+
             // Reset reconnect attempts on successful fetch
             reconnectAttemptsRef.current = 0;
         } catch (err) {
@@ -83,7 +115,7 @@ export function useHITLQueue(sortBy: string = "oldest") {
         } finally {
             setIsLoading(false);
         }
-    }, [sortBy]);
+    }, [sortBy, filters]);
 
     // Fallback polling when WebSocket fails
     const startPolling = useCallback(() => {
@@ -91,8 +123,10 @@ export function useHITLQueue(sortBy: string = "oldest") {
             return; // Already polling
         }
 
-        console.log("Starting fallback polling for queue updates (every 5 seconds)");
-        
+        console.log(
+            "Starting fallback polling for queue updates (every 5 seconds)"
+        );
+
         // Poll every 5 seconds
         pollingIntervalRef.current = setInterval(() => {
             fetchQueue();
@@ -118,20 +152,24 @@ export function useHITLQueue(sortBy: string = "oldest") {
         try {
             const token = getAccessToken();
             if (!token) {
-                console.warn("No auth token available for WebSocket, falling back to polling");
+                console.warn(
+                    "No auth token available for WebSocket, falling back to polling"
+                );
                 startPolling();
                 return;
             }
 
             // Determine WebSocket protocol based on current page
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-            
+            const protocol =
+                window.location.protocol === "https:" ? "wss:" : "ws:";
+
             // For development: connect to backend directly on localhost:8000
             // For production: use the same host as the current page
-            const isLocalhost = window.location.hostname === "localhost" || 
-                               window.location.hostname === "127.0.0.1" ||
-                               window.location.hostname === "0.0.0.0";
-            
+            const isLocalhost =
+                window.location.hostname === "localhost" ||
+                window.location.hostname === "127.0.0.1" ||
+                window.location.hostname === "0.0.0.0";
+
             let wsHost: string;
             if (isLocalhost) {
                 // In development, backend is on port 8000
@@ -140,17 +178,25 @@ export function useHITLQueue(sortBy: string = "oldest") {
                 // In production, backend is on the same host as frontend
                 wsHost = window.location.host;
             }
-            
-            const wsUrl = `${protocol}//${wsHost}/api/v1/hitl/ws/queue?token=${encodeURIComponent(token)}`;
-            
-            console.log(`Attempting WebSocket connection (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttemptsRef.current})`);
+
+            const wsUrl = `${protocol}//${wsHost}/api/v1/hitl/ws/queue?token=${encodeURIComponent(
+                token
+            )}`;
+
+            console.log(
+                `Attempting WebSocket connection (attempt ${
+                    reconnectAttemptsRef.current + 1
+                }/${maxReconnectAttemptsRef.current})`
+            );
 
             const ws = new WebSocket(wsUrl);
-            
+
             // Set a connection timeout
             const connectionTimeout = setTimeout(() => {
                 if (ws.readyState === WebSocket.CONNECTING) {
-                    console.warn("WebSocket connection timeout, closing and falling back to polling");
+                    console.warn(
+                        "WebSocket connection timeout, closing and falling back to polling"
+                    );
                     ws.close();
                     startPolling();
                 }
@@ -160,7 +206,7 @@ export function useHITLQueue(sortBy: string = "oldest") {
                 clearTimeout(connectionTimeout);
                 console.log("WebSocket connected successfully");
                 reconnectAttemptsRef.current = 0;
-                
+
                 // Clear polling once WebSocket is connected
                 if (pollingIntervalRef.current) {
                     clearInterval(pollingIntervalRef.current);
@@ -179,7 +225,7 @@ export function useHITLQueue(sortBy: string = "oldest") {
                     } else if (message.type === "queue_update") {
                         // Real-time queue update received
                         console.log("Queue update received:", message.data);
-                        
+
                         if (message.data.action === "item_resolved") {
                             // Item was approved/rejected, refresh queue
                             fetchQueue();
@@ -199,17 +245,25 @@ export function useHITLQueue(sortBy: string = "oldest") {
             ws.onerror = (event) => {
                 clearTimeout(connectionTimeout);
                 // Browser provides limited error information for security reasons
-                const readyStateText = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][ws.readyState] || "UNKNOWN";
+                const readyStateText =
+                    ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][
+                        ws.readyState
+                    ] || "UNKNOWN";
                 console.error("WebSocket connection error:", {
                     readyState: ws.readyState,
                     readyStateText,
                     url: wsUrl.replace(/token=[^&]+/, "token=***"), // Hide token in logs
                     timestamp: new Date().toISOString(),
                 });
-                
+
                 // If error occurs during connection (readyState 0), start polling immediately
-                if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.CLOSED) {
-                    console.warn("WebSocket failed to connect, falling back to polling");
+                if (
+                    ws.readyState === WebSocket.CONNECTING ||
+                    ws.readyState === WebSocket.CLOSED
+                ) {
+                    console.warn(
+                        "WebSocket failed to connect, falling back to polling"
+                    );
                     startPolling();
                 }
             };
@@ -219,7 +273,7 @@ export function useHITLQueue(sortBy: string = "oldest") {
                 console.log("WebSocket closed:", {
                     code: event.code,
                     reason: event.reason || "No reason provided",
-                    wasClean: event.wasClean
+                    wasClean: event.wasClean,
                 });
                 wsRef.current = null;
 
@@ -230,18 +284,28 @@ export function useHITLQueue(sortBy: string = "oldest") {
                 }
 
                 // Attempt to reconnect with exponential backoff
-                if (reconnectAttemptsRef.current < maxReconnectAttemptsRef.current) {
-                    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+                if (
+                    reconnectAttemptsRef.current <
+                    maxReconnectAttemptsRef.current
+                ) {
+                    const delay = Math.min(
+                        1000 * Math.pow(2, reconnectAttemptsRef.current),
+                        30000
+                    );
                     reconnectAttemptsRef.current += 1;
-                    
-                    console.log(`WebSocket will reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttemptsRef.current})`);
-                    
+
+                    console.log(
+                        `WebSocket will reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttemptsRef.current})`
+                    );
+
                     setTimeout(() => {
                         connectWebSocket();
                     }, delay);
                 } else {
                     // Max reconnect attempts reached, fall back to polling
-                    console.warn("Max WebSocket reconnect attempts reached, falling back to polling");
+                    console.warn(
+                        "Max WebSocket reconnect attempts reached, falling back to polling"
+                    );
                     startPolling();
                 }
             };
@@ -257,7 +321,7 @@ export function useHITLQueue(sortBy: string = "oldest") {
     useEffect(() => {
         setIsLoading(true);
         fetchQueue();
-        
+
         // Attempt WebSocket connection after initial data fetch
         // Use a small delay to allow component to settle
         const wsTimeout = setTimeout(() => {
@@ -266,8 +330,13 @@ export function useHITLQueue(sortBy: string = "oldest") {
 
         // If WebSocket fails to connect within reasonable time, start polling as fallback
         const pollFallbackTimeout = setTimeout(() => {
-            if (wsRef.current?.readyState !== WebSocket.OPEN && !pollingIntervalRef.current) {
-                console.log("WebSocket not connected after 3 seconds, starting polling fallback");
+            if (
+                wsRef.current?.readyState !== WebSocket.OPEN &&
+                !pollingIntervalRef.current
+            ) {
+                console.log(
+                    "WebSocket not connected after 3 seconds, starting polling fallback"
+                );
                 startPolling();
             }
         }, 3000);
@@ -277,7 +346,7 @@ export function useHITLQueue(sortBy: string = "oldest") {
             clearTimeout(pollFallbackTimeout);
         };
     }, [fetchQueue, connectWebSocket, startPolling]);
-    
+
     // Refetch when sortBy changes
     useEffect(() => {
         fetchQueue();

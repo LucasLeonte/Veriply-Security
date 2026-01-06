@@ -264,6 +264,7 @@ development_status:
         status: in-progress
         assigned_to: Lucas
         blocked_by: 5-2-draft-review-interface
+        completed_date: 2026-01-07
 
     epic-5-retrospective: optional
 

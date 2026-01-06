@@ -14,7 +14,7 @@ import {
 } from "@/hooks/useDocumentsQuery";
 import { useGroup } from "@/contexts/GroupContext";
 import { documentsApi } from "@/lib/api/documents";
-import type { Document } from "@/types/document";
+import type { Document, DocumentChunk } from "@/types/document";
 
 export default function DocumentDetailPage() {
     const params = useParams();
@@ -23,11 +23,16 @@ export default function DocumentDetailPage() {
     const documentId = params.documentId as string;
     const { currentGroup } = useGroup();
     const [localDocument, setLocalDocument] = useState<Document | null>(null);
-    const [pollingIntervalRef, setPollingIntervalRef] = useState<NodeJS.Timeout | null>(null);
+    const [pollingIntervalRef, setPollingIntervalRef] =
+        useState<NodeJS.Timeout | null>(null);
 
     // Fetch document details
-    const { data: documentData, isLoading, refetch } = useDocumentQuery(documentId);
-    
+    const {
+        data: documentData,
+        isLoading,
+        refetch,
+    } = useDocumentQuery(documentId);
+
     // Fetch chunks
     const { data: chunksData } = useDocumentChunks(documentId);
 
@@ -43,7 +48,11 @@ export default function DocumentDetailPage() {
 
     // Poll for document status updates if processing
     useEffect(() => {
-        if (!localDocument || localDocument.status !== "processing" || !documentId) {
+        if (
+            !localDocument ||
+            localDocument.status !== "processing" ||
+            !documentId
+        ) {
             // Clear polling if not processing
             if (pollingIntervalRef) {
                 clearInterval(pollingIntervalRef);
@@ -88,7 +97,13 @@ export default function DocumentDetailPage() {
 
     const handleDelete = async (docId: string) => {
         try {
-            await deleteDocument({ groupId: currentGroup.id, documentId: docId });
+            if (!currentGroup) {
+                throw new Error("No group selected");
+            }
+            await deleteDocument({
+                groupId: currentGroup.id,
+                documentId: docId,
+            });
             // Redirect back to KB list after delete
             router.push(`/dashboard/bots/${botId}/knowledge-base`);
         } catch (err) {
@@ -112,7 +127,9 @@ export default function DocumentDetailPage() {
                         </Link>
                     </div>
                     <div className="flex items-center justify-center py-12">
-                        <div className="text-slate-600">Loading document...</div>
+                        <div className="text-slate-600">
+                            Loading document...
+                        </div>
                     </div>
                 </div>
             </DashboardLayout>
@@ -146,7 +163,7 @@ export default function DocumentDetailPage() {
                 {/* Document Detail Component */}
                 <DocumentDetail
                     document={localDocument}
-                    chunks={chunksData?.chunks || []}
+                    chunks={(chunksData?.chunks as DocumentChunk[]) || []}
                     botId={botId}
                     onReprocess={handleReprocess}
                     onDelete={handleDelete}
