@@ -360,7 +360,10 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
+                                className={cn(
+                                    "text-red-600 hover:text-red-700 hover:bg-red-50 gap-2",
+                                    isRejecting && "opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 border-slate-300 hover:bg-slate-50"
+                                )}
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -375,7 +378,10 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
+                                className={cn(
+                                    "text-white gap-2",
+                                    isApproving ? "opacity-50 cursor-not-allowed bg-slate-400 hover:bg-slate-400" : "bg-emerald-600 hover:bg-emerald-700"
+                                )}
                                 size="sm"
                                 title={
                                     !canApprove
@@ -422,7 +428,10 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
+                                className={cn(
+                                    "text-red-600 hover:text-red-700 hover:bg-red-50 gap-2",
+                                    isRejecting && "opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 border-slate-300 hover:bg-slate-50"
+                                )}
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -437,7 +446,10 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
+                                className={cn(
+                                    "text-white gap-2",
+                                    isApproving ? "opacity-50 cursor-not-allowed bg-slate-400 hover:bg-slate-400" : "bg-green-600 hover:bg-green-700"
+                                )}
                                 size="sm"
                                 title={
                                     !canApprove
