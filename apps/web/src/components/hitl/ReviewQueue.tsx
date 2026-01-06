@@ -372,6 +372,27 @@ export function ReviewQueueItemCard({
                                     R
                                 </kbd>
                             </Button>
+                            <Button
+                                onClick={handleApprove}
+                                disabled={isApproving || !canApprove}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                size="sm"
+                                title={
+                                    !canApprove
+                                        ? "Please review for at least 3 seconds"
+                                        : ""
+                                }
+                            >
+                                {isApproving ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle className="w-4 h-4" />
+                                )}
+                                {isApproving ? "Approving..." : "Approve"}
+                                <kbd className="px-1.5 py-0.5 text-xs bg-emerald-700 text-white rounded">
+                                    A
+                                </kbd>
+                            </Button>
                         </>
                     ) : (
                         <>
