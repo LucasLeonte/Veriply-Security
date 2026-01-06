@@ -35,7 +35,7 @@ export function AnalyticsDashboard({
             {/* Header */}
             <div className="mb-8">
                 <h1 className="text-2xl font-semibold text-slate-900">
-                    Analytics
+                    Analytics HARDCODED
                 </h1>
                 <p className="text-slate-500 mt-1">
                     Track your AI performance and team productivity
@@ -45,9 +45,7 @@ export function AnalyticsDashboard({
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 <div className="bg-white rounded-xl p-5 border border-slate-200">
-                    <p className="text-sm text-slate-500 mb-1">
-                        Total Queries
-                    </p>
+                    <p className="text-sm text-slate-500 mb-1">Total Queries</p>
                     <p className="text-2xl font-semibold text-slate-900">
                         {metrics.totalQueries.toLocaleString()}
                     </p>
@@ -56,9 +54,7 @@ export function AnalyticsDashboard({
                     </p>
                 </div>
                 <div className="bg-white rounded-xl p-5 border border-slate-200">
-                    <p className="text-sm text-slate-500 mb-1">
-                        Auto-Resolved
-                    </p>
+                    <p className="text-sm text-slate-500 mb-1">Auto-Resolved</p>
                     <p className="text-2xl font-semibold text-slate-900">
                         {metrics.autoResolvedPercent}%
                     </p>
@@ -73,18 +69,14 @@ export function AnalyticsDashboard({
                     <p className="text-2xl font-semibold text-slate-900">
                         {metrics.avgResponseTime.toFixed(2)}s
                     </p>
-                    <p className="text-xs text-slate-500 mt-2">
-                        Within target
-                    </p>
+                    <p className="text-xs text-slate-500 mt-2">Within target</p>
                 </div>
                 <div className="bg-white rounded-xl p-5 border border-slate-200">
                     <p className="text-sm text-slate-500 mb-1">Trust Score</p>
                     <p className="text-2xl font-semibold text-slate-900">
                         {metrics.trustScore}%
                     </p>
-                    <p className="text-xs text-green-600 mt-2">
-                        👍 Excellent
-                    </p>
+                    <p className="text-xs text-green-600 mt-2">👍 Excellent</p>
                 </div>
             </div>
 
