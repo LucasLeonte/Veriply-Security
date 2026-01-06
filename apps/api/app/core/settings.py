@@ -153,6 +153,20 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+    
+    # ========================================================================
+    # MODERATION NOTIFICATION CONFIGURATION
+    # ========================================================================
+    
+    # Email notifications for moderation alerts
+    MODERATION_EMAIL_ENABLED: bool = False  # Set to True to enable email alerts
+    MODERATION_EMAIL_RECIPIENTS: list[str] = []  # List of emails to notify for moderation alerts
+    MODERATION_ADMIN_EMAIL_RECIPIENTS: list[str] = []  # List of admin emails for abuse alerts
+    MODERATION_FROM_EMAIL: str = "moderation@veriply.com"
+    
+    # Webhook notifications for external integrations (Slack, PagerDuty, etc.)
+    MODERATION_WEBHOOK_URL: Optional[str] = None  # Set to webhook URL to enable
+    MODERATION_WEBHOOK_SECRET: Optional[str] = None  # Optional secret for webhook auth
     EMAIL_FROM: Optional[str] = None
     FRONTEND_URL: str = "http://localhost:3000"
     

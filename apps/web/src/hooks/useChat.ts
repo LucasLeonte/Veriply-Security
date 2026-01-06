@@ -377,48 +377,111 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 },
             }));
 
-            try {
-                await submitFeedbackApi(botId, {
-                    answer_id: answerId,
-                    message_id: messageId,
+            // Retry logic with exponential backoff (3 attempts: 1s, 2s, 4s delays)
+            const maxRetries = 3;
+            let lastError: any = null;
+            
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    // Show "Retrying..." status on retries
+                    if (attempt > 0) {
+                        setFeedbackState((prev) => ({
+                            ...prev,
+                            [messageId]: {
+                                type,
+                                reason,
+                                status: "pending",
+                                timestamp: Date.now(),
+                                message: `Retrying... (attempt ${attempt + 1}/${maxRetries})`,
+                                retryAttempt: attempt,
+                            },
+                        }));
+                    }
+
+                    await submitFeedbackApi(botId, {
+                        answer_id: answerId,
+                        message_id: messageId,
+                        type,
+                        reason,
+                        additional_notes: notes,
+                        session_id: sessionIdRef.current,
+                    });
+
+                    // Success - clear retry state
+                    setFeedbackState((prev) => ({
+                        ...prev,
+                        [messageId]: {
+                            type,
+                            reason,
+                            status: "sent",
+                            timestamp: Date.now(),
+                        },
+                    }));
+
+                    return { success: true, retriesUsed: attempt };
+                } catch (err: any) {
+                    lastError = err;
+                    const status = err?.status as number | undefined;
+                    
+                    // Don't retry on 401 (auth) or 429 (rate limit) - these are client errors
+                    if (status === 401 || status === 429) {
+                        const message =
+                            status === 401
+                                ? "Please log in to provide feedback"
+                                : "Please wait before providing more feedback";
+                        setFeedbackError(message);
+                        setFeedbackState((prev) => ({
+                            ...prev,
+                            [messageId]: {
+                                type,
+                                reason,
+                                status: status === 429 ? "cooldown" : "error",
+                                timestamp: Date.now(),
+                                message,
+                                cooldownUntil:
+                                    status === 429 ? Date.now() + 60 * 1000 : undefined,
+                            },
+                        }));
+                        return { success: false, error: message };
+                    }
+                    
+                    // On last attempt, give up
+                    if (attempt === maxRetries - 1) {
+                        const message = err?.message || "Failed to send feedback";
+                        setFeedbackError(message);
+                        setFeedbackState((prev) => ({
+                            ...prev,
+                            [messageId]: {
+                                type,
+                                reason,
+                                status: "error",
+                                timestamp: Date.now(),
+                                message,
+                            },
+                        }));
+                        return { success: false, error: message, retriesExhausted: true };
+                    }
+                    
+                    // Wait with exponential backoff: 1s, 2s, 4s
+                    const delayMs = Math.pow(2, attempt) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                }
+            }
+
+            // Fallback (should never reach here)
+            const message = lastError?.message || "Failed to send feedback";
+            setFeedbackError(message);
+            setFeedbackState((prev) => ({
+                ...prev,
+                [messageId]: {
                     type,
                     reason,
-                    additional_notes: notes,
-                    session_id: sessionIdRef.current,
-                });
-
-                setFeedbackState((prev) => ({
-                    ...prev,
-                    [messageId]: {
-                        type,
-                        reason,
-                        status: "sent",
-                        timestamp: Date.now(),
-                    },
-                }));
-
-                return { success: true };
-            } catch (err: any) {
-                const status = err?.status as number | undefined;
-                const message =
-                    status === 401
-                        ? "Please log in to provide feedback"
-                        : err?.message || "Failed to send feedback";
-                setFeedbackError(message);
-                setFeedbackState((prev) => ({
-                    ...prev,
-                    [messageId]: {
-                        type,
-                        reason,
-                        status: status === 429 ? "cooldown" : "error",
-                        timestamp: Date.now(),
-                        message,
-                        cooldownUntil:
-                            status === 429 ? Date.now() + 60 * 1000 : undefined,
-                    },
-                }));
-                return { success: false, error: message };
-            }
+                    status: "error",
+                    timestamp: Date.now(),
+                    message,
+                },
+            }));
+            return { success: false, error: message };
         },
         [botId, feedbackRateLog]
     );
