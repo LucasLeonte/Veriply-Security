@@ -195,6 +195,29 @@ class EmbeddingService:
         normalized = arr / norm
         return normalized.tolist()
 
+    async def embed_verified_question(self, question_text: str) -> List[float]:
+        """Generate normalized embedding vector for a verified question.
+        
+        This method uses the same embedding pipeline as document chunks to ensure
+        comparable similarity scores during retrieval. Verified questions are embedded
+        using nomic-embed-text model (768 dimensions).
+        
+        Args:
+            question_text: Verified question text to embed
+            
+        Returns:
+            Normalized 768-dimensional embedding vector
+            
+        Raises:
+            EmbeddingError: If embedding generation fails after retries
+        """
+        if not question_text or not question_text.strip():
+            raise EmbeddingError("Cannot embed empty question text")
+        
+        # Use the same preprocessing and generation pipeline as regular queries
+        # This ensures consistency across all embedding operations
+        return await self.embed_query(question_text)
+
 
 class EmbeddingError(Exception):
     """Exception raised when embedding generation fails."""

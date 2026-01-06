@@ -79,6 +79,7 @@ development_status:
     4-4-trust-signals-display: done
     4-5-embeddable-widget-generation: drafted
     4-6-widget-security-responsiveness: drafted
+    7-1-verified-kb-storage: ready-for-dev
 ready_status:
     # Mark stories ready after context is generated
     1-5-secrets-management-and-configuration: ready
@@ -95,6 +96,7 @@ ready_status:
     4-4-trust-signals-display: done
     4-5-embeddable-widget-generation: ready-for-dev
     4-6-widget-security-responsiveness: ready-for-dev
+    7-1-verified-kb-storage: ready-for-dev
 
 assignments:
     # Format: <epic>-<story>-<slug>: <developer-name>

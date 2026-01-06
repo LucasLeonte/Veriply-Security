@@ -487,24 +487,34 @@ async def reprocess_document(
         if not doc:
             raise HTTPException(status_code=404, detail="Document not found")
 
-        if doc.status not in ["ready", "failed", "uploaded"]:
+        if doc.status not in ["ready", "failed", "uploaded", "error"]:
             raise HTTPException(
                 status_code=400,
                 detail=(
                     f"Cannot reprocess document with status '{doc.status}'. "
-                    "Only documents with status 'ready', 'failed', or 'uploaded' can be reprocessed."
+                    "Only documents with status 'ready', 'failed', 'uploaded', or 'error' can be reprocessed."
                 ),
             )
 
         # Ensure source file exists before queuing
         storage_path = doc.storage_path or ""
-        base = Path("storage") / "documents"
-        local_path = base / storage_path
-        if not local_path.exists():
+        if not storage_path:
             raise HTTPException(
                 status_code=404,
-                detail="Source file not found. Cannot reprocess.",
+                detail="Document has no storage path. Cannot reprocess.",
             )
+        
+        # Verify file exists
+        if storage_path.startswith("file://"):
+            local_path = storage_path[len("file://"):]
+            if not Path(local_path).exists():
+                logger.error(f"Storage file not found for document {doc_id}: {local_path}")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Source file not found at: {local_path}",
+                )
+            logger.info(f"Verified storage file exists: {local_path}")
+        # For s3:// paths, assume they exist (MinIO check would be expensive)
 
         # Attempt to enqueue task BEFORE updating database
         doc_id_str = str(doc_id)

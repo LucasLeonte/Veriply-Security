@@ -26,6 +26,8 @@ from app.models.bot import Bot  # noqa: F401
 from app.models.document import Document  # noqa: F401
 from app.models.chunk import Chunk  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
+from app.models.verified_qa import VerifiedQA  # noqa: F401
+from app.models.confidence_log import ConfidenceLog, RoutingDecision  # noqa: F401
 
 
 # Test database URL - use file-based SQLite for tests to avoid in-memory connection issues
@@ -139,3 +141,111 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield ac
     
     app.dependency_overrides.clear()
+
+
+# Test data fixtures
+
+@pytest_asyncio.fixture
+async def test_tenant(db_session: AsyncSession):
+    """Create a test tenant."""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    tenant = Tenant(
+        id=uuid4(),
+        name="Test Tenant",
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(tenant)
+    await db_session.commit()
+    await db_session.refresh(tenant)
+    return tenant
+
+
+@pytest_asyncio.fixture
+async def test_user(db_session: AsyncSession, test_tenant):
+    """Create a test user."""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    user = User(
+        id=uuid4(),
+        tenant_id=test_tenant.id,
+        email="test@example.com",
+        name="Test User",
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture
+async def test_group(db_session: AsyncSession, test_tenant, test_user):
+    """Create a test group."""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    group = Group(
+        id=uuid4(),
+        tenant_id=test_tenant.id,
+        name="Test Group",
+        created_by=test_user.id,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(group)
+    await db_session.commit()
+    await db_session.refresh(group)
+    return group
+
+
+@pytest_asyncio.fixture
+async def test_bot(db_session: AsyncSession, test_tenant, test_group):
+    """Create a test bot."""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    bot = Bot(
+        id=uuid4(),
+        tenant_id=test_tenant.id,
+        group_id=test_group.id,
+        name="Test Bot",
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(bot)
+    await db_session.commit()
+    await db_session.refresh(bot)
+    return bot
+
+
+@pytest_asyncio.fixture
+async def test_confidence_log_hitl(db_session: AsyncSession, test_tenant, test_group, test_bot):
+    """Create a test confidence log routed to HITL."""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    confidence_log = ConfidenceLog(
+        id=uuid4(),
+        tenant_id=test_tenant.id,
+        group_id=test_group.id,
+        bot_id=test_bot.id,
+        query_text="What is the refund policy for damaged items?",
+        generated_response="We offer full refunds for damaged items within 30 days.",
+        overall_confidence=0.35,
+        routing_decision=RoutingDecision.HITL,
+        hitl_resolved=False,
+        created_at=datetime.utcnow(),
+    )
+    db_session.add(confidence_log)
+    await db_session.commit()
+    await db_session.refresh(confidence_log)
+    return confidence_log
+
+
+# Alias db_session as db for compatibility
+@pytest_asyncio.fixture
+async def db(db_session: AsyncSession):
+    """Alias for db_session to support both naming conventions."""
+    return db_session

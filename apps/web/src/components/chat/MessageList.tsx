@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatMessage, Citation } from "@/types/chat";
-import { Loader2, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, FileText, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
-import { sendToReviewQueue } from "@/lib/api/chat";
 import ContextSummary from "./ContextSummary";
 import TrustBadge from "./TrustBadge";
 import PendingVerification from "./PendingVerification";
@@ -45,14 +44,6 @@ export default function MessageList({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
-    const [sentToReview, setSentToReview] = useState<Set<string>>(new Set());
-    const [sendingToReview, setSendingToReview] = useState<Set<string>>(new Set());
-
-    // Default to 80% if not provided
-    const reviewThreshold = Math.min(
-        1,
-        Math.max(0, (typeof confidenceThresholdPercent === "number" ? confidenceThresholdPercent : 80) / 100)
-    );
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -62,58 +53,14 @@ export default function MessageList({
         }
     }, [messages, streaming]);
 
-    // Auto-send low confidence messages to review queue
-    useEffect(() => {
-        if (!botId) return;
-
-        messages.forEach((message, idx) => {
-            if (
-                message.role === "assistant" &&
-                message.confidence !== undefined &&
-                message.confidence < reviewThreshold &&
-                !sentToReview.has(message.id) &&
-                !sendingToReview.has(message.id)
-            ) {
-                // Find the user message before this one
-                let userQuestion = "";
-                for (let i = idx - 1; i >= 0; i--) {
-                    if (messages[i].role === "user") {
-                        userQuestion = messages[i].content;
-                        break;
-                    }
-                }
-
-                if (userQuestion) {
-                    setSendingToReview(prev => new Set(prev).add(message.id));
-
-                    sendToReviewQueue(
-                        botId,
-                        userQuestion,
-                        message.content,
-                        message.confidence,
-                        message.citations
-                    ).then((result) => {
-                        // Mark as sent even if backend reports logical failure,
-                        // to avoid hammering the endpoint on every render
-                        if (!result?.success) {
-                            console.warn("Review queue send reported failure:", result?.message);
-                        }
-                        setSentToReview(prev => new Set(prev).add(message.id));
-                    }).catch(err => {
-                        console.error("Failed to send to review queue:", err);
-                        // Prevent infinite retry loops on hard failures
-                        setSentToReview(prev => new Set(prev).add(message.id));
-                    }).finally(() => {
-                        setSendingToReview(prev => {
-                            const next = new Set(prev);
-                            next.delete(message.id);
-                            return next;
-                        });
-                    });
-                }
-            }
-        });
-    }, [messages, botId, sentToReview, sendingToReview, reviewThreshold]);
+    // NOTE: Auto-submission to review queue is DISABLED.
+    // The backend confidence_service.calculate_confidence() already creates the HITL entry
+    // with the correct ai_draft (the actual LLM response). Auto-submitting from the frontend
+    // creates duplicate entries with the placeholder message ("I'm checking with the team...")
+    // which causes approved answers to store the wrong content in the verified knowledge base.
+    //
+    // The HITL review queue at /api/v1/hitl/queue shows entries created by the backend,
+    // which already have the correct ai_draft for approval.
 
     return (
         <>
@@ -251,30 +198,13 @@ export default function MessageList({
                                                             }}
                                                         />
                                                     </div>
-                                                    {message.confidence < reviewThreshold && (
+                                                    {/* Low confidence messages are automatically routed to HITL review by the backend */}
+                                                    {message.confidence < (confidenceThresholdPercent ? confidenceThresholdPercent / 100 : 0.8) && (
                                                         <div className="mt-2 flex items-center gap-1.5 text-xs">
-                                                            {sendingToReview.has(message.id) ? (
-                                                                <>
-                                                                    <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
-                                                                    <span className="text-amber-600">
-                                                                        Sending to review queue...
-                                                                    </span>
-                                                                </>
-                                                            ) : sentToReview.has(message.id) ? (
-                                                                <>
-                                                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                                                    <span className="text-green-600">
-                                                                        Sent to team for review
-                                                                    </span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <AlertCircle className="h-3 w-3 text-amber-500" />
-                                                                    <span className="text-amber-600">
-                                                                        Will be sent to team for review
-                                                                    </span>
-                                                                </>
-                                                            )}
+                                                            <AlertCircle className="h-3 w-3 text-amber-500" />
+                                                            <span className="text-amber-600">
+                                                                Sent to team for review
+                                                            </span>
                                                         </div>
                                                     )}
                                                 </div>

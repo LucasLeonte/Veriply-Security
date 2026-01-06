@@ -72,6 +72,7 @@ async def submit_to_review_queue(
         confidence_log = ConfidenceLog(
             bot_id=bot_id,
             tenant_id=bot.tenant_id,
+            group_id=bot.group_id,  # Include group_id from bot for RLS
             query_id=uuid4(),  # Generate unique query ID
             query_text=request.user_question[:500] if request.user_question else None,  # Truncate to fit
             retrieval_confidence=request.confidence,  # Use submitted confidence as retrieval
@@ -100,9 +101,9 @@ async def submit_to_review_queue(
         }
     
     except Exception as e:
-        logger.error(f"Error submitting to review queue: {e}")
+        logger.error(f"Error submitting to review queue: {e}", exc_info=True)
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to submit to review queue",
+            detail=f"Failed to submit to review queue: {str(e)}",
         )

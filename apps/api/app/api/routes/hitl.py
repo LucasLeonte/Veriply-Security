@@ -24,6 +24,9 @@ from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
 from app.models.bot import Bot
+from app.services.embedding_service import EmbeddingService, EmbeddingError
+from app.services.verified_qa import create_verified_qa
+from app.services.document_service import create_document
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -231,37 +234,178 @@ async def approve_queue_item(
 
         logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
 
-        # Mark as resolved
-        item.hitl_resolved = True
-        item.resolution_user_id = current_user.id
-        item.resolution_timestamp = __import__('datetime').datetime.utcnow()
-
-        # Store edits in metadata if provided; reassign the dict so JSON changes persist
+        # Extract question and prepare answer for Verified KB
+        question_text = item.query_text or ""
         metadata = dict(item.metadata_json or {})
-
+        
+        # Determine final answer (edits take precedence over AI draft)
         if request.edits:
+            approved_answer = request.edits
             metadata["human_edits"] = request.edits
             metadata["human_final_answer"] = request.edits
             metadata["resolution_action"] = "approved_with_edits"
             logger.debug(f"Approval with edits: {request.edits[:50]}...")
         else:
             # Default to AI draft as the approved answer if no edits supplied
-            ai_draft = metadata.get("ai_draft", "")
-            metadata["human_final_answer"] = ai_draft
+            approved_answer = metadata.get("ai_draft", "")
+            metadata["human_final_answer"] = approved_answer
             metadata["resolution_action"] = "approved"
             logger.debug("Approval without edits - using AI draft")
 
-        item.metadata_json = metadata
+        # Extract source citations from metadata
+        source_citations = metadata.get("citations")
+        if isinstance(source_citations, list) and source_citations:
+            # Convert list of citations to JSONB-compatible dict
+            source_citations = {"documents": source_citations}
+        elif not isinstance(source_citations, dict):
+            source_citations = None
 
-        logger.debug(f"Committing approval for item {item_id}")
-        await db.commit()
-        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
-        
+        # Start atomic transaction: HITL approval + VerifiedQA creation
+        try:
+            # Track document ID for post-commit processing
+            kb_doc_id = None
+            
+            # Mark HITL item as resolved
+            item.hitl_resolved = True
+            item.resolution_user_id = current_user.id
+            item.resolution_timestamp = __import__('datetime').datetime.utcnow()
+            item.metadata_json = metadata
+
+            # Create VerifiedQA entry (FR52: Auto-add approved HITL to Verified KB)
+            if question_text and approved_answer and item.bot_id:
+                try:
+                    # Generate embedding for the question
+                    embedding_service = EmbeddingService()
+                    question_embedding = await embedding_service.embed_verified_question(question_text)
+                    await embedding_service.close()
+                    
+                    # Fetch bot to get group_id
+                    bot_result = await db.execute(
+                        select(Bot).where(
+                            and_(
+                                Bot.id == item.bot_id,
+                                Bot.tenant_id == current_tenant,
+                            )
+                        )
+                    )
+                    bot = bot_result.scalar_one_or_none()
+                    
+                    if bot and bot.group_id:
+                        # Create VerifiedQA entry
+                        verified_qa = await create_verified_qa(
+                            db=db,
+                            tenant_id=current_tenant,
+                            group_id=bot.group_id,
+                            bot_id=item.bot_id,
+                            question_text=question_text,
+                            question_embedding=question_embedding,
+                            answer_text=approved_answer,
+                            approved_by_user_id=current_user.id,
+                            approved_at=item.resolution_timestamp,
+                            source_citations=source_citations,
+                        )
+                        
+                        logger.info(
+                            f"Created VerifiedQA entry {verified_qa.id} from HITL approval "
+                            f"(item={item_id}, bot={item.bot_id})"
+                        )
+                        
+                        # Add reference to verified_qa in metadata
+                        item.metadata_json["verified_qa_id"] = str(verified_qa.id)
+                        
+                        # Also add to documents table (knowledge base) for RAG retrieval
+                        kb_doc_id = None
+                        try:
+                            # Format Q&A as a text document
+                            doc_content = f"Question: {question_text}\n\nAnswer: {approved_answer}"
+                            doc_bytes = doc_content.encode('utf-8')
+                            
+                            # Create document with descriptive filename
+                            safe_question = question_text[:50].replace('/', '-').replace('\\', '-')
+                            doc_filename = f"HITL-{item_id[:8]}-{safe_question}.txt"
+                            
+                            doc, _ = await create_document(
+                                db=db,
+                                bot_id=bot.group_id,  # create_document maps bot_id to group_id
+                                tenant_id=current_tenant,
+                                uploader_id=current_user.id,
+                                filename=doc_filename,
+                                size_bytes=len(doc_bytes),
+                                mime_type="text/plain",
+                                file_bytes=doc_bytes,
+                                title=f"Verified Q&A: {question_text[:80]}",
+                            )
+                            
+                            kb_doc_id = str(doc.id)
+                            
+                            logger.info(
+                                f"Created knowledge base document {doc.id} from HITL approval "
+                                f"(item={item_id}, verified_qa={verified_qa.id})"
+                            )
+                            
+                            # Link document to verified_qa in metadata
+                            item.metadata_json["kb_document_id"] = kb_doc_id
+                            
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to create knowledge base document for HITL item {item_id}: {e}",
+                                exc_info=True
+                            )
+                            # Continue - VerifiedQA still created successfully
+                    else:
+                        logger.warning(
+                            f"Bot {item.bot_id} not found or missing group_id, "
+                            f"skipping VerifiedQA creation for HITL item {item_id}"
+                        )
+                        
+                except EmbeddingError as e:
+                    logger.error(
+                        f"Failed to generate embedding for VerifiedQA from HITL item {item_id}: {e}"
+                    )
+                    # Continue with approval even if VerifiedQA creation fails
+                    # This prevents blocking the approval workflow
+                except Exception as e:
+                    logger.error(
+                        f"Failed to create VerifiedQA entry for HITL item {item_id}: {e}",
+                        exc_info=True
+                    )
+                    # Continue with approval even if VerifiedQA creation fails
+            else:
+                logger.warning(
+                    f"Skipping VerifiedQA creation for HITL item {item_id}: "
+                    f"missing question_text={bool(question_text)}, "
+                    f"approved_answer={bool(approved_answer)}, "
+                    f"bot_id={bool(item.bot_id)}"
+                )
+
+            # Commit transaction (HITL approval + VerifiedQA + Document if created)
+            logger.debug(f"Committing approval for item {item_id}")
+            await db.commit()
+            logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
+            
+            # After commit, enqueue document processing if document was created
+            if kb_doc_id:
+                try:
+                    from app.tasks import enqueue_document_processing
+                    if hasattr(enqueue_document_processing, '__call__'):
+                        import inspect
+                        if inspect.iscoroutinefunction(enqueue_document_processing):
+                            await enqueue_document_processing(kb_doc_id)
+                        else:
+                            enqueue_document_processing(kb_doc_id)
+                        logger.info(f"Enqueued processing for document {kb_doc_id}")
+                except ImportError:
+                    logger.warning("Document processing not available - document created but not queued")
+                except Exception as proc_err:
+                    logger.warning(f"Failed to enqueue document processing: {proc_err}")
+            
+        except Exception as e:
+            logger.error(f"Transaction failed during approval of {item_id}: {e}", exc_info=True)
+            await db.rollback()
+            raise
+
         # Build response with the approved answer
-        resolved_answer = (
-            request.edits
-            or item.metadata_json.get("ai_draft", "")
-        )
+        resolved_answer = approved_answer
         
         # Publish resolution event to Redis for real-time updates
         try:

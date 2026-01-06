@@ -200,7 +200,7 @@ export function useHITLQueue() {
                 clearTimeout(connectionTimeout);
                 // Browser provides limited error information for security reasons
                 const readyStateText = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][ws.readyState] || "UNKNOWN";
-                console.error("WebSocket connection error:", {
+                console.warn("WebSocket connection error (falling back to polling):", {
                     readyState: ws.readyState,
                     readyStateText,
                     url: wsUrl.replace(/token=[^&]+/, "token=***"), // Hide token in logs
@@ -209,7 +209,7 @@ export function useHITLQueue() {
                 
                 // If error occurs during connection (readyState 0), start polling immediately
                 if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.CLOSED) {
-                    console.warn("WebSocket failed to connect, falling back to polling");
+                    console.debug("WebSocket unavailable, using polling for HITL updates");
                     startPolling();
                 }
             };
@@ -305,7 +305,7 @@ export function useHITLQueue() {
                 headers.Authorization = `Bearer ${token}`;
             }
 
-            const response = await fetch(`/api/hitl/queue/${itemId}/approve`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/hitl/queue/${itemId}/approve`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify({ edits }),
@@ -336,7 +336,7 @@ export function useHITLQueue() {
                 headers.Authorization = `Bearer ${token}`;
             }
 
-            const response = await fetch(`/api/hitl/queue/${itemId}/reject`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/hitl/queue/${itemId}/reject`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify({ reason }),

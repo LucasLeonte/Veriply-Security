@@ -181,13 +181,13 @@ export default function ChatInterface({
                             <div className="p-4 text-sm text-slate-600">No conversations yet.</div>
                         ) : (
                             userSessions.map((s) => (
-                                <button
+                                <div
                                     key={s.id}
+                                    className={`w-full text-left p-3 transition-colors group cursor-pointer ${selectedSessionId === s.id ? "bg-sky-50" : "hover:bg-slate-50"
+                                        }`}
                                     onClick={() => {
                                         resumeSession(s.id);
                                     }}
-                                    className={`w-full text-left p-3 transition-colors group ${selectedSessionId === s.id ? "bg-sky-50" : "hover:bg-slate-50"
-                                        }`}
                                 >
                                     <div className="flex items-center justify-between w-full">
                                         <div className="flex-1 min-w-0 pr-2">
@@ -206,7 +206,7 @@ export default function ChatInterface({
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                     </div>
-                                </button>
+                                </div>
                             ))
                         )}
                     </div>

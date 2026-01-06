@@ -186,7 +186,7 @@ async def chat_query(
         # Get tenant_id from bot for context retrieval
         tenant_id = bot.tenant_id
 
-        # Retrieve relevant context from vector store
+        # Retrieve relevant context from vector store (includes verified Q&A)
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
@@ -203,24 +203,40 @@ async def chat_query(
                 media_type="text/event-stream",
             )
 
+        # Check if we have a verified Q&A match - if so, use it directly
+        # Verified answers have is_verified=True and verified_answer set
+        verified_match = None
+        for result in search_results:
+            if result.is_verified and result.verified_answer:
+                verified_match = result
+                break
+
         # Build conversation history that will be sent to the LLM
         conversation_history: list[ChatMessage] = []
         if not conversation_context and context_messages:
             conversation_history = context_messages[-context_window:]
 
-        # Generate AI draft tokens (not streamed yet);
-        # we hold them until confidence is calculated and routing decided.
-        draft_tokens: list[str] = []
-        async for token in llm_service.generate_answer(
-            query=request.query.strip(),
-            context_chunks=search_results,
-            conversation_history=[
-                {"role": m.role, "content": m.content} for m in conversation_history
-            ],
-            conversation_context=conversation_context or None,
-        ):
-            draft_tokens.append(token)
-        ai_draft = "".join(draft_tokens)
+        # If we have a verified answer, use it directly (no LLM needed)
+        if verified_match:
+            logger.info(
+                f"Using verified Q&A answer for query '{request.query.strip()[:50]}...' "
+                f"(similarity={verified_match.similarity})"
+            )
+            ai_draft = verified_match.verified_answer
+            draft_tokens = [ai_draft]  # Single token for verified answer
+        else:
+            # Generate AI draft tokens via LLM
+            draft_tokens: list[str] = []
+            async for token in llm_service.generate_answer(
+                query=request.query.strip(),
+                context_chunks=search_results,
+                conversation_history=[
+                    {"role": m.role, "content": m.content} for m in conversation_history
+                ],
+                conversation_context=conversation_context or None,
+            ):
+                draft_tokens.append(token)
+            ai_draft = "".join(draft_tokens)
 
         # Prepare lightweight citations metadata for confidence logging
         confidence_citations = [
@@ -268,6 +284,24 @@ async def chat_query(
         is_verified_kb = any(
             getattr(r, "is_verified", False) for r in search_results
         )
+        
+        # If we used a verified Q&A answer, bypass confidence check - it's already human-approved
+        if verified_match:
+            # Verified answers should NEVER go to HITL - they're already human-approved
+            confidence_value = 1.0  # Maximum confidence for verified answers
+            return StreamingResponse(
+                _stream_precomputed_response(
+                    tokens=draft_tokens,
+                    citations=streaming_citations,
+                    extra_metadata={
+                        "confidence": confidence_value,
+                        "is_verified_answer": True,
+                        "verified_qa_id": verified_match.document_id,
+                    },
+                ),
+                media_type="text/event-stream",
+            )
+        
         confidence_result = await confidence_service.calculate_confidence(
             db=db,
             bot_id=bot_id,
@@ -283,7 +317,7 @@ async def chat_query(
             },
         )
 
-        # Keep confidence as 0ÔÇô1 for the streaming API; UI expects a float in [0,1].
+        # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
         confidence_value = float(confidence_result.overall_score)
 
         # Routing decision: send a wait message for HITL, otherwise stream draft

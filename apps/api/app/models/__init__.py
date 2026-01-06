@@ -19,6 +19,7 @@ from .feedback import (
     UserAbuseSuspicion as UserAbuseSuspicion,
 )
 from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
+from .verified_qa import VerifiedQA as VerifiedQA
 
 __all__ = [
     "Base",
@@ -43,4 +44,5 @@ __all__ = [
     "UserAbuseSuspicion",
     "ConfidenceLog",
     "RoutingDecision",
+    "VerifiedQA",
 ]
