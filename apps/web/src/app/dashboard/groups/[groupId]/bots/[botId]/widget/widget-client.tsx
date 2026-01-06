@@ -147,7 +147,7 @@ export function WidgetConfigClient({
                     toast({
                         title: "Error",
                         description: "Failed to load widget config",
-                        variant: "destructive",
+                        variant: "error",
                     });
                 }
             } catch (error) {
@@ -155,7 +155,7 @@ export function WidgetConfigClient({
                 toast({
                     title: "Error",
                     description: "Failed to load widget config or bot details",
-                    variant: "destructive",
+                    variant: "error",
                 });
             } finally {
                 setLoading(false);
@@ -175,7 +175,7 @@ export function WidgetConfigClient({
             toast({
                 title: "Missing parameters",
                 description: "Group or bot id is missing.",
-                variant: "destructive",
+                variant: "error",
             });
             return;
         }
@@ -228,7 +228,7 @@ export function WidgetConfigClient({
                     error instanceof Error
                         ? error.message
                         : "Failed to save config",
-                variant: "destructive",
+                variant: "error",
             });
         } finally {
             setSaving(false);
