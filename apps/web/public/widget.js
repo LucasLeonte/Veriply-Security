@@ -15,40 +15,50 @@
         container.id = "veriply-widget";
         container.style.position = "fixed";
         container.style.zIndex = "2147483647";
-        container.style.width = "360px";
-        container.style.height = "560px";
+        var buttonSize = 56;
+        var gap = 8;
+        var chatOffset = buttonSize + gap; // keep chat above the button like dashboard preview
+
+        container.style.width = "400px";
+        container.style.height = "520px";
+        container.style.maxHeight =
+            "calc(100vh - (24px + " + chatOffset + "px))"; // shrink on short viewports
         container.style.borderRadius = "12px";
         container.style.overflow = "hidden";
         container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
         container.style.background = "#fff";
         container.style.display = autoOpen ? "block" : "none";
 
-        var margin = "20px";
+        var margin = "12px";
         switch (position) {
             case "bottom-left":
                 container.style.left = margin;
-                container.style.bottom = margin;
+                container.style.bottom =
+                    "calc(" + margin + " + " + chatOffset + "px)";
                 break;
             case "top-right":
                 container.style.right = margin;
-                container.style.top = margin;
+                container.style.top =
+                    "calc(" + margin + " + " + chatOffset + "px)";
                 break;
             case "top-left":
                 container.style.left = margin;
-                container.style.top = margin;
+                container.style.top =
+                    "calc(" + margin + " + " + chatOffset + "px)";
                 break;
             default:
                 container.style.right = margin;
-                container.style.bottom = margin;
+                container.style.bottom =
+                    "calc(" + margin + " + " + chatOffset + "px)";
         }
 
         var button = document.createElement("button");
         button.type = "button";
         button.setAttribute("aria-label", "Open chat");
         button.style.position = "fixed";
-        button.style.zIndex = "2147483647";
-        button.style.width = "56px";
-        button.style.height = "56px";
+        button.style.zIndex = "2147483648";
+        button.style.width = buttonSize + "px";
+        button.style.height = buttonSize + "px";
         button.style.borderRadius = "50%";
         button.style.border = "none";
         button.style.cursor = "pointer";
