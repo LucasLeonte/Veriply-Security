@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { DashboardLayout } from "@/components";
 import { ReviewQueue } from "@/components/hitl/ReviewQueue";
 import { useHITLQueue } from "@/hooks/useHITLQueue";
 
 export default function InboxPage() {
+    const [sortBy, setSortBy] = useState<string>("oldest");
     const { items, stats, isLoading, error, approveItem, rejectItem } =
-        useHITLQueue();
+        useHITLQueue(sortBy);
 
     if (error) {
         return (
@@ -31,6 +33,8 @@ export default function InboxPage() {
                 isLoading={isLoading}
                 onApprove={approveItem}
                 onReject={rejectItem}
+                sortBy={sortBy}
+                onSortChange={setSortBy}
             />
         </DashboardLayout>
     );

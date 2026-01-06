@@ -47,6 +47,9 @@ export default function MessageList({
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
     const [sentToReview, setSentToReview] = useState<Set<string>>(new Set());
     const [sendingToReview, setSendingToReview] = useState<Set<string>>(new Set());
+    
+    // Use ref to track submission attempts across renders (persists between useEffect calls)
+    const submissionAttemptsRef = useRef<Set<string>>(new Set());
 
     // Default to 80% if not provided
     const reviewThreshold = Math.min(
@@ -67,6 +70,9 @@ export default function MessageList({
         if (!botId) return;
 
         messages.forEach((message, idx) => {
+            // Skip if already processed using ref (guards against concurrent useEffect runs)
+            if (submissionAttemptsRef.current.has(message.id)) return;
+            
             if (
                 message.role === "assistant" &&
                 message.confidence !== undefined &&
@@ -74,6 +80,9 @@ export default function MessageList({
                 !sentToReview.has(message.id) &&
                 !sendingToReview.has(message.id)
             ) {
+                // Mark as attempted immediately to prevent duplicate calls
+                submissionAttemptsRef.current.add(message.id);
+                
                 // Find the user message before this one
                 let userQuestion = "";
                 for (let i = idx - 1; i >= 0; i--) {
@@ -110,6 +119,9 @@ export default function MessageList({
                             return next;
                         });
                     });
+                } else {
+                    // No user question found, remove from attempts so it can retry
+                    submissionAttemptsRef.current.delete(message.id);
                 }
             }
         });
@@ -138,7 +150,7 @@ export default function MessageList({
                             </Avatar>
                         )}
 
-                        <div className={`flex flex-col gap-1 max-w-[70%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[75%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
                             {/* Pending verification state */}
                             {message.role === "assistant" && message.trustLevel === "pending" && botId ? (
                                 <div className="w-full">
@@ -149,9 +161,9 @@ export default function MessageList({
                                 </div>
                             ) : (
                                 <div
-                                    className={`w-full rounded-lg px-4 py-2 shadow-sm ${message.role === "user"
-                                        ? "bg-sky-600 text-white rounded-br-sm text-right"
-                                        : "bg-white border border-slate-100 rounded-bl-sm text-left"
+                                    className={`w-full px-5 py-3 shadow-sm ${message.role === "user"
+                                        ? "bg-gradient-to-br from-sky-600 to-blue-600 text-white rounded-2xl rounded-tr-sm"
+                                        : "bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-sm"
                                         }`}
                                 >
                                     {message.role === "user" ? (
@@ -163,7 +175,7 @@ export default function MessageList({
                                             <ReactMarkdown
                                                 components={{
                                                     p: ({ children }) => (
-                                                        <p className="text-slate-800 leading-relaxed mb-2 last:mb-0">
+                                                        <p className="text-slate-700 leading-relaxed mb-3 last:mb-0">
                                                             {children}
                                                         </p>
                                                     ),

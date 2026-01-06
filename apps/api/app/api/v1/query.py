@@ -157,9 +157,9 @@ async def confidence_query(
 
 		overall_conf_pct = round(overall_conf_0_1 * 100, 1)
 
-		decision = RoutingDecision.AUTO_SEND if overall_conf_0_1 >= threshold else RoutingDecision.HITL
-		status_str = "auto_sent" if decision == RoutingDecision.AUTO_SEND else "hitl_required"
-		end_user_message = "I'm checking with the team for the best answer. You'll hear from us shortly." if decision == RoutingDecision.HITL else None
+		decision = RoutingDecision.auto_send if overall_conf_0_1 >= threshold else RoutingDecision.hitl
+		status_str = "auto_sent" if decision == RoutingDecision.auto_send else "hitl_required"
+		end_user_message = "I'm checking with the team for the best answer. You'll hear from us shortly." if decision == RoutingDecision.hitl else None
 
 		# Persist confidence log
 		log_entry = ConfidenceLog(
@@ -222,7 +222,7 @@ async def confidence_query(
 			routing_info=RoutingInfo(
 				decision=decision,
 				threshold_used=threshold,
-				reason="Verified KB" if verified_hit else "Below threshold" if decision == RoutingDecision.HITL else "Meets threshold",
+				reason="Verified KB" if verified_hit else "Below threshold" if decision == RoutingDecision.hitl else "Meets threshold",
 				end_user_message=end_user_message,
 			),
 			metadata=metadata,

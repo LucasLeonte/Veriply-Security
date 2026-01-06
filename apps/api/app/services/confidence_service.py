@@ -32,6 +32,32 @@ VERIFIED_KB_CONFIDENCE = 0.95
 # Minimum confidence for "no context" case
 NO_CONTEXT_CONFIDENCE = 0.0
 
+# Patterns that indicate the bot doesn't know the answer
+NO_ANSWER_PATTERNS = [
+    "i don't have information",
+    "i don't know",
+    "i do not have information",
+    "i do not know",
+    "i'm not sure",
+    "i am not sure",
+    "i cannot find",
+    "i can't find",
+    "no information available",
+    "not in the knowledge base",
+    "checking with the team",
+    "i'm checking with",
+    "i am checking with",
+    "you'll hear from us",
+    "unable to answer",
+    "cannot answer",
+    "can't answer",
+    "don't have enough information",
+    "do not have enough information",
+    "outside my knowledge",
+    "beyond my knowledge",
+    "not able to find",
+]
+
 
 @dataclass
 class ConfidenceResult:
@@ -102,6 +128,38 @@ class ConfidenceCalculatorService:
         # Convert threshold from 0-100 to 0-1
         threshold = confidence_threshold / 100.0
         
+        # Extract AI draft from metadata to check for "I don't know" responses
+        ai_draft = metadata_json.get("ai_draft", "") if metadata_json else ""
+        answer_confidence = self._calculate_answer_confidence(ai_draft)
+        
+        # If bot says it doesn't know, confidence should be 0
+        if answer_confidence == 0.0:
+            logger.info("Bot indicates it doesn't know the answer - confidence set to 0")
+            result = ConfidenceResult(
+                overall_score=0.0,
+                retrieval_confidence=0.0,
+                context_coverage=0.0,
+                source_consistency=None,
+                generation_confidence=0.0,
+                routing_decision=RoutingDecision.hitl,
+                is_verified_kb=False,
+                reasoning="Bot indicated it doesn't have the answer - routing to human review",
+                query_id=query_id,
+            )
+            await self._log_confidence(
+                db=db,
+                bot_id=bot_id,
+                tenant_id=tenant_id,
+                query_id=query_id,
+                query=query,
+                result=result,
+                threshold=threshold,
+                group_id=group_id,
+                user_id=user_id,
+                metadata_json=metadata_json,
+            )
+            return result
+        
         # Verified KB answers get automatic high confidence
         if is_verified_kb:
             result = self._create_verified_kb_result(query_id, threshold)
@@ -135,9 +193,9 @@ class ConfidenceCalculatorService:
         
         # Determine routing decision
         routing_decision = (
-            RoutingDecision.AUTO_SEND 
+            RoutingDecision.auto_send 
             if overall_score >= threshold 
-            else RoutingDecision.HITL
+            else RoutingDecision.hitl
         )
         
         # Generate human-readable reasoning
@@ -185,6 +243,30 @@ class ConfidenceCalculatorService:
         )
         
         return result
+
+    def _calculate_answer_confidence(self, ai_draft: str) -> float:
+        """Calculate confidence based on the AI's answer content.
+        
+        Detects "I don't know" type responses and returns 0 confidence.
+        Otherwise returns 1.0 to indicate the bot gave a substantive answer.
+        
+        Args:
+            ai_draft: The AI-generated draft answer
+            
+        Returns:
+            0.0 if bot indicates it doesn't know, 1.0 otherwise
+        """
+        if not ai_draft:
+            return 0.0
+        
+        draft_lower = ai_draft.lower()
+        
+        for pattern in NO_ANSWER_PATTERNS:
+            if pattern in draft_lower:
+                logger.debug(f"Detected 'no answer' pattern: '{pattern}'")
+                return 0.0
+        
+        return 1.0
 
     def _calculate_retrieval_confidence(
         self, 
@@ -356,7 +438,7 @@ class ConfidenceCalculatorService:
             context_coverage=VERIFIED_KB_CONFIDENCE,
             source_consistency=None,
             generation_confidence=None,
-            routing_decision=RoutingDecision.AUTO_SEND,
+            routing_decision=RoutingDecision.auto_send,
             is_verified_kb=True,
             reasoning="Answer from Verified Knowledge Base - human-verified content (95% confidence)",
             query_id=query_id,
@@ -423,7 +505,7 @@ class ConfidenceCalculatorService:
         reasoning = ", ".join(reasons)
         
         # Add routing explanation
-        if routing_decision == RoutingDecision.AUTO_SEND:
+        if routing_decision == RoutingDecision.auto_send:
             reasoning += f". Score ({overall_score:.0%}) exceeds threshold ({threshold:.0%})."
         else:
             reasoning += f". Score ({overall_score:.0%}) below threshold ({threshold:.0%}) - routing to human review."
@@ -456,7 +538,30 @@ class ConfidenceCalculatorService:
             user_id: Optional user identifier
             metadata_json: Additional metadata to persist
         """
+        from datetime import datetime, timedelta
+        from sqlalchemy import and_
+        from sqlalchemy.future import select
+        
         try:
+            # Dedup check: prevent duplicate entries for the same query within 5 seconds
+            # This handles React StrictMode double-invocations
+            dedup_window = datetime.utcnow() - timedelta(seconds=5)
+            query_text_truncated = query[:500] if query else None
+            
+            existing = await db.execute(
+                select(ConfidenceLog.id).where(
+                    and_(
+                        ConfidenceLog.bot_id == bot_id,
+                        ConfidenceLog.tenant_id == tenant_id,
+                        ConfidenceLog.query_text == query_text_truncated,
+                        ConfidenceLog.created_at >= dedup_window,
+                    )
+                ).limit(1)
+            )
+            if existing.scalar_one_or_none() is not None:
+                logger.debug(f"Skipping duplicate confidence log for query: {query_text_truncated[:50]}...")
+                return
+            
             metadata_to_store = dict(metadata_json or {})
             metadata_to_store.setdefault("context_coverage", result.context_coverage)
             metadata_to_store.setdefault("source_consistency", result.source_consistency)

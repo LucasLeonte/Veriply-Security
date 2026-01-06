@@ -20,6 +20,45 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/bots/{bot_id}/review-queue", tags=["review-queue"])
 
+# Patterns that indicate the bot doesn't know the answer
+NO_ANSWER_PATTERNS = [
+    "i don't have information",
+    "i don't know",
+    "i do not have information",
+    "i do not know",
+    "i'm not sure",
+    "i am not sure",
+    "i cannot find",
+    "i can't find",
+    "no information available",
+    "not in the knowledge base",
+    "checking with the team",
+    "i'm checking with",
+    "i am checking with",
+    "you'll hear from us",
+    "unable to answer",
+    "cannot answer",
+    "can't answer",
+    "don't have enough information",
+    "do not have enough information",
+    "outside my knowledge",
+    "beyond my knowledge",
+    "not able to find",
+]
+
+
+def _check_no_answer_patterns(ai_draft: str) -> bool:
+    """Check if the AI draft indicates the bot doesn't know the answer."""
+    if not ai_draft:
+        return True  # Empty draft means no answer
+    
+    draft_lower = ai_draft.lower()
+    for pattern in NO_ANSWER_PATTERNS:
+        if pattern in draft_lower:
+            logger.debug(f"Detected 'no answer' pattern: '{pattern}'")
+            return True
+    return False
+
 
 class ReviewQueueSubmissionRequest(BaseModel):
     """Request to submit a low-confidence response to review queue."""
@@ -68,16 +107,38 @@ async def submit_to_review_queue(
         }
     
     try:
+        # Check for deduplication - don't create duplicate entries for same question
+        existing = await session.execute(
+            select(ConfidenceLog)
+            .where(ConfidenceLog.bot_id == bot_id)
+            .where(ConfidenceLog.query_text == (request.user_question[:500] if request.user_question else None))
+            .where(ConfidenceLog.hitl_resolved == False)
+            .limit(1)
+        )
+        if existing.scalar():
+            logger.info(f"Duplicate review queue submission detected for bot_id={bot_id}, skipping")
+            return {
+                "success": True,
+                "message": "Response already in review queue",
+                "queue_item_id": None,
+            }
+        
+        # Override confidence to 0 if the AI draft indicates it doesn't know the answer
+        actual_confidence = request.confidence
+        if _check_no_answer_patterns(request.ai_draft):
+            logger.info("AI draft indicates no answer - setting confidence to 0")
+            actual_confidence = 0.0
+        
         # Create a new confidence log entry for review
         confidence_log = ConfidenceLog(
             bot_id=bot_id,
             tenant_id=bot.tenant_id,
             query_id=uuid4(),  # Generate unique query ID
             query_text=request.user_question[:500] if request.user_question else None,  # Truncate to fit
-            retrieval_confidence=request.confidence,  # Use submitted confidence as retrieval
-            overall_confidence=request.confidence,
+            retrieval_confidence=actual_confidence,  # Use corrected confidence
+            overall_confidence=actual_confidence,
             threshold_used=0.8,  # Default threshold
-            routing_decision=RoutingDecision.HITL,
+            routing_decision=RoutingDecision.hitl,
             hitl_resolved=False,
             is_verified_kb=False,
             metadata_json={
@@ -85,6 +146,7 @@ async def submit_to_review_queue(
                 "ai_draft": request.ai_draft,
                 "citations": request.citations or [],
                 "source": "chatbot_auto_submission",
+                "original_confidence": request.confidence,  # Keep original for debugging
             }
         )
         
