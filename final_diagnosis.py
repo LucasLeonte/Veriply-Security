@@ -30,7 +30,7 @@ async def final_diagnosis():
         
         # Get all HITL items
         stmt_all = select(ConfidenceLog).where(
-            ConfidenceLog.routing_decision == RoutingDecision.HITL
+            ConfidenceLog.routing_decision == RoutingDecision.hitl
         ).order_by(ConfidenceLog.created_at.desc())
         
         result_all = await db.execute(stmt_all)

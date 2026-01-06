@@ -10,7 +10,16 @@ from .bot_document_access import BotDocumentAccess as BotDocumentAccess
 from .chunk import Chunk as Chunk
 from .embedding import Embedding as Embedding
 from .audit_log import AuditLog as AuditLog
+from .chat_message import ChatMessageLog as ChatMessageLog
+from .feedback import (
+    Feedback as Feedback,
+    FeedbackType as FeedbackType,
+    FeedbackReason as FeedbackReason,
+    ModerationAlert as ModerationAlert,
+    UserAbuseSuspicion as UserAbuseSuspicion,
+)
 from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
+from .widget_config import WidgetConfig as WidgetConfig
 
 __all__ = [
     "Base",
@@ -27,6 +36,13 @@ __all__ = [
     "Chunk",
     "Embedding",
     "AuditLog",
+    "ChatMessageLog",
+    "Feedback",
+    "FeedbackType",
+    "FeedbackReason",
+    "ModerationAlert",
+    "UserAbuseSuspicion",
     "ConfidenceLog",
     "RoutingDecision",
+    "WidgetConfig",
 ]

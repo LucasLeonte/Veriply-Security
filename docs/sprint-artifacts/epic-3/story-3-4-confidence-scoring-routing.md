@@ -1,7 +1,7 @@
 # Story 3.4: Confidence Scoring & Routing
 
 **Epic:** 3. RAG Q&A Engine  
-**Status:** done  
+**Status:** review  
 **Assigned to:** TBD  
 **Blocked by:** 3-3-citation-generation
 **Context:** docs/sprint-artifacts/epic-3/story-3-4.context.xml

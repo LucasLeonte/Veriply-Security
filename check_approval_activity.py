@@ -57,7 +57,7 @@ async def check_approval_activity():
         # Check ALL pending items
         stmt_pending = select(ConfidenceLog).where(
             ConfidenceLog.hitl_resolved == False,
-            ConfidenceLog.routing_decision == RoutingDecision.HITL
+            ConfidenceLog.routing_decision == RoutingDecision.hitl
         ).order_by(ConfidenceLog.created_at.desc())
         
         result_pending = await db.execute(stmt_pending)

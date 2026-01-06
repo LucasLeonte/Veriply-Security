@@ -355,7 +355,7 @@ class AnswerGenerationService:
         )
 
         # Step 4: Route based on confidence
-        if confidence_result.routing_decision == RoutingDecision.HITL:
+        if confidence_result.routing_decision == RoutingDecision.hitl:
             # Low confidence - route to HITL queue
             logger.info(
                 f"Routing to HITL: confidence={confidence_result.overall_score:.0%} "
@@ -367,7 +367,7 @@ class AnswerGenerationService:
                 answer_generator=None,
                 metadata=metadata,
                 confidence=confidence_result,
-                routing_decision=RoutingDecision.HITL,
+                routing_decision=RoutingDecision.hitl,
                 hitl_message=HITL_PENDING_MESSAGE,
             )
 
@@ -384,7 +384,7 @@ class AnswerGenerationService:
             answer_generator=answer_generator(),
             metadata=metadata,
             confidence=confidence_result,
-            routing_decision=RoutingDecision.AUTO_SEND,
+            routing_decision=RoutingDecision.auto_send,
             hitl_message=None,
         )
 

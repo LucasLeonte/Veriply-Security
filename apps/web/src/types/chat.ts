@@ -14,6 +14,7 @@ export interface ChatMessage {
     confidenceScore?: number;
     sourceType?: SourceType;
     responseId?: string;
+    answerId?: string;
 }
 
 export interface Citation {
@@ -32,8 +33,8 @@ export interface Citation {
 export interface BotPublicInfo {
     id: string;
     name: string;
+    description?: string;
     avatar_url?: string;
-    welcome_message: string;
     is_public: boolean;
     confidence_threshold: number;
 }
@@ -54,4 +55,18 @@ export interface StreamMetadata {
     citations: Citation[];
     confidence?: number;
     chunks_used?: number;
+}
+
+// Server-stored chat history entries
+export interface ChatHistoryEntry {
+    id: string;
+    bot_id: string;
+    tenant_id: string;
+    role: "user" | "assistant";
+    content: string;
+    session_id?: string | null;
+    client_message_id?: string | null;
+    answer_id?: string | null;
+    citations?: Citation[];
+    created_at: string;
 }

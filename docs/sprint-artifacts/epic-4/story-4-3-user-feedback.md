@@ -346,13 +346,13 @@ so that the system can learn from my input.
 -   [ ] Document feedback API in OpenAPI spec
 -   [ ] Document analytics calculations in README
 -   [ ] Add moderation guide for alerts
--   [ ] Privacy policy: clarify feedback is anonymous
+-   [ ] Privacy policy: clarify feedback tracks user_id for abuse prevention
 
 ## Dev Notes
 
 ### Architecture Patterns
 
--   **Anonymous Feedback**: No user tracking, session-based anonymity
+-   **User-Tracked Feedback**: User ID tracked for abuse prevention and moderation (not anonymous)
 -   **Feedback-as-Events**: Emit events to analytics service for decoupled processing
 -   **Alert System**: Pattern for critical feedback detection and escalation
 -   **Rate Limiting**: Per-session limit prevents spam feedback
@@ -416,7 +416,7 @@ Claude Haiku 3.5
 
 -   Implement feedback modal form
 -   Test rate limiting logic
--   Verify anonymous feedback (no user tracking)
+-   Verify user tracking for abuse prevention (user_id, IP, session_id)
 -   Test moderation alert trigger (3 "Harmful" threshold)
 
 ### Completion Notes List
