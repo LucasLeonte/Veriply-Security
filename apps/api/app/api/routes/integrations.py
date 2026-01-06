@@ -137,7 +137,7 @@ async def gmail_authorize(
 ):
     """Return a Google OAuth2 authorization URL to redirect the user to."""
     tenant_id = await _get_tenant_from_token(request, token, credentials)
-    redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/gmail/callback"
+    redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/gmail/callback"
     client_id, _, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,
@@ -154,7 +154,21 @@ async def gmail_authorize(
         state=state
     )
 
-    return RedirectResponse(auth_url)
+    response = RedirectResponse(auth_url)
+    
+    # Set a short-lived cookie with the auth token so we can identify the user on callback
+    # The frontend passes 'token' in the query param or header to this endpoint
+    if token:
+        response.set_cookie(
+            key="veriply_oauth_token",
+            value=token,
+            max_age=300,  # 5 minutes
+            httponly=True,
+            samesite="lax",
+            secure=settings.is_production  # True in prod, False in dev (http://localhost)
+        )
+    
+    return response
 
 @router.post("/credentials")
 async def set_integration_credentials(
@@ -210,17 +224,33 @@ async def set_integration_credentials(
 
 @router.get("/gmail/callback")
 async def gmail_callback(
+    request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    tenant_id: UUID = Depends(get_current_tenant),
 ):
     """Handle Google OAuth2 callback: exchange code for refresh token and store encrypted token."""
+    # Manually retrieve user from cookie since Authorization header is missing in redirect
+    token = request.cookies.get("veriply_oauth_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication cookie missing. Please try again.")
+
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        user_id = UUID(payload.get("sub"))
+        tenant_id = UUID(payload.get("tenant_id"))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid authentication cookie")
+
+    # Fetch user
+    result = await db.execute(select(User).where(User.id == user_id))
+    current_user = result.scalar_one_or_none()
+    if not current_user:
+        raise HTTPException(status_code=401, detail="User not found")
     if not code:
         raise HTTPException(status_code=400, detail="Missing code from provider")
 
-    redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/gmail/callback"
+    redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/gmail/callback"
     client_id, client_secret, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,
@@ -369,7 +399,7 @@ async def outlook_authorize(
 ):
     """Return a Microsoft OAuth2 authorization URL to redirect the user to."""
     tenant_id = await _get_tenant_from_token(request, token, credentials)
-    redirect_default = settings.OUTLOOK_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/outlook/callback"
+    redirect_default = settings.OUTLOOK_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/outlook/callback"
     client_id, _, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,
@@ -386,22 +416,48 @@ async def outlook_authorize(
         state=state
     )
 
-    return RedirectResponse(auth_url)
+    response = RedirectResponse(auth_url)
+    
+    if token:
+        response.set_cookie(
+            key="veriply_oauth_token",
+            value=token,
+            max_age=300,
+            httponly=True,
+            samesite="lax",
+            secure=settings.is_production
+        )
+
+    return response
 
 
 @router.get("/outlook/callback")
 async def outlook_callback(
+    request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    tenant_id: UUID = Depends(get_current_tenant),
 ):
     """Handle Outlook OAuth2 callback."""
+    token = request.cookies.get("veriply_oauth_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Authentication cookie missing")
+
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        user_id = UUID(payload.get("sub"))
+        tenant_id = UUID(payload.get("tenant_id"))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid authentication cookie")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    current_user = result.scalar_one_or_none()
+    if not current_user:
+        raise HTTPException(status_code=401, detail="User not found")
     if not code:
         raise HTTPException(status_code=400, detail="Missing code from provider")
 
-    redirect_default = settings.OUTLOOK_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/outlook/callback"
+    redirect_default = settings.OUTLOOK_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/outlook/callback"
     client_id, client_secret, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,

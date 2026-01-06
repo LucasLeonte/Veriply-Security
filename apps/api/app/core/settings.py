@@ -166,6 +166,8 @@ class Settings(BaseSettings):
     OUTLOOK_CLIENT_SECRET: Optional[str] = None
     OUTLOOK_OAUTH_REDIRECT: Optional[str] = None
     
+    EMAIL_TOKEN_ENCRYPTION_KEY: Optional[str] = None
+    
     # ========================================================================
     # MODERATION NOTIFICATION CONFIGURATION
     # ========================================================================

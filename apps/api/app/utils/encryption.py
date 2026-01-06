@@ -9,14 +9,16 @@ from cryptography.hazmat.backends import default_backend
 logger = logging.getLogger(__name__)
 
 
+from app.core.settings import settings
+
 def get_encryption_key() -> bytes:
     """
-    Get encryption key from environment variable.
+    Get encryption key from settings.
     
     Expected format: 32-byte base64-encoded string.
     Generate with: python -c "import os, base64; print(base64.b64encode(os.urandom(32)).decode())"
     """
-    key_b64 = os.environ.get("EMAIL_TOKEN_ENCRYPTION_KEY")
+    key_b64 = settings.EMAIL_TOKEN_ENCRYPTION_KEY
     if not key_b64:
         raise ValueError(
             "EMAIL_TOKEN_ENCRYPTION_KEY not set. Generate with: "
