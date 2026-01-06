@@ -10,6 +10,7 @@ import {
     Copy,
     Eye,
     Filter as FilterIcon,
+    Loader2,
 } from "lucide-react";
 import { ReviewQueueItem } from "@/hooks/useHITLQueue";
 import { Button } from "@/components/ui/button";
@@ -361,27 +362,14 @@ export function ReviewQueueItemCard({
                                 size="sm"
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
                             >
-                                <XCircle className="w-4 h-4" />
-                                Reject
+                                {isRejecting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <XCircle className="w-4 h-4" />
+                                )}
+                                {isRejecting ? "Rejecting..." : "Reject"}
                                 <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500 rounded">
                                     R
-                                </kbd>
-                            </Button>
-                            <Button
-                                onClick={handleApprove}
-                                disabled={isApproving || !canApprove}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                size="sm"
-                                title={
-                                    !canApprove
-                                        ? "Please review for at least 3 seconds"
-                                        : ""
-                                }
-                            >
-                                <CheckCircle className="w-4 h-4" />
-                                Approve
-                                <kbd className="px-1.5 py-0.5 text-xs bg-emerald-700 text-white rounded">
-                                    A
                                 </kbd>
                             </Button>
                         </>
@@ -415,8 +403,12 @@ export function ReviewQueueItemCard({
                                 size="sm"
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
                             >
-                                <XCircle className="w-4 h-4" />
-                                Reject
+                                {isRejecting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <XCircle className="w-4 h-4" />
+                                )}
+                                {isRejecting ? "Rejecting..." : "Reject"}
                                 <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500 rounded">
                                     R
                                 </kbd>
@@ -432,8 +424,12 @@ export function ReviewQueueItemCard({
                                         : ""
                                 }
                             >
-                                <CheckCircle className="w-4 h-4" />
-                                Approve
+                                {isApproving ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle className="w-4 h-4" />
+                                )}
+                                {isApproving ? "Approving..." : "Approve"}
                                 <kbd className="px-1.5 py-0.5 text-xs bg-green-700 text-white rounded">
                                     A
                                 </kbd>
