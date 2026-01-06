@@ -1,6 +1,6 @@
 # Story 5.2: Draft Review Interface
 
-Status: drafted
+Status: stukje gedaan
 
 ## Requirements Context Summary
 

@@ -214,7 +214,7 @@ development_status:
         blocked_by: nulls
 
     4-3-user-feedback:
-        status: in-progress
+        status: done
         assigned_to: Dario
         blocked_by: 4-1-web-chat-interface
 
@@ -241,13 +241,13 @@ development_status:
         assigned_to: Lucas
 
     5-1-hitl-queue-view:
-        status: in-progress
+        status: done
         assigned_to: Kainy
         blocked_by: 3-4-confidence-scoring-routing
 
     5-2-draft-review-interface:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Kainy
         blocked_by: 5-1-hitl-queue-view
 
     5-3-approve-edit-flow:

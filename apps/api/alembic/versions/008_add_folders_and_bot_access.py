@@ -1,7 +1,7 @@
 """Add folders and bot_document_access tables for group KB organization and bot-level access control.
 
 Revision ID: 008_add_folders_and_bot_access
-Revises: 007_add_password_reset_fields
+Revises: 008_create_pii_redactions
 Create Date: 2025-12-16 10:00:00.000000
 
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '008_add_folders_and_bot_access'
-down_revision = '007_add_password_reset_fields'
+down_revision = '008_create_pii_redactions'
 branch_labels = None
 depends_on = None
 

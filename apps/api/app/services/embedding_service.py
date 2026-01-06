@@ -149,15 +149,20 @@ class EmbeddingService:
         Raises:
             httpx.HTTPError: If API call fails
         """
-        url = f"{self.ollama_url}/api/embeddings"
-        payload = {"model": self.model, "prompt": text}
+        # Ollama embeds endpoint uses /api/embed (not /api/embeddings)
+        url = f"{self.ollama_url}/api/embed"
+        payload = {"model": self.model, "input": text}
 
         response = await self.client.post(url, json=payload)
         response.raise_for_status()
 
         data = response.json()
-        # Ollama /api/embeddings returns {"embedding": [...]}
-        embedding = data.get("embedding")
+        # Ollama /api/embed returns {"embeddings": [[...]]}
+        embedding = None
+        if "embedding" in data:
+            embedding = data.get("embedding")
+        elif "embeddings" in data and data["embeddings"]:
+            embedding = data["embeddings"][0]
 
         if not embedding:
             raise EmbeddingError(

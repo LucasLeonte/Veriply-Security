@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import { sendToReviewQueue } from "@/lib/api/chat";
 import ContextSummary from "./ContextSummary";
 import TrustBadge from "./TrustBadge";
 import PendingVerification from "./PendingVerification";
+import FeedbackBar, { FeedbackSnapshot } from "../FeedbackBar";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -20,6 +21,14 @@ interface MessageListProps {
     // Bot confidence threshold as percentage (0-100)
     confidenceThresholdPercent?: number;
     contextWindowSize?: number;
+    feedbackState?: Record<string, FeedbackSnapshot>;
+    onSubmitFeedback?: (args: {
+        messageId: string;
+        answerId?: string;
+        type: "positive" | "negative";
+        reason?: "incorrect" | "not_helpful" | "incomplete" | "harmful" | "other";
+        notes?: string;
+    }) => Promise<{ success: boolean; error?: string } | void>;
 }
 
 export default function MessageList({
@@ -30,6 +39,8 @@ export default function MessageList({
     botId,
     confidenceThresholdPercent,
     contextWindowSize = 10,
+    feedbackState = {},
+    onSubmitFeedback,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
@@ -54,7 +65,7 @@ export default function MessageList({
     // Auto-send low confidence messages to review queue
     useEffect(() => {
         if (!botId) return;
-        
+
         messages.forEach((message, idx) => {
             if (
                 message.role === "assistant" &&
@@ -71,10 +82,10 @@ export default function MessageList({
                         break;
                     }
                 }
-                
+
                 if (userQuestion) {
                     setSendingToReview(prev => new Set(prev).add(message.id));
-                    
+
                     sendToReviewQueue(
                         botId,
                         userQuestion,
@@ -115,9 +126,8 @@ export default function MessageList({
                 {messages.map((message) => (
                     <div
                         key={message.id}
-                        className={`flex gap-3 ${
-                            message.role === "user" ? "justify-end" : "justify-start"
-                        }`}
+                        className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"
+                            }`}
                     >
                         {message.role === "assistant" && (
                             <Avatar className="h-8 w-8 mt-1">
@@ -127,187 +137,197 @@ export default function MessageList({
                                 </AvatarFallback>
                             </Avatar>
                         )}
-                        {/* Pending verification state */}
-                        {message.role === "assistant" && message.trustLevel === "pending" && botId ? (
-                            <div className="max-w-[70%]">
-                                <PendingVerification
-                                    messageId={message.id}
-                                    botId={botId}
-                                />
-                            </div>
-                        ) : (
-                            <div
-                                className={`max-w-[70%] rounded-lg px-4 py-2 shadow-sm ${
-                                    message.role === "user"
-                                        ? "bg-sky-600 text-white rounded-br-sm"
-                                        : "bg-white border border-slate-100 rounded-bl-sm"
-                                }`}
-                            >
-                                {message.role === "user" ? (
-                                    <p className="text-sm whitespace-pre-wrap">
-                                        {message.content}
-                                    </p>
-                                ) : (
-                                    <div className="prose prose-sm max-w-none">
-                                        <ReactMarkdown
-                                            components={{
-                                                p: ({ children }) => (
-                                                    <p className="text-slate-800 leading-relaxed mb-2 last:mb-0">
-                                                        {children}
-                                                    </p>
-                                                ),
-                                                strong: ({ children }) => (
-                                                    <strong className="font-semibold text-slate-900">
-                                                        {children}
-                                                    </strong>
-                                                ),
-                                                em: ({ children }) => (
-                                                    <em className="italic">
-                                                        {children}
-                                                    </em>
-                                                ),
-                                                code: ({ children, className }) => {
-                                                    const isInline = !className;
-                                                    return isInline ? (
-                                                        <code className="bg-slate-100 text-red-600 px-1 py-0.5 rounded text-xs">
-                                                            {children}
-                                                        </code>
-                                                    ) : (
-                                                        <code className="block bg-slate-100 p-2 rounded text-xs overflow-x-auto">
-                                                            {children}
-                                                        </code>
-                                                    );
-                                                },
-                                                ul: ({ children }) => (
-                                                    <ul className="list-disc list-inside space-y-1 my-2">
-                                                        {children}
-                                                    </ul>
-                                                ),
-                                                ol: ({ children }) => (
-                                                    <ol className="list-decimal list-inside space-y-1 my-2">
-                                                        {children}
-                                                    </ol>
-                                                ),
-                                                li: ({ children }) => (
-                                                    <li className="text-slate-800">
-                                                        {children}
-                                                    </li>
-                                                ),
-                                                a: ({ children, href }) => (
-                                                    <a
-                                                        href={href}
-                                                        className="text-sky-600 hover:text-sky-700 underline"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        {children}
-                                                    </a>
-                                                ),
-                                            }}
-                                        >
-                                            {message.content}
-                                        </ReactMarkdown>
 
-                                        {message.confidence !== undefined && (
-                                            <div className="mt-3 pt-3 border-t border-slate-100">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-xs font-medium text-slate-500">
-                                                        Certainty
-                                                    </span>
-                                                    <span
-                                                        className={`text-xs font-semibold ${
-                                                            message.confidence > 0.75
+                        <div className={`flex flex-col gap-1 max-w-[85%] md:max-w-[75%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
+                            {/* Pending verification state */}
+                            {message.role === "assistant" && message.trustLevel === "pending" && botId ? (
+                                <div className="w-full">
+                                    <PendingVerification
+                                        messageId={message.id}
+                                        botId={botId}
+                                    />
+                                </div>
+                            ) : (
+                                <div
+                                    className={`w-full px-5 py-3 shadow-sm ${message.role === "user"
+                                        ? "bg-gradient-to-br from-sky-600 to-blue-600 text-white rounded-2xl rounded-tr-sm"
+                                        : "bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-sm"
+                                        }`}
+                                >
+                                    {message.role === "user" ? (
+                                        <p className="text-sm whitespace-pre-wrap text-left">
+                                            {message.content}
+                                        </p>
+                                    ) : (
+                                        <div className="prose prose-sm max-w-none text-left">
+                                            <ReactMarkdown
+                                                components={{
+                                                    p: ({ children }) => (
+                                                        <p className="text-slate-700 leading-relaxed mb-3 last:mb-0">
+                                                            {children}
+                                                        </p>
+                                                    ),
+                                                    strong: ({ children }) => (
+                                                        <strong className="font-semibold text-slate-900">
+                                                            {children}
+                                                        </strong>
+                                                    ),
+                                                    em: ({ children }) => (
+                                                        <em className="italic">
+                                                            {children}
+                                                        </em>
+                                                    ),
+                                                    code: ({ children, className }) => {
+                                                        const isInline = !className;
+                                                        return isInline ? (
+                                                            <code className="bg-slate-100 text-red-600 px-1 py-0.5 rounded text-xs">
+                                                                {children}
+                                                            </code>
+                                                        ) : (
+                                                            <code className="block bg-slate-100 p-2 rounded text-xs overflow-x-auto">
+                                                                {children}
+                                                            </code>
+                                                        );
+                                                    },
+                                                    ul: ({ children }) => (
+                                                        <ul className="list-disc list-inside space-y-1 my-2">
+                                                            {children}
+                                                        </ul>
+                                                    ),
+                                                    ol: ({ children }) => (
+                                                        <ol className="list-decimal list-inside space-y-1 my-2">
+                                                            {children}
+                                                        </ol>
+                                                    ),
+                                                    li: ({ children }) => (
+                                                        <li className="text-slate-800">
+                                                            {children}
+                                                        </li>
+                                                    ),
+                                                    a: ({ children, href }) => (
+                                                        <a
+                                                            href={href}
+                                                            className="text-sky-600 hover:text-sky-700 underline"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            {children}
+                                                        </a>
+                                                    ),
+                                                }}
+                                            >
+                                                {message.content}
+                                            </ReactMarkdown>
+
+                                            {message.confidence !== undefined && (
+                                                <div className="mt-3 pt-3 border-t border-slate-100">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-xs font-medium text-slate-500">
+                                                            Certainty
+                                                        </span>
+                                                        <span
+                                                            className={`text-xs font-semibold ${message.confidence > 0.75
                                                                 ? "text-green-600"
                                                                 : message.confidence > 0.3
-                                                                ? "text-amber-600"
-                                                                : "text-red-600"
-                                                        }`}
-                                                    >
-                                                        {Math.round(message.confidence * 100)}%
-                                                    </span>
-                                                </div>
-                                                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                    <div
-                                                        className={`h-full rounded-full transition-all duration-500 ${
-                                                            message.confidence > 0.75
+                                                                    ? "text-amber-600"
+                                                                    : "text-red-600"
+                                                                }`}
+                                                        >
+                                                            {Math.round(message.confidence * 100)}%
+                                                        </span>
+                                                    </div>
+                                                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full transition-all duration-500 ${message.confidence > 0.75
                                                                 ? "bg-green-500"
                                                                 : message.confidence > 0.3
-                                                                ? "bg-amber-500"
-                                                                : "bg-red-500"
-                                                        }`}
-                                                        style={{
-                                                            width: `${Math.round(
-                                                                message.confidence * 100
-                                                            )}%`,
-                                                        }}
+                                                                    ? "bg-amber-500"
+                                                                    : "bg-red-500"
+                                                                }`}
+                                                            style={{
+                                                                width: `${Math.round(
+                                                                    message.confidence * 100
+                                                                )}%`,
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    {message.confidence < reviewThreshold && (
+                                                        <div className="mt-2 flex items-center gap-1.5 text-xs">
+                                                            {sendingToReview.has(message.id) ? (
+                                                                <>
+                                                                    <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
+                                                                    <span className="text-amber-600">
+                                                                        Sending to review queue...
+                                                                    </span>
+                                                                </>
+                                                            ) : sentToReview.has(message.id) ? (
+                                                                <>
+                                                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                                                    <span className="text-green-600">
+                                                                        Sent to team for review
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <AlertCircle className="h-3 w-3 text-amber-500" />
+                                                                    <span className="text-amber-600">
+                                                                        Will be sent to team for review
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {message.citations && message.citations.length > 0 && (
+                                                <div className="mt-4 pt-3 border-t border-slate-100">
+                                                    <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
+                                                        Sources
+                                                    </p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {message.citations.map((citation, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => {
+                                                                    setSelectedCitation(citation);
+                                                                    setSelectedMessageText(message.content);
+                                                                }}
+                                                                className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 rounded text-xs font-medium text-slate-600 hover:text-sky-700 transition-colors"
+                                                            >
+                                                                <FileText size={12} />
+                                                                <span className="truncate max-w-[150px]">
+                                                                    {citation.document_name || citation.source}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {message.trustLevel ? (
+                                                <div className="mt-4 pt-3 border-t border-slate-100">
+                                                    <TrustBadge
+                                                        trustLevel={message.trustLevel}
+                                                        confidenceScore={message.confidenceScore}
                                                     />
                                                 </div>
-                                                {message.confidence < reviewThreshold && (
-                                                    <div className="mt-2 flex items-center gap-1.5 text-xs">
-                                                        {sendingToReview.has(message.id) ? (
-                                                            <>
-                                                                <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
-                                                                <span className="text-amber-600">
-                                                                    Sending to review queue...
-                                                                </span>
-                                                            </>
-                                                        ) : sentToReview.has(message.id) ? (
-                                                            <>
-                                                                <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                                                <span className="text-green-600">
-                                                                    Sent to team for review
-                                                                </span>
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <AlertCircle className="h-3 w-3 text-amber-500" />
-                                                                <span className="text-amber-600">
-                                                                    Will be sent to team for review
-                                                                </span>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                            ) : null}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
-                                        {message.citations && message.citations.length > 0 && (
-                                            <div className="mt-4 pt-3 border-t border-slate-100">
-                                                <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
-                                                    Sources
-                                                </p>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {message.citations.map((citation, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => {
-                                                                setSelectedCitation(citation);
-                                                                setSelectedMessageText(message.content);
-                                                            }}
-                                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 rounded text-xs font-medium text-slate-600 hover:text-sky-700 transition-colors"
-                                                        >
-                                                            <FileText size={12} />
-                                                            <span className="truncate max-w-[150px]">
-                                                                {citation.document_name || citation.source}
-                                                            </span>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
+                            {message.role === "assistant" && onSubmitFeedback && (
+                                <FeedbackBar
+                                    messageId={message.id}
+                                    answerId={message.answerId}
+                                    state={feedbackState[message.id]}
+                                    onSubmit={onSubmitFeedback}
+                                />
+                            )}
+                        </div>
 
-                                        {message.trustLevel ? (
-                                            <div className="mt-4 pt-3 border-t border-slate-100">
-                                                <TrustBadge
-                                                    trustLevel={message.trustLevel}
-                                                    confidenceScore={message.confidenceScore}
-                                                />
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                )}
-                            </div>
-                        )}
                         {message.role === "user" && (
                             <Avatar className="h-8 w-8 mt-1">
                                 <AvatarFallback className="bg-slate-700 text-white text-xs">

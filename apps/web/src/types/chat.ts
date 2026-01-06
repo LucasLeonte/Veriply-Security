@@ -1,4 +1,4 @@
-export type TrustLevel = "verified" | "ai_generated" | "pending";
+﻿export type TrustLevel = "verified" | "ai_generated" | "pending";
 export type SourceType = "verified_kb" | "rag" | "hitl";
 
 export interface ChatMessage {
@@ -7,13 +7,14 @@ export interface ChatMessage {
     content: string;
     timestamp: number;
     citations?: Citation[];
-    // Overall model confidence as 0–1 float
+    // Overall model confidence as 0ÔÇô1 float
     confidence?: number;
     // Optional routing/verification metadata
     trustLevel?: TrustLevel;
     confidenceScore?: number;
     sourceType?: SourceType;
     responseId?: string;
+    answerId?: string;
 }
 
 export interface Citation {
@@ -54,4 +55,18 @@ export interface StreamMetadata {
     citations: Citation[];
     confidence?: number;
     chunks_used?: number;
+}
+
+// Server-stored chat history entries
+export interface ChatHistoryEntry {
+    id: string;
+    bot_id: string;
+    tenant_id: string;
+    role: "user" | "assistant";
+    content: string;
+    session_id?: string | null;
+    client_message_id?: string | null;
+    answer_id?: string | null;
+    citations?: Citation[];
+    created_at: string;
 }
