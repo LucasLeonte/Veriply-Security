@@ -12,9 +12,11 @@ from typing import List, Optional, Set, Dict
 from uuid import UUID
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, status, Query, WebSocket, WebSocketDisconnect, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, and_
+from sqlalchemy import select, desc, and_, join
+from sqlalchemy.orm import joinedload
+import redis.asyncio as redis
 from sqlalchemy.orm import joinedload
 import redis.asyncio as aioredis
 
@@ -23,6 +25,7 @@ from app.core.settings import settings
 from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
+from app.models.bot import Bot
 from app.models.bot import Bot
 from pydantic import BaseModel, Field
 
@@ -48,6 +51,7 @@ class ReviewQueueItemResponse(BaseModel):
     timestamp: str = Field(..., description="ISO timestamp of query")
     userQuestion: str = Field(..., description="Original user question")
     aiDraft: str = Field(..., description="AI-generated draft response")
+    botName: str = Field(..., description="Name of the bot that generated the response")
     botName: str = Field(..., description="Name of the bot that generated the response")
     # Confidence is stored in the DB as a 0-1 float; keep the
     # API contract aligned so the frontend can render a % view
@@ -122,6 +126,13 @@ async def get_review_queue(
     - newest: newest items first
     - lowest_confidence: lowest confidence scores first
     - highest_confidence: highest confidence scores first
+    human review. Items are sorted by creation date (oldest first by default) or confidence.
+    
+    Sorting options:
+    - oldest: oldest items first (default, per AC requirement)
+    - newest: newest items first
+    - lowest_confidence: lowest confidence scores first
+    - highest_confidence: highest confidence scores first
     """
     try:
         # Get user's group memberships to filter by accessible groups
@@ -145,6 +156,7 @@ async def get_review_queue(
                 ) | ConfidenceLog.group_id.is_(None)
             )
         ).options(joinedload(ConfidenceLog.bot))
+
 
         # Sort based on parameter (oldest first by default per AC1)
         if sort_by == "lowest_confidence":

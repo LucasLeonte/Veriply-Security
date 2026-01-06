@@ -164,6 +164,7 @@ export function ReviewQueueItemCard({
                         </span>
                         <span className="text-xs text-slate-500">
                             {formatTime(item.timestamp)} • {item.botName}
+                            {formatTime(item.timestamp)} • {item.botName}
                         </span>
                     </div>
                     {confidenceBar(item.confidence)}
