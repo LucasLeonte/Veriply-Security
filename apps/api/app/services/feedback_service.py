@@ -17,6 +17,8 @@ from app.models import (
     Bot,
 )
 from app.services.audit_service import AuditService
+from app.services.feedback_analytics_service import FeedbackAnalyticsService
+from app.services.moderation_notification_service import ModerationNotificationService
 
 
 class FeedbackService:
@@ -153,6 +155,9 @@ class FeedbackService:
                 user_id=user_id,
                 ip_address=ip_address,
             )
+        
+        # Invalidate analytics cache for this bot
+        await FeedbackAnalyticsService.invalidate_cache(bot_id)
 
         return feedback, moderation_alert, abuse_alert
 
@@ -199,6 +204,14 @@ class FeedbackService:
         )
         db.add(alert)
         await db.flush()
+        
+        # Send notification asynchronously (don't wait for it)
+        try:
+            await ModerationNotificationService.notify_moderation_alert(db, alert)
+        except Exception:
+            # Don't fail feedback submission if notification fails
+            pass
+        
         return alert
 
     @staticmethod
@@ -235,4 +248,12 @@ class FeedbackService:
         )
         db.add(suspicion)
         await db.flush()
+        
+        # Send notification asynchronously (don't wait for it)
+        try:
+            await ModerationNotificationService.notify_user_abuse(db, suspicion)
+        except Exception:
+            # Don't fail feedback submission if notification fails
+            pass
+        
         return suspicion
