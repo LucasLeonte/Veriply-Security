@@ -4,13 +4,15 @@ import { DashboardLayout } from "@/components";
 import { BotDocumentAccess } from "@/components/bot/BotDocumentAccess";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ChatHistoryPanel from "@/components/chat/ChatHistoryPanel";
-import { useParams } from "next/navigation";
+import { WidgetConfigClient } from "@/app/dashboard/groups/[groupId]/bots/[botId]/widget/widget-client";
+import { useParams, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
     Settings,
     FileText,
     MessageCircle,
     Clock3,
+    Settings2,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -19,7 +21,7 @@ import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import BotGeneralSettings from "@/components/bot/BotGeneralSettings";
 
-type TabType = "settings" | "documents" | "chat" | "history";
+type TabType = "settings" | "documents" | "chat" | "history" | "widget";
 
 export default function BotSettingsPage() {
     const params = useParams();
@@ -34,7 +36,10 @@ export default function BotSettingsPage() {
     // Set active tab from query parameter
     useEffect(() => {
         const tab = searchParams.get("tab") as TabType | null;
-        if (tab && ["chat", "documents", "settings"].includes(tab)) {
+        if (
+            tab &&
+            ["chat", "documents", "settings", "history", "widget"].includes(tab)
+        ) {
             setActiveTab(tab);
         }
     }, [searchParams]);
@@ -122,13 +127,17 @@ export default function BotSettingsPage() {
                             <Clock3 size={16} />
                             History
                         </button>
-                        <Link
-                            href={`/dashboard/groups/${currentGroup.id}/bots/${botId}/widget`}
-                            className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                        <button
+                            onClick={() => setActiveTab("widget")}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === "widget"
+                                    ? "border-emerald-600 text-emerald-600"
+                                    : "border-transparent text-slate-600 hover:text-slate-900"
+                            }`}
                         >
                             <Settings2 size={16} />
                             Widget Configuration
-                        </Link>
+                        </button>
                     </nav>
                 </div>
 
@@ -214,6 +223,16 @@ export default function BotSettingsPage() {
                             <ChatHistoryPanel
                                 botId={botId}
                                 onResumeChat={() => setActiveTab("chat")}
+                            />
+                        </div>
+                    )}
+
+                    {activeTab === "widget" && currentGroup && (
+                        <div className="space-y-4">
+                            <WidgetConfigClient
+                                groupId={currentGroup.id}
+                                botId={botId}
+                                hideNav
                             />
                         </div>
                     )}

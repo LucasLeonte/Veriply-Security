@@ -15,6 +15,7 @@ import {
     MessageCircle,
     FileText,
     Settings,
+    Clock3,
 } from "lucide-react";
 import Link from "next/link";
 import ChatInterface from "../../../../../../../components/chat/ChatInterface";
@@ -39,9 +40,11 @@ const POSITIONS = [
 export function WidgetConfigClient({
     groupId,
     botId,
+    hideNav = false,
 }: {
     groupId: string;
     botId: string;
+    hideNav?: boolean;
 }) {
     const [config, setConfig] = useState<WidgetConfig | null>(null);
     const [bot, setBot] = useState<Bot | null>(null);
@@ -220,47 +223,58 @@ export function WidgetConfigClient({
 
     return (
         <div className="space-y-6">
-            {/* Breadcrumb */}
-            <div className="flex items-center gap-2">
-                <Link
-                    href="/dashboard/bots"
-                    className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
-                >
-                    <ArrowLeft size={16} />
-                    Back to Bots
-                </Link>
-            </div>
+            {!hideNav && (
+                <>
+                    {/* Breadcrumb */}
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href="/dashboard/bots"
+                            className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 transition-colors"
+                        >
+                            <ArrowLeft size={16} />
+                            Back to Bots
+                        </Link>
+                    </div>
 
-            {/* Tabs */}
-            <div className="border-b border-slate-200">
-                <nav className="flex gap-6">
-                    <Link
-                        href={`/dashboard/bots/${botId}?tab=chat`}
-                        className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
-                    >
-                        <MessageCircle size={16} />
-                        Chat
-                    </Link>
-                    <Link
-                        href={`/dashboard/bots/${botId}?tab=documents`}
-                        className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
-                    >
-                        <FileText size={16} />
-                        Document Access
-                    </Link>
-                    <Link
-                        href={`/dashboard/bots/${botId}?tab=settings`}
-                        className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
-                    >
-                        <Settings size={16} />
-                        General Settings
-                    </Link>
-                    <span className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-emerald-600 text-emerald-600 transition-colors">
-                        <Settings2 size={16} />
-                        Widget Configuration
-                    </span>
-                </nav>
-            </div>
+                    {/* Tabs */}
+                    <div className="border-b border-slate-200">
+                        <nav className="flex gap-6">
+                            <Link
+                                href={`/dashboard/bots/${botId}?tab=chat`}
+                                className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                            >
+                                <MessageCircle size={16} />
+                                Chat
+                            </Link>
+                            <Link
+                                href={`/dashboard/bots/${botId}?tab=documents`}
+                                className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                            >
+                                <FileText size={16} />
+                                Document Access
+                            </Link>
+                            <Link
+                                href={`/dashboard/bots/${botId}?tab=settings`}
+                                className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                            >
+                                <Settings size={16} />
+                                General Settings
+                            </Link>
+                            <Link
+                                href={`/dashboard/bots/${botId}?tab=history`}
+                                className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-transparent text-slate-600 hover:text-slate-900 transition-colors"
+                            >
+                                <Clock3 size={16} />
+                                History
+                            </Link>
+                            <span className="flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 border-emerald-600 text-emerald-600 transition-colors">
+                                <Settings2 size={16} />
+                                Widget Configuration
+                            </span>
+                        </nav>
+                    </div>
+                </>
+            )}
 
             {/* Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
