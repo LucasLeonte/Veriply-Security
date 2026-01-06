@@ -7,7 +7,6 @@ export interface Bot {
     confidence_threshold: number;
     status: BotStatus;
     avatar_url?: string;
-    welcome_message?: string;
     is_public: boolean;
     created_by: string;
     created_at: string;
@@ -30,7 +29,6 @@ export interface UpdateBotInput {
     description?: string;
     confidence_threshold?: number;
     avatar_url?: string;
-    welcome_message?: string;
     is_public?: boolean;
 }
 
