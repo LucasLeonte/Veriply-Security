@@ -278,8 +278,8 @@ development_status:
         blocked_by: 3-2-context-only-answer-generation
 
     6-2-outlook-oauth-integration:
-        status: drafted
-        assigned_to: null
+        status: assigned
+        assigned_to: Dario
         blocked_by: 3-2-context-only-answer-generation
 
     6-3-email-monitoring-rules:
