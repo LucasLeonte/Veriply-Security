@@ -360,10 +360,9 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className={cn(
-                                    "text-red-600 hover:text-red-700 hover:bg-red-50 gap-2",
-                                    isRejecting && "opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 border-slate-300 hover:bg-slate-50"
-                                )}
+                                data-action="reject"
+                                data-item-id={item.id}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -378,11 +377,10 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className={cn(
-                                    "text-white gap-2",
-                                    isApproving ? "opacity-50 cursor-not-allowed bg-slate-400 hover:bg-slate-400" : "bg-emerald-600 hover:bg-emerald-700"
-                                )}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                                 size="sm"
+                                data-action="approve"
+                                data-item-id={item.id}
                                 title={
                                     !canApprove
                                         ? "Please review for at least 3 seconds"
@@ -428,10 +426,9 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className={cn(
-                                    "text-red-600 hover:text-red-700 hover:bg-red-50 gap-2",
-                                    isRejecting && "opacity-50 cursor-not-allowed text-slate-400 bg-slate-50 border-slate-300 hover:bg-slate-50"
-                                )}
+                                data-action="reject"
+                                data-item-id={item.id}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -446,11 +443,10 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className={cn(
-                                    "text-white gap-2",
-                                    isApproving ? "opacity-50 cursor-not-allowed bg-slate-400 hover:bg-slate-400" : "bg-green-600 hover:bg-green-700"
-                                )}
+                                className="bg-green-600 hover:bg-green-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                                 size="sm"
+                                data-action="approve"
+                                data-item-id={item.id}
                                 title={
                                     !canApprove
                                         ? "Please review for at least 3 seconds"
@@ -462,7 +458,7 @@ export function ReviewQueueItemCard({
                                 ) : (
                                     <CheckCircle className="w-4 h-4" />
                                 )}
-                                {isApproving ? "Approving..." : "Approve"}
+                                {isApproving ? "Approving..." : "Approve"
                                 <kbd className="px-1.5 py-0.5 text-xs bg-green-700 text-white rounded">
                                     A
                                 </kbd>
@@ -532,7 +528,10 @@ export function ReviewQueue({
                 description: "Approve current draft",
                 action: () => {
                     if (selectedItem) {
-                        handleApprove(selectedItem.id);
+                        const approveButton = document.querySelector(
+                            `[data-item-id="${selectedId}"] [data-action="approve"]`
+                        ) as HTMLButtonElement;
+                        approveButton?.click();
                     }
                 },
                 disabled: !selectedItem,
@@ -542,7 +541,10 @@ export function ReviewQueue({
                 description: "Reject current draft",
                 action: () => {
                     if (selectedItem) {
-                        handleReject(selectedItem.id);
+                        const rejectButton = document.querySelector(
+                            `[data-item-id="${selectedId}"] [data-action="reject"]`
+                        ) as HTMLButtonElement;
+                        rejectButton?.click();
                     }
                 },
                 disabled: !selectedItem,
