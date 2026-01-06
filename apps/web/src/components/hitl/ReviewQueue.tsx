@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     Clock,
     MessageCircle,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ReviewQueueItem } from "@/hooks/useHITLQueue";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 interface ReviewQueueItemCardProps {
@@ -34,11 +35,53 @@ export function ReviewQueueItemCard({
     const [editMode, setEditMode] = useState(false);
     const [editedDraft, setEditedDraft] = useState(item.aiDraft);
 
+    // AC3: Approve button disabled until >3s review
+    const [reviewTimeElapsed, setReviewTimeElapsed] = useState(0);
+    const reviewTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const { toast } = useToast();
+
+    // Start 3-second review timer when item is selected
+    useEffect(() => {
+        if (isSelected) {
+            setReviewTimeElapsed(0);
+            reviewTimerRef.current = setInterval(() => {
+                setReviewTimeElapsed((prev) => prev + 1);
+            }, 1000);
+
+            return () => {
+                if (reviewTimerRef.current) {
+                    clearInterval(reviewTimerRef.current);
+                    reviewTimerRef.current = null;
+                }
+            };
+        }
+    }, [isSelected]);
+
+    const canApprove = reviewTimeElapsed >= 3; // AC3: Must review for >3 seconds
+
     const handleApprove = async () => {
+        if (!canApprove) return;
+
         try {
             setIsApproving(true);
             await onApprove(editMode ? editedDraft : undefined);
+
+            // AC3: Success toast on send
+            toast({
+                title: "Response sent and verified!",
+                description: editMode
+                    ? "Your edited response has been approved and added to the Verified KB."
+                    : "AI draft approved and added to the Verified KB.",
+                variant: "success",
+            });
+
             setEditMode(false);
+        } catch (error) {
+            toast({
+                title: "Approval failed",
+                description: "Failed to approve the item. Please try again.",
+                variant: "error",
+            });
         } finally {
             setIsApproving(false);
         }
@@ -48,6 +91,18 @@ export function ReviewQueueItemCard({
         try {
             setIsRejecting(true);
             await onReject();
+            toast({
+                title: "Item rejected",
+                description:
+                    "The draft has been rejected and removed from the queue.",
+                variant: "info",
+            });
+        } catch (error) {
+            toast({
+                title: "Rejection failed",
+                description: "Failed to reject the item. Please try again.",
+                variant: "error",
+            });
         } finally {
             setIsRejecting(false);
         }
@@ -176,7 +231,8 @@ export function ReviewQueueItemCard({
                         {item.citations && item.citations.length > 0 && (
                             <div className="flex items-center gap-2">
                                 <span className="text-xs text-slate-500">
-                                    Source{item.citations.length !== 1 ? "s" : ""}
+                                    Source
+                                    {item.citations.length !== 1 ? "s" : ""}
                                 </span>
                             </div>
                         )}
@@ -196,7 +252,9 @@ export function ReviewQueueItemCard({
                             />
                             <div className="flex items-center justify-between text-xs text-slate-500">
                                 <span>{editedDraft.length} characters</span>
-                                <span className="text-slate-400">Press Shift+Enter for new line</span>
+                                <span className="text-slate-400">
+                                    Press Shift+Enter for new line
+                                </span>
                             </div>
                         </div>
                     ) : (
@@ -221,7 +279,9 @@ export function ReviewQueueItemCard({
                                             {citation.source}
                                         </span>
                                         <span className="text-slate-500 ml-2">
-                                            {Math.round(citation.relevance * 100)}
+                                            {Math.round(
+                                                citation.relevance * 100
+                                            )}
                                             %
                                         </span>
                                     </div>
@@ -247,6 +307,10 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={() => {
                                     navigator.clipboard.writeText(item.aiDraft);
+                                    toast({
+                                        title: "Copied to clipboard",
+                                        variant: "info",
+                                    });
                                 }}
                                 variant="outline"
                                 size="sm"
@@ -256,6 +320,11 @@ export function ReviewQueueItemCard({
                                 Copy
                             </Button>
                             <div className="flex-1" />
+                            {!canApprove && (
+                                <span className="text-xs text-amber-600 font-medium">
+                                    Review for {3 - reviewTimeElapsed}s more...
+                                </span>
+                            )}
                             <Button
                                 onClick={handleReject}
                                 disabled={isRejecting}
@@ -268,9 +337,14 @@ export function ReviewQueueItemCard({
                             </Button>
                             <Button
                                 onClick={handleApprove}
-                                disabled={isApproving}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                                disabled={isApproving || !canApprove}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 size="sm"
+                                title={
+                                    !canApprove
+                                        ? "Please review for at least 3 seconds"
+                                        : ""
+                                }
                             >
                                 <CheckCircle className="w-4 h-4" />
                                 Approve
@@ -294,6 +368,11 @@ export function ReviewQueueItemCard({
                                 Cancel
                             </Button>
                             <div className="flex-1" />
+                            {!canApprove && (
+                                <span className="text-xs text-amber-600 font-medium">
+                                    Review for {3 - reviewTimeElapsed}s more...
+                                </span>
+                            )}
                             <Button
                                 onClick={handleReject}
                                 disabled={isRejecting}
@@ -306,9 +385,14 @@ export function ReviewQueueItemCard({
                             </Button>
                             <Button
                                 onClick={handleApprove}
-                                disabled={isApproving}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                                disabled={isApproving || !canApprove}
+                                className="bg-green-600 hover:bg-green-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 size="sm"
+                                title={
+                                    !canApprove
+                                        ? "Please review for at least 3 seconds"
+                                        : ""
+                                }
                             >
                                 <CheckCircle className="w-4 h-4" />
                                 Approve
@@ -357,6 +441,32 @@ export function ReviewQueue({
         return item.type === filterType && item.status === "pending";
     });
 
+    // AC1: Auto-load next item when current item is removed
+    useEffect(() => {
+        if (filteredItems.length > 0) {
+            // If no item is selected or current selection doesn't exist, select first item
+            const selectedExists = filteredItems.some(
+                (item) => item.id === selectedId
+            );
+            if (!selectedExists) {
+                setSelectedId(filteredItems[0].id);
+            }
+        } else {
+            setSelectedId(null);
+        }
+    }, [filteredItems, selectedId]);
+
+    // Wrap approve/reject handlers to ensure next item loads
+    const handleApprove = async (itemId: string, edits?: string) => {
+        await onApprove(itemId, edits);
+        // Auto-load next item is handled by useEffect above
+    };
+
+    const handleReject = async (itemId: string, reason?: string) => {
+        await onReject(itemId, reason);
+        // Auto-load next item is handled by useEffect above
+    };
+
     if (isLoading) {
         return (
             <div className="flex items-center justify-center p-8">
@@ -376,7 +486,8 @@ export function ReviewQueue({
                         </h1>
                         <p className="text-sm text-slate-500 mt-0.5">
                             {filteredItems.length} item
-                            {filteredItems.length !== 1 ? "s" : ""} pending review
+                            {filteredItems.length !== 1 ? "s" : ""} pending
+                            review
                         </p>
                     </div>
                 </div>
@@ -420,15 +531,19 @@ export function ReviewQueue({
                     </button>
                     <div className="ml-auto flex items-center gap-2">
                         <span className="text-sm text-slate-500">Sort:</span>
-                        <select 
+                        <select
                             className="text-sm border-0 bg-transparent text-slate-700 font-medium focus:ring-0 cursor-pointer"
                             value={sortBy}
                             onChange={(e) => onSortChange?.(e.target.value)}
                         >
                             <option value="oldest">Oldest first</option>
                             <option value="newest">Newest first</option>
-                            <option value="lowest_confidence">Lowest confidence</option>
-                            <option value="highest_confidence">Highest confidence</option>
+                            <option value="lowest_confidence">
+                                Lowest confidence
+                            </option>
+                            <option value="highest_confidence">
+                                Highest confidence
+                            </option>
                         </select>
                     </div>
                 </div>
@@ -452,10 +567,10 @@ export function ReviewQueue({
                                 isSelected={selectedId === item.id}
                                 onSelect={() => setSelectedId(item.id)}
                                 onApprove={(edits) =>
-                                    onApprove(item.id, edits)
+                                    handleApprove(item.id, edits)
                                 }
                                 onReject={(reason) =>
-                                    onReject(item.id, reason)
+                                    handleReject(item.id, reason)
                                 }
                             />
                         ))}

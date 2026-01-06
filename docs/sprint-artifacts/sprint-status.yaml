@@ -246,23 +246,23 @@ development_status:
         blocked_by: 3-4-confidence-scoring-routing
 
     5-2-draft-review-interface:
-        status: in-progress
+        status: done
         assigned_to: Kainy
         blocked_by: 5-1-hitl-queue-view
 
     5-3-approve-edit-flow:
-        status: ready-for-dev
-        assigned_to: null
+        status: done
+        assigned_to: Lucas
         blocked_by: 5-2-draft-review-interface
 
     5-4-rejection-flow:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Kainy
         blocked_by: 5-2-draft-review-interface
 
     5-5-keyboard-shortcuts-filtering:
-        status: ready-for-dev
-        assigned_to: null
+        status: in-progress
+        assigned_to: Lucas
         blocked_by: 5-2-draft-review-interface
 
     epic-5-retrospective: optional
