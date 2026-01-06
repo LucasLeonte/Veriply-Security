@@ -24,6 +24,8 @@ from app.utils.encryption import encrypt_token, decrypt_token
 from pydantic import BaseModel, Field
 import jwt
 from app.integrations import gmail, outlook
+from app.services.document_service import create_document
+from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,15 @@ class IntegrationCredentialRequest(BaseModel):
     client_id: str
     client_secret: str
     redirect_uri: Optional[str] = None
+
+
+class GmailMessageImport(BaseModel):
+    message_id: str
+
+
+class GmailMessageReply(BaseModel):
+    message_id: str
+    original_text: str  # OR fetch it fresh, but passing it might be easier/faster if frontend already has it
 
 
 async def _get_oauth_credentials(
@@ -324,6 +335,185 @@ async def gmail_callback(
     # Redirect to frontend integrations page after successful connect
     frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
     return RedirectResponse(f"{frontend_url}/dashboard/integrations?connected=gmail")
+
+
+@router.get("/gmail/messages")
+async def list_gmail_messages(
+    folder: str = "INBOX",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List recent emails from Gmail (Inbox or Sent)."""
+    # Get credentials
+    result = await db.execute(
+        select(EmailIntegration).where(
+            and_(
+                EmailIntegration.user_id == current_user.id,
+                EmailIntegration.provider == "gmail",
+                EmailIntegration.is_active == True,
+            )
+        )
+    )
+    integration = result.scalars().first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Gmail integration not found")
+
+    # Get configured credentials using the helper (supports tenant-specific overrides)
+    redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/gmail/callback"
+    try:
+        client_id, client_secret, _ = await _get_oauth_credentials(
+            db=db,
+            tenant_id=integration.tenant_id,
+            provider="gmail",
+            redirect_fallback=redirect_default,
+        )
+    except Exception as e:
+         logger.error(f"Failed to get OAuth credentials: {e}")
+         raise HTTPException(status_code=500, detail="Service configuration error")
+
+    try:
+        refresh_token = decrypt_token(integration.encrypted_refresh_token)
+    except Exception as e:
+        logger.error(f"Failed to decrypt refresh token for integration {integration.id}: {e}")
+        # Make user re-authenticate
+        raise HTTPException(status_code=401, detail="Authentication invalid (token decryption failed). Please reconnect Gmail.")
+
+    query = "label:INBOX" if folder.upper() == "INBOX" else "label:SENT"
+    
+    try:
+        messages = await gmail.list_threads(
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
+            query=query, 
+            max_results=20
+        )
+        return {"messages": messages}
+    except Exception as e:
+        logger.exception(f"Failed to list messages: {e}") # Log full traceback
+        # Return generic error details to frontend
+        raise HTTPException(status_code=500, detail=f"Failed to fetch emails from Gmail: {str(e)}")
+
+
+@router.post("/gmail/import")
+async def import_gmail_message(
+    payload: GmailMessageImport,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """Import a specific Gmail message as a Document."""
+    # Logic similar to list: get creds, fetch message body, create document
+    result = await db.execute(
+        select(EmailIntegration).where(
+            and_(
+                EmailIntegration.user_id == current_user.id,
+                EmailIntegration.provider == "gmail",
+                EmailIntegration.is_active == True,
+            )
+        )
+    )
+    integration = result.scalars().first()
+    if not integration:
+        raise HTTPException(status_code=404, detail="Gmail integration not found")
+
+    client_id = settings.GOOGLE_CLIENT_ID
+    client_secret = settings.GOOGLE_CLIENT_SECRET
+    refresh_token = decrypt_token(integration.encrypted_refresh_token)
+
+    try:
+        # Fetch full message
+        message = await gmail.get_message_details(
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
+            message_id=payload.message_id
+        )
+        
+        # Extract content (simplified)
+        snippet = message.get("snippet", "")
+        # Real parsing of MIME parts is complex, for MVP use snippet + generic body
+        # For a hackathon/MVP, getting the full payload 'body' or 'parts' is needed
+        # We'll use the snippet as the "content" for now to keep it simple and safe
+        content = f"Subject: {snippet}\n\n[Full email content import pending full MIME parsing implementation]"
+        
+        # Determine title
+        headers = message.get("payload", {}).get("headers", [])
+        subject = next((h["value"] for h in headers if h["name"] == "Subject"), "Imported Email")
+        
+        # Create document
+        doc, _ = await create_document(
+            db=db,
+            bot_id=None, # Not associated with a specific bot initially? Or maybe default?
+            tenant_id=tenant_id,
+            uploader_id=current_user.id,
+            filename=f"Email: {subject}.txt",
+            size_bytes=len(content.encode('utf-8')),
+            mime_type="text/plain",
+            file_bytes=content.encode('utf-8'),
+            title=f"Email: {subject}"
+        )
+        await db.commit()
+        
+        return {"document_id": str(doc.id), "message": "Email imported successfully"}
+
+    except Exception as e:
+        logger.error(f"Failed to import message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/gmail/generate-reply")
+async def generate_gmail_reply(
+    payload: GmailMessageReply,
+    current_user: User = Depends(get_current_user),
+):
+    """Generate a draft reply using LLM."""
+    try:
+        llm = LLMService()
+        
+        # Simple context-less generation for now, or we could RAG it if we wanted
+        # But user just wants a reply to THIS email.
+        
+        prompt = f"""
+        You are a helpful professional assistant. Please draft a polite, professional, and concise reply to the following email:
+        
+        Original Email:
+        "{payload.original_text}"
+        
+        Draft Reply:
+        """
+        
+        response_text = ""
+        # Create a dummy context chunk list if needed by generate_answer method signature
+        # But wait, generate_answer enforces "Context-only". 
+        # We might need a "Direct generation" method or hack the prompt.
+        # Actually LLMService is strictly RAG. 
+        # Let's use a lower-level call or bypass the strict prompt for this specific feature if possible.
+        # Or, we create a temporary "Context" which IS the email itself!
+        
+        from app.services.vector_search_service import SearchResult
+        
+        email_context = SearchResult(
+            id="email-context",
+            document_id=uuid4(),
+            document_name="Current Email",
+            text=payload.original_text,
+            score=1.0,
+            section="Body",
+            page_number=1
+        )
+        
+        query = "Draft a reply to this email."
+        
+        # Collect stream
+        async for token in llm.generate_answer(query, [email_context]):
+            response_text += token
+            
+        return {"reply": response_text}
+        
+    except Exception as e:
+        logger.error(f"Failed to generate reply: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/list")

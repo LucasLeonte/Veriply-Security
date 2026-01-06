@@ -31,7 +31,8 @@ const NAVIGATION_ITEMS = [
     { href: "/dashboard/bots", icon: Bot, label: "Bots" },
     { href: "/inbox", icon: Inbox, label: "Review Queue" },
     { href: "/dashboard/knowledge-base", icon: BookOpen, label: "Knowledge Base" },
-    { href: "/dashboard/integrations", icon: Mail, label: "Email Integrations" },
+    { href: "/dashboard/emails", icon: Mail, label: "Email Hub" },
+    { href: "/dashboard/integrations", icon: Settings, label: "Email Integrations" },
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/settings", icon: Settings, label: "Settings" },
 ];

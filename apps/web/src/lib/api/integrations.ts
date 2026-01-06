@@ -14,6 +14,24 @@ export interface ListIntegrationsResponse {
     integrations: EmailIntegration[];
 }
 
+export interface GmailMessage {
+    id: string;
+    threadId: string;
+    snippet: string;
+    subject: string;
+    from: string;
+    to: string;
+    date: string;
+}
+
+export interface ListGmailMessagesResponse {
+    messages: GmailMessage[];
+}
+
+export interface GenerateReplyResponse {
+    reply: string;
+}
+
 /**
  * Get authorization URL for Gmail OAuth
  */
@@ -76,6 +94,87 @@ export async function disconnectIntegration(
 
     if (!response.ok) {
         throw new Error("Failed to disconnect integration");
+    }
+
+    return response.json();
+}
+
+/**
+ * List Gmail messages
+ */
+export async function listGmailMessages(
+    token: string,
+    folder: "INBOX" | "SENT" = "INBOX"
+): Promise<ListGmailMessagesResponse> {
+    const url = new URL(`${API_BASE_URL}/api/v1/integrations/gmail/messages`);
+    url.searchParams.set("folder", folder);
+
+    const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        let errorMessage = "Failed to fetch messages";
+        try {
+            const errorData = await response.json();
+            if (errorData.detail) {
+                errorMessage = errorData.detail;
+            }
+        } catch (e) {
+            // ignore JSON parse error
+        }
+        throw new Error(errorMessage);
+    }
+
+    return response.json();
+}
+
+/**
+ * Import a Gmail message as a Document
+ */
+export async function importGmailMessage(
+    token: string,
+    messageId: string
+): Promise<{ message: string; document_id: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/import`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message_id: messageId }),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to import message");
+    }
+
+    return response.json();
+}
+
+/**
+ * Generate a reply for a Gmail message
+ */
+export async function generateGmailReply(
+    token: string,
+    messageId: string,
+    originalText: string
+): Promise<GenerateReplyResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/generate-reply`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message_id: messageId, original_text: originalText }),
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to generate reply");
     }
 
     return response.json();
