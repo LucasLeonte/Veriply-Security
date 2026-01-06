@@ -329,7 +329,7 @@ export function ReviewQueueItemCard({
                     )}
                 </div>
 
-                {/* Actions */}
+                {/* Actions - AC 5.5: Include keyboard shortcut badges */}
                 <div className="flex items-center gap-2">
                     {!editMode ? (
                         <>
@@ -363,6 +363,9 @@ export function ReviewQueueItemCard({
                             >
                                 <XCircle className="w-4 h-4" />
                                 Reject
+                                <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500 rounded">
+                                    R
+                                </kbd>
                             </Button>
                             <Button
                                 onClick={handleApprove}
@@ -377,6 +380,9 @@ export function ReviewQueueItemCard({
                             >
                                 <CheckCircle className="w-4 h-4" />
                                 Approve
+                                <kbd className="px-1.5 py-0.5 text-xs bg-emerald-700 text-white rounded">
+                                    A
+                                </kbd>
                             </Button>
                         </>
                     ) : (
@@ -411,6 +417,9 @@ export function ReviewQueueItemCard({
                             >
                                 <XCircle className="w-4 h-4" />
                                 Reject
+                                <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500 rounded">
+                                    R
+                                </kbd>
                             </Button>
                             <Button
                                 onClick={handleApprove}
@@ -425,6 +434,9 @@ export function ReviewQueueItemCard({
                             >
                                 <CheckCircle className="w-4 h-4" />
                                 Approve
+                                <kbd className="px-1.5 py-0.5 text-xs bg-green-700 text-white rounded">
+                                    A
+                                </kbd>
                             </Button>
                         </>
                     )}

@@ -274,8 +274,8 @@ development_status:
         assigned_to: Lucas
 
     6-1-gmail-oauth-integration:
-        status: drafted
-        assigned_to: null
+        status: assigned
+        assigned_to: Dario
         blocked_by: 3-2-context-only-answer-generation
 
     6-2-outlook-oauth-integration:
@@ -306,8 +306,8 @@ development_status:
         assigned_to: null
 
     7-1-verified-kb-storage:
-        status: backlog
-        assigned_to: null
+        status: in-progress
+        assigned_to: Soulaymane
 
     7-2-verified-kb-priority:
         status: backlog
