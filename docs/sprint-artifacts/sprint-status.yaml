@@ -214,7 +214,7 @@ development_status:
         blocked_by: nulls
 
     4-3-user-feedback:
-        status: in-progress
+        status: done
         assigned_to: Dario
         blocked_by: 4-1-web-chat-interface
 
@@ -273,13 +273,13 @@ development_status:
         assigned_to: Lucas
 
     6-1-gmail-oauth-integration:
-        status: drafted
-        assigned_to: null
+        status: in-progress
+        assigned_to: Dario
         blocked_by: 3-2-context-only-answer-generation
 
     6-2-outlook-oauth-integration:
-        status: drafted
-        assigned_to: null
+        status: in-progress
+        assigned_to: Dario
         blocked_by: 3-2-context-only-answer-generation
 
     6-3-email-monitoring-rules:
