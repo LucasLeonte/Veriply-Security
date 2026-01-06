@@ -15,6 +15,7 @@ import httpx
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.core.database import get_db
+from app.core.settings import settings
 from app.models.email_integration import EmailIntegration
 from app.models.integration_credentials import IntegrationCredentials
 from app.models.user import User
@@ -89,9 +90,9 @@ async def _get_oauth_credentials(
 
     # Fallback to env vars if nothing configured
     if not client_id:
-        client_id = os.environ.get("GOOGLE_CLIENT_ID") if provider == "gmail" else os.environ.get("OUTLOOK_CLIENT_ID")
+        client_id = settings.GOOGLE_CLIENT_ID if provider == "gmail" else settings.OUTLOOK_CLIENT_ID
     if not client_secret:
-        client_secret = os.environ.get("GOOGLE_CLIENT_SECRET") if provider == "gmail" else os.environ.get("OUTLOOK_CLIENT_SECRET")
+        client_secret = settings.GOOGLE_CLIENT_SECRET if provider == "gmail" else settings.OUTLOOK_CLIENT_SECRET
     if not redirect_uri:
         redirect_uri = redirect_fallback
 
@@ -136,7 +137,7 @@ async def gmail_authorize(
 ):
     """Return a Google OAuth2 authorization URL to redirect the user to."""
     tenant_id = await _get_tenant_from_token(request, token, credentials)
-    redirect_default = os.environ.get("GOOGLE_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/gmail/callback")
+    redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/gmail/callback"
     client_id, _, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,
@@ -219,7 +220,7 @@ async def gmail_callback(
     if not code:
         raise HTTPException(status_code=400, detail="Missing code from provider")
 
-    redirect_default = os.environ.get("GOOGLE_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/gmail/callback")
+    redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/gmail/callback"
     client_id, client_secret, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,
@@ -291,7 +292,7 @@ async def gmail_callback(
         raise HTTPException(status_code=500, detail="Failed to save integration")
 
     # Redirect to frontend integrations page after successful connect
-    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
     return RedirectResponse(f"{frontend_url}/dashboard/integrations?connected=gmail")
 
 
@@ -368,7 +369,7 @@ async def outlook_authorize(
 ):
     """Return a Microsoft OAuth2 authorization URL to redirect the user to."""
     tenant_id = await _get_tenant_from_token(request, token, credentials)
-    redirect_default = os.environ.get("OUTLOOK_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/outlook/callback")
+    redirect_default = settings.OUTLOOK_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/outlook/callback"
     client_id, _, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,
@@ -400,7 +401,7 @@ async def outlook_callback(
     if not code:
         raise HTTPException(status_code=400, detail="Missing code from provider")
 
-    redirect_default = os.environ.get("OUTLOOK_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/outlook/callback")
+    redirect_default = settings.OUTLOOK_OAUTH_REDIRECT or "http://localhost:3000/api/integrations/outlook/callback"
     client_id, client_secret, redirect_uri = await _get_oauth_credentials(
         db=db,
         tenant_id=tenant_id,
@@ -469,5 +470,5 @@ async def outlook_callback(
         logger.exception("Failed to save outlook integration: %s", e)
         raise HTTPException(status_code=500, detail="Failed to save integration")
 
-    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
     return RedirectResponse(f"{frontend_url}/dashboard/integrations?connected=outlook")
