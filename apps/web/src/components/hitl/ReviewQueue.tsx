@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
     Clock,
@@ -9,7 +9,6 @@ import {
     Edit2,
     Copy,
     Eye,
-    Filter as FilterIcon,
     Loader2,
 } from "lucide-react";
 import { ReviewQueueItem } from "@/hooks/useHITLQueue";
@@ -18,8 +17,7 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { ShortcutHelpModal } from "./ShortcutHelpModal";
-import { QueueFilters, FilterState } from "./QueueFilters";
-
+import { getAccessToken } from "@/lib/auth";
 interface ReviewQueueItemCardProps {
     item: ReviewQueueItem;
     isSelected: boolean;
@@ -487,8 +485,6 @@ interface ReviewQueueProps {
     onReject: (itemId: string, reason?: string) => Promise<void>;
     sortBy?: string;
     onSortChange?: (sortBy: string) => void;
-    filters?: FilterState;
-    onFiltersChange?: (filters: FilterState) => void;
 }
 
 export function ReviewQueue({
@@ -499,21 +495,24 @@ export function ReviewQueue({
     onReject,
     sortBy = "oldest",
     onSortChange,
-    filters = {},
-    onFiltersChange,
 }: ReviewQueueProps) {
     const [selectedId, setSelectedId] = useState<string | null>(
         items.length > 0 ? items[0].id : null
     );
-    const [filterType, setFilterType] = useState<"all" | "chat" | "email">(
-        "all"
-    );
+    const [selectedBot, setSelectedBot] = useState<string | null>(null);
+    const [availableBots, setAvailableBots] = useState<string[]>([]);
+    const [botsLoading, setBotsLoading] = useState(false);
     const [showShortcutHelp, setShowShortcutHelp] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
 
     const filteredItems = items.filter((item) => {
-        if (filterType === "all") return item.status === "pending";
-        return item.type === filterType && item.status === "pending";
+        if (item.status !== "pending") return false;
+        if (
+            selectedBot &&
+            selectedBot !== "all" &&
+            item.botName !== selectedBot
+        )
+            return false;
+        return true;
     });
 
     // Get selected item index for navigation
@@ -522,6 +521,87 @@ export function ReviewQueue({
     );
     const selectedItem =
         selectedIndex >= 0 ? filteredItems[selectedIndex] : null;
+
+    // Fetch available bots on mount
+    useEffect(() => {
+        const fetchBots = async () => {
+            try {
+                setBotsLoading(true);
+                const token = await getAccessToken();
+                const response = await fetch("/api/hitl/bots", {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const rawBots = Array.isArray(data?.bots)
+                        ? data.bots
+                        : Array.isArray(data)
+                        ? data
+                        : [];
+
+                    const normalizedBots = rawBots
+                        .map((bot: unknown) => {
+                            if (typeof bot === "string") return bot;
+                            if (typeof bot === "object" && bot !== null) {
+                                const obj = bot as {
+                                    name?: string;
+                                    botName?: string;
+                                    id?: string;
+                                };
+                                if (obj.name) return obj.name;
+                                if (obj.botName) return obj.botName;
+                                if (obj.id) return obj.id;
+                            }
+                            return null;
+                        })
+                        .filter(
+                            (b: unknown): b is string =>
+                                typeof b === "string" && b.length > 0
+                        );
+
+                    const bots = Array.from(new Set<string>(normalizedBots));
+
+                    if (bots.length > 0) {
+                        setAvailableBots(bots);
+                        setSelectedBot("all");
+                        return;
+                    }
+                }
+
+                // Fallback to bots present in items if API returns none
+                const botsFromItems = Array.from(
+                    new Set(
+                        items
+                            .map((item) => item.botName)
+                            .filter(
+                                (b: unknown): b is string =>
+                                    typeof b === "string" && b.length > 0
+                            )
+                    )
+                );
+                setAvailableBots(botsFromItems);
+                setSelectedBot("all");
+            } catch (error) {
+                console.error("Failed to fetch bots:", error);
+                const botsFromItems = Array.from(
+                    new Set(
+                        items
+                            .map((item) => item.botName)
+                            .filter(
+                                (b: unknown): b is string =>
+                                    typeof b === "string" && b.length > 0
+                            )
+                    )
+                );
+                setAvailableBots(botsFromItems);
+                setSelectedBot("all");
+            } finally {
+                setBotsLoading(false);
+            }
+        };
+        fetchBots();
+    }, [items]);
 
     // AC 5.5: Keyboard shortcuts
     useKeyboardShortcuts({
@@ -671,74 +751,28 @@ export function ReviewQueue({
                             {/* AC 5.5: Show filtered count in header */}
                             {filteredItems.length} item
                             {filteredItems.length !== 1 ? "s" : ""}
-                            {Object.values(filters).filter(Boolean).length > 0
-                                ? ` (filtered from ${stats.pending} total)`
-                                : " pending review"}
                         </p>
                     </div>
                 </div>
             </div>
 
             <div className="px-6 pb-6">
-                {/* Queue Filters */}
+                {/* Bots Selector */}
                 <div className="flex items-center gap-3 mb-6">
-                    <button
-                        onClick={() => setFilterType("all")}
-                        className={cn(
-                            "px-3 py-1.5 text-sm font-medium rounded-lg",
-                            filterType === "all"
-                                ? "bg-sky-100 text-sky-700"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
+                    <select
+                        value={selectedBot || "all"}
+                        onChange={(e) => setSelectedBot(e.target.value)}
+                        disabled={botsLoading}
+                        className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white text-slate-900 font-medium cursor-pointer hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        All ({stats.pending})
-                    </button>
-                    <button
-                        onClick={() => setFilterType("chat")}
-                        className={cn(
-                            "px-3 py-1.5 text-sm font-medium rounded-lg",
-                            filterType === "chat"
-                                ? "bg-sky-100 text-sky-700"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
-                    >
-                        Chat ({stats.chat})
-                    </button>
-                    <button
-                        onClick={() => setFilterType("email")}
-                        className={cn(
-                            "px-3 py-1.5 text-sm font-medium rounded-lg",
-                            filterType === "email"
-                                ? "bg-sky-100 text-sky-700"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
-                    >
-                        Email ({stats.email})
-                    </button>
+                        <option value="all">All Bots ({stats.pending})</option>
+                        {availableBots.map((bot) => (
+                            <option key={bot} value={bot}>
+                                {bot}
+                            </option>
+                        ))}
+                    </select>
                     <div className="ml-auto flex items-center gap-2">
-                        {/* Filters Button (AC 5.5) */}
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className={cn(
-                                "px-3 py-1.5 text-sm font-medium rounded-lg flex items-center gap-2",
-                                showFilters || Object.keys(filters).length > 0
-                                    ? "bg-sky-100 text-sky-700"
-                                    : "text-slate-600 hover:bg-slate-100 border border-slate-300"
-                            )}
-                        >
-                            <FilterIcon className="w-4 h-4" />
-                            Filters
-                            {Object.values(filters).filter(Boolean).length >
-                                0 && (
-                                <span className="px-1.5 py-0.5 text-xs bg-sky-600 text-white rounded-full">
-                                    {
-                                        Object.values(filters).filter(Boolean)
-                                            .length
-                                    }
-                                </span>
-                            )}
-                        </button>
-
                         <span className="text-sm text-slate-500">Sort:</span>
                         <select
                             className="text-sm border-0 bg-transparent text-slate-700 font-medium focus:ring-0 cursor-pointer"
@@ -756,17 +790,6 @@ export function ReviewQueue({
                         </select>
                     </div>
                 </div>
-
-                {/* Filter Panel (AC 5.5) */}
-                {showFilters && onFiltersChange && (
-                    <div className="mb-6">
-                        <QueueFilters
-                            filters={filters}
-                            onFiltersChange={onFiltersChange}
-                            onClose={() => setShowFilters(false)}
-                        />
-                    </div>
-                )}
 
                 {/* Queue Items */}
                 {filteredItems.length === 0 ? (
