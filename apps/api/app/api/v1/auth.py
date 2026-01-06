@@ -176,6 +176,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class AcceptTeamInviteRequest(BaseModel):
+    """Request schema to accept a cross-tenant team invite."""
+    token: str
+
+
 @router.post("/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Request a password reset link."""
@@ -244,3 +249,43 @@ async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(g
     await EmailService.send_password_reset_confirmation(user_email)
     
     return {"message": "Password reset successfully"}
+
+
+@router.post("/accept-invite")
+async def accept_team_invite(req: AcceptTeamInviteRequest, db: AsyncSession = Depends(get_db)):
+    """Accept a team invitation by token; transfers user to pending tenant and role."""
+    # Find user by invite token
+    result = await db.execute(select(User).where(User.tenant_invite_token == req.token))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired invite token"
+        )
+
+    # Check expiry
+    if user.tenant_invite_expires is None or user.tenant_invite_expires < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite token has expired. Please request a new invitation."
+        )
+
+    if not user.pending_tenant_id or not user.pending_role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite is not properly configured."
+        )
+
+    # Transfer user to new tenant
+    user.tenant_id = user.pending_tenant_id
+    user.role = user.pending_role
+    user.is_active = "active"
+    user.tenant_invite_token = None
+    user.tenant_invite_expires = None
+    user.pending_tenant_id = None
+    user.pending_role = None
+
+    await db.commit()
+
+    return {"message": "Invitation accepted. Your account has been moved to the new organization."}

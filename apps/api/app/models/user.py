@@ -18,5 +18,10 @@ class User(Base):
     # Password reset fields
     password_reset_token = Column(String, nullable=True)
     password_reset_expires = Column(DateTime, nullable=True)
+    # Tenant invitation fields (for cross-tenant transfer on acceptance)
+    tenant_invite_token = Column(String, nullable=True)
+    tenant_invite_expires = Column(DateTime, nullable=True)
+    pending_tenant_id = Column(Uuid, nullable=True)
+    pending_role = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

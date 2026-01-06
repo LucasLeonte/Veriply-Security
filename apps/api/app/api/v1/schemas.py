@@ -108,6 +108,26 @@ class RoleChangeRequest(BaseModel):
             "example": {"role": "admin"}
         }
 
+class InviteTeamMemberRequest(BaseModel):
+    email: str
+    role: Optional[str] = "manager"
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if "@" not in v or "." not in v.split("@")[1]:
+            raise ValueError("Invalid email format")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if v not in ["owner", "admin", "manager", "agent", "viewer"]:
+            raise ValueError("Invalid role")
+        return v
+
 class AuditLogResponse(BaseModel):
     id: str | UUID
     actor_id: str | UUID
