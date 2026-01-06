@@ -257,7 +257,7 @@ development_status:
 
     5-4-rejection-flow:
         status: ready-for-dev
-        assigned_to: null
+        assigned_to: Kainy
         blocked_by: 5-2-draft-review-interface
 
     5-5-keyboard-shortcuts-filtering:
