@@ -69,6 +69,10 @@ class ReviewQueueSubmissionRequest(BaseModel):
         default_factory=list,
         description="Source citations for the response"
     )
+    session_id: Optional[str] = Field(
+        None,
+        description="Chat session ID for sending approved answer back"
+    )
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -147,6 +151,7 @@ async def submit_to_review_queue(
                 "citations": request.citations or [],
                 "source": "chatbot_auto_submission",
                 "original_confidence": request.confidence,  # Keep original for debugging
+                "session_id": request.session_id,  # For sending approved answer back to chat
             }
         )
         

@@ -310,18 +310,41 @@ export function useHITLQueue(sortBy: string = "oldest") {
                 headers.Authorization = `Bearer ${token}`;
             }
 
+            // Find the item to get its metadata (contains session_id)
+            const item = items.find((i) => i.id === itemId);
+
             const response = await fetch(`/api/hitl/queue/${itemId}/approve`, {
                 method: "POST",
                 headers,
-                body: JSON.stringify({ edits }),
+                body: JSON.stringify({ edits, send_to_chat: true }),
             });
 
             if (!response.ok) {
                 throw new Error("Failed to approve item");
             }
 
+            const result = await response.json();
+
+            // Store approved answer in localStorage for the chat to pick up
+            // This works for both same-tab navigation and cross-tab communication
+            if (typeof window !== "undefined" && item?.metadata) {
+                const sessionId = (item.metadata as Record<string, unknown>).session_id;
+                if (sessionId && typeof sessionId === "string") {
+                    const approvedAnswer = {
+                        type: "approved_answer",
+                        sessionId,
+                        answer: result.resolved_answer || edits || item.aiDraft,
+                        question: item.userQuestion,
+                        timestamp: new Date().toISOString(),
+                    };
+                    // Store in localStorage - this triggers storage event in other tabs
+                    // and can be read when navigating back to chat in same tab
+                    localStorage.setItem(`approved_answer_${sessionId}`, JSON.stringify(approvedAnswer));
+                }
+            }
+
             // Remove item from local state immediately for optimistic update
-            setItems((prev) => prev.filter((item) => item.id !== itemId));
+            setItems((prev) => prev.filter((i) => i.id !== itemId));
 
             // Refresh queue from server
             fetchQueue();
