@@ -264,7 +264,8 @@ export async function sendToReviewQueue(
     userQuestion: string,
     aiDraft: string,
     confidence: number,
-    citations?: Array<{ source: string; url?: string }>
+    citations?: Array<{ source: string; url?: string }>,
+    sessionId?: string
 ): Promise<{ success: boolean; message: string }> {
     const response = await fetch(
         `${API_BASE_URL}/api/v1/bots/${botId}/review-queue`,
@@ -278,6 +279,7 @@ export async function sendToReviewQueue(
                 ai_draft: aiDraft,
                 confidence,
                 citations: citations || [],
+                session_id: sessionId,
             }),
         }
     );

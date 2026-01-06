@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 class ApproveQueueItemRequest(BaseModel):
     """Request to approve a review queue item."""
     edits: Optional[str] = Field(None, description="Optional edited response text")
+    send_to_chat: bool = Field(True, description="Send approved answer back to chat")
 
 
 class RejectQueueItemRequest(BaseModel):
@@ -316,6 +317,7 @@ async def get_review_queue(
                     "bot_id": str(item.bot_id),
                     "query_id": str(item.query_id),
                     "is_verified_kb": item.is_verified_kb,
+                    "session_id": metadata.get("session_id"),  # For sending approved answer back to chat
                 },
             )
             items_response.append(response_item)
@@ -636,14 +638,37 @@ async def approve_queue_item(
 
         logger.debug(f"Committing approval for item {item_id}")
         await db.commit()
-        logger.info(f"✓ HITL item {item_id} successfully approved and added to Verified KB")
+        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
         
-        # TODO Story 7.1: Add Q&A pair to dedicated verified_kb table
-        # For now, marking is_verified_kb=True on ConfidenceLog serves as interim storage
+        # Build response with the approved answer
+        resolved_answer = (
+            request.edits
+            or item.metadata_json.get("ai_draft", "")
+        )
         
-        # TODO Future: AC1 - Send response to end-user via email/chat integration
-        # This requires chat session or email thread tracking (Epic 6 for email)
-        # For MVP, approval marks the item as ready for manual sending or auto-responses
+        # Send approved answer to chat if requested and session_id is available
+        chat_sent = False
+        if request.send_to_chat:
+            try:
+                session_id = item.metadata_json.get("session_id")
+                if session_id:
+                    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                    chat_channel = f"chat_session:{session_id}"
+                    chat_message = {
+                        "type": "approved_answer",
+                        "answer": resolved_answer,
+                        "question": item.query_text,
+                        "citations": item.metadata_json.get("citations", []),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                    await redis_client.publish(chat_channel, json.dumps(chat_message))
+                    await redis_client.close()
+                    chat_sent = True
+                    logger.info(f"✓ Sent approved answer to chat session: {session_id}")
+                else:
+                    logger.debug("No session_id in metadata, skipping send to chat")
+            except Exception as chat_error:
+                logger.warning(f"Failed to send to chat: {chat_error}")
         
         # Publish resolution event to Redis for real-time updates
         try:
@@ -668,6 +693,7 @@ async def approve_queue_item(
             "diff": diff_result if was_edited else None,
             "verified_kb_updated": True,
             "citations": metadata.get("citations", []),
+            "chat_sent": chat_sent,
         }
 
     except HTTPException:
