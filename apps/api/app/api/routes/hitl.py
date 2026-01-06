@@ -259,9 +259,14 @@ async def get_queue_item_detail(
     
     Returns full context chunks with source documents for review interface.
     This endpoint supports AC1 (split view with query + context + draft).
+    
+    Security: Enforces tenant_id AND group_id access control with membership validation.
     """
     try:
         item_uuid = UUID(item_id)
+        
+        # Import GroupMember for access control
+        from app.models.group_member import GroupMember
         
         # Query the specific item with Bot relationship loaded
         result = await db.execute(
@@ -280,6 +285,28 @@ async def get_queue_item_detail(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Item not found",
             )
+        
+        # SECURITY: Verify user has access to the group this item belongs to
+        if item.group_id:
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == item.group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
+            )
+            membership = membership_result.scalars().first()
+            
+            if not membership:
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to access "
+                    f"HITL item {item_id} from group {item.group_id} without membership"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: You do not have access to this item",
+                )
         
         # Parse metadata
         raw_metadata = getattr(item, "metadata_json", None) or {}
@@ -402,6 +429,40 @@ async def approve_queue_item(
             )
 
         logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
+        
+        # SECURITY: Check if item is already resolved (optimistic locking)
+        if item.hitl_resolved:
+            logger.warning(
+                f"Race condition prevented: Item {item_id} already resolved by user "
+                f"{item.resolution_user_id} at {item.resolution_timestamp}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Item has already been resolved by another user",
+            )
+        
+        # SECURITY: Verify user has access to the group this item belongs to
+        if item.group_id:
+            from app.models.group_member import GroupMember
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == item.group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
+            )
+            membership = membership_result.scalars().first()
+            
+            if not membership:
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to approve "
+                    f"HITL item {item_id} from group {item.group_id} without membership"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: You do not have access to this item",
+                )
 
         # Mark as resolved
         item.hitl_resolved = True
@@ -412,6 +473,21 @@ async def approve_queue_item(
         metadata = dict(item.metadata_json or {})
 
         if request.edits:
+            # SECURITY: Sanitize edited draft (basic validation)
+            # Strip leading/trailing whitespace and limit length
+            sanitized_edits = request.edits.strip()
+            if len(sanitized_edits) > 10000:  # Reasonable limit for draft responses
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Edited draft exceeds maximum length of 10000 characters",
+                )
+            if not sanitized_edits:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Edited draft cannot be empty",
+                )
+            metadata["human_edits"] = sanitized_edits
+            metadata["human_final_answer"] = sanitized_edits
             metadata["human_edits"] = request.edits
             metadata["human_final_answer"] = request.edits
             metadata["resolution_action"] = "approved_with_edits"
@@ -511,6 +587,29 @@ async def reject_queue_item(
             )
 
         logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
+        
+        # SECURITY: Verify user has access to the group this item belongs to
+        if item.group_id:
+            from app.models.group_member import GroupMember
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == item.group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
+            )
+            membership = membership_result.scalars().first()
+            
+            if not membership:
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to reject "
+                    f"HITL item {item_id} from group {item.group_id} without membership"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: You do not have access to this item",
+                )
 
         # Mark as resolved
         item.hitl_resolved = True

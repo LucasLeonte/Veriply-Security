@@ -127,13 +127,55 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Create a test HTTP client with database session override."""
+    """Create a test HTTP client with database session and auth overrides."""
     from httpx import ASGITransport
+    from app.api.v1.auth import get_current_user, get_current_tenant
+    from sqlalchemy import select
+    import uuid
     
     async def override_get_db():
         yield db_session
     
+    async def override_get_current_user(credentials=None, db=None):
+        """Bypass JWT auth for tests - use first user from test database."""
+        # Import here to avoid circular dependency
+        from app.models.user import User
+        
+        # Use the test database session
+        test_db = db if db is not None else db_session
+            
+        # Get first user from database (created by test fixtures)
+        result = await test_db.execute(select(User).limit(1))
+        user = result.scalars().first()
+        
+        if user:
+            return user
+            
+        # Fallback: create a mock user
+        mock_user = User()
+        mock_user.id = uuid.uuid4()
+        mock_user.tenant_id = uuid.uuid4()
+        mock_user.email = "test@example.com"
+        mock_user.role = "agent"
+        return mock_user
+    
+    async def override_get_current_tenant(credentials=None):
+        """Bypass JWT auth for tests - return tenant_id from first user."""
+        from app.models.user import User
+        
+        # Get first user from database
+        result = await db_session.execute(select(User).limit(1))
+        user = result.scalars().first()
+        
+        if user:
+            return user.tenant_id
+            
+        # Fallback
+        return uuid.uuid4()
+    
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_tenant] = override_get_current_tenant
     
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
