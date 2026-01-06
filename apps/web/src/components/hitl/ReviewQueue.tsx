@@ -458,7 +458,7 @@ export function ReviewQueueItemCard({
                                 ) : (
                                     <CheckCircle className="w-4 h-4" />
                                 )}
-                                {isApproving ? "Approving..." : "Approve"
+                                {isApproving ? "Approving..." : "Approve"}
                                 <kbd className="px-1.5 py-0.5 text-xs bg-green-700 text-white rounded">
                                     A
                                 </kbd>
