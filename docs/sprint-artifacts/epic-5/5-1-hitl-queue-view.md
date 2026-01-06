@@ -7,7 +7,7 @@ Status: done
 - Epic goal: build the agent dashboard queue so agents see pending low-confidence items with query preview, bot name, confidence %, and wait time, sorted oldest-first. [Source: docs/epics.md#epic-5-hitl-verification]
 - Product intent: trust-first workflow where low-confidence answers route to HITL review before sending; must surface confidence and queue aging. [Source: docs/prd.md]
 - Architecture guardrails: Next.js 14 frontend, FastAPI backend, PostgreSQL + pgvector with RLS; real-time updates recommended via WebSocket with Redis/queue backend. [Source: docs/architecture.md][Source: docs/tech-spec.md]
-- UX cues: trust signals and queue density, with clear empty state messaging for agents. [Source: docs/ux-design-specification.md]
+- UX cues: queue density, with clear empty state messaging for agents. [Source: docs/ux-design-specification.md]
 
 ## Structure Alignment Summary
 
