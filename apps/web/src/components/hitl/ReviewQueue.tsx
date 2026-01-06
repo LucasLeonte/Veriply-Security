@@ -1,6 +1,4 @@
-"use client";
-
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
     Clock,
@@ -11,12 +9,15 @@ import {
     Edit2,
     Copy,
     Eye,
+    Loader2,
 } from "lucide-react";
 import { ReviewQueueItem } from "@/hooks/useHITLQueue";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { ShortcutHelpModal } from "./ShortcutHelpModal";
+import { getAccessToken } from "@/lib/auth";
 interface ReviewQueueItemCardProps {
     item: ReviewQueueItem;
     isSelected: boolean;
@@ -209,7 +210,10 @@ export function ReviewQueueItemCard({
     }
 
     return (
-        <div className="bg-white rounded-xl border-2 border-sky-200 shadow-sm mb-4 overflow-hidden">
+        <div
+            className="bg-white rounded-xl border-2 border-sky-200 shadow-sm mb-4 overflow-hidden"
+            data-item-id={item.id}
+        >
             <div className="p-5">
                 {/* Item Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -244,6 +248,7 @@ export function ReviewQueueItemCard({
                             : "border-slate-200 hover:border-slate-300 hover:bg-slate-100/50 cursor-pointer"
                     )}
                     onClick={() => !editMode && setEditMode(true)}
+                    data-action="edit"
                 >
                     <div className="flex items-center justify-between mb-2">
                         <p className="text-xs font-semibold text-slate-600 flex items-center gap-2">
@@ -257,6 +262,9 @@ export function ReviewQueueItemCard({
                                 <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-500 text-[11px] flex items-center gap-1">
                                     <Edit2 className="w-3 h-3" />
                                     Click to edit
+                                    <kbd className="ml-1 px-1 py-0.5 bg-slate-300 text-slate-700 rounded text-[10px]">
+                                        E
+                                    </kbd>
                                 </span>
                             )}
                         </p>
@@ -323,7 +331,7 @@ export function ReviewQueueItemCard({
                     )}
                 </div>
 
-                {/* Actions */}
+                {/* Actions - AC 5.5: Include keyboard shortcut badges */}
                 <div className="flex items-center gap-2">
                     {!editMode ? (
                         <>
@@ -353,24 +361,42 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+                                data-action="reject"
+                                data-item-id={item.id}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
                             >
-                                <XCircle className="w-4 h-4" />
-                                Reject
+                                {isRejecting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <XCircle className="w-4 h-4" />
+                                )}
+                                {isRejecting ? "Rejecting..." : "Reject"}
+                                <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500 rounded">
+                                    R
+                                </kbd>
                             </Button>
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                                 size="sm"
+                                data-action="approve"
+                                data-item-id={item.id}
                                 title={
                                     !canApprove
                                         ? "Please review for at least 3 seconds"
                                         : ""
                                 }
                             >
-                                <CheckCircle className="w-4 h-4" />
-                                Approve
+                                {isApproving ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle className="w-4 h-4" />
+                                )}
+                                {isApproving ? "Approving..." : "Approve"}
+                                <kbd className="px-1.5 py-0.5 text-xs bg-emerald-700 text-white rounded">
+                                    A
+                                </kbd>
                             </Button>
                         </>
                     ) : (
@@ -401,24 +427,42 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+                                data-action="reject"
+                                data-item-id={item.id}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
                             >
-                                <XCircle className="w-4 h-4" />
-                                Reject
+                                {isRejecting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <XCircle className="w-4 h-4" />
+                                )}
+                                {isRejecting ? "Rejecting..." : "Reject"}
+                                <kbd className="px-1.5 py-0.5 text-xs bg-slate-100 text-slate-500 rounded">
+                                    R
+                                </kbd>
                             </Button>
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-green-600 hover:bg-green-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                                 size="sm"
+                                data-action="approve"
+                                data-item-id={item.id}
                                 title={
                                     !canApprove
                                         ? "Please review for at least 3 seconds"
                                         : ""
                                 }
                             >
-                                <CheckCircle className="w-4 h-4" />
-                                Approve
+                                {isApproving ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <CheckCircle className="w-4 h-4" />
+                                )}
+                                {isApproving ? "Approving..." : "Approve"}
+                                <kbd className="px-1.5 py-0.5 text-xs bg-green-700 text-white rounded">
+                                    A
+                                </kbd>
                             </Button>
                         </>
                     )}
@@ -455,13 +499,219 @@ export function ReviewQueue({
     const [selectedId, setSelectedId] = useState<string | null>(
         items.length > 0 ? items[0].id : null
     );
-    const [filterType, setFilterType] = useState<"all" | "chat" | "email">(
-        "all"
-    );
+    const [selectedBot, setSelectedBot] = useState<string | null>(null);
+    const [availableBots, setAvailableBots] = useState<string[]>([]);
+    const [botsLoading, setBotsLoading] = useState(false);
+    const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+
+    const pendingByBot = useMemo(() => {
+        const counts: Record<string, number> = {};
+        items.forEach((item) => {
+            if (item.status !== "pending") return;
+            const key = item.botName || "Unknown";
+            counts[key] = (counts[key] ?? 0) + 1;
+        });
+        return counts;
+    }, [items]);
 
     const filteredItems = items.filter((item) => {
-        if (filterType === "all") return item.status === "pending";
-        return item.type === filterType && item.status === "pending";
+        if (item.status !== "pending") return false;
+        if (
+            selectedBot &&
+            selectedBot !== "all" &&
+            item.botName !== selectedBot
+        )
+            return false;
+        return true;
+    });
+
+    // Get selected item index for navigation
+    const selectedIndex = filteredItems.findIndex(
+        (item) => item.id === selectedId
+    );
+    const selectedItem =
+        selectedIndex >= 0 ? filteredItems[selectedIndex] : null;
+
+    // Fetch available bots on mount
+    useEffect(() => {
+        const fetchBots = async () => {
+            try {
+                setBotsLoading(true);
+                const token = await getAccessToken();
+                const response = await fetch("/api/hitl/bots", {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const rawBots = Array.isArray(data?.bots)
+                        ? data.bots
+                        : Array.isArray(data)
+                        ? data
+                        : [];
+
+                    const normalizedBots = rawBots
+                        .map((bot: unknown) => {
+                            if (typeof bot === "string") return bot;
+                            if (typeof bot === "object" && bot !== null) {
+                                const obj = bot as {
+                                    name?: string;
+                                    botName?: string;
+                                    id?: string;
+                                };
+                                if (obj.name) return obj.name;
+                                if (obj.botName) return obj.botName;
+                                if (obj.id) return obj.id;
+                            }
+                            return null;
+                        })
+                        .filter(
+                            (b: unknown): b is string =>
+                                typeof b === "string" && b.length > 0
+                        );
+
+                    const bots = Array.from(new Set<string>(normalizedBots));
+
+                    if (bots.length > 0) {
+                        setAvailableBots(bots);
+                        setSelectedBot("all");
+                        return;
+                    }
+                }
+
+                // Fallback to bots present in items if API returns none
+                const botsFromItems = Array.from(
+                    new Set(
+                        items
+                            .map((item) => item.botName)
+                            .filter(
+                                (b: unknown): b is string =>
+                                    typeof b === "string" && b.length > 0
+                            )
+                    )
+                );
+                setAvailableBots(botsFromItems);
+                setSelectedBot("all");
+            } catch (error) {
+                console.error("Failed to fetch bots:", error);
+                const botsFromItems = Array.from(
+                    new Set(
+                        items
+                            .map((item) => item.botName)
+                            .filter(
+                                (b: unknown): b is string =>
+                                    typeof b === "string" && b.length > 0
+                            )
+                    )
+                );
+                setAvailableBots(botsFromItems);
+                setSelectedBot("all");
+            } finally {
+                setBotsLoading(false);
+            }
+        };
+        fetchBots();
+    }, [items]);
+
+    // AC 5.5: Keyboard shortcuts
+    useKeyboardShortcuts({
+        shortcuts: [
+            {
+                key: "a",
+                description: "Approve current draft",
+                action: () => {
+                    if (selectedItem) {
+                        const approveButton = document.querySelector(
+                            `[data-item-id="${selectedId}"] [data-action="approve"]`
+                        ) as HTMLButtonElement;
+                        approveButton?.click();
+                    }
+                },
+                disabled: !selectedItem,
+            },
+            {
+                key: "r",
+                description: "Reject current draft",
+                action: () => {
+                    if (selectedItem) {
+                        const rejectButton = document.querySelector(
+                            `[data-item-id="${selectedId}"] [data-action="reject"]`
+                        ) as HTMLButtonElement;
+                        rejectButton?.click();
+                    }
+                },
+                disabled: !selectedItem,
+            },
+            {
+                key: "e",
+                description: "Focus on edit field",
+                action: () => {
+                    // This will be handled in ReviewQueueItemCard
+                    const editButton = document.querySelector(
+                        `[data-item-id="${selectedId}"] [data-action="edit"]`
+                    ) as HTMLButtonElement;
+                    editButton?.click();
+                },
+                disabled: !selectedItem,
+            },
+            {
+                key: "n",
+                description: "Skip to next item",
+                action: () => {
+                    if (selectedIndex < filteredItems.length - 1) {
+                        setSelectedId(filteredItems[selectedIndex + 1].id);
+                    }
+                },
+                disabled: selectedIndex >= filteredItems.length - 1,
+            },
+            {
+                key: "ArrowLeft",
+                description: "Navigate to previous item",
+                action: () => {
+                    if (selectedIndex > 0) {
+                        setSelectedId(filteredItems[selectedIndex - 1].id);
+                    }
+                },
+                disabled: selectedIndex <= 0,
+            },
+            {
+                key: "ArrowRight",
+                description: "Navigate to next item",
+                action: () => {
+                    if (selectedIndex < filteredItems.length - 1) {
+                        setSelectedId(filteredItems[selectedIndex + 1].id);
+                    }
+                },
+                disabled: selectedIndex >= filteredItems.length - 1,
+            },
+            {
+                key: "ArrowUp",
+                description: "Navigate to previous item",
+                action: () => {
+                    if (selectedIndex > 0) {
+                        setSelectedId(filteredItems[selectedIndex - 1].id);
+                    }
+                },
+                disabled: selectedIndex <= 0,
+            },
+            {
+                key: "ArrowDown",
+                description: "Navigate to next item",
+                action: () => {
+                    if (selectedIndex < filteredItems.length - 1) {
+                        setSelectedId(filteredItems[selectedIndex + 1].id);
+                    }
+                },
+                disabled: selectedIndex >= filteredItems.length - 1,
+            },
+            {
+                key: "?",
+                description: "Show shortcut help",
+                action: () => setShowShortcutHelp(!showShortcutHelp),
+            },
+        ],
+        enabled: true,
+        ignoreWhenInputFocused: true,
     });
 
     // AC1: Auto-load next item when current item is removed
@@ -508,50 +758,33 @@ export function ReviewQueue({
                             Review Queue
                         </h1>
                         <p className="text-sm text-slate-500 mt-0.5">
+                            {/* AC 5.5: Show filtered count in header */}
                             {filteredItems.length} item
-                            {filteredItems.length !== 1 ? "s" : ""} pending
-                            review
+                            {filteredItems.length !== 1 ? "s" : ""}
                         </p>
                     </div>
                 </div>
             </div>
 
             <div className="px-6 pb-6">
-                {/* Queue Filters */}
+                {/* Bots Selector */}
                 <div className="flex items-center gap-3 mb-6">
-                    <button
-                        onClick={() => setFilterType("all")}
-                        className={cn(
-                            "px-3 py-1.5 text-sm font-medium rounded-lg",
-                            filterType === "all"
-                                ? "bg-sky-100 text-sky-700"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
+                    <select
+                        value={selectedBot || "all"}
+                        onChange={(e) => setSelectedBot(e.target.value)}
+                        disabled={botsLoading}
+                        className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white text-slate-900 font-medium cursor-pointer hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        All ({stats.pending})
-                    </button>
-                    <button
-                        onClick={() => setFilterType("chat")}
-                        className={cn(
-                            "px-3 py-1.5 text-sm font-medium rounded-lg",
-                            filterType === "chat"
-                                ? "bg-sky-100 text-sky-700"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
-                    >
-                        Chat ({stats.chat})
-                    </button>
-                    <button
-                        onClick={() => setFilterType("email")}
-                        className={cn(
-                            "px-3 py-1.5 text-sm font-medium rounded-lg",
-                            filterType === "email"
-                                ? "bg-sky-100 text-sky-700"
-                                : "text-slate-600 hover:bg-slate-100"
-                        )}
-                    >
-                        Email ({stats.email})
-                    </button>
+                        <option value="all">All Bots ({stats.pending})</option>
+                        {availableBots.map((bot) => {
+                            const count = pendingByBot[bot] ?? 0;
+                            return (
+                                <option key={bot} value={bot}>
+                                    {bot} ({count})
+                                </option>
+                            );
+                        })}
+                    </select>
                     <div className="ml-auto flex items-center gap-2">
                         <span className="text-sm text-slate-500">Sort:</span>
                         <select
@@ -600,6 +833,12 @@ export function ReviewQueue({
                     </div>
                 )}
             </div>
+
+            {/* Shortcut Help Modal (AC 5.5) */}
+            <ShortcutHelpModal
+                isOpen={showShortcutHelp}
+                onClose={() => setShowShortcutHelp(false)}
+            />
         </div>
     );
 }

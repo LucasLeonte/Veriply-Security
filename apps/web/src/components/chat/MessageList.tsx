@@ -18,6 +18,7 @@ interface MessageListProps {
     botAvatar?: string;
     streaming: boolean;
     botId?: string;
+    sessionId?: string;
     // Bot confidence threshold as percentage (0-100)
     confidenceThresholdPercent?: number;
     contextWindowSize?: number;
@@ -37,6 +38,7 @@ export default function MessageList({
     botAvatar,
     streaming,
     botId,
+    sessionId,
     confidenceThresholdPercent,
     contextWindowSize = 10,
     feedbackState = {},
@@ -67,7 +69,7 @@ export default function MessageList({
 
     // Auto-send low confidence messages to review queue
     useEffect(() => {
-        if (!botId) return;
+        if (!botId || !sessionId) return;
 
         messages.forEach((message, idx) => {
             // Skip if already processed using ref (guards against concurrent useEffect runs)
@@ -100,7 +102,8 @@ export default function MessageList({
                         userQuestion,
                         message.content,
                         message.confidence,
-                        message.citations
+                        message.citations,
+                        sessionId
                     ).then((result) => {
                         // Mark as sent even if backend reports logical failure,
                         // to avoid hammering the endpoint on every render
@@ -125,7 +128,7 @@ export default function MessageList({
                 }
             }
         });
-    }, [messages, botId, sentToReview, sendingToReview, reviewThreshold]);
+    }, [messages, botId, sessionId, sentToReview, sendingToReview, reviewThreshold]);
 
     return (
         <>

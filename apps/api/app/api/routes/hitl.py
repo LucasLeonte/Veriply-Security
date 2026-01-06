@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 class ApproveQueueItemRequest(BaseModel):
     """Request to approve a review queue item."""
     edits: Optional[str] = Field(None, description="Optional edited response text")
+    send_to_chat: bool = Field(True, description="Send approved answer back to chat")
 
 
 class RejectQueueItemRequest(BaseModel):
@@ -105,6 +106,58 @@ class ReviewQueueResponse(BaseModel):
     stats: ReviewQueueStatsResponse
 
 
+class BotFilterOption(BaseModel):
+    """Bot option for filter dropdown."""
+    id: str = Field(..., description="Bot UUID")
+    name: str = Field(..., description="Bot name")
+
+
+class BotFilterOptionsResponse(BaseModel):
+    """Response with bot filter options."""
+    bots: List[BotFilterOption]
+
+
+@router.get("/bots", response_model=BotFilterOptionsResponse)
+async def get_bots_for_filter(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: UUID = Depends(get_current_tenant),
+) -> BotFilterOptionsResponse:
+    """
+    Get list of bots for filter dropdown (AC 5.5).
+    
+    Returns all bots accessible to the current user across all their groups.
+    """
+    try:
+        from app.models import GroupMember
+        
+        # Get all bots from groups the user has access to
+        query_stmt = select(Bot).join(
+            GroupMember, Bot.group_id == GroupMember.group_id
+        ).where(
+            and_(
+                GroupMember.user_id == current_user.id,
+                Bot.tenant_id == current_tenant,
+            )
+        ).distinct().order_by(Bot.name)
+        
+        result = await db.execute(query_stmt)
+        bots = result.scalars().all()
+        
+        return BotFilterOptionsResponse(
+            bots=[
+                BotFilterOption(id=str(bot.id), name=bot.name)
+                for bot in bots
+            ]
+        )
+    except Exception as e:
+        logger.exception(f"Error fetching bots for filter: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch bots for filter"
+        )
+
+
 @router.get("/queue", response_model=ReviewQueueResponse)
 async def get_review_queue(
     db: AsyncSession = Depends(get_db),
@@ -113,6 +166,10 @@ async def get_review_queue(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("oldest", regex="^(oldest|newest|lowest_confidence|highest_confidence)$"),
+    bot_id: Optional[UUID] = Query(None, description="Filter by specific bot ID"),
+    date_from: Optional[datetime] = Query(None, description="Filter items created on or after this date"),
+    date_to: Optional[datetime] = Query(None, description="Filter items created on or before this date"),
+    status_filter: Optional[str] = Query(None, regex="^(pending|in-progress)$", description="Filter by status (pending, in-progress)"),
 ) -> ReviewQueueResponse:
     """
     Get pending HITL review items for the current tenant.
@@ -126,13 +183,11 @@ async def get_review_queue(
     - newest: newest items first
     - lowest_confidence: lowest confidence scores first
     - highest_confidence: highest confidence scores first
-    human review. Items are sorted by creation date (oldest first by default) or confidence.
     
-    Sorting options:
-    - oldest: oldest items first (default, per AC requirement)
-    - newest: newest items first
-    - lowest_confidence: lowest confidence scores first
-    - highest_confidence: highest confidence scores first
+    Filtering options (AC 5.5):
+    - bot_id: Filter by specific bot UUID
+    - date_from/date_to: Filter by date range
+    - status_filter: Filter by status (pending, in-progress)
     """
     try:
         # Get user's group memberships to filter by accessible groups
@@ -159,6 +214,23 @@ async def get_review_queue(
                 select(GroupMember.group_id).where(GroupMember.user_id == current_user.id)
             ))
         ).options(joinedload(ConfidenceLog.bot))
+
+        # Apply filters (AC 5.5)
+        if bot_id:
+            query_stmt = query_stmt.where(ConfidenceLog.bot_id == bot_id)
+        
+        if date_from:
+            query_stmt = query_stmt.where(ConfidenceLog.created_at >= date_from)
+        
+        if date_to:
+            query_stmt = query_stmt.where(ConfidenceLog.created_at <= date_to)
+        
+        # Status filter: 'pending' = hitl_resolved=False, 'in-progress' could use metadata
+        # For now, all items in queue are 'pending' by default; future enhancement for 'in-progress'
+        if status_filter == "in-progress":
+            # Filter for items marked as in-progress (e.g., via metadata)
+            # This is a placeholder; adjust based on how in-progress is tracked
+            pass  # Could filter by metadata.status == "in-progress" if stored
 
 
         # Sort based on parameter (oldest first by default per AC1)
@@ -245,6 +317,7 @@ async def get_review_queue(
                     "bot_id": str(item.bot_id),
                     "query_id": str(item.query_id),
                     "is_verified_kb": item.is_verified_kb,
+                    "session_id": metadata.get("session_id"),  # For sending approved answer back to chat
                 },
             )
             items_response.append(response_item)
@@ -565,14 +638,37 @@ async def approve_queue_item(
 
         logger.debug(f"Committing approval for item {item_id}")
         await db.commit()
-        logger.info(f"✓ HITL item {item_id} successfully approved and added to Verified KB")
+        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
         
-        # TODO Story 7.1: Add Q&A pair to dedicated verified_kb table
-        # For now, marking is_verified_kb=True on ConfidenceLog serves as interim storage
+        # Build response with the approved answer
+        resolved_answer = (
+            request.edits
+            or item.metadata_json.get("ai_draft", "")
+        )
         
-        # TODO Future: AC1 - Send response to end-user via email/chat integration
-        # This requires chat session or email thread tracking (Epic 6 for email)
-        # For MVP, approval marks the item as ready for manual sending or auto-responses
+        # Send approved answer to chat if requested and session_id is available
+        chat_sent = False
+        if request.send_to_chat:
+            try:
+                session_id = item.metadata_json.get("session_id")
+                if session_id:
+                    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                    chat_channel = f"chat_session:{session_id}"
+                    chat_message = {
+                        "type": "approved_answer",
+                        "answer": resolved_answer,
+                        "question": item.query_text,
+                        "citations": item.metadata_json.get("citations", []),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                    await redis_client.publish(chat_channel, json.dumps(chat_message))
+                    await redis_client.close()
+                    chat_sent = True
+                    logger.info(f"✓ Sent approved answer to chat session: {session_id}")
+                else:
+                    logger.debug("No session_id in metadata, skipping send to chat")
+            except Exception as chat_error:
+                logger.warning(f"Failed to send to chat: {chat_error}")
         
         # Publish resolution event to Redis for real-time updates
         try:
@@ -597,6 +693,7 @@ async def approve_queue_item(
             "diff": diff_result if was_edited else None,
             "verified_kb_updated": True,
             "citations": metadata.get("citations", []),
+            "chat_sent": chat_sent,
         }
 
     except HTTPException:

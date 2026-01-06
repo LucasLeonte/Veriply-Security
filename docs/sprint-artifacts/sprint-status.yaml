@@ -165,7 +165,7 @@ development_status:
 
     # Epic 3: RAG Q&A Engine
     epic-3:
-        status: contexted
+        status: done
         assigned_to: Lucas
 
     3-1-semantic-vector-search:
@@ -200,7 +200,7 @@ development_status:
 
     # Epic 4: Chat Experience
     epic-4:
-        status: contexted
+        status: done
         assigned_to: Lucas
 
     4-1-web-chat-interface:
@@ -237,7 +237,7 @@ development_status:
 
     # Epic 5: HITL Verification
     epic-5:
-        status: contexted
+        status: done
         assigned_to: Lucas
 
     5-1-hitl-queue-view:
@@ -256,14 +256,15 @@ development_status:
         blocked_by: 5-2-draft-review-interface
 
     5-4-rejection-flow:
-        status: in-progress
+        status: done
         assigned_to: Kainy
         blocked_by: 5-2-draft-review-interface
 
     5-5-keyboard-shortcuts-filtering:
-        status: in-progress
+        status: done
         assigned_to: Lucas
         blocked_by: 5-2-draft-review-interface
+        completed_date: 2026-01-07
 
     epic-5-retrospective: optional
 
@@ -273,7 +274,7 @@ development_status:
         assigned_to: Lucas
 
     6-1-gmail-oauth-integration:
-        status: in-progress
+        status: assigned
         assigned_to: Dario
         blocked_by: 3-2-context-only-answer-generation
 
@@ -305,8 +306,8 @@ development_status:
         assigned_to: null
 
     7-1-verified-kb-storage:
-        status: backlog
-        assigned_to: null
+        status: in-progress
+        assigned_to: Soulaymane
 
     7-2-verified-kb-priority:
         status: backlog

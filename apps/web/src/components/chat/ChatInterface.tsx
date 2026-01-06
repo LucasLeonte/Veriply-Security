@@ -377,6 +377,7 @@ export default function ChatInterface({
                                 botAvatar={botAvatar}
                                 streaming={streaming}
                                 botId={botId}
+                                sessionId={sessionId}
                                 confidenceThresholdPercent={confidenceThreshold}
                                 feedbackState={feedbackState}
                                 onSubmitFeedback={submitFeedbackForMessage}
