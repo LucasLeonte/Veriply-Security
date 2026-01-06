@@ -21,6 +21,18 @@ export function getGmailAuthUrl(token?: string): string {
     const base = `${API_BASE_URL}/api/v1/integrations/gmail/authorize`;
     if (!token) return base;
     const url = new URL(base);
+    // ... existing code ...
+    url.searchParams.set("token", token);
+    return url.toString();
+}
+
+/**
+ * Get authorization URL for Outlook OAuth
+ */
+export function getOutlookAuthUrl(token?: string): string {
+    const base = `${API_BASE_URL}/api/v1/integrations/outlook/authorize`;
+    if (!token) return base;
+    const url = new URL(base);
     url.searchParams.set("token", token);
     return url.toString();
 }

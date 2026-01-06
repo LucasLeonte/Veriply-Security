@@ -22,6 +22,7 @@ from app.api.v1.auth import get_current_user, get_current_tenant, get_jwt_secret
 from app.utils.encryption import encrypt_token, decrypt_token
 from pydantic import BaseModel, Field
 import jwt
+from app.integrations import gmail, outlook
 
 logger = logging.getLogger(__name__)
 
@@ -145,12 +146,11 @@ async def gmail_authorize(
 
     state = str(uuid4())
     # In production store state in user session to validate in callback
-    scope = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/gmail.modify"
-    auth_url = (
-        "https://accounts.google.com/o/oauth2/v2/auth"
-        f"?response_type=code&client_id={client_id}"
-        f"&scope={quote(scope)}&access_type=offline&prompt=consent"
-        f"&redirect_uri={quote(redirect_uri)}&state={state}"
+    
+    auth_url = gmail.get_authorization_url(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        state=state
     )
 
     return RedirectResponse(auth_url)
@@ -227,26 +227,16 @@ async def gmail_callback(
         redirect_fallback=redirect_default,
     )
 
-    token_endpoint = "https://oauth2.googleapis.com/token"
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            token_endpoint,
-            data={
-                "code": code,
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "redirect_uri": redirect_uri,
-                "grant_type": "authorization_code",
-            },
-            timeout=15,
+    try:
+        token_data = await gmail.exchange_code_for_token(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+            code=code
         )
-
-    if resp.status_code != 200:
-        logger.error("Failed to exchange token: %s %s", resp.status_code, resp.text)
+    except Exception as e:
+        logger.error("Failed to exchange token: %s", e)
         raise HTTPException(status_code=502, detail="Failed to exchange token with Google")
-
-    token_data = resp.json()
     refresh_token = token_data.get("refresh_token")
     access_token = token_data.get("access_token")
 
@@ -367,3 +357,117 @@ async def disconnect_integration(
         raise HTTPException(status_code=500, detail="Failed to disconnect integration")
 
     return {"message": "Integration disconnected successfully"}
+
+
+@router.get("/outlook/authorize")
+async def outlook_authorize(
+    request: Request,
+    token: Optional[str] = None,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return a Microsoft OAuth2 authorization URL to redirect the user to."""
+    tenant_id = await _get_tenant_from_token(request, token, credentials)
+    redirect_default = os.environ.get("OUTLOOK_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/outlook/callback")
+    client_id, _, redirect_uri = await _get_oauth_credentials(
+        db=db,
+        tenant_id=tenant_id,
+        provider="outlook",
+        redirect_fallback=redirect_default,
+    )
+
+    state = str(uuid4())
+    # In production store state in user session to check in callback
+    
+    auth_url = outlook.get_authorization_url(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        state=state
+    )
+
+    return RedirectResponse(auth_url)
+
+
+@router.get("/outlook/callback")
+async def outlook_callback(
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """Handle Outlook OAuth2 callback."""
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing code from provider")
+
+    redirect_default = os.environ.get("OUTLOOK_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/outlook/callback")
+    client_id, client_secret, redirect_uri = await _get_oauth_credentials(
+        db=db,
+        tenant_id=tenant_id,
+        provider="outlook",
+        redirect_fallback=redirect_default,
+    )
+
+    try:
+        token_data = await outlook.exchange_code_for_token(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+            code=code
+        )
+    except Exception as e:
+        logger.error("Failed to exchange token with Microsoft: %s", e)
+        raise HTTPException(status_code=502, detail="Failed to exchange token with Microsoft")
+
+    refresh_token = token_data.get("refresh_token")
+    access_token = token_data.get("access_token")
+
+    if not refresh_token:
+        logger.warning("No refresh token returned by Microsoft; storing access token")
+
+    token_to_encrypt = refresh_token or access_token
+    try:
+        encrypted_token = encrypt_token(token_to_encrypt)
+    except Exception as e:
+        logger.error(f"Failed to encrypt token: {e}")
+        raise HTTPException(status_code=500, detail="Failed to secure token")
+
+    # Check/Upsert integration
+    existing = await db.execute(
+        select(EmailIntegration).where(
+            and_(
+                EmailIntegration.user_id == current_user.id,
+                EmailIntegration.provider == "outlook",
+            )
+        )
+    )
+    integration = existing.scalars().first()
+
+    if integration:
+        integration.encrypted_refresh_token = encrypted_token
+        integration.scope = token_data.get("scope")
+        integration.status = "connected"
+        integration.is_active = True
+        integration.last_sync_time = datetime.utcnow()
+        integration.updated_at = datetime.utcnow()
+    else:
+        integration = EmailIntegration(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            user_id=current_user.id,
+            provider="outlook",
+            encrypted_refresh_token=encrypted_token,
+            scope=token_data.get("scope"),
+            status="connected",
+        )
+        db.add(integration)
+
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        logger.exception("Failed to save outlook integration: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to save integration")
+
+    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    return RedirectResponse(f"{frontend_url}/dashboard/integrations?connected=outlook")

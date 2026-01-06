@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { DashboardLayout } from "@/components";
 import GmailConnection from "@/components/integrations/GmailConnection";
+import OutlookConnection from "@/components/integrations/OutlookConnection";
 import { EmailIntegration, listIntegrations } from "@/lib/api/integrations";
 
 export default function IntegrationsPage() {
@@ -40,9 +41,11 @@ export default function IntegrationsPage() {
         const connected = searchParams.get("connected");
         if (connected === "gmail") {
             setSuccessMessage("Gmail connected successfully!");
-            // Clear query param
             router.replace("/dashboard/integrations");
-            // Auto-dismiss success message
+            setTimeout(() => setSuccessMessage(null), 5000);
+        } else if (connected === "outlook") {
+            setSuccessMessage("Outlook connected successfully!");
+            router.replace("/dashboard/integrations");
             setTimeout(() => setSuccessMessage(null), 5000);
         }
     }, [searchParams, router]);
@@ -52,7 +55,7 @@ export default function IntegrationsPage() {
             setLoading(false);
             return; // Wait for token to be loaded
         }
-        
+
         setLoading(true);
         setError(null);
 
@@ -73,9 +76,15 @@ export default function IntegrationsPage() {
 
     const gmailIntegration =
         integrations.find((i) => i.provider === "gmail") || null;
+    const outlookIntegration =
+        integrations.find((i) => i.provider === "outlook") || null;
 
     const handleGmailDisconnect = () => {
         // Refresh integrations list
+        fetchIntegrations();
+    };
+
+    const handleOutlookDisconnect = () => {
         fetchIntegrations();
     };
 
@@ -122,30 +131,11 @@ export default function IntegrationsPage() {
                         token={authToken}
                     />
 
-                    {/* Placeholder for Outlook integration (Story 6.2) */}
-                    <Card className="p-6 opacity-50">
-                        <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                                    <svg
-                                        className="h-6 w-6 text-blue-600"
-                                        fill="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <path d="M7 2v20l15-10L7 2z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold text-slate-900">
-                                        Outlook
-                                    </h3>
-                                    <p className="text-sm text-slate-600">
-                                        Coming soon in Story 6.2
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
+                    <OutlookConnection
+                        integration={outlookIntegration}
+                        onDisconnect={handleOutlookDisconnect}
+                        token={authToken}
+                    />
                 </div>
 
                 {loading && (
