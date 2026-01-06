@@ -153,6 +153,9 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
+    EMAIL_FROM: Optional[str] = None
+    EMAIL_DISPLAY_NAME: Optional[str] = None  # Display name like "Veriply Team"
+    REPLY_TO: Optional[str] = None  # Optional reply-to address
     
     # ========================================================================
     # MODERATION NOTIFICATION CONFIGURATION

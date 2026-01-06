@@ -173,8 +173,19 @@ class EmailService:
             # Create message
             message = MIMEMultipart("alternative")
             message["Subject"] = subject
-            message["From"] = settings.EMAIL_FROM or settings.SMTP_USER
+            
+            # Set From with optional display name
+            from_address = settings.EMAIL_FROM or settings.SMTP_USER
+            if settings.EMAIL_DISPLAY_NAME:
+                message["From"] = f"{settings.EMAIL_DISPLAY_NAME} <{from_address}>"
+            else:
+                message["From"] = from_address
+            
             message["To"] = to_email
+            
+            # Add Reply-To if configured
+            if settings.REPLY_TO:
+                message["Reply-To"] = settings.REPLY_TO
 
             # Attach text and HTML parts
             message.attach(MIMEText(text_content, "plain"))
