@@ -5,8 +5,9 @@ import logging
 from typing import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -19,6 +20,7 @@ from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
 from app.services.context_service import ContextService, DEFAULT_CONTEXT_WINDOW
 from app.services.confidence_service import ConfidenceCalculatorService
+from app.services.domain_whitelist_service import extract_request_origin, matches_whitelist
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +90,7 @@ async def get_public_bot_info(
 async def chat_query(
     bot_id: UUID,
     request: ChatQueryRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -189,6 +192,21 @@ async def chat_query(
     try:
         # Get tenant_id from bot for context retrieval
         tenant_id = bot.tenant_id
+
+        # Enforce domain whitelist before processing request
+        widget_cfg_result = await db.execute(
+            select(WidgetConfig).where(WidgetConfig.bot_id == bot_id)
+        )
+        widget_cfg = widget_cfg_result.scalar_one_or_none()
+        allowed_domains = (widget_cfg.allowed_domains or []) if widget_cfg else []
+
+        if allowed_domains:
+            origin = extract_request_origin(http_request)
+            if not matches_whitelist(origin, allowed_domains):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This widget is not authorized for this domain",
+                )
 
         # Retrieve relevant context from vector store
         search_results, _latency_ms = await vector_search_service.search(
@@ -319,6 +337,8 @@ async def chat_query(
         response.headers["Access-Control-Allow-Headers"] = "*"
         return response
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing chat query: {e}")
         response = StreamingResponse(
@@ -448,6 +468,7 @@ async def _stream_error_response(error: str) -> AsyncIterator[str]:
 @router.get("/{bot_id}/widget/config", response_model=WidgetConfigResponse)
 async def get_public_widget_config(
     bot_id: UUID,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -462,9 +483,17 @@ async def get_public_widget_config(
     if hasattr(bot, "is_public") and not bot.is_public:
         raise HTTPException(status_code=403, detail="Bot is not public")
 
-    from sqlalchemy import select
     result = await db.execute(select(WidgetConfig).where(WidgetConfig.bot_id == bot_id))
     cfg = result.scalar_one_or_none()
+    allowed_domains = (cfg.allowed_domains or []) if cfg else []
+
+    if allowed_domains:
+        origin = extract_request_origin(http_request)
+        if not matches_whitelist(origin, allowed_domains):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This widget is not authorized for this domain",
+            )
 
     if cfg is None:
         # Compose defaults with bot welcome message if present
@@ -474,6 +503,7 @@ async def get_public_widget_config(
             primary_color="#3B82F6",
             welcome_message=getattr(bot, "welcome_message", None),
             auto_open=False,
+            allowed_domains=[],
         )
 
     return WidgetConfigResponse(**cfg.to_dict())

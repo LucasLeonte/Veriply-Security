@@ -28,6 +28,7 @@ interface WidgetConfig {
     primary_color: string;
     welcome_message: string | null;
     auto_open: boolean;
+    allowed_domains: string[];
 }
 
 const POSITIONS = [
@@ -36,6 +37,54 @@ const POSITIONS = [
     { value: "top-right", label: "Top Right" },
     { value: "top-left", label: "Top Left" },
 ];
+
+const DOMAIN_REGEX =
+    /^(\*\.)?[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+const LOCALHOST_REGEX = /^(localhost|127\.0\.0\.1)$/;
+const MAX_DOMAINS = 50;
+
+const normalizeDomain = (value: string): string => {
+    let candidate = value.trim().toLowerCase();
+    if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
+        try {
+            const parsed = new URL(candidate);
+            candidate = parsed.hostname;
+        } catch {
+            // leave as-is if URL parsing fails
+        }
+    }
+    candidate = candidate.replace(/\/$/, "");
+    if (candidate.includes(":")) {
+        candidate = candidate.split(":")[0];
+    }
+    return candidate;
+};
+
+const validateDomainInput = (
+    raw: string,
+    existing: string[],
+    editingIndex: number | null
+): string | null => {
+    const candidate = normalizeDomain(raw);
+    if (!candidate) return "Invalid domain format";
+    if (!DOMAIN_REGEX.test(candidate) && !LOCALHOST_REGEX.test(candidate)) {
+        return "Invalid domain format";
+    }
+
+    const existingNormalized = existing.map((d) => normalizeDomain(d));
+    const duplicateIndex = existingNormalized.findIndex((d) => d === candidate);
+    const isDuplicate =
+        duplicateIndex !== -1 && duplicateIndex !== editingIndex;
+    if (isDuplicate) {
+        return "Domain already in whitelist";
+    }
+
+    if (existing.length >= MAX_DOMAINS && editingIndex === null) {
+        return `Maximum ${MAX_DOMAINS} domains allowed`;
+    }
+
+    return null;
+};
 
 export function WidgetConfigClient({
     groupId,
@@ -52,6 +101,9 @@ export function WidgetConfigClient({
     const [saving, setSaving] = useState(false);
     const [copied, setCopied] = useState(false);
     const [paramError, setParamError] = useState<string | null>(null);
+    const [domainInput, setDomainInput] = useState("");
+    const [domainError, setDomainError] = useState<string | null>(null);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const { toast } = useToast();
 
     // Load current config
@@ -87,7 +139,10 @@ export function WidgetConfigClient({
 
                 if (configResponse.ok) {
                     const configData = await configResponse.json();
-                    setConfig(configData);
+                    setConfig({
+                        ...configData,
+                        allowed_domains: configData.allowed_domains || [],
+                    });
                     setBot(botData);
                 } else {
                     toast({
@@ -141,12 +196,16 @@ export function WidgetConfigClient({
                         position: config.position,
                         primary_color: config.primary_color,
                         auto_open: config.auto_open,
+                        allowed_domains: config.allowed_domains,
                     }),
                 }
             );
             if (response.ok) {
                 const updated = await response.json();
-                setConfig(updated);
+                setConfig({
+                    ...updated,
+                    allowed_domains: updated.allowed_domains || [],
+                });
                 toast({
                     title: "Success",
                     description: "Widget config saved",
@@ -175,6 +234,46 @@ export function WidgetConfigClient({
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleAddDomain = () => {
+        if (!config) return;
+        const error = validateDomainInput(
+            domainInput,
+            config.allowed_domains,
+            editingIndex
+        );
+        if (error) {
+            setDomainError(error);
+            return;
+        }
+
+        const normalized = normalizeDomain(domainInput);
+        const updated = [...config.allowed_domains];
+        if (editingIndex !== null) {
+            updated[editingIndex] = normalized;
+        } else {
+            updated.push(normalized);
+        }
+
+        setConfig({ ...config, allowed_domains: updated });
+        setDomainInput("");
+        setDomainError(null);
+        setEditingIndex(null);
+    };
+
+    const handleDeleteDomain = (index: number) => {
+        if (!config) return;
+        const updated = config.allowed_domains.filter((_, i) => i !== index);
+        setConfig({ ...config, allowed_domains: updated });
+        setEditingIndex(null);
+    };
+
+    const handleEditDomain = (index: number) => {
+        if (!config) return;
+        setDomainInput(config.allowed_domains[index]);
+        setEditingIndex(index);
+        setDomainError(null);
     };
 
     const generateCode = () => {
@@ -359,6 +458,114 @@ export function WidgetConfigClient({
                                     Auto-open widget on page load
                                 </span>
                             </label>
+                        </div>
+
+                        {/* Allowed Domains */}
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-slate-900 mb-2">
+                                Allowed Domains
+                            </label>
+                            {config.allowed_domains.length === 0 && (
+                                <div className="mb-3 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                    <span aria-hidden>⚠️</span>
+                                    <div className="text-left leading-snug">
+                                        No domain restrictions. Widget is
+                                        publicly accessible on ANY website.
+                                        <a
+                                            href="https://veriply.io/docs/widget-domain-restrictions"
+                                            className="ml-1 underline"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            Learn why
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="flex flex-col gap-2">
+                                <div className="flex flex-col sm:flex-row gap-2">
+                                    <Input
+                                        value={domainInput}
+                                        onChange={(e) => {
+                                            setDomainInput(e.target.value);
+                                            setDomainError(null);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                                e.preventDefault();
+                                                handleAddDomain();
+                                            }
+                                        }}
+                                        placeholder="example.com or *.example.com"
+                                        className="flex-1"
+                                        aria-label="Add allowed domain"
+                                    />
+                                    <Button
+                                        onClick={handleAddDomain}
+                                        className="sm:w-auto w-full"
+                                        variant="secondary"
+                                        size="lg"
+                                    >
+                                        {editingIndex !== null
+                                            ? "Update"
+                                            : "Add"}
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    Supports wildcards (e.g., *.example.com).
+                                    localhost is allowed for testing.
+                                </p>
+                                {domainError && (
+                                    <p
+                                        className="text-xs text-red-600"
+                                        role="alert"
+                                    >
+                                        {domainError}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {config.allowed_domains.length === 0 && (
+                                    <p className="text-xs text-slate-600">
+                                        No domains added yet.
+                                    </p>
+                                )}
+                                {config.allowed_domains.map((domain, index) => (
+                                    <div
+                                        key={`${domain}-${index}`}
+                                        className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm"
+                                    >
+                                        <span className="text-slate-800">
+                                            {domain}
+                                        </span>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-11 min-w-[44px] px-3 text-xs"
+                                                onClick={() =>
+                                                    handleEditDomain(index)
+                                                }
+                                                aria-label={`Edit ${domain}`}
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                className="h-11 min-w-[44px] px-3 text-xs text-red-600 hover:bg-red-50"
+                                                onClick={() =>
+                                                    handleDeleteDomain(index)
+                                                }
+                                                aria-label={`Delete ${domain}`}
+                                            >
+                                                Delete
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
                         <Button

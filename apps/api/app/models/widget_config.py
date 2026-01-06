@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4, UUID
 
-from sqlalchemy import Column, String, Boolean, DateTime, Enum, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import Column, String, Boolean, DateTime, Enum, ForeignKey, JSON, text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -27,6 +27,11 @@ class WidgetConfig(Base):
     position: Mapped[str] = mapped_column(String(20), default=WidgetPosition.BOTTOM_RIGHT)
     primary_color: Mapped[str] = mapped_column(String(7), default="#3B82F6")
     auto_open: Mapped[bool] = mapped_column(Boolean, default=False)
+    allowed_domains: Mapped[list[str]] = mapped_column(
+        JSONB().with_variant(JSON(), "sqlite"),
+        default=list,
+        server_default=text("'[]'"),
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
@@ -37,4 +42,5 @@ class WidgetConfig(Base):
             "position": self.position,
             "primary_color": self.primary_color,
             "auto_open": self.auto_open,
+            "allowed_domains": self.allowed_domains or [],
         }

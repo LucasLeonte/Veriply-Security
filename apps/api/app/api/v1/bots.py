@@ -15,6 +15,7 @@ from app.api.v1.schemas import BotCreate, BotUpdate, BotResponse
 from app.schemas.widget import WidgetConfigResponse, WidgetConfigUpdate
 from app.services.bot_group_service import BotGroupService
 from app.services.audit_service import AuditService
+from app.services.domain_whitelist_service import validate_domain_list
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -411,6 +412,7 @@ async def get_widget_config(
             primary_color="#3B82F6",
             welcome_message=None,
             auto_open=False,
+            allowed_domains=[],
         )
 
     return WidgetConfigResponse(**cfg.to_dict())
@@ -427,10 +429,12 @@ async def update_widget_config(
     """Update widget settings (requires manager or admin)."""
     await check_group_access(group_id, current_user, session, required_role=GroupRole.MANAGER)
 
-    from sqlalchemy import select
-
     result = await session.execute(select(WidgetConfig).where(WidgetConfig.bot_id == bot_id))
     cfg = result.scalar_one_or_none()
+
+    allowed_domains: list[str] = []
+    if payload.allowed_domains is not None:
+        allowed_domains = validate_domain_list(payload.allowed_domains)
 
     if cfg is None:
         cfg = WidgetConfig(
@@ -438,6 +442,7 @@ async def update_widget_config(
             position=payload.position or "bottom-right",
             primary_color=payload.primary_color or "#3B82F6",
             auto_open=bool(payload.auto_open) if payload.auto_open is not None else False,
+            allowed_domains=allowed_domains,
         )
         session.add(cfg)
     else:
@@ -447,6 +452,8 @@ async def update_widget_config(
             cfg.primary_color = payload.primary_color
         if payload.auto_open is not None:
             cfg.auto_open = payload.auto_open
+        if payload.allowed_domains is not None:
+            cfg.allowed_domains = allowed_domains
 
     await session.commit()
     await session.refresh(cfg)

@@ -12,6 +12,10 @@ function buildTarget(botId: string): string {
 export async function GET(request: NextRequest): Promise<NextResponse> {
     const { searchParams } = new URL(request.url);
     const botId = searchParams.get("botId");
+    const embedOrigin =
+        request.headers.get("x-embed-origin") ||
+        request.headers.get("referer") ||
+        request.headers.get("origin");
 
     if (!botId) {
         return NextResponse.json(
@@ -23,6 +27,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const target = buildTarget(botId);
     const headers = new Headers();
     headers.set("content-type", "application/json");
+    if (embedOrigin) {
+        headers.set("x-embed-origin", embedOrigin);
+    }
 
     try {
         const upstream = await fetch(target, {

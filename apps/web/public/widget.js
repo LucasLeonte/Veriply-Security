@@ -19,10 +19,22 @@
         var gap = 8;
         var chatOffset = buttonSize + gap; // keep chat above the button like dashboard preview
 
-        container.style.width = "400px";
-        container.style.height = "520px";
-        container.style.maxHeight =
-            "calc(100vh - (24px + " + chatOffset + "px))"; // shrink on short viewports
+        var applyResponsiveSizing = function () {
+            var viewportWidth =
+                typeof window !== "undefined" ? window.innerWidth : 1024;
+            var viewportHeight =
+                typeof window !== "undefined" ? window.innerHeight : 768;
+            var maxWidth = Math.min(420, viewportWidth - 24);
+            var maxHeight = Math.min(620, viewportHeight - (24 + chatOffset));
+            var height = Math.max(360, maxHeight);
+            container.style.width = maxWidth + "px";
+            container.style.maxWidth = "calc(100vw - 24px)";
+            container.style.height = height + "px";
+            container.style.maxHeight =
+                "calc(100vh - (24px + " + chatOffset + "px))"; // shrink on short viewports
+        };
+
+        applyResponsiveSizing();
         container.style.borderRadius = "12px";
         container.style.overflow = "hidden";
         container.style.boxShadow = "0 8px 24px rgba(0,0,0,0.2)";
@@ -30,27 +42,64 @@
         container.style.display = autoOpen ? "block" : "none";
 
         var margin = "12px";
-        switch (position) {
-            case "bottom-left":
-                container.style.left = margin;
-                container.style.bottom =
-                    "calc(" + margin + " + " + chatOffset + "px)";
-                break;
-            case "top-right":
-                container.style.right = margin;
-                container.style.top =
-                    "calc(" + margin + " + " + chatOffset + "px)";
-                break;
-            case "top-left":
-                container.style.left = margin;
-                container.style.top =
-                    "calc(" + margin + " + " + chatOffset + "px)";
-                break;
-            default:
-                container.style.right = margin;
-                container.style.bottom =
-                    "calc(" + margin + " + " + chatOffset + "px)";
-        }
+        var keyboardOffset = 0;
+
+        var updatePositions = function () {
+            var extra = keyboardOffset > 0 ? keyboardOffset : 0;
+            switch (position) {
+                case "bottom-left":
+                    container.style.left = margin;
+                    container.style.bottom =
+                        "calc(" +
+                        margin +
+                        " + " +
+                        chatOffset +
+                        "px + " +
+                        extra +
+                        "px)";
+                    break;
+                case "top-right":
+                    container.style.right = margin;
+                    container.style.top =
+                        "calc(" + margin + " + " + chatOffset + "px)";
+                    break;
+                case "top-left":
+                    container.style.left = margin;
+                    container.style.top =
+                        "calc(" + margin + " + " + chatOffset + "px)";
+                    break;
+                default:
+                    container.style.right = margin;
+                    container.style.bottom =
+                        "calc(" +
+                        margin +
+                        " + " +
+                        chatOffset +
+                        "px + " +
+                        extra +
+                        "px)";
+            }
+
+            switch (position) {
+                case "bottom-left":
+                    button.style.left = margin;
+                    button.style.bottom =
+                        "calc(" + margin + " + " + extra + "px)";
+                    break;
+                case "top-right":
+                    button.style.right = margin;
+                    button.style.top = margin;
+                    break;
+                case "top-left":
+                    button.style.left = margin;
+                    button.style.top = margin;
+                    break;
+                default:
+                    button.style.right = margin;
+                    button.style.bottom =
+                        "calc(" + margin + " + " + extra + "px)";
+            }
+        };
 
         var button = document.createElement("button");
         button.type = "button";
@@ -66,24 +115,7 @@
         button.style.background = primaryColor;
         button.style.color = "#fff";
 
-        // position button near widget
-        switch (position) {
-            case "bottom-left":
-                button.style.left = margin;
-                button.style.bottom = margin;
-                break;
-            case "top-right":
-                button.style.right = margin;
-                button.style.top = margin;
-                break;
-            case "top-left":
-                button.style.left = margin;
-                button.style.top = margin;
-                break;
-            default:
-                button.style.right = margin;
-                button.style.bottom = margin;
-        }
+        updatePositions();
 
         button.innerHTML =
             '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4H20V16H5.17L4 17.17V4Z" stroke="white" stroke-width="2"/><path d="M8 9H16" stroke="white" stroke-width="2"/><path d="M8 13H12" stroke="white" stroke-width="2"/></svg>';
@@ -100,6 +132,33 @@
             }
         });
 
+        var applyKeyboardOffset = function () {
+            if (!window.visualViewport) return;
+            keyboardOffset = Math.max(
+                0,
+                window.innerHeight - window.visualViewport.height
+            );
+            updatePositions();
+        };
+
+        if (typeof window !== "undefined") {
+            window.addEventListener("resize", function () {
+                applyResponsiveSizing();
+                updatePositions();
+            });
+            window.addEventListener("orientationchange", function () {
+                applyResponsiveSizing();
+                updatePositions();
+            });
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener(
+                    "resize",
+                    applyKeyboardOffset
+                );
+            }
+            applyKeyboardOffset();
+        }
+
         var iframe = document.createElement("iframe");
         var origin =
             script.getAttribute("data-origin") || location.origin || "";
@@ -109,6 +168,12 @@
             "/public/chat/" +
             encodeURIComponent(botId) +
             "?embedded=true";
+        try {
+            var embedOrigin = window.location.origin;
+            if (embedOrigin) {
+                iframeSrc += "&embed_origin=" + encodeURIComponent(embedOrigin);
+            }
+        } catch (e) {}
         iframe.src = iframeSrc;
         iframe.setAttribute(
             "sandbox",

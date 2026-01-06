@@ -38,6 +38,7 @@ export default function ChatInterface({
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const [showClearDialog, setShowClearDialog] = useState(false);
+    const [keyboardOffset, setKeyboardOffset] = useState(0);
     const {
         messages,
         loading,
@@ -129,6 +130,25 @@ export default function ChatInterface({
         }
     }, [input]);
 
+    // Handle mobile keyboard visibility (embedded or narrow screens)
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const viewport = window.visualViewport;
+        const handleResize = () => {
+            if (!viewport) return;
+            const offset = Math.max(0, window.innerHeight - viewport.height);
+            setKeyboardOffset(offset);
+        };
+
+        handleResize();
+        viewport?.addEventListener("resize", handleResize);
+        window.addEventListener("orientationchange", handleResize);
+        return () => {
+            viewport?.removeEventListener("resize", handleResize);
+            window.removeEventListener("orientationchange", handleResize);
+        };
+    }, [embedded]);
+
     // Refresh sessions when messages change (keeps sidebar index fresh)
     useEffect(() => {
         refreshSessions();
@@ -181,7 +201,16 @@ export default function ChatInterface({
 
     return (
         <>
-            <div className="w-full max-w-6xl h-[90vh] flex gap-4">
+            <div
+                className={`w-full max-w-6xl flex gap-4 ${
+                    embedded ? "h-full" : "h-[calc(100vh-64px)]"
+                } flex-col md:flex-row`}
+                style={
+                    keyboardOffset
+                        ? { paddingBottom: keyboardOffset + 12 }
+                        : undefined
+                }
+            >
                 {/* Sidebar (Your chats) */}
                 <aside className="hidden md:flex md:flex-col w-[260px] border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden">
                     <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -249,7 +278,7 @@ export default function ChatInterface({
                     </div>
                 </aside>
 
-                <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
+                <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative min-h-[480px]">
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-white/80 backdrop-blur-sm z-10 sticky top-0">
                         <div className="flex items-center gap-3">
@@ -308,7 +337,14 @@ export default function ChatInterface({
                     </div>
 
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
+                    <div
+                        className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth"
+                        style={
+                            keyboardOffset
+                                ? { scrollPaddingBottom: keyboardOffset + 160 }
+                                : undefined
+                        }
+                    >
                         {messages.length > 0 && (
                             <ContextSummary
                                 messages={messages}
@@ -366,7 +402,14 @@ export default function ChatInterface({
                     </div>
 
                     {/* Input Area - Floating Capsule */}
-                    <div className="p-4 md:p-6 bg-gradient-to-t from-white via-white to-transparent pt-10">
+                    <div
+                        className="p-4 md:p-6 bg-gradient-to-t from-white via-white to-transparent pt-10"
+                        style={
+                            keyboardOffset
+                                ? { paddingBottom: keyboardOffset + 16 }
+                                : undefined
+                        }
+                    >
                         {/* Context Indicator */}
                         {messages.length > 0 && (
                             <div className="mb-3 text-center">
@@ -391,7 +434,7 @@ export default function ChatInterface({
                                 <Button
                                     onClick={handleSend}
                                     disabled={!input.trim() || loading}
-                                    className={`mb-1 mr-1 rounded-full w-10 h-10 transition-all duration-300 ${
+                                    className={`mb-1 mr-1 rounded-full w-11 h-11 min-w-[44px] transition-all duration-300 ${
                                         input.trim()
                                             ? "bg-sky-600 hover:bg-sky-700 text-white shadow-md shadow-sky-200"
                                             : "bg-slate-100 text-slate-400 hover:bg-slate-200"
