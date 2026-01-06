@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
     Clock,
@@ -504,6 +504,16 @@ export function ReviewQueue({
     const [botsLoading, setBotsLoading] = useState(false);
     const [showShortcutHelp, setShowShortcutHelp] = useState(false);
 
+    const pendingByBot = useMemo(() => {
+        const counts: Record<string, number> = {};
+        items.forEach((item) => {
+            if (item.status !== "pending") return;
+            const key = item.botName || "Unknown";
+            counts[key] = (counts[key] ?? 0) + 1;
+        });
+        return counts;
+    }, [items]);
+
     const filteredItems = items.filter((item) => {
         if (item.status !== "pending") return false;
         if (
@@ -766,11 +776,14 @@ export function ReviewQueue({
                         className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg bg-white text-slate-900 font-medium cursor-pointer hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <option value="all">All Bots ({stats.pending})</option>
-                        {availableBots.map((bot) => (
-                            <option key={bot} value={bot}>
-                                {bot}
-                            </option>
-                        ))}
+                        {availableBots.map((bot) => {
+                            const count = pendingByBot[bot] ?? 0;
+                            return (
+                                <option key={bot} value={bot}>
+                                    {bot} ({count})
+                                </option>
+                            );
+                        })}
                     </select>
                     <div className="ml-auto flex items-center gap-2">
                         <span className="text-sm text-slate-500">Sort:</span>
