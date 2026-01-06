@@ -186,9 +186,10 @@ class EmailService:
                 async with aiosmtplib.SMTP(
                     hostname=settings.SMTP_HOST, 
                     port=settings.SMTP_PORT,
-                    timeout=10
+                    timeout=10,
+                    use_tls=False,  # Don't use TLS on connection
+                    start_tls=True  # Use STARTTLS instead
                 ) as smtp:
-                    await smtp.starttls()  # Explicitly start TLS
                     await smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                     await smtp.send_message(message)
 
