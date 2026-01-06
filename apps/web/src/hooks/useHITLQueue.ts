@@ -85,16 +85,41 @@ export function useHITLQueue() {
         }
     }, []);
 
+    // Fallback polling when WebSocket fails
+    const startPolling = useCallback(() => {
+        if (pollingIntervalRef.current) {
+            return; // Already polling
+        }
+
+        console.log("Starting fallback polling for queue updates (every 5 seconds)");
+        
+        // Poll every 5 seconds
+        pollingIntervalRef.current = setInterval(() => {
+            fetchQueue();
+        }, 5000);
+    }, [fetchQueue]);
+
     // Connect to WebSocket for real-time updates
     const connectWebSocket = useCallback(() => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             return; // Already connected
         }
 
+        // Close any existing connection before creating a new one
+        if (wsRef.current) {
+            try {
+                wsRef.current.close();
+            } catch (e) {
+                console.debug("Error closing existing WebSocket:", e);
+            }
+            wsRef.current = null;
+        }
+
         try {
             const token = getAccessToken();
             if (!token) {
-                console.warn("No auth token available for WebSocket");
+                console.warn("No auth token available for WebSocket, falling back to polling");
+                startPolling();
                 return;
             }
 
@@ -118,18 +143,29 @@ export function useHITLQueue() {
             
             const wsUrl = `${protocol}//${wsHost}/api/v1/hitl/ws/queue?token=${encodeURIComponent(token)}`;
             
-            console.log(`Connecting to WebSocket: ${wsUrl}`);
+            console.log(`Attempting WebSocket connection (attempt ${reconnectAttemptsRef.current + 1}/${maxReconnectAttemptsRef.current})`);
 
             const ws = new WebSocket(wsUrl);
+            
+            // Set a connection timeout
+            const connectionTimeout = setTimeout(() => {
+                if (ws.readyState === WebSocket.CONNECTING) {
+                    console.warn("WebSocket connection timeout, closing and falling back to polling");
+                    ws.close();
+                    startPolling();
+                }
+            }, 5000); // 5 second timeout
 
             ws.onopen = () => {
-                console.log("WebSocket connected for HITL queue updates");
+                clearTimeout(connectionTimeout);
+                console.log("WebSocket connected successfully");
                 reconnectAttemptsRef.current = 0;
                 
                 // Clear polling once WebSocket is connected
                 if (pollingIntervalRef.current) {
                     clearInterval(pollingIntervalRef.current);
                     pollingIntervalRef.current = null;
+                    console.log("Polling stopped, using WebSocket for updates");
                 }
             };
 
@@ -161,14 +197,25 @@ export function useHITLQueue() {
             };
 
             ws.onerror = (event) => {
-                console.error("WebSocket error:", {
+                clearTimeout(connectionTimeout);
+                // Browser provides limited error information for security reasons
+                const readyStateText = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][ws.readyState] || "UNKNOWN";
+                console.error("WebSocket connection error:", {
                     readyState: ws.readyState,
-                    url: wsUrl,
-                    event: event
+                    readyStateText,
+                    url: wsUrl.replace(/token=[^&]+/, "token=***"), // Hide token in logs
+                    timestamp: new Date().toISOString(),
                 });
+                
+                // If error occurs during connection (readyState 0), start polling immediately
+                if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.CLOSED) {
+                    console.warn("WebSocket failed to connect, falling back to polling");
+                    startPolling();
+                }
             };
 
             ws.onclose = (event) => {
+                clearTimeout(connectionTimeout);
                 console.log("WebSocket closed:", {
                     code: event.code,
                     reason: event.reason || "No reason provided",
@@ -176,12 +223,18 @@ export function useHITLQueue() {
                 });
                 wsRef.current = null;
 
+                // Don't reconnect if connection was closed intentionally (clean close)
+                if (event.wasClean) {
+                    console.log("WebSocket closed cleanly, not reconnecting");
+                    return;
+                }
+
                 // Attempt to reconnect with exponential backoff
                 if (reconnectAttemptsRef.current < maxReconnectAttemptsRef.current) {
                     const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
                     reconnectAttemptsRef.current += 1;
                     
-                    console.log(`WebSocket reconnect attempt ${reconnectAttemptsRef.current} in ${delay}ms...`);
+                    console.log(`WebSocket will reconnect in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${maxReconnectAttemptsRef.current})`);
                     
                     setTimeout(() => {
                         connectWebSocket();
@@ -198,40 +251,32 @@ export function useHITLQueue() {
             console.error("Failed to create WebSocket:", err);
             startPolling();
         }
-    }, [fetchQueue]);
-
-    // Fallback polling when WebSocket fails
-    const startPolling = useCallback(() => {
-        if (pollingIntervalRef.current) {
-            return; // Already polling
-        }
-
-        console.log("Starting fallback polling for queue updates (every 5 seconds)");
-        
-        // Poll every 5 seconds
-        pollingIntervalRef.current = setInterval(() => {
-            fetchQueue();
-        }, 5000);
-    }, [fetchQueue]);
+    }, [fetchQueue, startPolling]);
 
     // Initial setup: fetch queue and connect WebSocket
     useEffect(() => {
         setIsLoading(true);
         fetchQueue();
-        connectWebSocket();
+        
+        // Attempt WebSocket connection after initial data fetch
+        // Use a small delay to allow component to settle
+        const wsTimeout = setTimeout(() => {
+            connectWebSocket();
+        }, 100);
 
-        // If WebSocket fails to connect quickly, start polling as fallback
+        // If WebSocket fails to connect within reasonable time, start polling as fallback
         const pollFallbackTimeout = setTimeout(() => {
             if (wsRef.current?.readyState !== WebSocket.OPEN && !pollingIntervalRef.current) {
-                console.log("WebSocket not connected after 2 seconds, starting polling fallback");
+                console.log("WebSocket not connected after 3 seconds, starting polling fallback");
                 startPolling();
             }
-        }, 2000);
+        }, 3000);
 
         return () => {
+            clearTimeout(wsTimeout);
             clearTimeout(pollFallbackTimeout);
         };
-    }, []);
+    }, [fetchQueue, connectWebSocket, startPolling]);
 
     // Cleanup on unmount
     useEffect(() => {
