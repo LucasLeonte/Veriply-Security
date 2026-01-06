@@ -360,7 +360,7 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -375,7 +375,7 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                                 size="sm"
                                 title={
                                     !canApprove
@@ -422,7 +422,7 @@ export function ReviewQueueItemCard({
                                 disabled={isRejecting}
                                 variant="outline"
                                 size="sm"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -437,7 +437,7 @@ export function ReviewQueueItemCard({
                             <Button
                                 onClick={handleApprove}
                                 disabled={isApproving || !canApprove}
-                                className="bg-green-600 hover:bg-green-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="bg-green-600 hover:bg-green-700 text-white gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:hover:bg-slate-400"
                                 size="sm"
                                 title={
                                     !canApprove
