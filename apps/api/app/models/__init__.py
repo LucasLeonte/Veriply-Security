@@ -19,6 +19,7 @@ from .feedback import (
     UserAbuseSuspicion as UserAbuseSuspicion,
 )
 from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
+from .widget_config import WidgetConfig as WidgetConfig
 
 __all__ = [
     "Base",
@@ -43,4 +44,5 @@ __all__ = [
     "UserAbuseSuspicion",
     "ConfidenceLog",
     "RoutingDecision",
+    "WidgetConfig",
 ]
