@@ -421,9 +421,17 @@ async def approve_queue_item(
     current_tenant: UUID = Depends(get_current_tenant),
 ):
     """
-    Approve a review queue item (mark as resolved by human).
+    Approve a review queue item with atomic operations:
+    1. Send response to end-user (future: email/chat integration)
+    2. Update Verified Knowledge Base
+    3. Remove item from queue (mark as resolved)
+    4. Record diff between AI draft and human edit (if edited)
+    
     Optionally accept edits to the AI draft.
     Publishes event to Redis for real-time updates.
+    
+    **AC1**: Response is sent, Q&A added to Verified KB, item removed from queue
+    **AC2**: If edited, system records diff between AI and human version
     """
     try:
         item_uuid = UUID(item_id)
@@ -491,8 +499,32 @@ async def approve_queue_item(
 
         # Store edits in metadata if provided; reassign the dict so JSON changes persist
         metadata = dict(item.metadata_json or {})
-
-        if request.edits:
+        ai_draft = metadata.get("ai_draft", "")
+        
+        # Determine final answer and track if edited
+        was_edited = False
+        diff_result = None
+        final_answer = ai_draft
+        
+        if request.edits and request.edits != ai_draft:
+            was_edited = True
+            final_answer = request.edits
+            
+            # AC2: Record diff between AI draft and human edit
+            diff_result = {
+                "ai_version": ai_draft,
+                "human_version": request.edits,
+                "edited_by": str(current_user.id),
+                "edited_at": datetime.utcnow().isoformat(),
+                # Calculate character-level changes for analytics
+                "char_diff": {
+                    "ai_length": len(ai_draft),
+                    "human_length": len(request.edits),
+                    "diff_length": len(request.edits) - len(ai_draft),
+                }
+            }
+            
+            metadata["diff"] = diff_result
             # SECURITY: Sanitize edited draft (basic validation)
             # Strip leading/trailing whitespace and limit length
             sanitized_edits = request.edits.strip()
@@ -511,25 +543,36 @@ async def approve_queue_item(
             metadata["human_edits"] = request.edits
             metadata["human_final_answer"] = request.edits
             metadata["resolution_action"] = "approved_with_edits"
-            logger.debug(f"Approval with edits: {request.edits[:50]}...")
+            logger.info(f"Approval with edits for item {item_id} - AI:{len(ai_draft)} chars → Human:{len(request.edits)} chars")
         else:
-            # Default to AI draft as the approved answer if no edits supplied
-            ai_draft = metadata.get("ai_draft", "")
+            # No edits - use AI draft as-is
             metadata["human_final_answer"] = ai_draft
             metadata["resolution_action"] = "approved"
             logger.debug("Approval without edits - using AI draft")
 
+        # Mark as resolved
+        item.hitl_resolved = True
+        item.resolution_user_id = current_user.id
+        item.resolution_timestamp = datetime.utcnow()
+        
+        # AC1: Mark item for Verified KB update
+        item.is_verified_kb = True
+        metadata["verified_kb_added"] = True
+        metadata["verified_at"] = datetime.utcnow().isoformat()
+        metadata["verified_by"] = str(current_user.id)
+        
         item.metadata_json = metadata
 
         logger.debug(f"Committing approval for item {item_id}")
         await db.commit()
-        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
+        logger.info(f"✓ HITL item {item_id} successfully approved and added to Verified KB")
         
-        # Build response with the approved answer
-        resolved_answer = (
-            request.edits
-            or item.metadata_json.get("ai_draft", "")
-        )
+        # TODO Story 7.1: Add Q&A pair to dedicated verified_kb table
+        # For now, marking is_verified_kb=True on ConfidenceLog serves as interim storage
+        
+        # TODO Future: AC1 - Send response to end-user via email/chat integration
+        # This requires chat session or email thread tracking (Epic 6 for email)
+        # For MVP, approval marks the item as ready for manual sending or auto-responses
         
         # Publish resolution event to Redis for real-time updates
         try:
@@ -549,10 +592,16 @@ async def approve_queue_item(
         return {
             "status": "approved",
             "item_id": item_id,
-            "resolved_answer": resolved_answer,
-            "citations": item.metadata_json.get("citations", []),
+            "resolved_answer": final_answer,
+            "was_edited": was_edited,
+            "diff": diff_result if was_edited else None,
+            "verified_kb_updated": True,
+            "citations": metadata.get("citations", []),
         }
 
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404) without wrapping
+        raise
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

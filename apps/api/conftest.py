@@ -26,10 +26,10 @@ if not any(r.path.startswith("/api/v1/integrations") for r in app.routes if hasa
 # Import Base from models.base and all models to register them with metadata
 from app.models import Base  # noqa: F401 - imported for model registration
 from app.models.user import User  # noqa: F401
-from app.models.tenant import Tenant  # noqa: F401
+from app.models.tenant import Tenant, SubscriptionTier  # noqa: F401
 from app.models.group import Group  # noqa: F401
 from app.models.group_member import GroupMember, GroupRole  # noqa: F401
-from app.models.bot import Bot  # noqa: F401
+from app.models.bot import Bot, BotStatus  # noqa: F401
 from app.models.document import Document  # noqa: F401
 from app.models.chunk import Chunk  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
@@ -204,3 +204,88 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
         yield ac
     
     app.dependency_overrides.clear()
+
+
+# =============================================================================
+# Test User/Bot Fixtures
+# =============================================================================
+
+@pytest_asyncio.fixture(scope="function")
+async def test_tenant(db_session: AsyncSession):
+    """Create a test tenant."""
+    from uuid import uuid4
+    tenant = Tenant(
+        id=uuid4(),
+        name="Test Tenant",
+        plan="pro",
+        subscription_tier=SubscriptionTier.PRO
+    )
+    db_session.add(tenant)
+    await db_session.commit()
+    await db_session.refresh(tenant)
+    return tenant
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_user(db_session: AsyncSession, test_tenant: Tenant):
+    """Create a test user."""
+    from uuid import uuid4
+    from app.services.auth_service import hash_password
+    
+    user = User(
+        id=uuid4(),
+        email="test@example.com",
+        password_hash=hash_password("testpassword"),
+        tenant_id=test_tenant.id,
+        role="admin"
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
+
+@pytest_asyncio.fixture(scope="function")
+async def test_bot(db_session: AsyncSession, test_tenant: Tenant, test_user: User):
+    """Create a test bot."""
+    from uuid import uuid4
+    from datetime import datetime
+    
+    bot = Bot(
+        id=uuid4(),
+        tenant_id=test_tenant.id,
+        name="Test Bot",
+        description="Test bot for HITL tests",
+        confidence_threshold=80,
+        status=BotStatus.READY,
+        created_by=test_user.id,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db_session.add(bot)
+    await db_session.commit()
+    await db_session.refresh(bot)
+    return bot
+
+
+@pytest_asyncio.fixture(scope="function")
+async def auth_headers(test_user: User, test_tenant: Tenant):
+    """Create auth headers with valid JWT token."""
+    import jwt
+    from datetime import datetime, timedelta
+    from app.core.settings import settings
+    
+    JWT_ALGORITHM = "HS256"
+    
+    token_payload = {
+        "sub": str(test_user.id),
+        "tenant_id": str(test_tenant.id),
+        "email": test_user.email,
+        "role": test_user.role,
+        "exp": datetime.utcnow() + timedelta(hours=24)
+    }
+    token = jwt.encode(token_payload, settings.JWT_SECRET, algorithm=JWT_ALGORITHM)
+    
+    return {
+        "Authorization": f"Bearer {token}"
+    }
