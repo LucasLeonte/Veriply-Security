@@ -28,6 +28,19 @@ from app.models.chunk import Chunk  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
 
 
+# SQLite fallback for JSONB columns used in Postgres
+def _install_sqlite_jsonb_compiler():
+    from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+
+    # Treat JSONB as JSON when compiling DDL for SQLite test database
+    def visit_JSONB(self, type_, **kw):  # noqa: N802 - external API naming
+        return "JSON"
+
+    # Only install once
+    if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
+        SQLiteTypeCompiler.visit_JSONB = visit_JSONB
+
+
 # Test database URL - use file-based SQLite for tests to avoid in-memory connection issues
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_veriply.db"
 
@@ -94,6 +107,9 @@ async def db_engine():
         echo=False,
         poolclass=NullPool,
     )
+
+    if engine.dialect.name == "sqlite":
+        _install_sqlite_jsonb_compiler()
     
     # Create all tables
     async with engine.begin() as conn:

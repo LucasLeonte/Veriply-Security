@@ -224,13 +224,13 @@ development_status:
         blocked_by: 4-1-web-chat-interface
 
     4-5-embeddable-widget-generation:
-        status: in-progress
+        status: done
         assigned_to: Lucas
         blocked_by: 4-1-web-chat-interface
 
     4-6-widget-security-responsiveness:
-        status: ready-for-dev
-        assigned_to: null
+        status: done
+        assigned_to: Lucas
         blocked_by: 4-5-embeddable-widget-generation
 
     epic-4-retrospective: optional

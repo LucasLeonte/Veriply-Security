@@ -4,8 +4,16 @@ import { DashboardLayout } from "@/components";
 import { BotDocumentAccess } from "@/components/bot/BotDocumentAccess";
 import ChatInterface from "@/components/chat/ChatInterface";
 import ChatHistoryPanel from "@/components/chat/ChatHistoryPanel";
-import { useParams } from "next/navigation";
-import { ArrowLeft, Settings, FileText, MessageCircle, Clock3 } from "lucide-react";
+import { WidgetConfigClient } from "@/app/dashboard/groups/[groupId]/bots/[botId]/widget/widget-client";
+import { useParams, useSearchParams } from "next/navigation";
+import {
+    ArrowLeft,
+    Settings,
+    FileText,
+    MessageCircle,
+    Clock3,
+    Settings2,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useGroup } from "@/contexts/GroupContext";
@@ -13,16 +21,28 @@ import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import BotGeneralSettings from "@/components/bot/BotGeneralSettings";
 
-type TabType = "settings" | "documents" | "chat" | "history";
+type TabType = "settings" | "documents" | "chat" | "history" | "widget";
 
 export default function BotSettingsPage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const botId = params.botId as string;
     const { currentGroup } = useGroup();
     const [activeTab, setActiveTab] = useState<TabType>("chat");
     const [bot, setBot] = useState<Bot | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Set active tab from query parameter
+    useEffect(() => {
+        const tab = searchParams.get("tab") as TabType | null;
+        if (
+            tab &&
+            ["chat", "documents", "settings", "history", "widget"].includes(tab)
+        ) {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (!currentGroup) return;
@@ -38,7 +58,9 @@ export default function BotSettingsPage() {
         return (
             <DashboardLayout>
                 <div className="text-center py-12">
-                    <p className="text-slate-600">Please select a group first</p>
+                    <p className="text-slate-600">
+                        Please select a group first
+                    </p>
                 </div>
             </DashboardLayout>
         );
@@ -56,16 +78,6 @@ export default function BotSettingsPage() {
                         <ArrowLeft size={16} />
                         Back to Bots
                     </Link>
-                </div>
-
-                {/* Header */}
-                <div>
-                    <h2 className="text-2xl font-semibold text-slate-900">
-                        Bot Settings
-                    </h2>
-                    <p className="text-sm text-slate-600 mt-1">
-                        Configure bot access and settings
-                    </p>
                 </div>
 
                 {/* Tabs */}
@@ -115,6 +127,17 @@ export default function BotSettingsPage() {
                             <Clock3 size={16} />
                             History
                         </button>
+                        <button
+                            onClick={() => setActiveTab("widget")}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === "widget"
+                                    ? "border-emerald-600 text-emerald-600"
+                                    : "border-transparent text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                            <Settings2 size={16} />
+                            Widget Configuration
+                        </button>
                     </nav>
                 </div>
 
@@ -123,25 +146,34 @@ export default function BotSettingsPage() {
                     {activeTab === "chat" && (
                         <div className="space-y-4">
                             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-800">
-                                <p className="font-medium mb-1">Test Your Bot</p>
+                                <p className="font-medium mb-1">
+                                    Test Your Bot
+                                </p>
                                 <p className="text-emerald-700">
-                                    Chat with your bot to test its responses and document access.
-                                    The bot will search through documents you've granted access to.
+                                    Chat with your bot to test its responses and
+                                    document access. The bot will search through
+                                    documents you've granted access to.
                                 </p>
                             </div>
 
                             {loading ? (
-                                <div className="p-6 text-slate-600">Loading bot…</div>
+                                <div className="p-6 text-slate-600">
+                                    Loading bot…
+                                </div>
                             ) : error ? (
-                                <div className="p-6 text-red-700 bg-red-50 border border-red-200 rounded">{error}</div>
+                                <div className="p-6 text-red-700 bg-red-50 border border-red-200 rounded">
+                                    {error}
+                                </div>
                             ) : bot ? (
                                 <ChatInterface
                                     botId={botId}
                                     botName={bot.name}
                                     botAvatar={bot.avatar_url}
-                                    welcomeMessage={bot.welcome_message || bot.description || `Hi! I'm ${bot.name}`}
+                                    description={bot.description}
                                     isPublic={bot.is_public}
-                                    confidenceThreshold={bot.confidence_threshold}
+                                    confidenceThreshold={
+                                        bot.confidence_threshold
+                                    }
                                 />
                             ) : null}
                         </div>
@@ -150,35 +182,57 @@ export default function BotSettingsPage() {
                     {activeTab === "documents" && (
                         <div className="space-y-4">
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
-                                <p className="font-medium mb-1">Document Access Control</p>
+                                <p className="font-medium mb-1">
+                                    Document Access Control
+                                </p>
                                 <p className="text-blue-700">
-                                    Control which documents and folders this bot can access.
-                                    Folder settings apply to all documents in that folder unless
-                                    overridden by explicit document settings.
+                                    Control which documents and folders this bot
+                                    can access. Folder settings apply to all
+                                    documents in that folder unless overridden
+                                    by explicit document settings.
                                 </p>
                             </div>
 
-                            <BotDocumentAccess botId={botId} groupId={currentGroup.id} />
+                            <BotDocumentAccess
+                                botId={botId}
+                                groupId={currentGroup.id}
+                            />
                         </div>
                     )}
 
                     {activeTab === "settings" && currentGroup && (
                         <div className="bg-white border border-slate-200 rounded-lg p-6">
-                            <BotGeneralSettings groupId={currentGroup.id} botId={botId} />
+                            <BotGeneralSettings
+                                groupId={currentGroup.id}
+                                botId={botId}
+                            />
                         </div>
                     )}
 
                     {activeTab === "history" && (
                         <div className="space-y-4">
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-800">
-                                <p className="font-medium mb-1">Conversation History</p>
+                                <p className="font-medium mb-1">
+                                    Conversation History
+                                </p>
                                 <p className="text-slate-700">
-                                    View past conversations for this bot. History is available to owners/admins only.
+                                    View past conversations for this bot.
+                                    History is available to owners/admins only.
                                 </p>
                             </div>
                             <ChatHistoryPanel
                                 botId={botId}
                                 onResumeChat={() => setActiveTab("chat")}
+                            />
+                        </div>
+                    )}
+
+                    {activeTab === "widget" && currentGroup && (
+                        <div className="space-y-4">
+                            <WidgetConfigClient
+                                groupId={currentGroup.id}
+                                botId={botId}
+                                hideNav
                             />
                         </div>
                     )}
