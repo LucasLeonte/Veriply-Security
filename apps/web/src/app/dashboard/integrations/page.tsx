@@ -17,10 +17,21 @@ export default function IntegrationsPage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [authToken, setAuthToken] = useState<string>("");
 
-    // Get auth token from localStorage (client-side only)
+    // Get auth token from localStorage or cookies (client-side only)
     useEffect(() => {
         if (typeof window !== "undefined") {
-            setAuthToken(localStorage.getItem("access_token") || "");
+            let token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token") || "";
+            if (!token) {
+                // try cookie fallback
+                const match = document.cookie
+                    .split(";")
+                    .map((c) => c.trim())
+                    .find((c) => c.startsWith("access_token="));
+                if (match) {
+                    token = decodeURIComponent(match.split("=")[1]);
+                }
+            }
+            setAuthToken(token);
         }
     }, []);
 

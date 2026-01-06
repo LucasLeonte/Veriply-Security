@@ -3,7 +3,7 @@
 import os
 import logging
 from typing import Optional
-from uuid import uuid4
+from uuid import uuid4, UUID
 from datetime import datetime
 from urllib.parse import quote
 
@@ -12,25 +12,136 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 import httpx
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.core.database import get_db
 from app.models.email_integration import EmailIntegration
+from app.models.integration_credentials import IntegrationCredentials
 from app.models.user import User
-from app.api.v1.auth import get_current_user, get_current_tenant
+from app.api.v1.auth import get_current_user, get_current_tenant, get_jwt_secret, JWT_ALGORITHM
 from app.utils.encryption import encrypt_token, decrypt_token
+from pydantic import BaseModel, Field
+import jwt
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
+optional_bearer = HTTPBearer(auto_error=False)
+
+
+class IntegrationCredentialRequest(BaseModel):
+    provider: str = Field(..., description="gmail or outlook")
+    client_id: str
+    client_secret: str
+    redirect_uri: Optional[str] = None
+
+
+async def _get_oauth_credentials(
+    db: AsyncSession,
+    tenant_id: UUID,
+    provider: str,
+    redirect_fallback: str,
+):
+    """Fetch tenant-specific OAuth credentials, falling back to global row then env vars.
+
+    Order of resolution:
+    1) integration_credentials matching tenant_id + provider
+    2) integration_credentials with tenant_id IS NULL (global default)
+    3) environment variables
+    """
+    query = (
+        select(IntegrationCredentials)
+        .where(
+            and_(
+                IntegrationCredentials.provider == provider,
+                IntegrationCredentials.tenant_id == tenant_id,
+            )
+        )
+        .limit(1)
+    )
+    result = await db.execute(query)
+    row = result.scalar_one_or_none()
+
+    if not row:
+        # Global default credentials (tenant_id is NULL)
+        query = (
+            select(IntegrationCredentials)
+            .where(
+                and_(
+                    IntegrationCredentials.provider == provider,
+                    IntegrationCredentials.tenant_id.is_(None),
+                )
+            )
+            .limit(1)
+        )
+        result = await db.execute(query)
+        row = result.scalar_one_or_none()
+
+    client_id = None
+    client_secret = None
+    redirect_uri = None
+
+    if row:
+        client_id = row.client_id
+        client_secret = decrypt_token(row.encrypted_client_secret)
+        redirect_uri = row.redirect_uri or redirect_fallback
+
+    # Fallback to env vars if nothing configured
+    if not client_id:
+        client_id = os.environ.get("GOOGLE_CLIENT_ID") if provider == "gmail" else os.environ.get("OUTLOOK_CLIENT_ID")
+    if not client_secret:
+        client_secret = os.environ.get("GOOGLE_CLIENT_SECRET") if provider == "gmail" else os.environ.get("OUTLOOK_CLIENT_SECRET")
+    if not redirect_uri:
+        redirect_uri = redirect_fallback
+
+    if not client_id or not client_secret:
+        raise HTTPException(status_code=500, detail=f"{provider.upper()} client credentials not configured")
+
+    return client_id, client_secret, redirect_uri
+
+
+async def _get_tenant_from_token(
+    request: Request,
+    token: Optional[str],
+    credentials: Optional[HTTPAuthorizationCredentials],
+):
+    raw_token = token or (credentials.credentials if credentials else None)
+
+    # Fallback: look for cookie-based token if not provided explicitly
+    if not raw_token:
+        raw_token = request.cookies.get("access_token")
+
+    if not raw_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    try:
+        payload = jwt.decode(raw_token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        tenant_id: str = payload.get("tenant_id")
+        if not tenant_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Tenant ID not found in token")
+        return UUID(tenant_id)
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
 
 
 @router.get("/gmail/authorize")
-async def gmail_authorize(request: Request):
+async def gmail_authorize(
+    request: Request,
+    token: Optional[str] = None,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer),
+    db: AsyncSession = Depends(get_db),
+):
     """Return a Google OAuth2 authorization URL to redirect the user to."""
-    client_id = os.environ.get("GOOGLE_CLIENT_ID")
-    redirect_uri = os.environ.get("GOOGLE_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/gmail/callback")
-    if not client_id:
-        raise HTTPException(status_code=500, detail="GOOGLE_CLIENT_ID not configured")
+    tenant_id = await _get_tenant_from_token(request, token, credentials)
+    redirect_default = os.environ.get("GOOGLE_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/gmail/callback")
+    client_id, _, redirect_uri = await _get_oauth_credentials(
+        db=db,
+        tenant_id=tenant_id,
+        provider="gmail",
+        redirect_fallback=redirect_default,
+    )
 
     state = str(uuid4())
     # In production store state in user session to validate in callback
@@ -44,25 +155,77 @@ async def gmail_authorize(request: Request):
 
     return RedirectResponse(auth_url)
 
+@router.post("/credentials")
+async def set_integration_credentials(
+    payload: IntegrationCredentialRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: UUID = Depends(get_current_tenant),
+    current_user: User = Depends(get_current_user),
+):
+    """Store or update OAuth credentials for the tenant for the given provider.
+
+    This endpoint enables the hybrid model: per-tenant credentials override global/env.
+    """
+    # Basic guard: only owners/admins should set credentials; for now ensure user is active.
+    if not current_user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
+
+    provider = payload.provider.lower()
+    if provider not in {"gmail", "outlook"}:
+        raise HTTPException(status_code=400, detail="Unsupported provider")
+
+    encrypted_secret = encrypt_token(payload.client_secret)
+
+    # Upsert logic: try fetch existing
+    existing_query = select(IntegrationCredentials).where(
+        and_(
+            IntegrationCredentials.provider == provider,
+            IntegrationCredentials.tenant_id == tenant_id,
+        )
+    )
+    result = await db.execute(existing_query)
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.client_id = payload.client_id
+        existing.encrypted_client_secret = encrypted_secret
+        existing.redirect_uri = payload.redirect_uri
+        existing.updated_at = datetime.utcnow()
+        cred = existing
+    else:
+        cred = IntegrationCredentials(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            provider=provider,
+            client_id=payload.client_id,
+            encrypted_client_secret=encrypted_secret,
+            redirect_uri=payload.redirect_uri,
+        )
+        db.add(cred)
+
+    await db.commit()
+    return {"status": "ok", "provider": provider, "scope": "tenant"}
+
 
 @router.get("/gmail/callback")
 async def gmail_callback(
-    code: Optional[str] = None, 
-    state: Optional[str] = None, 
+    code: Optional[str] = None,
+    state: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-    tenant_id: uuid4 = Depends(get_current_tenant),
+    tenant_id: UUID = Depends(get_current_tenant),
 ):
     """Handle Google OAuth2 callback: exchange code for refresh token and store encrypted token."""
     if not code:
         raise HTTPException(status_code=400, detail="Missing code from provider")
 
-    client_id = os.environ.get("GOOGLE_CLIENT_ID")
-    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
-    redirect_uri = os.environ.get("GOOGLE_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/gmail/callback")
-
-    if not client_id or not client_secret:
-        raise HTTPException(status_code=500, detail="Google OAuth credentials not configured")
+    redirect_default = os.environ.get("GOOGLE_OAUTH_REDIRECT", "http://localhost:3000/api/integrations/gmail/callback")
+    client_id, client_secret, redirect_uri = await _get_oauth_credentials(
+        db=db,
+        tenant_id=tenant_id,
+        provider="gmail",
+        redirect_fallback=redirect_default,
+    )
 
     token_endpoint = "https://oauth2.googleapis.com/token"
 

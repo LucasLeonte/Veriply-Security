@@ -21,8 +21,12 @@ export default function GmailConnection({
     const [error, setError] = useState<string | null>(null);
 
     const handleConnect = () => {
-        // Redirect to OAuth flow
-        window.location.href = getGmailAuthUrl();
+        if (!token) {
+            setError("You need to be logged in before connecting Gmail.");
+            return;
+        }
+        // Redirect to OAuth flow with token so backend can resolve tenant/user
+        window.location.href = getGmailAuthUrl(token);
     };
 
     const handleDisconnect = async () => {

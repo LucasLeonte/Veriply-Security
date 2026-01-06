@@ -17,8 +17,12 @@ export interface ListIntegrationsResponse {
 /**
  * Get authorization URL for Gmail OAuth
  */
-export function getGmailAuthUrl(): string {
-    return `${API_BASE_URL}/api/v1/integrations/gmail/authorize`;
+export function getGmailAuthUrl(token?: string): string {
+    const base = `${API_BASE_URL}/api/v1/integrations/gmail/authorize`;
+    if (!token) return base;
+    const url = new URL(base);
+    url.searchParams.set("token", token);
+    return url.toString();
 }
 
 /**
