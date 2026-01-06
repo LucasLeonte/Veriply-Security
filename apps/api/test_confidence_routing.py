@@ -86,12 +86,12 @@ async def test_confidence_auto_send(monkeypatch, client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "auto_sent"
-    assert data["routing_info"]["decision"] == RoutingDecision.AUTO_SEND.value
+    assert data["routing_info"]["decision"] == RoutingDecision.auto_send.value
     assert data["confidence"]["overall_confidence"] >= 80
 
     logs = (await db_session.execute(select(ConfidenceLog))).scalars().all()
     assert len(logs) == 1
-    assert logs[0].routing_decision == RoutingDecision.AUTO_SEND
+    assert logs[0].routing_decision == RoutingDecision.auto_send
 
 
 @pytest.mark.asyncio
@@ -127,13 +127,13 @@ async def test_confidence_hitl_low_score(monkeypatch, client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "hitl_required"
-    assert data["routing_info"]["decision"] == RoutingDecision.HITL.value
+    assert data["routing_info"]["decision"] == RoutingDecision.hitl.value
     assert data["confidence"]["overall_confidence"] < 80
     assert data["routing_info"].get("end_user_message")
 
     logs = (await db_session.execute(select(ConfidenceLog))).scalars().all()
     assert len(logs) == 1
-    assert logs[0].routing_decision == RoutingDecision.HITL
+    assert logs[0].routing_decision == RoutingDecision.hitl
 
 
 @pytest.mark.asyncio
@@ -170,7 +170,7 @@ async def test_confidence_verified_kb_boost(monkeypatch, client, db_session):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "auto_sent"
-    assert data["routing_info"]["decision"] == RoutingDecision.AUTO_SEND.value
+    assert data["routing_info"]["decision"] == RoutingDecision.auto_send.value
     assert data["confidence"]["overall_confidence"] >= 95
 
     logs = (await db_session.execute(select(ConfidenceLog))).scalars().all()
@@ -200,7 +200,7 @@ async def test_confidence_no_context_routes_hitl(monkeypatch, client, db_session
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "hitl_required"
-    assert data["routing_info"]["decision"] == RoutingDecision.HITL.value
+    assert data["routing_info"]["decision"] == RoutingDecision.hitl.value
     assert data["confidence"]["overall_confidence"] == 0
     assert data["routing_info"].get("end_user_message")
 
@@ -242,9 +242,9 @@ async def test_confidence_threshold_override_allows_auto_send(monkeypatch, clien
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "auto_sent"
-    assert data["routing_info"]["decision"] == RoutingDecision.AUTO_SEND.value
+    assert data["routing_info"]["decision"] == RoutingDecision.auto_send.value
     assert data["routing_info"]["threshold_used"] == 0.5
 
     logs = (await db_session.execute(select(ConfidenceLog))).scalars().all()
     assert len(logs) == 1
-    assert logs[0].routing_decision == RoutingDecision.AUTO_SEND
+    assert logs[0].routing_decision == RoutingDecision.auto_send

@@ -33,7 +33,7 @@ async def test_get_queue_item_detail_success(client, test_tenant, test_user, aut
         retrieval_confidence=0.65,
         overall_confidence=0.65,
         threshold_used=0.8,
-        routing_decision=RoutingDecision.HITL,
+        routing_decision=RoutingDecision.hitl,
         hitl_resolved=False,
         created_at=datetime.utcnow() - timedelta(minutes=15),
         metadata_json={
@@ -178,7 +178,7 @@ async def test_get_queue_item_detail_empty_context_chunks(client, test_tenant, t
         retrieval_confidence=0.5,
         overall_confidence=0.5,
         threshold_used=0.8,
-        routing_decision=RoutingDecision.HITL,
+        routing_decision=RoutingDecision.hitl,
         hitl_resolved=False,
         created_at=datetime.utcnow(),
         metadata_json={
@@ -229,7 +229,7 @@ async def test_approve_with_edits_stores_correctly(client, test_tenant, test_use
         retrieval_confidence=0.5,
         overall_confidence=0.5,
         threshold_used=0.8,
-        routing_decision=RoutingDecision.HITL,
+        routing_decision=RoutingDecision.hitl,
         hitl_resolved=False,
         created_at=datetime.utcnow(),
         metadata_json={"ai_draft": "Original draft"},

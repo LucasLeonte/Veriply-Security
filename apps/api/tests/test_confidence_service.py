@@ -110,7 +110,7 @@ class TestConfidenceCalculation:
             confidence_threshold=80,  # 80%
         )
 
-        assert result.routing_decision == RoutingDecision.AUTO_SEND
+        assert result.routing_decision == RoutingDecision.auto_send
         assert result.overall_score >= 0.80
         assert result.retrieval_confidence == 0.89  # Max similarity
         assert result.is_verified_kb is False
@@ -129,7 +129,7 @@ class TestConfidenceCalculation:
             confidence_threshold=80,  # 80%
         )
 
-        assert result.routing_decision == RoutingDecision.HITL
+        assert result.routing_decision == RoutingDecision.hitl
         assert result.overall_score < 0.80
         assert result.retrieval_confidence == 0.42  # Max of low results
 
@@ -148,7 +148,7 @@ class TestConfidenceCalculation:
             is_verified_kb=True,
         )
 
-        assert result.routing_decision == RoutingDecision.AUTO_SEND
+        assert result.routing_decision == RoutingDecision.auto_send
         assert result.overall_score == VERIFIED_KB_CONFIDENCE  # 0.95
         assert result.is_verified_kb is True
         assert "Verified Knowledge Base" in result.reasoning
@@ -167,7 +167,7 @@ class TestConfidenceCalculation:
             confidence_threshold=80,
         )
 
-        assert result.routing_decision == RoutingDecision.HITL
+        assert result.routing_decision == RoutingDecision.hitl
         assert result.overall_score == NO_CONTEXT_CONFIDENCE  # 0.0
         assert result.retrieval_confidence == 0.0
         assert "No relevant context" in result.reasoning
@@ -202,7 +202,7 @@ class TestConfidenceCalculation:
         )
 
         # Score = 0.80, threshold = 0.80, should auto-send (>=)
-        assert result.routing_decision == RoutingDecision.AUTO_SEND
+        assert result.routing_decision == RoutingDecision.auto_send
 
     @pytest.mark.asyncio
     async def test_threshold_boundary_just_below(
@@ -232,7 +232,7 @@ class TestConfidenceCalculation:
         )
 
         # Score = 0.79, threshold = 0.80, should HITL (<)
-        assert result.routing_decision == RoutingDecision.HITL
+        assert result.routing_decision == RoutingDecision.hitl
 
 
 class TestConfidenceComponents:
@@ -415,7 +415,7 @@ class TestReasoningGeneration:
             generation_confidence=None,
             overall_score=0.88,
             threshold=0.80,
-            routing_decision=RoutingDecision.AUTO_SEND,
+            routing_decision=RoutingDecision.auto_send,
             search_results=[],
         )
 
@@ -432,7 +432,7 @@ class TestReasoningGeneration:
             generation_confidence=None,
             overall_score=0.35,
             threshold=0.80,
-            routing_decision=RoutingDecision.HITL,
+            routing_decision=RoutingDecision.hitl,
             search_results=[],
         )
 
@@ -448,7 +448,7 @@ class TestReasoningGeneration:
             generation_confidence=None,
             overall_score=0.0,
             threshold=0.80,
-            routing_decision=RoutingDecision.HITL,
+            routing_decision=RoutingDecision.hitl,
             search_results=[],
         )
 
@@ -460,11 +460,11 @@ class TestDifferentThresholds:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("threshold,expected_routing", [
-        (50, RoutingDecision.AUTO_SEND),   # Low threshold
-        (70, RoutingDecision.AUTO_SEND),   # Medium threshold
-        (80, RoutingDecision.AUTO_SEND),   # Default threshold
-        (90, RoutingDecision.HITL),        # High threshold
-        (95, RoutingDecision.HITL),        # Very high threshold
+        (50, RoutingDecision.auto_send),   # Low threshold
+        (70, RoutingDecision.auto_send),   # Medium threshold
+        (80, RoutingDecision.auto_send),   # Default threshold
+        (90, RoutingDecision.hitl),        # High threshold
+        (95, RoutingDecision.hitl),        # Very high threshold
     ])
     async def test_various_thresholds(
         self, confidence_service, mock_db, sample_search_results, threshold, expected_routing

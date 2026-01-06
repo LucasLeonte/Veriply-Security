@@ -145,16 +145,19 @@ async def get_review_queue(
         ).subquery()
         
         # Query pending HITL items for this tenant, filtered by user's accessible groups
+        # Items with null group_id (tenant-wide) OR items from groups the user belongs to
         query_stmt = select(ConfidenceLog).where(
             and_(
                 ConfidenceLog.routing_decision == RoutingDecision.hitl,
                 ConfidenceLog.hitl_resolved.is_(False),
                 ConfidenceLog.tenant_id == current_tenant,
-                # Filter by groups user has access to (or null group_id for tenant-wide bots)
-                func.coalesce(ConfidenceLog.group_id, None).in_(
-                    select(GroupMember.group_id).where(GroupMember.user_id == current_user.id)
-                ) | ConfidenceLog.group_id.is_(None)
             )
+        ).where(
+            # Items with null group_id (tenant-wide) OR items from user's groups
+            (ConfidenceLog.group_id.is_(None)) | 
+            (ConfidenceLog.group_id.in_(
+                select(GroupMember.group_id).where(GroupMember.user_id == current_user.id)
+            ))
         ).options(joinedload(ConfidenceLog.bot))
 
 
@@ -291,7 +294,7 @@ async def get_queue_item_detail(
                 and_(
                     ConfidenceLog.id == item_uuid,
                     ConfidenceLog.tenant_id == current_tenant,
-                    ConfidenceLog.routing_decision == RoutingDecision.HITL,
+                    ConfidenceLog.routing_decision == RoutingDecision.hitl,
                 )
             ).options(joinedload(ConfidenceLog.bot))
         )

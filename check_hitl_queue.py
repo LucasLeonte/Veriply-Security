@@ -25,7 +25,7 @@ async def check_hitl_queue():
         # Query HITL items (unresolved)
         hitl_query = select(ConfidenceLog).where(
             and_(
-                ConfidenceLog.routing_decision == RoutingDecision.HITL,
+                ConfidenceLog.routing_decision == RoutingDecision.hitl,
                 ConfidenceLog.hitl_resolved.is_(False),
             )
         ).options(joinedload(ConfidenceLog.bot))
