@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { Card } from "../../../../../../../components/ui/card";
 import { Button } from "../../../../../../../components/ui/button";
 import { Input } from "../../../../../../../components/ui/input";
-import { Textarea } from "../../../../../../../components/ui/textarea";
 import { useToast } from "../../../../../../../hooks/useToast";
 import { getAccessToken } from "../../../../../../../lib/auth";
 import {
@@ -471,14 +470,6 @@ export function WidgetConfigClient({
                                     <div className="text-left leading-snug">
                                         No domain restrictions. Widget is
                                         publicly accessible on ANY website.
-                                        <a
-                                            href="https://veriply.io/docs/widget-domain-restrictions"
-                                            className="ml-1 underline"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                        >
-                                            Learn why
-                                        </a>
                                     </div>
                                 </div>
                             )}

@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PublicChatClient from "./public-chat-client";
 import { getBotPublicInfo } from "@/lib/api/chat";
+import type { BotPublicInfo } from "@/types/chat";
 import { headers } from "next/headers";
 
 interface PageProps {
@@ -16,7 +17,7 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
     const resolvedParams = await params;
     try {
-        const incomingHeaders = headers();
+        const incomingHeaders = await headers();
         const embedOrigin =
             incomingHeaders.get("x-embed-origin") ||
             incomingHeaders.get("referer") ||
@@ -80,7 +81,7 @@ export default async function PublicChatPage({
 }: PageProps) {
     const resolvedParams = await params;
     const resolvedSearchParams = await searchParams;
-    const incomingHeaders = headers();
+    const incomingHeaders = await headers();
     const embedOrigin =
         incomingHeaders.get("x-embed-origin") ||
         incomingHeaders.get("referer") ||
@@ -92,7 +93,7 @@ export default async function PublicChatPage({
             : undefined) ||
         undefined;
 
-    let botInfo;
+    let botInfo: BotPublicInfo | null = null;
     let domainBlocked = false;
 
     try {
@@ -114,6 +115,10 @@ export default async function PublicChatPage({
         } else {
             domainBlocked = true;
         }
+    }
+
+    if (!domainBlocked && !botInfo) {
+        notFound();
     }
 
     const embedded =
@@ -165,17 +170,19 @@ export default async function PublicChatPage({
                     : "min-h-screen w-full flex items-center justify-center bg-slate-50"
             }
         >
-            <PublicChatClient
-                botId={resolvedParams.botId}
-                botName={botInfo.name}
-                botAvatar={botInfo.avatar_url}
-                description={botInfo.description}
-                isPublic={botInfo.is_public}
-                confidenceThreshold={botInfo.confidence_threshold}
-                bot={botInfo}
-                embedded={embedded}
-                primaryColor={primaryColor}
-            />
+            {botInfo && (
+                <PublicChatClient
+                    botId={resolvedParams.botId}
+                    botName={botInfo.name}
+                    botAvatar={botInfo.avatar_url}
+                    description={botInfo.description}
+                    isPublic={botInfo.is_public}
+                    confidenceThreshold={botInfo.confidence_threshold}
+                    bot={botInfo}
+                    embedded={embedded}
+                    primaryColor={primaryColor}
+                />
+            )}
         </main>
     );
 }
