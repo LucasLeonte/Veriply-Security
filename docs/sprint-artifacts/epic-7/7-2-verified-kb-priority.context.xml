@@ -1,0 +1,170 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>2</storyId>
+    <title>Verified KB Priority</title>
+    <status>drafted</status>
+    <generatedAt>2026-01-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-7/7-2-verified-kb-priority.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>System</asA>
+    <iWant>to check the Verified KB BEFORE generating new answers</iWant>
+    <soThat>users get consistent, human-verified responses</soThat>
+    <tasks>
+      - [ ] **Task 1: Two-Stage Retrieval Pipeline** (AC: #1, #2, #3)
+        - [ ] Add pre-RAG lookup against `verified_qa` index scoped by tenant/group/bot
+        - [ ] Return verified answer payload when similarity >= threshold
+        - [ ] Bypass LLM generation and document retrieval on verified hit
+        - [ ] Fall back to existing RAG path when no verified match
+
+      - [ ] **Task 2: Similarity & Thresholding** (AC: #2, #3)
+        - [ ] Use cosine similarity on `question_embedding` with default threshold 0.95
+        - [ ] Make threshold configurable per environment with sane defaults
+        - [ ] Add safety check to avoid empty/zero vectors
+        - [ ] Log scored candidates for observability (no PII)
+
+      - [ ] **Task 3: Response & UI Signal** (AC: #2)
+        - [ ] Include `verified=true` flag and provenance in API response
+        - [ ] Display "Verified" badge in chat/message UI when flag is set
+        - [ ] Add response metadata: matched question id, confidence score, source citations
+
+      - [ ] **Task 4: Performance & Caching** (AC: #4)
+        - [ ] Measure retrieval latency and ensure <50ms budget for verified lookup
+        - [ ] Add optional in-memory cache for hot verified questions (scope-aware)
+        - [ ] Add tracing spans/metrics for verified path vs standard RAG path
+
+      - [ ] **Task 5: Testing** (AC: all)
+        - [ ] Unit tests for similarity thresholding and branching logic
+        - [ ] Integration test: verified match skips LLM generation
+        - [ ] Integration test: fallback to RAG when no verified match
+        - [ ] Performance test: verified lookup stays within latency budget
+        - [ ] UI test: "Verified" badge renders only when verified flag is true
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. **Given** a user query  
+       **When** the RAG pipeline runs  
+       **Then** the Verified KB is searched FIRST
+
+    2. **Given** a semantic match with confidence > 95%  
+       **Then** the verified answer is returned immediately  
+       **And** the "Verified" badge is displayed  
+       **And** no LLM generation occurs
+
+    3. **Given** no match in Verified KB  
+       **Then** the standard RAG pipeline continues  
+       **And** answer may be generated from documents
+
+    4. **Verified KB search adds <50ms latency** end-to-end for retrieval path
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 7: Verified Knowledge Base</section>
+        <snippet>
+          Story 7.2: Verified KB Priority - Check Verified KB FIRST; return verified answer with badge and skip LLM when confident match exists.
+        </snippet>
+      </doc>
+
+      <doc>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR55</section>
+        <snippet>
+          Verified KB entries must take priority over generated answers; latency budget for verified lookup must stay minimal.
+        </snippet>
+      </doc>
+
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>RAG Retrieval Flow</section>
+        <snippet>
+          Two-stage retrieval: (1) verified_qa vector lookup scoped by tenant/group/bot, (2) document chunk retrieval, then generation.
+        </snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <artifact>
+        <path>apps/api/app/services/vector_search_service.py</path>
+        <kind>service</kind>
+        <symbol>VectorSearchService.search</symbol>
+        <lines>100-220</lines>
+        <reason>Existing vector search flow; extend to include verified_qa pre-check and branching.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/models/verified_qa.py</path>
+        <kind>model</kind>
+        <symbol>VerifiedQA</symbol>
+        <lines>1-120</lines>
+        <reason>Vector field and scope columns for verified entries used in retrieval.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/services/answer_service.py</path>
+        <kind>service</kind>
+        <symbol>AnswerService.generate</symbol>
+        <lines>1-200</lines>
+        <reason>Entry point for RAG pipeline; add verified shortcut path before LLM generation.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/web/src/components/chat/MessageItem.tsx</path>
+        <kind>component</kind>
+        <symbol>MessageItem</symbol>
+        <lines>1-200</lines>
+        <reason>Render "Verified" badge when API response marks verified=true.</reason>
+      </artifact>
+    </code>
+
+    <dependencies>
+      <python>
+        <package name="pgvector" version="^0.2" />
+        <package name="numpy" version="^1.24" />
+        <package name="fastapi" version="^0.104" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Verified lookup must precede document retrieval and generation; no LLM call on verified hit.
+    - Apply tenant_id/group_id/bot_id filters in verified_qa query to maintain isolation.
+    - Default similarity threshold 0.95; configurable but cannot be lowered without risk assessment.
+    - Latency budget: keep verified path <50ms; add tracing to monitor.
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>Verified KB Lookup</name>
+      <kind>function</kind>
+      <signature>
+        def find_verified_answer(query_embedding: Vector, tenant_id: UUID, group_id: UUID, bot_id: UUID, threshold: float = 0.95) -> Optional[VerifiedQA]:
+            ...
+      </signature>
+      <path>apps/api/app/services/vector_search_service.py</path>
+    </interface>
+
+    <interface>
+      <name>Answer Response DTO</name>
+      <kind>schema</kind>
+      <signature>
+        class AnswerResponse(BaseModel):
+            message: str
+            sources: list[Source]
+            verified: bool | None = False
+            verified_id: UUID | None
+            confidence: float | None
+      </signature>
+      <path>apps/api/app/schemas/answer.py</path>
+    </interface>
+  </interfaces>
+</story-context>

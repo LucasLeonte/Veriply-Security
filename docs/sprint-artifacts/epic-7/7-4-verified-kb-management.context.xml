@@ -1,0 +1,160 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>4</storyId>
+    <title>Verified KB Management</title>
+    <status>drafted</status>
+    <generatedAt>2026-01-07</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/epic-7/7-4-verified-kb-management.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>User</asA>
+    <iWant>to edit or remove Verified KB entries</iWant>
+    <soThat>I can maintain accuracy over time</soThat>
+    <tasks>
+      - [ ] **Task 1: UI - List & Controls** (AC: #1, #4, #5)
+        - [ ] Build paginated list/grid with question/answer previews and metadata
+        - [ ] Add search bar and filters (date range, creator)
+        - [ ] Provide Edit/Delete actions per row
+
+      - [ ] **Task 2: Edit Flow** (AC: #2)
+        - [ ] Edit modal/drawer with validation; regenerate embedding on save
+        - [ ] Update audit fields (updated_at, updated_by); optimistic UI with rollback
+
+      - [ ] **Task 3: Delete Flow** (AC: #3)
+        - [ ] Confirmation dialog; implement soft-delete (`deleted_at`) or policy-approved hard delete
+        - [ ] Exclude deleted entries from retrieval and UI lists
+
+      - [ ] **Task 4: API & Query Layer** (AC: #1, #4, #5)
+        - [ ] List endpoint with pagination, search (ILIKE), filters (date range, creator)
+        - [ ] Edit endpoint with re-embedding and validation
+        - [ ] Delete endpoint with scope enforcement and audit logging
+
+      - [ ] **Task 5: Observability & Audit** (AC: #2, #3)
+        - [ ] Log edits/deletes with user, timestamps, reason codes
+        - [ ] Metrics: edit count, delete count, search latency
+        - [ ] Add change history or revision log
+
+      - [ ] **Task 6: Testing** (AC: all)
+        - [ ] Unit tests: list filters/search, edit validation, delete behavior
+        - [ ] Integration tests: edit regenerates embedding; delete hides entry from lookup
+        - [ ] UI tests: search/filter interactions, edit/save flow, delete confirmation
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. **Given** I am on the Verified KB page  
+       **Then** I see a searchable list of entries with question/answer previews, created by/date, and actions (Edit, Delete)
+
+    2. **When** I click "Edit"  
+       **Then** I can modify question or answer  
+       **And** embedding is regenerated on save
+
+    3. **When** I click "Delete"  
+       **Then** I see confirmation  
+       **And** on confirm, entry is removed
+
+    4. **I can search entries by keyword**
+
+    5. **I can filter by date range or creator**
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 7: Verified Knowledge Base</section>
+        <snippet>Story 7.4: Verified KB Management - edit/delete entries; searchable, filterable list; re-embed on edit.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>FR54</section>
+        <snippet>Users must be able to edit or remove verified entries with auditability.</snippet>
+      </doc>
+
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Data Governance</section>
+        <snippet>Soft-delete patterns, audit logging, and re-embedding requirements for modified questions.</snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <artifact>
+        <path>apps/web/src/app/dashboard/verified-kb/page.tsx</path>
+        <kind>page</kind>
+        <symbol>VerifiedKBPage</symbol>
+        <lines>1-240</lines>
+        <reason>List rendering, search/filter UI, edit/delete controls.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/api/routes/verified_qa.py</path>
+        <kind>route</kind>
+        <symbol>list_verified_qa, update_verified_qa, delete_verified_qa</symbol>
+        <lines>1-200</lines>
+        <reason>Endpoints for list/edit/delete with scoping and audit logging.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/services/embedding_service.py</path>
+        <kind>service</kind>
+        <symbol>EmbeddingService.embed</symbol>
+        <lines>1-150</lines>
+        <reason>Re-embed updated questions; ensure dimension consistency.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/models/verified_qa.py</path>
+        <kind>model</kind>
+        <symbol>VerifiedQA</symbol>
+        <lines>1-140</lines>
+        <reason>Soft-delete column (`deleted_at`) and audit fields used by management flows.</reason>
+      </artifact>
+    </code>
+
+    <dependencies>
+      <python>
+        <package name="fastapi" version="^0.104" />
+        <package name="sqlalchemy" version="^2.0" />
+        <package name="pgvector" version="^0.2" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    - Edits must regenerate embeddings; deletions should prefer soft-delete with exclusion from retrieval paths.
+    - Enforce tenant/group/bot scoping on all list/edit/delete operations; respect RLS.
+    - Search/filter endpoints must be paginated and efficient (indexes on tenant/group/bot, created_at).
+    - Auditability: log who edited/deleted and when; retain history for compliance.
+  </constraints>
+
+  <interfaces>
+    <interface>
+      <name>List Verified QA API</name>
+      <kind>endpoint</kind>
+      <signature>GET /api/v1/verified-qa?search=&lt;query&gt;&amp;creator=&lt;id&gt;&amp;from=&lt;date&gt;&amp;to=&lt;date&gt;&amp;page=&lt;n&gt;&amp;size=&lt;n&gt;</signature>
+      <path>apps/api/app/api/routes/verified_qa.py</path>
+    </interface>
+
+    <interface>
+      <name>Edit Verified QA API</name>
+      <kind>endpoint</kind>
+      <signature>PUT /api/v1/verified-qa/{id}</signature>
+      <path>apps/api/app/api/routes/verified_qa.py</path>
+    </interface>
+
+    <interface>
+      <name>Delete Verified QA API</name>
+      <kind>endpoint</kind>
+      <signature>DELETE /api/v1/verified-qa/{id}</signature>
+      <path>apps/api/app/api/routes/verified_qa.py</path>
+    </interface>
+  </interfaces>
+</story-context>
