@@ -487,8 +487,8 @@ export default function SettingsPage() {
 
                 {!canManageTeam && (
                     <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
-                        You do not have permission to manage team members. Only
-                        Owners and Admins can manage the team.
+                        You do not have permission to manage group members. Only
+                        Owners and Admins can manage the group.
                     </div>
                 )}
 
@@ -499,12 +499,12 @@ export default function SettingsPage() {
                             onClick={() => setShowInviteModal(true)}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
                         >
-                            + Invite Team Member
+                            + Invite Group Member
                         </button>
                     </div>
                 )}
 
-                {/* Team Members Table */}
+                {/* Group Members Table */}
                 <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
                     <table className="w-full">
                         <thead>
@@ -533,7 +533,7 @@ export default function SettingsPage() {
                                         colSpan={5}
                                         className="px-6 py-4 text-center text-slate-500"
                                     >
-                                        No team members found
+                                        No group members found
                                     </td>
                                 </tr>
                             ) : (
