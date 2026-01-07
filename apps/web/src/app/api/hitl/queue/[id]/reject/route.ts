@@ -22,6 +22,7 @@ export async function POST(
             method: "POST",
             headers,
             body: JSON.stringify({ reason }),
+            cache: "no-store",
         });
 
         if (!response.ok) {
@@ -33,7 +34,13 @@ export async function POST(
         }
 
         const data = await response.json();
-        return NextResponse.json(data);
+        return NextResponse.json(data, {
+            headers: {
+                "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        });
     } catch (error) {
         console.error("Error rejecting item:", error);
         return NextResponse.json(

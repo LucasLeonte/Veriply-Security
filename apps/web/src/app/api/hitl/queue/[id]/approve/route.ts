@@ -8,7 +8,9 @@ export async function POST(
         const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         const authHeader = request.headers.get("Authorization");
 
-        const { edits } = await request.json();
+        const body = await request.json();
+        const edits = body?.edits;
+        const send_to_chat = body?.send_to_chat ?? true;
         const { id: itemId } = await params;
 
         const headers: HeadersInit = {
@@ -21,7 +23,9 @@ export async function POST(
         const response = await fetch(`${apiBaseUrl}/api/v1/hitl/queue/${itemId}/approve`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ edits }),
+            // Forward both edits and send_to_chat to the backend
+            body: JSON.stringify({ edits, send_to_chat }),
+            cache: "no-store",
         });
 
         if (!response.ok) {
@@ -33,7 +37,13 @@ export async function POST(
         }
 
         const data = await response.json();
-        return NextResponse.json(data);
+        return NextResponse.json(data, {
+            headers: {
+                "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        });
     } catch (error) {
         console.error("Error approving item:", error);
         return NextResponse.json(
