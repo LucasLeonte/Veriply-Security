@@ -59,11 +59,11 @@ class GroupService:
         db.add(new_group)
         await db.flush()
 
-        # Add creator as group_admin
+        # Add creator as owner (highest privilege)
         member = GroupMember(
             group_id=new_group.id,
             user_id=user_id,
-            role=GroupRole.GROUP_ADMIN,
+            role=GroupRole.OWNER.value,
             invited_by_id=user_id,
             invited_at=datetime.utcnow(),
         )

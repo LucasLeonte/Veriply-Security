@@ -28,12 +28,17 @@ export default function GroupsPage() {
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupDescription, setNewGroupDescription] = useState("");
     const [inviteEmail, setInviteEmail] = useState("");
-    const [inviteRole, setInviteRole] = useState<GroupRole>("operator");
+    const [inviteRole, setInviteRole] = useState<GroupRole>("viewer");
 
     // Load members when group changes
     React.useEffect(() => {
         if (currentGroup) {
+            // Clear members first to prevent showing stale data from previous group
+            setMembers([]);
             loadMembers(currentGroup.id);
+        } else {
+            // No group selected, clear members
+            setMembers([]);
         }
     }, [currentGroup]);
 
@@ -104,7 +109,7 @@ export default function GroupsPage() {
             await loadMembers(currentGroup.id);
             setShowInviteModal(false);
             setInviteEmail("");
-            setInviteRole("operator");
+            setInviteRole("viewer");
         } catch (err) {
             console.error("Failed to invite member:", err);
             alert("Failed to invite member");
@@ -138,11 +143,15 @@ export default function GroupsPage() {
 
     const getRoleIcon = (role: GroupRole) => {
         switch (role) {
-            case "group_admin":
+            case "owner":
                 return <Crown className="h-4 w-4 text-amber-600" />;
+            case "admin":
+                return <Shield className="h-4 w-4 text-purple-600" />;
             case "manager":
                 return <Shield className="h-4 w-4 text-blue-600" />;
-            case "operator":
+            case "agent":
+                return <Users className="h-4 w-4 text-green-600" />;
+            case "viewer":
                 return <Users className="h-4 w-4 text-slate-600" />;
         }
     };
@@ -271,14 +280,20 @@ export default function GroupsPage() {
                                                 }
                                                 className="text-sm border border-slate-300 rounded px-2 py-1"
                                             >
-                                                <option value="operator">
-                                                    Operator
+                                                <option value="viewer">
+                                                    Viewer
+                                                </option>
+                                                <option value="agent">
+                                                    Agent
                                                 </option>
                                                 <option value="manager">
                                                     Manager
                                                 </option>
-                                                <option value="group_admin">
-                                                    Group Admin
+                                                <option value="admin">
+                                                    Admin
+                                                </option>
+                                                <option value="owner">
+                                                    Owner
                                                 </option>
                                             </select>
                                             <Button
@@ -393,13 +408,11 @@ export default function GroupsPage() {
                                         }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                     >
-                                        <option value="operator">
-                                            Operator
-                                        </option>
+                                        <option value="viewer">Viewer</option>
+                                        <option value="agent">Agent</option>
                                         <option value="manager">Manager</option>
-                                        <option value="group_admin">
-                                            Group Admin
-                                        </option>
+                                        <option value="admin">Admin</option>
+                                        <option value="owner">Owner</option>
                                     </select>
                                 </div>
                             </div>
