@@ -39,12 +39,15 @@ async def check_group_access(
     if not member:
         raise HTTPException(status_code=403, detail="Not a member of this group")
 
-    if required_role and member.role not in [GroupRole.GROUP_ADMIN, required_role]:
-        role_names = ", ".join([r.value for r in [required_role, GroupRole.GROUP_ADMIN]])
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Requires one of these roles: {role_names}",
-        )
+    if required_role:
+        required_value = required_role.value if isinstance(required_role, GroupRole) else required_role
+        allowed_roles = {GroupRole.OWNER.value, GroupRole.ADMIN.value, required_value}
+        if member.role not in allowed_roles:
+            role_names = ", ".join(sorted(allowed_roles))
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Requires one of these roles: {role_names}",
+            )
 
     return member
 

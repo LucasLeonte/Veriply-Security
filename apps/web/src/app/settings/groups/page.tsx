@@ -72,12 +72,14 @@ export default function GroupsPage() {
                 description: newGroupDescription || undefined,
             });
             await refreshGroups();
+            // Clear members immediately before switching to new group
+            setMembers([]);
             setCurrentGroup(newGroup);
+            // Explicitly load the new group's members (should just be the creator)
+            await loadMembers(newGroup.id);
             setShowCreateModal(false);
             setNewGroupName("");
             setNewGroupDescription("");
-            // Redirect to dashboard after creating first group
-            router.push("/");
         } catch (err) {
             console.error("Failed to create group:", err);
             const message =
