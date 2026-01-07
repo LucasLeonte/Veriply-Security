@@ -41,11 +41,11 @@ export default function IntegrationsPage() {
         const connected = searchParams.get("connected");
         if (connected === "gmail") {
             setSuccessMessage("Gmail connected successfully!");
-            router.replace("/dashboard/integrations");
+            router.replace("/dashboard/emails");
             setTimeout(() => setSuccessMessage(null), 5000);
         } else if (connected === "outlook") {
             setSuccessMessage("Outlook connected successfully!");
-            router.replace("/dashboard/integrations");
+            router.replace("/dashboard/emails");
             setTimeout(() => setSuccessMessage(null), 5000);
         }
     }, [searchParams, router]);

@@ -159,7 +159,7 @@ export default function EmailsPage() {
         if (!token) return;
         if (!confirm("Are you sure you want to disconnect this email account?")) return;
         try {
-            await disconnectIntegration(token, integrationId);
+            await disconnectIntegration(integrationId, token);
             setIntegrations(integrations.filter(i => i.id !== integrationId));
             if (selectedIntegrationId === integrationId) {
                 const remaining = integrations.filter(i => i.id !== integrationId);
