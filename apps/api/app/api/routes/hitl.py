@@ -1046,97 +1046,83 @@ async def websocket_queue_updates(
     websocket: WebSocket,
     token: Optional[str] = None,
 ):
-    """
-    WebSocket endpoint for real-time HITL queue updates.
+    """WebSocket endpoint for real-time HITL queue updates."""
     
-    Connects to Redis pub-sub to receive real-time notifications when:
-    - New items are added to the queue
-    - Items are resolved (approved/rejected)
-    - Connection heartbeat (every 30 seconds)
+    tenant_id = None
+    user_id = None
+    redis_client = None
+    pubsub = None
     
-    Clients receive:
-    - "heartbeat": Periodic keep-alive message
-    - "queue_update": New item or item resolved
-    - "error": Connection or auth errors
-    
-    Protocol:
-    1. Client connects with WebSocket (token passed as query param)
-    2. Server authenticates and subscribes to tenant's Redis channel
-    3. Server sends heartbeat every 30 seconds to keep connection alive
-    4. Server forwards queue updates from Redis pub-sub
-    5. On any error, client should reconnect with exponential backoff
-    """
-    
-    # Authentication: Extract tenant from token
     try:
+        # Validate token BEFORE accepting connection
         if not token:
+            logger.warning("WebSocket: No token provided")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token required")
             return
         
-        # Verify token and extract tenant_id
-        payload = verify_websocket_token(token)
-        tenant_id = UUID(payload.get("tenant_id"))
-        user_id = UUID(payload.get("sub"))
+        try:
+            payload = verify_websocket_token(token)
+            tenant_id = UUID(payload.get("tenant_id"))
+            user_id = UUID(payload.get("sub"))
+            logger.info(f"WebSocket auth OK: user={user_id}, tenant={tenant_id}")
+        except Exception as e:
+            logger.error(f"WebSocket auth failed: {e}")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
+            return
         
-    except Exception as e:
-        logger.error(f"WebSocket auth failed: {e}")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
-        return
-    
-    # Accept connection
-    await connection_manager.connect(websocket, tenant_id)
-    
-    # Create Redis pub-sub subscriber
-    redis_client = None
-    pubsub = None
-    heartbeat_task = None
-    pubsub_task = None
-    should_close = asyncio.Event()
-    redis_available = False
-    
-    try:
-        # Try to connect to Redis (optional - graceful fallback if unavailable)
+        # Accept connection
+        await connection_manager.connect(websocket, tenant_id)
+        
+        # Try Redis pub-sub (optional)
+        redis_available = False
         try:
             redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-            await redis_client.ping()  # Test connection
+            await redis_client.ping()
             pubsub = redis_client.pubsub()
-            
-            # Subscribe to tenant-specific channel
             channel = f"hitl_queue:{tenant_id}"
             await pubsub.subscribe(channel)
-            logger.info(f"User {user_id} subscribed to {channel}")
+            logger.info(f"WebSocket: Subscribed to {channel}")
             redis_available = True
-        except Exception as redis_err:
-            logger.warning(f"Redis unavailable for WebSocket (tenant {tenant_id}): {redis_err}. Real-time pub-sub disabled, heartbeat-only mode.")
-            redis_client = None
-            pubsub = None
+        except Exception as e:
+            logger.warning(f"WebSocket: Redis unavailable: {e}. Heartbeat-only mode")
         
-        # Create background tasks for heartbeat and pub-sub listening
-        async def send_heartbeat():
-            """Send heartbeat every 30 seconds to keep connection alive."""
+        # Send initial connection success
+        try:
+            await websocket.send_json({
+                "type": "connected",
+                "timestamp": datetime.utcnow().isoformat(),
+                "redis_available": redis_available,
+            })
+        except:
+            pass
+        
+        # Keep connection alive with heartbeats and pub-sub messages
+        last_heartbeat = datetime.utcnow()
+        while True:
             try:
-                while True:
-                    await asyncio.sleep(30)
-                    if should_close.is_set():
-                        break
+                # Listen for messages with timeout
+                try:
+                    data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                    # Handle client pings
+                    if data:
+                        try:
+                            msg = json.loads(data)
+                            if msg.get("action") == "ping":
+                                await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
+                        except:
+                            pass
+                except asyncio.TimeoutError:
+                    # Send heartbeat on timeout
                     await websocket.send_json({
                         "type": "heartbeat",
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.error(f"Heartbeat task error: {e}")
-                should_close.set()
-                raise
-        
-        async def listen_pubsub():
-            """Listen for messages from Redis pub-sub."""
-            try:
-                async for message in pubsub.listen():
-                    if should_close.is_set():
-                        break
-                    if message["type"] == "message":
+                    continue
+                
+                # Check for Redis pub-sub messages
+                if redis_available and pubsub:
+                    message = pubsub.get_message()
+                    if message and message.get("type") == "message":
                         try:
                             data = json.loads(message["data"])
                             await websocket.send_json({
@@ -1144,132 +1130,44 @@ async def websocket_queue_updates(
                                 "data": data,
                                 "timestamp": datetime.utcnow().isoformat(),
                             })
-                        except json.JSONDecodeError:
-                            logger.error(f"Invalid JSON in pubsub message: {message['data']}")
-            except asyncio.CancelledError:
-                pass
+                        except:
+                            pass
+                            
+            except WebSocketDisconnect:
+                logger.info(f"WebSocket: Client disconnected, user={user_id}, tenant={tenant_id}")
+                break
             except Exception as e:
-                logger.error(f"PubSub listen error: {e}")
-                should_close.set()
-                raise
-        
-        async def receive_loop():
-            """Listen for client messages."""
-            try:
-                while True:
-                    if should_close.is_set():
-                        break
-                    try:
-                        # Use timeout to periodically check if should_close is set
-                        data = await asyncio.wait_for(websocket.receive_text(), timeout=60)
-                        # Client can send {"action": "ping"} to verify connection is alive
-                        if data:
-                            try:
-                                msg = json.loads(data)
-                                if msg.get("action") == "ping":
-                                    await websocket.send_json({"type": "pong"})
-                            except json.JSONDecodeError:
-                                pass
-                    except asyncio.TimeoutError:
-                        # Timeout is normal, just check if we should close and continue
-                        continue
-                    except WebSocketDisconnect:
-                        # Client disconnected cleanly
-                        logger.info(f"Client disconnected")
-                        should_close.set()
-                        break
-                    except Exception as e:
-                        # Log error but don't raise - let heartbeat/pubsub continue
-                        logger.warning(f"Receive loop warning (non-fatal): {e}")
-            except asyncio.CancelledError:
-                pass
-        
-        # Start all three tasks
-        heartbeat_task = asyncio.create_task(send_heartbeat())
-        receive_task = asyncio.create_task(receive_loop())
-        
-        # Only start pubsub task if Redis is available
-        if redis_available and pubsub:
-            pubsub_task = asyncio.create_task(listen_pubsub())
-            tasks = [heartbeat_task, pubsub_task, receive_task]
-        else:
-            tasks = [heartbeat_task, receive_task]
-        
-        try:
-            while True:
-                # Check if any background task has failed
-                done, pending = await asyncio.wait(tasks, timeout=5, return_when=asyncio.FIRST_EXCEPTION)
-                
-                for task in done:
-                    try:
-                        await task  # Get result to check for exceptions
-                    except asyncio.CancelledError:
-                        pass
-                    except Exception as e:
-                        logger.error(f"Background task failed: {e}")
-                        should_close.set()
-                        raise
-                
-                # If should_close is set, break and cleanup
-                if should_close.is_set():
-                    break
-                
-                # If no done tasks, continue monitoring
-                if not done:
-                    continue
-        
-        except WebSocketDisconnect:
-            logger.info(f"User {user_id} disconnected from HITL queue")
-        except Exception as e:
-            logger.error(f"WebSocket error for tenant {tenant_id}: {e}")
-            try:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": str(e),
-                })
-            except:
-                pass
-    except WebSocketDisconnect:
-        logger.info(f"User {user_id} disconnected from HITL queue")
+                logger.error(f"WebSocket: Error for tenant {tenant_id}: {e}")
+                try:
+                    await websocket.send_json({"type": "error", "message": str(e)})
+                except:
+                    pass
+                break
+    
     except Exception as e:
-        logger.error(f"WebSocket error for tenant {tenant_id}: {e}")
+        logger.error(f"WebSocket: Unhandled error: {e}")
         try:
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e),
-            })
+            await websocket.close(code=status.WS_1011_SERVER_ERROR, reason="Internal error")
         except:
             pass
+    
     finally:
-        # Signal background tasks to stop
-        should_close.set()
-        
         # Cleanup
-        connection_manager.disconnect(websocket, tenant_id)
-        
-        # Cancel all tasks
-        if heartbeat_task:
-            heartbeat_task.cancel()
-        if pubsub_task:
-            pubsub_task.cancel()
-        if 'receive_task' in locals():
-            receive_task.cancel()
-        
-        # Wait for tasks to finish gracefully
-        tasks_to_wait = [t for t in [heartbeat_task, pubsub_task, locals().get('receive_task')] if t]
-        if tasks_to_wait:
-            await asyncio.gather(*tasks_to_wait, return_exceptions=True)
-        
-        if pubsub:
-            try:
-                await pubsub.unsubscribe(f"hitl_queue:{tenant_id}")
-                await pubsub.close()
-            except:
-                pass
-        
-        if redis_client:
-            try:
-                await redis_client.close()
-            except:
-                pass
+        try:
+            if tenant_id:
+                connection_manager.disconnect(websocket, tenant_id)
+            if pubsub:
+                try:
+                    await pubsub.unsubscribe()
+                    await pubsub.close()
+                except:
+                    pass
+            if redis_client:
+                try:
+                    await redis_client.close()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"WebSocket cleanup error: {e}")
+
 
