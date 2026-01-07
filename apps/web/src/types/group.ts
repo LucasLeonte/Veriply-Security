@@ -1,4 +1,4 @@
-export type GroupRole = "group_admin" | "manager" | "operator";
+export type GroupRole = "owner" | "admin" | "manager" | "agent" | "viewer";
 
 export interface Group {
     id: string;

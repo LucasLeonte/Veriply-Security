@@ -218,8 +218,8 @@ class GroupMemberInvite(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        if v not in ["group_admin", "manager", "operator"]:
-            raise ValueError("Invalid role. Must be one of: group_admin, manager, operator")
+        if v not in ["owner", "admin", "manager", "agent", "viewer"]:
+            raise ValueError("Invalid role. Must be one of: owner, admin, manager, agent, viewer")
         return v
 
 

@@ -187,20 +187,20 @@ async def update_group(
     """
     Update group details.
     
-    Required permissions: group_admin only
+    Required permissions: owner or admin
     """
     try:
-        # Verify current user is group_admin
+        # Verify current user is owner/admin
         member = await session.scalar(
             select(GroupMember).where(
                 (GroupMember.group_id == group_id)
                 & (GroupMember.user_id == UUID(current_user["sub"]))
             )
         )
-        if not member or member.role != GroupRole.GROUP_ADMIN:
+        if not member or member.role not in [GroupRole.OWNER.value, GroupRole.ADMIN.value]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only group admins can update group settings",
+                detail="Only group owners or admins can update group settings",
             )
 
         # Update group
@@ -240,20 +240,20 @@ async def delete_group(
     
     This does NOT delete documents or chunks (KB preserved for audit).
     
-    Required permissions: group_admin only
+    Required permissions: owner or admin
     """
     try:
-        # Verify group exists and user is group_admin
+        # Verify group exists and user is owner/admin
         member = await session.scalar(
             select(GroupMember).where(
                 (GroupMember.group_id == group_id)
                 & (GroupMember.user_id == UUID(current_user["sub"]))
             )
         )
-        if not member or member.role != GroupRole.GROUP_ADMIN:
+        if not member or member.role not in [GroupRole.OWNER.value, GroupRole.ADMIN.value]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only group admins can delete groups",
+                detail="Only group owners or admins can delete groups",
             )
 
         # Delete group
@@ -297,20 +297,20 @@ async def invite_member(
     """
     Invite a user to the group.
     
-    Required permissions: group_admin or manager
+    Required permissions: owner or admin
     """
     try:
-        # Verify current user is group_admin or manager
+        # Verify current user is owner or admin
         member = await session.scalar(
             select(GroupMember).where(
                 (GroupMember.group_id == group_id)
                 & (GroupMember.user_id == UUID(current_user["sub"]))
             )
         )
-        if not member or member.role not in [GroupRole.GROUP_ADMIN, GroupRole.MANAGER]:
+        if not member or member.role not in [GroupRole.OWNER, GroupRole.ADMIN]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only group admins and managers can invite members",
+                detail="Only owners and admins can invite members",
             )
 
         # Find user by email
@@ -330,7 +330,7 @@ async def invite_member(
         payload = {
             "group_id": str(group_id),
             "user_id": str(user.id),
-            "role": invite.role.value,
+            "role": invite.role,
             "invited_by_id": str(UUID(current_user["sub"])),
             "exp": datetime.utcnow() + timedelta(hours=48),
         }
@@ -416,20 +416,20 @@ async def update_member_role(
     """
     Update a member's role.
     
-    Required permissions: group_admin only
+    Required permissions: owner or admin
     """
     try:
-        # Verify current user is group_admin
+        # Verify current user is owner/admin
         admin_member = await session.scalar(
             select(GroupMember).where(
                 (GroupMember.group_id == group_id)
                 & (GroupMember.user_id == UUID(current_user["sub"]))
             )
         )
-        if not admin_member or admin_member.role != GroupRole.GROUP_ADMIN:
+        if not admin_member or admin_member.role not in [GroupRole.OWNER.value, GroupRole.ADMIN.value]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only group admins can change member roles",
+                detail="Only group owners or admins can change member roles",
             )
 
         # Update member role using service
@@ -474,20 +474,20 @@ async def remove_member(
     """
     Remove a member from the group.
     
-    Required permissions: group_admin only
+    Required permissions: owner or admin
     """
     try:
-        # Verify current user is group_admin
+        # Verify current user is owner/admin
         admin_member = await session.scalar(
             select(GroupMember).where(
                 (GroupMember.group_id == group_id)
                 & (GroupMember.user_id == UUID(current_user["sub"]))
             )
         )
-        if not admin_member or admin_member.role != GroupRole.GROUP_ADMIN:
+        if not admin_member or admin_member.role not in [GroupRole.OWNER.value, GroupRole.ADMIN.value]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only group admins can remove members",
+                detail="Only group owners or admins can remove members",
             )
 
         # Remove member using service
