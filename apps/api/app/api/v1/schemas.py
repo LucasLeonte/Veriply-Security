@@ -233,6 +233,8 @@ class GroupMemberResponse(BaseModel):
     user_id: str | UUID
     role: str
     invited_at: datetime
+    name: Optional[str] = None
+    email: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

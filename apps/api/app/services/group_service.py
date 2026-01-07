@@ -6,7 +6,7 @@ from uuid import UUID
 from datetime import datetime
 import logging
 
-from app.models import Group, GroupMember, GroupRole, Bot, Document, Chunk
+from app.models import Group, GroupMember, GroupRole, Bot, Document, Chunk, User
 
 logger = logging.getLogger(__name__)
 
@@ -205,9 +205,12 @@ class GroupService:
 
     @staticmethod
     async def update_member_role(
-        db: AsyncSession, group_id: UUID, user_id: UUID, new_role: GroupRole
+        db: AsyncSession, group_id: UUID, user_id: UUID, new_role: GroupRole | str
     ) -> GroupMember:
-        """Update a member's role."""
+        """Update a member's role.
+
+        Accepts either a GroupRole enum or a string value and normalizes to GroupRole.
+        """
         member = await db.scalar(
             select(GroupMember).where(
                 (GroupMember.group_id == group_id) & (GroupMember.user_id == user_id)
@@ -216,9 +219,16 @@ class GroupService:
         if not member:
             raise ValueError("Member not found in this group")
 
-        member.role = new_role
+        # Normalize incoming role
+        role_value = new_role.value if isinstance(new_role, GroupRole) else str(new_role)
+        try:
+            member.role = GroupRole(role_value).value
+        except ValueError:
+            raise ValueError(f"Invalid role: {new_role}")
         await db.flush()
-        logger.info(f"Member role updated: group_id={group_id}, user_id={user_id}, role={new_role.value}")
+        logger.info(
+            f"Member role updated: group_id={group_id}, user_id={user_id}, role={member.role}"
+        )
         return member
 
     @staticmethod
@@ -240,15 +250,33 @@ class GroupService:
         return True
 
     @staticmethod
-    async def list_group_members(db: AsyncSession, group_id: UUID) -> list[GroupMember]:
-        """List all members of a group."""
-        return list(
-            await db.scalars(
-                select(GroupMember)
-                .where(GroupMember.group_id == group_id)
-                .order_by(GroupMember.invited_at)
+    async def list_group_members(db: AsyncSession, group_id: UUID) -> list[dict]:
+        """List all members of a group with user metadata."""
+        result = await db.execute(
+            select(
+                GroupMember,
+                User.name.label("user_name"),
+                User.email.label("user_email"),
             )
+            .join(User, User.id == GroupMember.user_id)
+            .where(GroupMember.group_id == group_id)
+            .order_by(GroupMember.invited_at)
         )
+
+        members: list[dict] = []
+        for gm, user_name, user_email in result.all():
+            members.append(
+                {
+                    "id": gm.id,
+                    "group_id": gm.group_id,
+                    "user_id": gm.user_id,
+                    "role": gm.role,
+                    "invited_at": gm.invited_at,
+                    "name": user_name,
+                    "email": user_email,
+                }
+            )
+        return members
 
     @staticmethod
     async def get_group_kb_stats(

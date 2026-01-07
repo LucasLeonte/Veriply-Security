@@ -17,6 +17,8 @@ export interface GroupMember {
     role: GroupRole;
     invited_at: string;
     invited_by_id: string;
+    name?: string;
+    email?: string;
 }
 
 export interface CreateGroupInput {
@@ -32,6 +34,11 @@ export interface UpdateGroupInput {
 export interface InviteMemberInput {
     email: string;
     role: GroupRole;
+}
+
+export interface GroupMemberInviteResponse {
+    message: string;
+    user_id: string;
 }
 
 export interface GroupKBStats {
