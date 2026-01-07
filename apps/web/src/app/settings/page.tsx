@@ -45,6 +45,8 @@ export default function SettingsPage() {
     const [newGroupDescription, setNewGroupDescription] = useState("");
     const [groupInviteEmail, setGroupInviteEmail] = useState("");
     const [groupInviteRole, setGroupInviteRole] = useState<GroupRole>("viewer");
+    const [currentUserGroupRole, setCurrentUserGroupRole] =
+        useState<GroupRole | null>(null);
 
     useEffect(() => {
         fetchInitialData();
@@ -164,11 +166,35 @@ export default function SettingsPage() {
         try {
             const result = await groupsApi.listMembers(groupId);
             setGroupMembers(result);
+
+            // Find the current user's role in this group
+            const currentUserMember = result.find(
+                (m) => m.user_id === currentUserId
+            );
+            if (currentUserMember) {
+                setCurrentUserGroupRole(currentUserMember.role as GroupRole);
+            } else {
+                setCurrentUserGroupRole(null);
+            }
         } catch (err) {
             console.error("Failed to load group members:", err);
         } finally {
             setLoadingGroupMembers(false);
         }
+    };
+
+    // Check if current user can manage a specific member
+    const canManageGroupMember = (targetMemberRole: GroupRole): boolean => {
+        if (!currentUserGroupRole) return false;
+
+        // Owner can manage anyone
+        if (currentUserGroupRole === "owner") return true;
+
+        // Admin can manage non-owners
+        if (currentUserGroupRole === "admin" && targetMemberRole !== "owner")
+            return true;
+
+        return false;
     };
 
     const handleCreateGroup = async () => {
@@ -649,47 +675,52 @@ export default function SettingsPage() {
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 {member.user_id !==
-                                                    currentUserId && (
-                                                    <>
-                                                        <select
-                                                            value={member.role}
-                                                            onChange={(e) =>
-                                                                handleUpdateGroupRole(
-                                                                    member.user_id,
-                                                                    e.target
-                                                                        .value as GroupRole
-                                                                )
-                                                            }
-                                                            className="text-sm border border-slate-300 rounded px-2 py-1"
-                                                        >
-                                                            <option value="viewer">
-                                                                Viewer
-                                                            </option>
-                                                            <option value="agent">
-                                                                Agent
-                                                            </option>
-                                                            <option value="manager">
-                                                                Manager
-                                                            </option>
-                                                            <option value="admin">
-                                                                Admin
-                                                            </option>
-                                                            <option value="owner">
-                                                                Owner
-                                                            </option>
-                                                        </select>
-                                                        <button
-                                                            onClick={() =>
-                                                                handleRemoveGroupMember(
-                                                                    member.user_id
-                                                                )
-                                                            }
-                                                            className="p-2 text-red-600 hover:bg-red-50 rounded"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
-                                                    </>
-                                                )}
+                                                    currentUserId &&
+                                                    canManageGroupMember(
+                                                        member.role as GroupRole
+                                                    ) && (
+                                                        <>
+                                                            <select
+                                                                value={
+                                                                    member.role
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleUpdateGroupRole(
+                                                                        member.user_id,
+                                                                        e.target
+                                                                            .value as GroupRole
+                                                                    )
+                                                                }
+                                                                className="text-sm border border-slate-300 rounded px-2 py-1"
+                                                            >
+                                                                <option value="viewer">
+                                                                    Viewer
+                                                                </option>
+                                                                <option value="agent">
+                                                                    Agent
+                                                                </option>
+                                                                <option value="manager">
+                                                                    Manager
+                                                                </option>
+                                                                <option value="admin">
+                                                                    Admin
+                                                                </option>
+                                                                <option value="owner">
+                                                                    Owner
+                                                                </option>
+                                                            </select>
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleRemoveGroupMember(
+                                                                        member.user_id
+                                                                    )
+                                                                }
+                                                                className="p-2 text-red-600 hover:bg-red-50 rounded"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
                                             </div>
                                         </div>
                                     ))
