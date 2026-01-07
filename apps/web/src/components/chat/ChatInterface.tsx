@@ -212,130 +212,143 @@ export default function ChatInterface({
                         : undefined
                 }
             >
-                {/* Sidebar (Your chats) */}
-                <aside className="hidden md:flex md:flex-col w-[260px] border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden">
-                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <p className="text-sm font-semibold text-slate-700">
-                            Conversations
-                        </p>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-500 hover:text-sky-600 hover:bg-sky-50"
-                            onClick={() => {
-                                startNewSession();
-                            }}
-                            title="Start new conversation"
-                        >
-                            <RefreshCw className="h-4 w-4" />
-                        </Button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                        {userSessions.length === 0 ? (
-                            <div className="p-4 text-sm text-slate-600">
-                                No conversations yet.
-                            </div>
-                        ) : (
-                            userSessions.map((s) => (
-                                <div
-                                    key={s.id}
-                                    className={`w-full text-left p-3 transition-colors group cursor-pointer ${
-                                        selectedSessionId === s.id
-                                            ? "bg-sky-50"
-                                            : "hover:bg-slate-50"
-                                    }`}
-                                    onClick={() => {
-                                        resumeSession(s.id);
-                                    }}
-                                >
-                                    <div className="flex items-center justify-between w-full">
-                                        <div className="flex-1 min-w-0 pr-2">
-                                            <p className="text-sm text-slate-900 line-clamp-1">
-                                                {s.title}
-                                            </p>
-                                            <p className="text-[11px] text-slate-500">
-                                                {new Date(
-                                                    s.lastTimestamp
-                                                ).toLocaleString()}{" "}
-                                                • {s.count} message
-                                                {s.count !== 1 ? "s" : ""}
-                                            </p>
-                                        </div>
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 text-slate-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={(e) =>
-                                                handleDeleteSession(e, s.id)
-                                            }
-                                            title="Delete conversation"
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                </aside>
-
-                <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative min-h-[480px]">
-                    {/* Header */}
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-white/80 backdrop-blur-sm z-10 sticky top-0">
-                        <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                                <AvatarImage src={botAvatar} alt={botName} />
-                                <AvatarFallback className="bg-sky-500 text-white">
-                                    <User className="w-full h-full" />
-                                </AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <h1 className="font-semibold text-slate-900">
-                                    {botName}
-                                </h1>
-                                <p className="text-xs text-slate-500">
-                                    {streaming
-                                        ? "Typing..."
-                                        : loading
-                                        ? "Thinking..."
-                                        : "Online"}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span
-                                className={`text-[10px] px-2 py-1 rounded-full border ${
-                                    isPublic
-                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        : "bg-slate-100 text-slate-600 border-slate-200"
-                                }`}
-                            >
-                                {isPublic ? "Public" : "Private"}
-                            </span>
-                            {/* Mobile-only: open your chats */}
+                {/* Sidebar (Your chats) - Hidden in widget mode */}
+                {!embedded && (
+                    <aside className="hidden md:flex md:flex-col w-[260px] border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden">
+                        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                            <p className="text-sm font-semibold text-slate-700">
+                                Conversations
+                            </p>
                             <Button
-                                className="md:hidden"
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
+                                className="h-8 w-8 text-slate-500 hover:text-sky-600 hover:bg-sky-50"
                                 onClick={() => {
-                                    refreshSessions();
-                                    setHistoryOpen(true);
+                                    startNewSession();
                                 }}
-                                title="Your conversations"
-                            >
-                                <Clock3 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowClearDialog(true)}
-                                disabled={loading}
                                 title="Start new conversation"
                             >
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
                         </div>
-                    </div>
+                        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                            {userSessions.length === 0 ? (
+                                <div className="p-4 text-sm text-slate-600">
+                                    No conversations yet.
+                                </div>
+                            ) : (
+                                userSessions.map((s) => (
+                                    <div
+                                        key={s.id}
+                                        className={`w-full text-left p-3 transition-colors group cursor-pointer ${
+                                            selectedSessionId === s.id
+                                                ? "bg-sky-50"
+                                                : "hover:bg-slate-50"
+                                        }`}
+                                        onClick={() => {
+                                            resumeSession(s.id);
+                                        }}
+                                    >
+                                        <div className="flex items-center justify-between w-full">
+                                            <div className="flex-1 min-w-0 pr-2">
+                                                <p className="text-sm text-slate-900 line-clamp-1">
+                                                    {s.title}
+                                                </p>
+                                                <p className="text-[11px] text-slate-500">
+                                                    {new Date(
+                                                        s.lastTimestamp
+                                                    ).toLocaleString()}{" "}
+                                                    • {s.count} message
+                                                    {s.count !== 1 ? "s" : ""}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-slate-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={(e) =>
+                                                    handleDeleteSession(e, s.id)
+                                                }
+                                                title="Delete conversation"
+                                            >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </aside>
+                )}
+
+                <div
+                    className={`flex-1 h-full flex flex-col ${
+                        embedded
+                            ? "bg-white"
+                            : "bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100"
+                    } overflow-hidden relative min-h-[480px]`}
+                >
+                    {/* Header - Hidden in widget mode (handled by PublicChatClient) */}
+                    {!embedded && (
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-white/80 backdrop-blur-sm z-10 sticky top-0">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10">
+                                    <AvatarImage
+                                        src={botAvatar}
+                                        alt={botName}
+                                    />
+                                    <AvatarFallback className="bg-sky-500 text-white">
+                                        <User className="w-full h-full" />
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h1 className="font-semibold text-slate-900">
+                                        {botName}
+                                    </h1>
+                                    <p className="text-xs text-slate-500">
+                                        {streaming
+                                            ? "Typing..."
+                                            : loading
+                                            ? "Thinking..."
+                                            : "Online"}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span
+                                    className={`text-[10px] px-2 py-1 rounded-full border ${
+                                        isPublic
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : "bg-slate-100 text-slate-600 border-slate-200"
+                                    }`}
+                                >
+                                    {isPublic ? "Public" : "Private"}
+                                </span>
+                                {/* Mobile-only: open your chats */}
+                                <Button
+                                    className="md:hidden"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        refreshSessions();
+                                        setHistoryOpen(true);
+                                    }}
+                                    title="Your conversations"
+                                >
+                                    <Clock3 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowClearDialog(true)}
+                                    disabled={loading}
+                                    title="Start new conversation"
+                                >
+                                    <RefreshCw className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Messages */}
                     <div
@@ -494,7 +507,10 @@ export default function ChatInterface({
                 </div>
             </div>
 
-            <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+            <Dialog
+                open={!embedded && historyOpen}
+                onOpenChange={setHistoryOpen}
+            >
                 <DialogContent className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Your conversations</DialogTitle>
