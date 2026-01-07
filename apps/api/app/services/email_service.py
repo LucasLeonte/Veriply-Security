@@ -268,3 +268,68 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to send team invite email to {email}: {str(e)}")
             return False
+
+    @staticmethod
+    async def send_group_invite_email(email: str, invite_token: str, group_id: str) -> bool:
+        """
+        Send group invitation email with acceptance link.
+
+        Args:
+            email: Invitee email address
+            invite_token: Signed JWT token containing group_id, user_id, and role
+            group_id: ID of the group being invited to
+
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        try:
+            invite_link = f"{settings.FRONTEND_URL}/accept-group-invite?token={invite_token}"
+            subject = "You've been invited to join a group"
+            html_content = f"""
+            <html>
+                <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
+                    <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">
+                        <h2>Group Invitation</h2>
+                        <p>You've been invited to join a group on Veriply.</p>
+                        <p>Click the button below to accept the invitation.</p>
+
+                        <div style=\"margin: 30px 0;\">
+                            <a href=\"{invite_link}\" style=\"background-color: #0ea5e9; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;\">
+                                Accept Invitation
+                            </a>
+                        </div>
+
+                        <p>Or copy and paste this link in your browser:</p>
+                        <p style=\"word-break: break-all; color: #0ea5e9;\">
+                            {invite_link}
+                        </p>
+
+                        <hr style=\"border: none; border-top: 1px solid #ddd; margin: 30px 0;\">
+
+                        <p style=\"font-size: 12px; color: #999;\">
+                            This invitation will expire in 48 hours.
+                        </p>
+                    </div>
+                </body>
+            </html>
+            """
+
+            text_content = f"""
+            You've been invited to join a group on Veriply.
+
+            Accept the invitation using this link:
+            {invite_link}
+
+            This invitation will expire in 48 hours.
+            """
+
+            return await EmailService._send_email(
+                to_email=email,
+                subject=subject,
+                html_content=html_content,
+                text_content=text_content,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to send group invite email to {email}: {str(e)}")
+            return False

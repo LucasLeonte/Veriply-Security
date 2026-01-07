@@ -316,72 +316,19 @@ async def invite_team_member(
     other_stmt = select(User).where(User.email == email)
     other_result = await session.execute(other_stmt)
     other_user = other_result.scalars().first()
+    
     if other_user:
-        # Send cross-tenant invite that, upon acceptance, transfers the user to this tenant
-        transfer_token = secrets.token_urlsafe(32)
-        other_user.tenant_invite_token = transfer_token
-        other_user.tenant_invite_expires = datetime.utcnow() + timedelta(hours=48)
-        other_user.pending_tenant_id = uuid.UUID(tenant_id)
-        other_user.pending_role = role
-        other_user.updated_at = datetime.utcnow()
-        session.add(other_user)
-        await session.commit()
-        await session.refresh(other_user)
-
-        # Send invite email
-        try:
-            await EmailService.send_team_invite_email(email, transfer_token)
-        except Exception:
-            pass
-
-        await log_audit_action(
-            tenant_id=uuid.UUID(tenant_id),
-            actor_id=uuid.UUID(actor_id),
-            target_user_id=other_user.id,
-            action="cross_tenant_invite_sent",
-            details=json.dumps({"email": email, "role": role}),
-            session=session
+        # User exists but in another tenant - this is a cross-tenant scenario
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User with email {email} belongs to another organization. They must leave that organization first to join this one."
         )
-        return other_user
     
-    # Create new user with invited role
-    # Generate a secure temporary password to satisfy NOT NULL constraint
-    temp_password = secrets.token_urlsafe(24)
-    reset_token = secrets.token_urlsafe(32)
-
-    new_user = User(
-        id=uuid.uuid4(),
-        email=email,
-        tenant_id=uuid.UUID(tenant_id),
-        role=role,
-        is_active=False,
-        password_hash=hash_password(temp_password),
-        password_reset_token=reset_token,
-        password_reset_expires=datetime.utcnow() + timedelta(hours=48),
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow()
+    # User doesn't exist anywhere - reject the invite
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"User with email {email} not found."
     )
-    session.add(new_user)
-    await session.commit()
-    await session.refresh(new_user)
-
-    # Send team invite email
-    try:
-        await EmailService.send_team_invite_email(email, reset_token)
-    except Exception:
-        pass
-    
-    # Log invitation
-    await log_audit_action(
-        tenant_id=uuid.UUID(tenant_id),
-        actor_id=uuid.UUID(actor_id),
-        target_user_id=new_user.id,
-        action="team_member_invited",
-        details=json.dumps({"email": email, "role": role}),
-        session=session
-    )
-    
-    return new_user
 
 
 async def log_audit_action(
@@ -405,3 +352,37 @@ async def log_audit_action(
     session.add(audit_entry)
     await session.commit()
     return audit_entry
+
+async def cleanup_inactive_users(session: AsyncSession, days: int = 30) -> int:
+    """
+    Hard-delete users who have been inactive (is_active=False) for X days.
+    
+    Args:
+        session: AsyncSession for database operations
+        days: Number of days before soft-deleted users are permanently deleted (default 30)
+    
+    Returns:
+        Number of users deleted
+    """
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    
+    # Find inactive users older than cutoff date
+    stmt = select(User).where(
+        and_(
+            User.is_active.is_(False),
+            User.updated_at < cutoff_date
+        )
+    )
+    
+    result = await session.execute(stmt)
+    users_to_delete = result.scalars().all()
+    
+    # Delete them
+    for user in users_to_delete:
+        await session.delete(user)
+    
+    if users_to_delete:
+        await session.commit()
+        logger.info(f"Cleaned up {len(users_to_delete)} inactive users older than {days} days")
+    
+    return len(users_to_delete)

@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from app.core.database import init_db
+from app.core.database import init_db, AsyncSessionLocal
 from app.core.migrations import enable_pgvector, enable_rls
 from app.core.settings import settings
 from app.api.v1 import auth
@@ -21,6 +21,18 @@ from app.api.routes import chat_history
 from app.api.routes import feedback
 from app.api.routes import hitl  # Story 3.4: HITL review queue
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
+from app.services.profile_service import cleanup_inactive_users
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+async def run_cleanup():
+    """Run the inactive users cleanup task."""
+    async with AsyncSessionLocal() as session:
+        await cleanup_inactive_users(session, days=30)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,8 +40,17 @@ async def lifespan(app: FastAPI):
     await init_db()
     await enable_pgvector()
     await enable_rls()
+    
+    # Start background cleanup scheduler (runs daily at 2 AM)
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_cleanup, "cron", hour=2, minute=0, id="cleanup_inactive_users")
+    scheduler.start()
+    logger.info("Scheduled cleanup job for inactive users (daily at 2 AM)")
+    
     yield
-    # Shutdown (optional)
+    
+    # Shutdown
+    scheduler.shutdown()
 
 app = FastAPI(
     title="Veriply API",

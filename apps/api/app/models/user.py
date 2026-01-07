@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, Uuid, ForeignKey, DateTime, Boolean
 from datetime import datetime
 from .base import Base
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Uuid, primary_key=True)
