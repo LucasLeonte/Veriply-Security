@@ -1,5 +1,6 @@
 """Email service for sending notifications and password reset links."""
 import aiosmtplib
+import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from app.core.settings import settings
@@ -191,18 +192,23 @@ class EmailService:
             message.attach(MIMEText(text_content, "plain"))
             message.attach(MIMEText(html_content, "html"))
 
-            # Send email with timeout
-            import asyncio
-            async with asyncio.timeout(10):  # 10 second timeout
+            # Select TLS mode based on port (465 => implicit TLS, else STARTTLS)
+            use_tls = int(getattr(settings, "SMTP_PORT", 587)) == 465
+            start_tls = not use_tls
+
+            async def _send_via_smtp():
                 async with aiosmtplib.SMTP(
-                    hostname=settings.SMTP_HOST, 
+                    hostname=settings.SMTP_HOST,
                     port=settings.SMTP_PORT,
                     timeout=10,
-                    use_tls=False,  # Don't use TLS on connection
-                    start_tls=True  # Use STARTTLS instead
+                    use_tls=use_tls,
+                    start_tls=start_tls,
                 ) as smtp:
                     await smtp.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
                     await smtp.send_message(message)
+
+            # Send with overall timeout guard (compatible with Python <3.11)
+            await asyncio.wait_for(_send_via_smtp(), timeout=15)
 
             logger.info(f"Email sent successfully to {to_email}")
             return True

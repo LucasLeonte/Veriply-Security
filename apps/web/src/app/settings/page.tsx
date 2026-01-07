@@ -6,7 +6,7 @@ import { getAccessToken, clearAccessToken } from "@/lib/auth";
 import { useGroup } from "@/contexts/GroupContext";
 import { groupsApi } from "@/lib/api/groups";
 import { Group, GroupMember, GroupRole } from "@/types/group";
-import { Plus, Trash2, Mail, Users, Crown, Shield } from "lucide-react";
+import { Trash2, Mail, Users, Crown, Shield } from "lucide-react";
 
 interface TeamMember {
     id: string;
@@ -25,6 +25,7 @@ export default function SettingsPage() {
     const [success, setSuccess] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [currentUserRole, setCurrentUserRole] = useState<string>("");
+    const [currentUserId, setCurrentUserId] = useState<string>("");
     const [showRoleMenu, setShowRoleMenu] = useState<string | null>(null);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [inviteEmail, setInviteEmail] = useState("");
@@ -38,10 +39,14 @@ export default function SettingsPage() {
     const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
     const [showGroupCreateModal, setShowGroupCreateModal] = useState(false);
     const [showGroupInviteModal, setShowGroupInviteModal] = useState(false);
+    const [showGroupRenameModal, setShowGroupRenameModal] = useState(false);
+    const [groupToRename, setGroupToRename] = useState<Group | null>(null);
     const [newGroupName, setNewGroupName] = useState("");
     const [newGroupDescription, setNewGroupDescription] = useState("");
     const [groupInviteEmail, setGroupInviteEmail] = useState("");
     const [groupInviteRole, setGroupInviteRole] = useState<GroupRole>("viewer");
+    const [currentUserGroupRole, setCurrentUserGroupRole] =
+        useState<GroupRole | null>(null);
 
     useEffect(() => {
         fetchInitialData();
@@ -97,6 +102,9 @@ export default function SettingsPage() {
 
             const profile = await profileResponse.json();
             setCurrentUserRole(profile.role || "");
+            if (profile.id) {
+                setCurrentUserId(profile.id);
+            }
 
             const membersResponse = await fetch(
                 `${apiUrl}/api/v1/profile/team/members`,
@@ -158,6 +166,16 @@ export default function SettingsPage() {
         try {
             const result = await groupsApi.listMembers(groupId);
             setGroupMembers(result);
+
+            // Find the current user's role in this group
+            const currentUserMember = result.find(
+                (m) => m.user_id === currentUserId
+            );
+            if (currentUserMember) {
+                setCurrentUserGroupRole(currentUserMember.role as GroupRole);
+            } else {
+                setCurrentUserGroupRole(null);
+            }
         } catch (err) {
             console.error("Failed to load group members:", err);
         } finally {
@@ -165,12 +183,28 @@ export default function SettingsPage() {
         }
     };
 
+    // Check if current user can manage a specific member
+    const canManageGroupMember = (targetMemberRole: GroupRole): boolean => {
+        if (!currentUserGroupRole) return false;
+
+        // Owner can manage anyone
+        if (currentUserGroupRole === "owner") return true;
+
+        // Admin can manage non-owners
+        if (currentUserGroupRole === "admin" && targetMemberRole !== "owner")
+            return true;
+
+        return false;
+    };
+
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) return;
 
         const token = typeof window !== "undefined" ? getAccessToken() : null;
         if (!token) {
-            alert("You must be logged in to create a group. Please sign in again.");
+            alert(
+                "You must be logged in to create a group. Please sign in again."
+            );
             window.location.href = "/login";
             return;
         }
@@ -189,7 +223,8 @@ export default function SettingsPage() {
             setNewGroupDescription("");
         } catch (err) {
             console.error("Failed to create group:", err);
-            const message = err instanceof Error ? err.message : "Failed to create group";
+            const message =
+                err instanceof Error ? err.message : "Failed to create group";
             alert(message);
         }
     };
@@ -202,10 +237,17 @@ export default function SettingsPage() {
                 email: groupInviteEmail,
                 role: groupInviteRole,
             });
-            await loadGroupMembers(currentGroup.id);
             setShowGroupInviteModal(false);
             setGroupInviteEmail("");
             setGroupInviteRole("viewer");
+            setSuccessMessage(
+                "Invitation sent. Member will appear after they accept via email."
+            );
+            setSuccess(true);
+            setTimeout(() => {
+                setSuccess(false);
+                setSuccessMessage(null);
+            }, 3000);
         } catch (err) {
             console.error("Failed to invite member:", err);
             alert("Failed to invite member");
@@ -225,7 +267,10 @@ export default function SettingsPage() {
         }
     };
 
-    const handleUpdateGroupRole = async (userId: string, newRole: GroupRole) => {
+    const handleUpdateGroupRole = async (
+        userId: string,
+        newRole: GroupRole
+    ) => {
         if (!currentGroup) return;
 
         try {
@@ -234,6 +279,53 @@ export default function SettingsPage() {
         } catch (err) {
             console.error("Failed to update role:", err);
             alert("Failed to update role");
+        }
+    };
+
+    const handleRenameGroup = async () => {
+        if (!groupToRename || !newGroupName.trim()) return;
+
+        try {
+            await groupsApi.updateGroup(groupToRename.id, {
+                name: newGroupName,
+                description: newGroupDescription || undefined,
+            });
+            await refreshGroups();
+            if (currentGroup?.id === groupToRename.id) {
+                setCurrentGroup({
+                    ...groupToRename,
+                    name: newGroupName,
+                    description: newGroupDescription || undefined,
+                });
+            }
+            setShowGroupRenameModal(false);
+            setGroupToRename(null);
+            setNewGroupName("");
+            setNewGroupDescription("");
+        } catch (err) {
+            console.error("Failed to rename group:", err);
+            alert("Failed to rename group");
+        }
+    };
+
+    const handleDeleteGroup = async (group: Group) => {
+        if (
+            !confirm(
+                `Are you sure you want to delete "${group.name}"? This action cannot be undone.`
+            )
+        )
+            return;
+
+        try {
+            await groupsApi.deleteGroup(group.id);
+            await refreshGroups();
+            if (currentGroup?.id === group.id) {
+                setCurrentGroup(null);
+                setGroupMembers([]);
+            }
+        } catch (err) {
+            console.error("Failed to delete group:", err);
+            alert("Failed to delete group");
         }
     };
 
@@ -463,263 +555,87 @@ export default function SettingsPage() {
     return (
         <DashboardLayout>
             <div className="max-w-4xl mx-auto p-6">
-                <h1 className="text-3xl font-bold mb-8 text-slate-900">
-                    Team Settings
-                </h1>
+                {/* Success Message Banner */}
+                {success && successMessage && (
+                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-green-800 font-medium flex items-center gap-2">
+                            <span className="inline-block w-2 h-2 bg-green-600 rounded-full"></span>
+                            {successMessage}
+                        </p>
+                    </div>
+                )}
 
+                {/* Error Message Banner */}
                 {error && (
-                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-                        {error}
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-800 font-medium flex items-center gap-2">
+                            <span className="inline-block w-2 h-2 bg-red-600 rounded-full"></span>
+                            {error}
+                        </p>
                     </div>
                 )}
 
-                {success && (
-                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                        {successMessage || "Operation successful"}
-                    </div>
-                )}
-
-                {!canManageTeam && (
-                    <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
-                        You do not have permission to manage team members. Only
-                        Owners and Admins can manage the team.
-                    </div>
-                )}
-
-                {/* Invite Member Button */}
-                {canManageTeam && (
-                    <div className="mb-6">
-                        <button
-                            onClick={() => setShowInviteModal(true)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
-                        >
-                            + Invite Team Member
-                        </button>
-                    </div>
-                )}
-
-                {/* Team Members Table */}
-                <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-800">
-                                    Name
-                                </th>
-                                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-800">
-                                    Email
-                                </th>
-                                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-800">
-                                    Role
-                                </th>
-                                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-800">
-                                    Last Active
-                                </th>
-                                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-800">
-                                    Actions
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {members.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colSpan={5}
-                                        className="px-6 py-4 text-center text-slate-500"
-                                    >
-                                        No team members found
-                                    </td>
-                                </tr>
-                            ) : (
-                                members.map((member) => (
-                                    <tr
-                                        key={member.id}
-                                        className={`border-b border-slate-200 hover:bg-slate-50 ${
-                                            member.is_active === "inactive"
-                                                ? "opacity-50"
-                                                : ""
-                                        }`}
-                                    >
-                                        <td className="px-6 py-4 text-sm text-slate-800">
-                                            {member.name || "N/A"}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600">
-                                            {member.email}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm">
-                                            {canManageTeam ? (
-                                                <div className="relative inline-block">
-                                                    <button
-                                                        onClick={() =>
-                                                            setShowRoleMenu(
-                                                                showRoleMenu ===
-                                                                    member.id
-                                                                    ? null
-                                                                    : member.id
-                                                            )
-                                                        }
-                                                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm hover:bg-blue-200 transition"
-                                                    >
-                                                        {member.role}
-                                                    </button>
-                                                    {showRoleMenu ===
-                                                        member.id && (
-                                                        <div className="absolute z-10 mt-1 w-40 bg-white border border-slate-200 rounded-lg shadow-lg">
-                                                            {roleOptions.map(
-                                                                (role) => (
-                                                                    <button
-                                                                        key={
-                                                                            role
-                                                                        }
-                                                                        onClick={() =>
-                                                                            handleChangeRole(
-                                                                                member.id,
-                                                                                role
-                                                                            )
-                                                                        }
-                                                                        disabled={
-                                                                            member.role ===
-                                                                                "owner" &&
-                                                                            role !==
-                                                                                "owner" &&
-                                                                            ownerCount ===
-                                                                                1
-                                                                        }
-                                                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-100 ${
-                                                                            member.role ===
-                                                                            role
-                                                                                ? "bg-blue-50 font-semibold"
-                                                                                : ""
-                                                                        } ${
-                                                                            member.role ===
-                                                                                "owner" &&
-                                                                            role !==
-                                                                                "owner" &&
-                                                                            ownerCount ===
-                                                                                1
-                                                                                ? "opacity-50 cursor-not-allowed"
-                                                                                : ""
-                                                                        }`}
-                                                                    >
-                                                                        {role}
-                                                                    </button>
-                                                                )
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-sm capitalize">
-                                                    {member.role}
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600">
-                                            {member.last_active
-                                                ? new Date(
-                                                      member.last_active
-                                                  ).toLocaleDateString()
-                                                : "Never"}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm">
-                                            {canManageTeam && (
-                                                <button
-                                                    onClick={() =>
-                                                        handleRemoveMember(
-                                                            member.id
-                                                        )
-                                                    }
-                                                    disabled={
-                                                        member.role ===
-                                                            "owner" &&
-                                                        ownerCount === 1
-                                                    }
-                                                    className={`px-3 py-1 text-red-600 hover:bg-red-50 rounded transition ${
-                                                        member.role ===
-                                                            "owner" &&
-                                                        ownerCount === 1
-                                                            ? "opacity-50 cursor-not-allowed"
-                                                            : ""
-                                                    }`}
-                                                >
-                                                    Remove
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                <div className="bg-white rounded-lg border border-slate-200 p-4">
+                    {currentGroup ? (
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-medium text-slate-900">
+                                    {currentGroup.name}
+                                </p>
+                                {currentGroup.description && (
+                                    <p className="text-sm text-slate-600">
+                                        {currentGroup.description}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setGroupToRename(currentGroup);
+                                        setNewGroupName(currentGroup.name);
+                                        setNewGroupDescription(
+                                            currentGroup.description || ""
+                                        );
+                                        setShowGroupRenameModal(true);
+                                    }}
+                                    className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
+                                >
+                                    Rename
+                                </button>
+                                <button
+                                    onClick={() =>
+                                        handleDeleteGroup(currentGroup)
+                                    }
+                                    className="px-3 py-1 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-slate-600">
+                            Select a group from the sidebar to manage it, or
+                            create a new group.
+                        </div>
+                    )}
                 </div>
 
                 {/* Groups Management */}
                 <div className="mt-10 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-semibold text-slate-900">
-                            Groups
-                        </h2>
-                        <div className="flex gap-2">
-                            {currentGroup && (
-                                <button
-                                    onClick={() => setShowGroupInviteModal(true)}
-                                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-                                >
-                                    <Mail className="h-4 w-4 inline-block mr-2" />
-                                    Invite to Group
-                                </button>
-                            )}
-                            <button
-                                onClick={() => setShowGroupCreateModal(true)}
-                                className="px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition text-sm"
-                            >
-                                <Plus className="h-4 w-4 inline-block mr-2" />
-                                Create Group
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-lg border border-slate-200 divide-y">
-                        {groups.length === 0 ? (
-                            <div className="p-4 text-slate-600">No groups yet</div>
-                        ) : (
-                            groups.map((group: Group) => (
-                                <div
-                                    key={group.id}
-                                    className="p-4 flex items-center justify-between hover:bg-slate-50"
-                                >
-                                    <div>
-                                        <p className="font-medium text-slate-900">{group.name}</p>
-                                        {group.description && (
-                                            <p className="text-sm text-slate-600">{group.description}</p>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {currentGroup?.id === group.id && (
-                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                                                Current
-                                            </span>
-                                        )}
-                                        <button
-                                            onClick={() => setCurrentGroup(group)}
-                                            className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
-                                        >
-                                            Select
-                                        </button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
+                    <h1 className="text-1xl font-semibold text-slate-900">
+                        Group Management
+                    </h1>
 
                     {currentGroup && (
                         <div className="bg-white rounded-lg border border-slate-200">
                             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-slate-900">
-                                    Members of {currentGroup.name}
+                                    Members
                                 </h3>
                                 <button
-                                    onClick={() => setShowGroupInviteModal(true)}
+                                    onClick={() =>
+                                        setShowGroupInviteModal(true)
+                                    }
                                     className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
                                 >
                                     <Mail className="h-4 w-4 inline-block mr-2" />
@@ -728,9 +644,13 @@ export default function SettingsPage() {
                             </div>
                             <div className="divide-y">
                                 {loadingGroupMembers ? (
-                                    <div className="p-4 text-slate-600">Loading members...</div>
+                                    <div className="p-4 text-slate-600">
+                                        Loading members...
+                                    </div>
                                 ) : groupMembers.length === 0 ? (
-                                    <div className="p-4 text-slate-600">No members yet</div>
+                                    <div className="p-4 text-slate-600">
+                                        No members yet
+                                    </div>
                                 ) : (
                                     groupMembers.map((member) => (
                                         <div
@@ -740,35 +660,67 @@ export default function SettingsPage() {
                                             <div className="flex items-center gap-3">
                                                 {getGroupRoleIcon(member.role)}
                                                 <div>
-                                                    <p className="font-medium text-slate-900">User {member.user_id}</p>
+                                                    <p className="font-medium text-slate-900">
+                                                        {member.name ||
+                                                            member.email ||
+                                                            `User ${member.user_id}`}
+                                                    </p>
                                                     <p className="text-sm text-slate-600 capitalize">
-                                                        {member.role.replace("_", " ")}
+                                                        {member.role.replace(
+                                                            "_",
+                                                            " "
+                                                        )}
                                                     </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <select
-                                                    value={member.role}
-                                                    onChange={(e) =>
-                                                        handleUpdateGroupRole(
-                                                            member.user_id,
-                                                            e.target.value as GroupRole
-                                                        )
-                                                    }
-                                                    className="text-sm border border-slate-300 rounded px-2 py-1"
-                                                >
-                                                    <option value="viewer">Viewer</option>
-                                                    <option value="agent">Agent</option>
-                                                    <option value="manager">Manager</option>
-                                                    <option value="admin">Admin</option>
-                                                    <option value="owner">Owner</option>
-                                                </select>
-                                                <button
-                                                    onClick={() => handleRemoveGroupMember(member.user_id)}
-                                                    className="p-2 text-red-600 hover:bg-red-50 rounded"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </button>
+                                                {member.user_id !==
+                                                    currentUserId &&
+                                                    canManageGroupMember(
+                                                        member.role as GroupRole
+                                                    ) && (
+                                                        <>
+                                                            <select
+                                                                value={
+                                                                    member.role
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleUpdateGroupRole(
+                                                                        member.user_id,
+                                                                        e.target
+                                                                            .value as GroupRole
+                                                                    )
+                                                                }
+                                                                className="text-sm border border-slate-300 rounded px-2 py-1"
+                                                            >
+                                                                <option value="viewer">
+                                                                    Viewer
+                                                                </option>
+                                                                <option value="agent">
+                                                                    Agent
+                                                                </option>
+                                                                <option value="manager">
+                                                                    Manager
+                                                                </option>
+                                                                <option value="admin">
+                                                                    Admin
+                                                                </option>
+                                                                <option value="owner">
+                                                                    Owner
+                                                                </option>
+                                                            </select>
+                                                            <button
+                                                                onClick={() =>
+                                                                    handleRemoveGroupMember(
+                                                                        member.user_id
+                                                                    )
+                                                                }
+                                                                className="p-2 text-red-600 hover:bg-red-50 rounded"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
                                             </div>
                                         </div>
                                     ))
@@ -873,23 +825,35 @@ export default function SettingsPage() {
                 {showGroupCreateModal && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                            <h2 className="text-xl font-semibold mb-4">Create New Group</h2>
+                            <h2 className="text-xl font-semibold mb-4">
+                                Create New Group
+                            </h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Name</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Name
+                                    </label>
                                     <input
                                         type="text"
                                         value={newGroupName}
-                                        onChange={(e) => setNewGroupName(e.target.value)}
+                                        onChange={(e) =>
+                                            setNewGroupName(e.target.value)
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                         placeholder="Enter group name"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Description (optional)</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Description (optional)
+                                    </label>
                                     <textarea
                                         value={newGroupDescription}
-                                        onChange={(e) => setNewGroupDescription(e.target.value)}
+                                        onChange={(e) =>
+                                            setNewGroupDescription(
+                                                e.target.value
+                                            )
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                         placeholder="Enter description"
                                         rows={3}
@@ -897,7 +861,10 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="flex gap-2 mt-6">
-                                <button onClick={handleCreateGroup} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                <button
+                                    onClick={handleCreateGroup}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                >
                                     Create
                                 </button>
                                 <button
@@ -911,27 +878,101 @@ export default function SettingsPage() {
                     </div>
                 )}
 
+                {/* Group Rename Modal */}
+                {showGroupRenameModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                            <h2 className="text-xl font-semibold mb-4">
+                                Rename Group
+                            </h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={newGroupName}
+                                        onChange={(e) =>
+                                            setNewGroupName(e.target.value)
+                                        }
+                                        className="w-full border border-slate-300 rounded px-3 py-2"
+                                        placeholder="Enter group name"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Description (optional)
+                                    </label>
+                                    <textarea
+                                        value={newGroupDescription}
+                                        onChange={(e) =>
+                                            setNewGroupDescription(
+                                                e.target.value
+                                            )
+                                        }
+                                        className="w-full border border-slate-300 rounded px-3 py-2"
+                                        placeholder="Enter description"
+                                        rows={3}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button
+                                    onClick={handleRenameGroup}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                >
+                                    Save
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowGroupRenameModal(false);
+                                        setGroupToRename(null);
+                                        setNewGroupName("");
+                                        setNewGroupDescription("");
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Group Invite Modal */}
                 {showGroupInviteModal && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                            <h2 className="text-xl font-semibold mb-4">Invite Group Member</h2>
+                            <h2 className="text-xl font-semibold mb-4">
+                                Invite Group Member
+                            </h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Email</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Email
+                                    </label>
                                     <input
                                         type="email"
                                         value={groupInviteEmail}
-                                        onChange={(e) => setGroupInviteEmail(e.target.value)}
+                                        onChange={(e) =>
+                                            setGroupInviteEmail(e.target.value)
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                         placeholder="user@example.com"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Role</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Role
+                                    </label>
                                     <select
                                         value={groupInviteRole}
-                                        onChange={(e) => setGroupInviteRole(e.target.value as GroupRole)}
+                                        onChange={(e) =>
+                                            setGroupInviteRole(
+                                                e.target.value as GroupRole
+                                            )
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                     >
                                         <option value="viewer">Viewer</option>

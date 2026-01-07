@@ -6,6 +6,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
+from app.models.group import Group
+from app.models.group_member import GroupMember, GroupRole
 from app.models.audit_log import AuditLog
 from app.services.email_service import EmailService
 from app.services.auth_service import hash_password
@@ -284,8 +286,7 @@ async def invite_team_member(
             detail="Only owners can invite other owners"
         )
     
-    # Check if user with this email already exists
-    # First check in this tenant
+    # Check if user with this email already exists in this tenant
     stmt = select(User).where(
         and_(
             User.email == email,
@@ -296,7 +297,7 @@ async def invite_team_member(
     existing_user = result.scalars().first()
     
     if existing_user:
-        # User already exists, only allow resending invite if they're inactive
+        # User already exists in this tenant
         if existing_user.is_active == False:
             # Generate new token for reinvitation
             reset_token = secrets.token_urlsafe(32)
@@ -324,29 +325,88 @@ async def invite_team_member(
             )
             return existing_user
         else:
-            # User is already active, cannot resend invite
+            # User is already active in this tenant
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"User with email {email} is already a team member"
+                detail=f"User with email {email} is already a member of this group"
             )
 
-    # If user exists in another tenant, block to avoid unique email conflict
+    # Check if user exists globally (any tenant)
     other_stmt = select(User).where(User.email == email)
     other_result = await session.execute(other_stmt)
-    other_user = other_result.scalars().first()
+    existing_user_global = other_result.scalars().first()
     
-    if other_user:
-        # User exists but in another tenant - this is a cross-tenant scenario
+    if not existing_user_global:
+        # User doesn't exist anywhere - they need to sign up first
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"User with email {email} belongs to another organization. They must leave that organization first to join this one."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with email {email} not found. They must sign up first."
         )
     
-    # User doesn't exist anywhere - reject the invite
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"User with email {email} not found."
+    # User exists in another tenant - add them via GroupMember (cross-tenant membership)
+    # Find or create the default group for this tenant
+    tenant_uuid = uuid.UUID(tenant_id)
+    group_stmt = select(Group).where(Group.tenant_id == tenant_uuid)
+    group_result = await session.execute(group_stmt)
+    tenant_group = group_result.scalars().first()
+    
+    if not tenant_group:
+        # Create default group for this tenant
+        tenant_group = Group(
+            id=uuid.uuid4(),
+            tenant_id=tenant_uuid,
+            name="Main Group",
+            description="Default group for organization members",
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        session.add(tenant_group)
+        await session.flush()  # Get the group ID
+    
+    # Check if already a member of this tenant's group
+    member_check = await session.execute(
+        select(GroupMember).where(
+            and_(
+                GroupMember.group_id == tenant_group.id,
+                GroupMember.user_id == existing_user_global.id
+            )
+        )
     )
+    if member_check.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"User is already a member of this group"
+        )
+    
+    # Add user to tenant's group via GroupMember
+    role_enum = GroupRole[role.upper()] if hasattr(GroupRole, role.upper()) else GroupRole.VIEWER
+    new_member = GroupMember(
+        id=uuid.uuid4(),
+        group_id=tenant_group.id,
+        user_id=existing_user_global.id,
+        role=role_enum,
+        invited_at=datetime.utcnow(),
+        invited_by_id=uuid.UUID(actor_id),
+    )
+    session.add(new_member)
+    await session.commit()
+    
+    # Send notification email (not an invite token, just notification)
+    try:
+        await EmailService.send_team_invite_email(email, None)  # TODO: Update email template for cross-tenant
+    except Exception:
+        pass
+    
+    await log_audit_action(
+        tenant_id=tenant_uuid,
+        actor_id=uuid.UUID(actor_id),
+        target_user_id=existing_user_global.id,
+        action="team_member_added_cross_tenant",
+        details=json.dumps({"email": email, "role": role}),
+        session=session
+    )
+    
+    return existing_user_global
 
 
 async def log_audit_action(
