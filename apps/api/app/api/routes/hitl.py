@@ -708,12 +708,12 @@ async def approve_queue_item(
                         chunk = Chunk(
                             document_id=doc.id,
                             tenant_id=current_tenant,
-                            bot_id=bot.group_id,
+                            group_id=bot.group_id,
                             chunk_index=0,
                             content=doc_content,
                             page_number=None,
                             vector=question_embedding,  # Reuse the embedding from VerifiedQA
-                            metadata_json={"source": "hitl_approval", "verified_qa_id": str(verified_qa.id)},
+                            metadata_json=json.dumps({"source": "hitl_approval", "verified_qa_id": str(verified_qa.id)}),
                             created_at=datetime.utcnow(),
                             updated_at=datetime.utcnow(),
                         )
