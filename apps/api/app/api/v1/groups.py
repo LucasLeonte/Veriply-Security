@@ -19,6 +19,7 @@ from app.api.v1.schemas import (
     GroupResponse,
     GroupMemberInvite,
     GroupMemberResponse,
+    GroupMemberInviteResponse,
 )
 from app.services.group_service import GroupService
 from app.services.audit_service import AuditService
@@ -286,7 +287,7 @@ async def delete_group(
 
 
 # Group Membership Management
-@router.post("/{group_id}/members", response_model=GroupMemberResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{group_id}/members", response_model=GroupMemberInviteResponse, status_code=status.HTTP_202_ACCEPTED)
 async def invite_member(
     group_id: UUID,
     invite: GroupMemberInvite,
@@ -325,11 +326,12 @@ async def invite_member(
                 detail="User not found in your tenant. Invite them to your organization first.",
             )
 
-        # Generate signed invite token containing group_id, user_id, and role
+        # Generate signed invite token containing group_id, user_id, role, and invited_by_id
         payload = {
             "group_id": str(group_id),
             "user_id": str(user.id),
             "role": invite.role.value,
+            "invited_by_id": str(UUID(current_user["sub"])),
             "exp": datetime.utcnow() + timedelta(hours=48),
         }
         invite_token = jwt.encode(
