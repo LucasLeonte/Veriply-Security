@@ -176,6 +176,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class AcceptTeamInviteRequest(BaseModel):
+    """Request schema to accept a cross-tenant team invite."""
+    token: str
+
+
 @router.post("/forgot-password")
 async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Request a password reset link."""
@@ -244,3 +249,130 @@ async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(g
     await EmailService.send_password_reset_confirmation(user_email)
     
     return {"message": "Password reset successfully"}
+
+
+@router.post("/accept-invite")
+async def accept_team_invite(req: AcceptTeamInviteRequest, db: AsyncSession = Depends(get_db)):
+    """Accept a team invitation by token; transfers user to pending tenant and role."""
+    # 1) Try cross-tenant invite token
+    result = await db.execute(select(User).where(User.tenant_invite_token == req.token))
+    user = result.scalar_one_or_none()
+
+    if user:
+        # Check expiry
+        if user.tenant_invite_expires is None or user.tenant_invite_expires < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invite token has expired. Please request a new invitation."
+            )
+
+        if not user.pending_tenant_id or not user.pending_role:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invite is not properly configured."
+            )
+
+        # Transfer user to new tenant
+        user.tenant_id = user.pending_tenant_id
+        user.role = user.pending_role
+        user.is_active = True
+        user.tenant_invite_token = None
+        user.tenant_invite_expires = None
+        user.pending_tenant_id = None
+        user.pending_role = None
+
+        # Clear invite token after acceptance; no additional password setup step
+        user.password_reset_token = None
+        user.password_reset_expires = None
+
+        await db.commit()
+
+        return {"message": "Invitation accepted."}
+
+    # 2) Fallback: intra-tenant invite uses password_reset_token
+    result = await db.execute(select(User).where(User.password_reset_token == req.token))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired invite token"
+        )
+
+    # Check expiry
+    if user.password_reset_expires is None or user.password_reset_expires < datetime.utcnow():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite token has expired. Please request a new invitation."
+        )
+
+    # Activate user in the same tenant
+    user.is_active = True
+
+    # Clear invite token after acceptance; no additional password setup step
+    user.password_reset_token = None
+    user.password_reset_expires = None
+
+    await db.commit()
+
+    return {"message": "Invitation accepted."}
+
+
+@router.post("/accept-group-invite")
+async def accept_group_invite(req: AcceptTeamInviteRequest, db: AsyncSession = Depends(get_db)):
+    """Accept a group invitation by verified token; adds user to group with specified role."""
+    try:
+        # Decode the signed JWT token
+        payload = jwt.decode(req.token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invite token has expired. Please request a new invitation."
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid invite token."
+        )
+
+    # Extract token data
+    group_id = UUID(payload["group_id"])
+    user_id = UUID(payload["user_id"])
+    invited_by_id = UUID(payload["invited_by_id"])
+    role_str = payload["role"]
+    role = GroupRole(role_str)
+
+    # Import here to avoid circular imports
+    from app.models import GroupMember, GroupRole, Group
+    from app.services.group_service import GroupService
+
+    # Check if group exists
+    group = await db.scalar(select(Group).where(Group.id == group_id))
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found."
+        )
+
+    # Check if user exists
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found."
+        )
+
+    # Add user to group
+    try:
+        member = await GroupService.add_member(
+            db=db,
+            group_id=group_id,
+            user_id=user_id,
+            role=role,
+            invited_by_id=invited_by_id,
+        )
+        await db.commit()
+        return {"message": "Successfully joined the group."}
+    except ValueError as e:
+        await db.rollback()
+        raise HTTPException(status_code=409, detail=str(e))

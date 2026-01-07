@@ -1,11 +1,17 @@
 import uuid
 import json
-from datetime import datetime
+import secrets
+import logging
+from datetime import datetime, timedelta
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import User
 from app.models.audit_log import AuditLog
+from app.services.email_service import EmailService
+from app.services.auth_service import hash_password
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 
 async def get_user_profile(user_id: str, session: AsyncSession) -> User:
@@ -103,7 +109,7 @@ async def get_team_members(tenant_id: str, session: AsyncSession) -> list[User]:
     stmt = select(User).where(
         and_(
             User.tenant_id == uuid.UUID(tenant_id),
-            User.is_active == "active"
+            User.is_active.is_(True)
         )
     ).order_by(User.name)
     
@@ -144,7 +150,7 @@ async def remove_team_member(
         )
     
     # Mark as inactive
-    target.is_active = "inactive"
+    target.is_active = False
     target.updated_at = datetime.utcnow()
     session.add(target)
     await session.commit()
@@ -219,11 +225,120 @@ async def count_owners_in_tenant(tenant_id: str, session: AsyncSession) -> int:
         and_(
             User.tenant_id == uuid.UUID(tenant_id),
             User.role == "owner",
-            User.is_active == "active"
+            User.is_active.is_(True)
         )
     )
     result = await session.execute(stmt)
     return len(result.scalars().all())
+
+
+async def invite_team_member(
+    actor_id: str,
+    email: str,
+    role: str,
+    tenant_id: str,
+    session: AsyncSession
+) -> User:
+    """
+    Invite a new team member via email.
+    
+    Creates or updates a user with the given email in the tenant.
+    Authorization: only Owner/Admin can invite
+    """
+    actor = await get_user_profile(actor_id, session)
+    
+    # Authorization: only Owner/Admin can invite
+    if actor.role not in ["owner", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Owner or Admin can invite team members"
+        )
+    
+    # Validate email format
+    if not email or "@" not in email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid email address"
+        )
+    
+    # Validate role
+    valid_roles = ["owner", "admin", "manager", "agent", "viewer"]
+    if role not in valid_roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Role must be one of: {', '.join(valid_roles)}"
+        )
+    
+    # Role-based authorization: only owners can create other owners
+    if role == "owner" and actor.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can invite other owners"
+        )
+    
+    # Check if user with this email already exists
+    # First check in this tenant
+    stmt = select(User).where(
+        and_(
+            User.email == email,
+            User.tenant_id == uuid.UUID(tenant_id)
+        )
+    )
+    result = await session.execute(stmt)
+    existing_user = result.scalars().first()
+    
+    if existing_user:
+        # User already exists, only allow resending invite if they're inactive
+        if existing_user.is_active == False:
+            # Generate new token for reinvitation
+            reset_token = secrets.token_urlsafe(32)
+            existing_user.role = role
+            existing_user.password_reset_token = reset_token
+            existing_user.password_reset_expires = datetime.utcnow() + timedelta(hours=48)
+            existing_user.updated_at = datetime.utcnow()
+            session.add(existing_user)
+            await session.commit()
+            await session.refresh(existing_user)
+            
+            # Send team invite email with new token
+            try:
+                await EmailService.send_team_invite_email(email, reset_token)
+            except Exception:
+                pass
+            
+            await log_audit_action(
+                tenant_id=uuid.UUID(tenant_id),
+                actor_id=uuid.UUID(actor_id),
+                target_user_id=existing_user.id,
+                action="team_member_reinvited",
+                details=json.dumps({"email": email, "role": role}),
+                session=session
+            )
+            return existing_user
+        else:
+            # User is already active, cannot resend invite
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with email {email} is already a team member"
+            )
+
+    # If user exists in another tenant, block to avoid unique email conflict
+    other_stmt = select(User).where(User.email == email)
+    other_result = await session.execute(other_stmt)
+    other_user = other_result.scalars().first()
+    
+    if other_user:
+        # User exists but in another tenant - this is a cross-tenant scenario
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"User with email {email} belongs to another organization. They must leave that organization first to join this one."
+        )
+    
+    # User doesn't exist anywhere - reject the invite
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"User with email {email} not found."
+    )
 
 
 async def log_audit_action(
@@ -247,3 +362,37 @@ async def log_audit_action(
     session.add(audit_entry)
     await session.commit()
     return audit_entry
+
+async def cleanup_inactive_users(session: AsyncSession, days: int = 30) -> int:
+    """
+    Hard-delete users who have been inactive (is_active=False) for X days.
+    
+    Args:
+        session: AsyncSession for database operations
+        days: Number of days before soft-deleted users are permanently deleted (default 30)
+    
+    Returns:
+        Number of users deleted
+    """
+    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    
+    # Find inactive users older than cutoff date
+    stmt = select(User).where(
+        and_(
+            User.is_active.is_(False),
+            User.updated_at < cutoff_date
+        )
+    )
+    
+    result = await session.execute(stmt)
+    users_to_delete = result.scalars().all()
+    
+    # Delete them
+    for user in users_to_delete:
+        await session.delete(user)
+    
+    if users_to_delete:
+        await session.commit()
+        logger.info(f"Cleaned up {len(users_to_delete)} inactive users older than {days} days")
+    
+    return len(users_to_delete)

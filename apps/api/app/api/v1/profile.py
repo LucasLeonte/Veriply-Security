@@ -3,7 +3,8 @@ from app.api.v1.schemas import (
     ProfileUpdateRequest,
     UserResponse,
     TeamMemberResponse,
-    RoleChangeRequest
+    RoleChangeRequest,
+    InviteTeamMemberRequest
 )
 from app.services.profile_service import (
     get_user_profile,
@@ -11,7 +12,8 @@ from app.services.profile_service import (
     upload_avatar_url,
     get_team_members,
     remove_team_member,
-    change_team_member_role
+    change_team_member_role,
+    invite_team_member
 )
 from app.core.database import get_db
 from app.core.auth import get_current_user
@@ -171,6 +173,23 @@ async def remove_team_member_endpoint(
         session=session
     )
     return {"message": "Team member removed successfully"}
+
+
+@router.post("/team/invite", response_model=TeamMemberResponse)
+async def invite_team_member_endpoint(
+    invite_req: InviteTeamMemberRequest,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """Invite a new team member to the organization."""
+    user = await invite_team_member(
+        actor_id=current_user["sub"],
+        email=invite_req.email,
+        role=invite_req.role or "manager",
+        tenant_id=current_user["tenant_id"],
+        session=session
+    )
+    return user
 
 
 @router.put("/team/members/{user_id}/role", response_model=TeamMemberResponse)

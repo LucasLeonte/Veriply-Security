@@ -5,16 +5,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
 import logging
+import jwt
+from datetime import datetime, timedelta
 
 from app.models import GroupMember, GroupRole, User, Tenant
 from app.core.auth import get_current_user
 from app.core.database import get_db
+from app.core.settings import settings
+from app.services.email_service import EmailService
 from app.api.v1.schemas import (
     GroupCreate,
     GroupUpdate,
     GroupResponse,
     GroupMemberInvite,
     GroupMemberResponse,
+    GroupMemberInviteResponse,
 )
 from app.services.group_service import GroupService
 from app.services.audit_service import AuditService
@@ -282,7 +287,7 @@ async def delete_group(
 
 
 # Group Membership Management
-@router.post("/{group_id}/members", response_model=GroupMemberResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/{group_id}/members", response_model=GroupMemberInviteResponse, status_code=status.HTTP_202_ACCEPTED)
 async def invite_member(
     group_id: UUID,
     invite: GroupMemberInvite,
@@ -321,14 +326,29 @@ async def invite_member(
                 detail="User not found in your tenant. Invite them to your organization first.",
             )
 
-        # Add member using service
-        new_member = await GroupService.add_member(
-            db=session,
-            group_id=group_id,
-            user_id=user.id,
-            role=invite.role,
-            invited_by_id=UUID(current_user["sub"]),
+        # Generate signed invite token containing group_id, user_id, role, and invited_by_id
+        payload = {
+            "group_id": str(group_id),
+            "user_id": str(user.id),
+            "role": invite.role.value,
+            "invited_by_id": str(UUID(current_user["sub"])),
+            "exp": datetime.utcnow() + timedelta(hours=48),
+        }
+        invite_token = jwt.encode(
+            payload,
+            settings.JWT_SECRET,
+            algorithm=settings.JWT_ALGORITHM,
         )
+
+        # Send invite email
+        try:
+            await EmailService.send_group_invite_email(
+                email=invite.email,
+                invite_token=invite_token,
+                group_id=str(group_id),
+            )
+        except Exception as e:
+            logger.error(f"Failed to send group invite email: {e}")
 
         # Log to audit trail
         await AuditService.log_member_invited(
@@ -341,7 +361,7 @@ async def invite_member(
         )
 
         await session.commit()
-        return new_member
+        return {"message": "Invite sent successfully", "user_id": str(user.id)}
 
     except ValueError as e:
         await session.rollback()
