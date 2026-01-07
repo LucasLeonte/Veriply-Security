@@ -1,7 +1,7 @@
 """Group service for group-scoped operations with provenance tracking."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from uuid import UUID
 from datetime import datetime
 import logging
@@ -59,15 +59,25 @@ class GroupService:
         db.add(new_group)
         await db.flush()
 
-        # Add creator as group_admin
+        # Add creator as owner (highest privilege)
         member = GroupMember(
             group_id=new_group.id,
             user_id=user_id,
-            role=GroupRole.GROUP_ADMIN,
+            role=GroupRole.OWNER.value,
             invited_by_id=user_id,
             invited_at=datetime.utcnow(),
         )
         db.add(member)
+        await db.flush()
+
+        # Safety net: ensure no stray memberships on freshly created group
+        # (should be none, but protects against legacy rows or seeds)
+        await db.execute(
+            delete(GroupMember).where(
+                (GroupMember.group_id == new_group.id)
+                & (GroupMember.user_id != user_id)
+            )
+        )
         await db.flush()
 
         logger.info(f"Group created: id={new_group.id}, tenant_id={tenant_id}, name={name}")

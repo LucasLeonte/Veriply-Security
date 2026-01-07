@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useGroup } from "@/contexts/GroupContext";
 import { groupsApi } from "@/lib/api/groups";
+import { Group } from "@/types/group";
 import { Users, Plus, ArrowRight, LogOut } from "lucide-react";
 import { getAccessToken, clearAccessToken } from "@/lib/auth";
 
