@@ -13,6 +13,7 @@ import {
     MessageCircle,
     Clock3,
     Settings2,
+    BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -20,8 +21,9 @@ import { useGroup } from "@/contexts/GroupContext";
 import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import BotGeneralSettings from "@/components/bot/BotGeneralSettings";
+import VerifiedKBTab from "@/components/bot/VerifiedKBTab";
 
-type TabType = "settings" | "documents" | "chat" | "history" | "widget";
+type TabType = "settings" | "documents" | "chat" | "history" | "widget" | "verified-kb";
 
 export default function BotSettingsPage() {
     const params = useParams();
@@ -38,7 +40,7 @@ export default function BotSettingsPage() {
         const tab = searchParams.get("tab") as TabType | null;
         if (
             tab &&
-            ["chat", "documents", "settings", "history", "widget"].includes(tab)
+            ["chat", "documents", "settings", "history", "widget", "verified-kb"].includes(tab)
         ) {
             setActiveTab(tab);
         }
@@ -138,6 +140,17 @@ export default function BotSettingsPage() {
                             <Settings2 size={16} />
                             Widget Configuration
                         </button>
+                        <button
+                            onClick={() => setActiveTab("verified-kb")}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === "verified-kb"
+                                    ? "border-emerald-600 text-emerald-600"
+                                    : "border-transparent text-slate-600 hover:text-slate-900"
+                            }`}
+                        >
+                            <BookOpen size={16} />
+                            Verified KB
+                        </button>
                     </nav>
                 </div>
 
@@ -235,6 +248,10 @@ export default function BotSettingsPage() {
                                 hideNav
                             />
                         </div>
+                    )}
+
+                    {activeTab === "verified-kb" && (
+                        <VerifiedKBTab botId={botId} />
                     )}
                 </div>
             </div>
