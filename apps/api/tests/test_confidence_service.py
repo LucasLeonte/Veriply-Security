@@ -36,6 +36,13 @@ def mock_db():
     db.flush = AsyncMock()
     db.commit = AsyncMock()
     db.rollback = AsyncMock()
+    
+    # Mock execute() for the deduplication check in _log_confidence
+    # Returns a result with scalar_one_or_none() returning None (no duplicate found)
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none = MagicMock(return_value=None)
+    db.execute = AsyncMock(return_value=mock_result)
+    
     return db
 
 
@@ -387,6 +394,11 @@ class TestConfidenceLogging:
         failing_db.flush = AsyncMock(side_effect=Exception("DB Error"))
         failing_db.commit = AsyncMock()
         failing_db.rollback = AsyncMock()
+        
+        # Mock execute() for the deduplication check (returns no duplicate)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none = MagicMock(return_value=None)
+        failing_db.execute = AsyncMock(return_value=mock_result)
 
         # Should not raise - logging failure is handled gracefully
         result = await confidence_service.calculate_confidence(
