@@ -225,7 +225,7 @@ async def get_monitoring_status(
 ):
     res = await db.execute(
         select(EmailIntegration).where(
-            and_(EmailIntegration.id == integration_id, EmailIntegration.tenant_id == current_user["tenant_id"])
+            and_(EmailIntegration.id == integration_id, EmailIntegration.tenant_id == current_user.tenant_id)
         )
     )
     integ = res.scalar_one_or_none()
@@ -253,7 +253,7 @@ async def set_monitoring_pause(
 ):
     res = await db.execute(
         select(EmailIntegration).where(
-            and_(EmailIntegration.id == integration_id, EmailIntegration.tenant_id == current_user["tenant_id"])
+            and_(EmailIntegration.id == integration_id, EmailIntegration.tenant_id == current_user.tenant_id)
         )
     )
     integ = res.scalar_one_or_none()
