@@ -29,8 +29,23 @@ async def get_current_user_profile(
     session: AsyncSession = Depends(get_db)
 ):
     """Get current logged-in user's profile."""
-    user = await get_user_profile(current_user["sub"], session)
-    return user
+    try:
+        if not current_user or "sub" not in current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid user context in token"
+            )
+        user = await get_user_profile(current_user["sub"], session)
+        return user
+    except HTTPException:
+        raise
+    except Exception as e:
+        import logging
+        logging.error(f"Error fetching profile: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch profile: {str(e)}"
+        )
 
 
 @router.get("/{user_id}", response_model=UserResponse)
