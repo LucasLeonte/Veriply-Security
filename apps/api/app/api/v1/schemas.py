@@ -2,6 +2,10 @@ from pydantic import BaseModel, field_validator, ConfigDict, field_serializer
 from typing import Optional
 from datetime import datetime
 from uuid import UUID
+from app.models.group_member import GroupRole
+
+# Derive valid roles from GroupRole enum
+VALID_ROLES = [role.value for role in GroupRole]
 
 class TenantCreate(BaseModel):
     name: str
@@ -113,8 +117,8 @@ class RoleChangeRequest(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        if v not in ["owner", "admin", "manager", "agent", "viewer"]:
-            raise ValueError("Invalid role")
+        if v not in VALID_ROLES:
+            raise ValueError(f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
         return v
 
     class Config:
@@ -138,8 +142,8 @@ class InviteTeamMemberRequest(BaseModel):
     def validate_role(cls, v: Optional[str]) -> Optional[str]:
         if v is None:
             return v
-        if v not in ["owner", "admin", "manager", "agent", "viewer"]:
-            raise ValueError("Invalid role")
+        if v not in VALID_ROLES:
+            raise ValueError(f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
         return v
 
 class AuditLogResponse(BaseModel):
@@ -218,8 +222,8 @@ class GroupMemberInvite(BaseModel):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        if v not in ["owner", "admin", "manager", "agent", "viewer"]:
-            raise ValueError("Invalid role. Must be one of: owner, admin, manager, agent, viewer")
+        if v not in VALID_ROLES:
+            raise ValueError(f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
         return v
 
 

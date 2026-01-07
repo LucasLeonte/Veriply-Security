@@ -170,7 +170,9 @@ export default function SettingsPage() {
 
         const token = typeof window !== "undefined" ? getAccessToken() : null;
         if (!token) {
-            alert("You must be logged in to create a group. Please sign in again.");
+            alert(
+                "You must be logged in to create a group. Please sign in again."
+            );
             window.location.href = "/login";
             return;
         }
@@ -189,7 +191,8 @@ export default function SettingsPage() {
             setNewGroupDescription("");
         } catch (err) {
             console.error("Failed to create group:", err);
-            const message = err instanceof Error ? err.message : "Failed to create group";
+            const message =
+                err instanceof Error ? err.message : "Failed to create group";
             alert(message);
         }
     };
@@ -225,7 +228,10 @@ export default function SettingsPage() {
         }
     };
 
-    const handleUpdateGroupRole = async (userId: string, newRole: GroupRole) => {
+    const handleUpdateGroupRole = async (
+        userId: string,
+        newRole: GroupRole
+    ) => {
         if (!currentGroup) return;
 
         try {
@@ -662,7 +668,9 @@ export default function SettingsPage() {
                         <div className="flex gap-2">
                             {currentGroup && (
                                 <button
-                                    onClick={() => setShowGroupInviteModal(true)}
+                                    onClick={() =>
+                                        setShowGroupInviteModal(true)
+                                    }
                                     className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
                                 >
                                     <Mail className="h-4 w-4 inline-block mr-2" />
@@ -681,7 +689,9 @@ export default function SettingsPage() {
 
                     <div className="bg-white rounded-lg border border-slate-200 divide-y">
                         {groups.length === 0 ? (
-                            <div className="p-4 text-slate-600">No groups yet</div>
+                            <div className="p-4 text-slate-600">
+                                No groups yet
+                            </div>
                         ) : (
                             groups.map((group: Group) => (
                                 <div
@@ -689,9 +699,13 @@ export default function SettingsPage() {
                                     className="p-4 flex items-center justify-between hover:bg-slate-50"
                                 >
                                     <div>
-                                        <p className="font-medium text-slate-900">{group.name}</p>
+                                        <p className="font-medium text-slate-900">
+                                            {group.name}
+                                        </p>
                                         {group.description && (
-                                            <p className="text-sm text-slate-600">{group.description}</p>
+                                            <p className="text-sm text-slate-600">
+                                                {group.description}
+                                            </p>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -701,7 +715,9 @@ export default function SettingsPage() {
                                             </span>
                                         )}
                                         <button
-                                            onClick={() => setCurrentGroup(group)}
+                                            onClick={() =>
+                                                setCurrentGroup(group)
+                                            }
                                             className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
                                         >
                                             Select
@@ -719,7 +735,9 @@ export default function SettingsPage() {
                                     Members of {currentGroup.name}
                                 </h3>
                                 <button
-                                    onClick={() => setShowGroupInviteModal(true)}
+                                    onClick={() =>
+                                        setShowGroupInviteModal(true)
+                                    }
                                     className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
                                 >
                                     <Mail className="h-4 w-4 inline-block mr-2" />
@@ -728,9 +746,13 @@ export default function SettingsPage() {
                             </div>
                             <div className="divide-y">
                                 {loadingGroupMembers ? (
-                                    <div className="p-4 text-slate-600">Loading members...</div>
+                                    <div className="p-4 text-slate-600">
+                                        Loading members...
+                                    </div>
                                 ) : groupMembers.length === 0 ? (
-                                    <div className="p-4 text-slate-600">No members yet</div>
+                                    <div className="p-4 text-slate-600">
+                                        No members yet
+                                    </div>
                                 ) : (
                                     groupMembers.map((member) => (
                                         <div
@@ -740,9 +762,14 @@ export default function SettingsPage() {
                                             <div className="flex items-center gap-3">
                                                 {getGroupRoleIcon(member.role)}
                                                 <div>
-                                                    <p className="font-medium text-slate-900">User {member.user_id}</p>
+                                                    <p className="font-medium text-slate-900">
+                                                        User {member.user_id}
+                                                    </p>
                                                     <p className="text-sm text-slate-600 capitalize">
-                                                        {member.role.replace("_", " ")}
+                                                        {member.role.replace(
+                                                            "_",
+                                                            " "
+                                                        )}
                                                     </p>
                                                 </div>
                                             </div>
@@ -752,19 +779,34 @@ export default function SettingsPage() {
                                                     onChange={(e) =>
                                                         handleUpdateGroupRole(
                                                             member.user_id,
-                                                            e.target.value as GroupRole
+                                                            e.target
+                                                                .value as GroupRole
                                                         )
                                                     }
                                                     className="text-sm border border-slate-300 rounded px-2 py-1"
                                                 >
-                                                    <option value="viewer">Viewer</option>
-                                                    <option value="agent">Agent</option>
-                                                    <option value="manager">Manager</option>
-                                                    <option value="admin">Admin</option>
-                                                    <option value="owner">Owner</option>
+                                                    <option value="viewer">
+                                                        Viewer
+                                                    </option>
+                                                    <option value="agent">
+                                                        Agent
+                                                    </option>
+                                                    <option value="manager">
+                                                        Manager
+                                                    </option>
+                                                    <option value="admin">
+                                                        Admin
+                                                    </option>
+                                                    <option value="owner">
+                                                        Owner
+                                                    </option>
                                                 </select>
                                                 <button
-                                                    onClick={() => handleRemoveGroupMember(member.user_id)}
+                                                    onClick={() =>
+                                                        handleRemoveGroupMember(
+                                                            member.user_id
+                                                        )
+                                                    }
                                                     className="p-2 text-red-600 hover:bg-red-50 rounded"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -873,23 +915,35 @@ export default function SettingsPage() {
                 {showGroupCreateModal && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                            <h2 className="text-xl font-semibold mb-4">Create New Group</h2>
+                            <h2 className="text-xl font-semibold mb-4">
+                                Create New Group
+                            </h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Name</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Name
+                                    </label>
                                     <input
                                         type="text"
                                         value={newGroupName}
-                                        onChange={(e) => setNewGroupName(e.target.value)}
+                                        onChange={(e) =>
+                                            setNewGroupName(e.target.value)
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                         placeholder="Enter group name"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Description (optional)</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Description (optional)
+                                    </label>
                                     <textarea
                                         value={newGroupDescription}
-                                        onChange={(e) => setNewGroupDescription(e.target.value)}
+                                        onChange={(e) =>
+                                            setNewGroupDescription(
+                                                e.target.value
+                                            )
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                         placeholder="Enter description"
                                         rows={3}
@@ -897,7 +951,10 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="flex gap-2 mt-6">
-                                <button onClick={handleCreateGroup} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                <button
+                                    onClick={handleCreateGroup}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                >
                                     Create
                                 </button>
                                 <button
@@ -915,23 +972,35 @@ export default function SettingsPage() {
                 {showGroupInviteModal && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                            <h2 className="text-xl font-semibold mb-4">Invite Group Member</h2>
+                            <h2 className="text-xl font-semibold mb-4">
+                                Invite Group Member
+                            </h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Email</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Email
+                                    </label>
                                     <input
                                         type="email"
                                         value={groupInviteEmail}
-                                        onChange={(e) => setGroupInviteEmail(e.target.value)}
+                                        onChange={(e) =>
+                                            setGroupInviteEmail(e.target.value)
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                         placeholder="user@example.com"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium mb-1">Role</label>
+                                    <label className="block text-sm font-medium mb-1">
+                                        Role
+                                    </label>
                                     <select
                                         value={groupInviteRole}
-                                        onChange={(e) => setGroupInviteRole(e.target.value as GroupRole)}
+                                        onChange={(e) =>
+                                            setGroupInviteRole(
+                                                e.target.value as GroupRole
+                                            )
+                                        }
                                         className="w-full border border-slate-300 rounded px-3 py-2"
                                     >
                                         <option value="viewer">Viewer</option>

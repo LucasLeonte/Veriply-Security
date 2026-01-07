@@ -313,17 +313,15 @@ async def invite_member(
                 detail="Only owners and admins can invite members",
             )
 
-        # Find user by email
+        # Find user by email (cross-organization support)
+        # Users from different organizations can be invited to groups
         user = await session.scalar(
-            select(User).where(
-                (User.email == invite.email) 
-                & (User.tenant_id == UUID(current_user["tenant_id"]))
-            )
+            select(User).where(User.email == invite.email)
         )
         if not user:
             raise HTTPException(
                 status_code=404,
-                detail="User not found in your tenant. Invite them to your organization first.",
+                detail="User not found. Check the email address and try again.",
             )
 
         # Generate signed invite token containing group_id, user_id, role, and invited_by_id
