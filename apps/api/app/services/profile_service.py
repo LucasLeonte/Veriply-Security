@@ -1,6 +1,7 @@
 import uuid
 import json
 import secrets
+import logging
 from datetime import datetime, timedelta
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,8 @@ from app.models.audit_log import AuditLog
 from app.services.email_service import EmailService
 from app.services.auth_service import hash_password
 from fastapi import HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 
 async def get_user_profile(user_id: str, session: AsyncSession) -> User:
@@ -264,6 +267,13 @@ async def invite_team_member(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Role must be one of: {', '.join(valid_roles)}"
+        )
+    
+    # Role-based authorization: only owners can create other owners
+    if role == "owner" and actor.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owners can invite other owners"
         )
     
     # Check if user with this email already exists

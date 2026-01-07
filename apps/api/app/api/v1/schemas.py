@@ -226,6 +226,12 @@ class GroupMemberResponse(BaseModel):
         return value
 
 
+class GroupMemberInviteResponse(BaseModel):
+    """Response for group member invite endpoint."""
+    message: str
+    user_id: str
+
+
 # Bot Schemas (UPDATED)
 class BotCreate(BaseModel):
     group_id: str | UUID

@@ -156,7 +156,7 @@ async def invite_team_member(
         email=email,
         tenant_id=uuid.UUID(tenant_id),
         role=role,
-        is_active="active",
+        is_active=True,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow()
     )
@@ -201,13 +201,13 @@ from app.services.profile_service import (
 ```python
 @router.post("/team/invite", response_model=TeamMemberResponse)
 async def invite_team_member_endpoint(
-    invite_data: dict,
+    invite_data: InviteTeamMemberRequest,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_db)
 ):
     """Invite a new team member to the organization."""
-    email = invite_data.get("email")
-    role = invite_data.get("role", "manager")
+    email = invite_data.email
+    role = invite_data.role
 
     if not email:
         raise HTTPException(

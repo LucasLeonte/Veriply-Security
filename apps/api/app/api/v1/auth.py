@@ -338,6 +338,7 @@ async def accept_group_invite(req: AcceptTeamInviteRequest, db: AsyncSession = D
     # Extract token data
     group_id = UUID(payload["group_id"])
     user_id = UUID(payload["user_id"])
+    invited_by_id = UUID(payload["invited_by_id"])
     role_str = payload["role"]
     role = GroupRole(role_str)
 
@@ -368,7 +369,7 @@ async def accept_group_invite(req: AcceptTeamInviteRequest, db: AsyncSession = D
             group_id=group_id,
             user_id=user_id,
             role=role,
-            invited_by_id=user_id,  # Will be updated by audit if needed
+            invited_by_id=invited_by_id,
         )
         await db.commit()
         return {"message": "Successfully joined the group."}
