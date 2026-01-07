@@ -20,6 +20,7 @@ from app.api.routes import chat
 from app.api.routes import chat_history
 from app.api.routes import feedback
 from app.api.routes import hitl  # Story 3.4: HITL review queue
+from app.api.routes import integrations  # Story 6.2: Email integrations
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
 
 @asynccontextmanager
@@ -61,6 +62,7 @@ app.include_router(folders.router)  # Group-scoped: /api/v1/groups/{group_id}/fo
 app.include_router(bot_access.router)  # Bot access: /api/v1/bots/{bot_id}/access
 app.include_router(review_queue.router)  # Review queue: /api/v1/bots/{bot_id}/review-queue
 app.include_router(hitl.router)  # HITL review queue: /api/v1/hitl/queue
+app.include_router(integrations.router)  # Email integrations: /api/v1/integrations
 app.include_router(query.router, prefix="/api/v1")  # Legacy: /api/v1/query
 app.include_router(chat.router, prefix="/api/v1")  # Public chat: /api/v1/bots/{bot_id}/public, /api/v1/bots/{bot_id}/chat/query
 app.include_router(chat_history.router, prefix="/api/v1")  # Authenticated chat history
