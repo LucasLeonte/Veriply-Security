@@ -167,6 +167,9 @@ class Settings(BaseSettings):
     OUTLOOK_OAUTH_REDIRECT: Optional[str] = None
     
     EMAIL_TOKEN_ENCRYPTION_KEY: Optional[str] = None
+
+    # Email polling interval (seconds) for background worker (default: 5 minutes)
+    EMAIL_POLL_INTERVAL_SECONDS: int = 300
     
     # ========================================================================
     # MODERATION NOTIFICATION CONFIGURATION

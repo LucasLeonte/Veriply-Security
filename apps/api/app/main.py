@@ -3,9 +3,11 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import asyncio
 from app.core.database import init_db
 from app.core.migrations import enable_pgvector, enable_rls
 from app.core.settings import settings
+from app.core.database import AsyncSessionLocal
 from app.api.v1 import auth
 from app.api.v1 import profile
 from app.api.v1 import groups
@@ -21,6 +23,8 @@ from app.api.routes import chat_history
 from app.api.routes import feedback
 from app.api.routes import hitl  # Story 3.4: HITL review queue
 from app.api.routes import integrations  # Story 6.2: Email integrations
+from app.api.routes import email_rules  # Story 6.3: Email monitoring rules
+from app.workers.email_poller import run_periodic as start_email_poller
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
 
 @asynccontextmanager
@@ -29,6 +33,12 @@ async def lifespan(app: FastAPI):
     await init_db()
     await enable_pgvector()
     await enable_rls()
+    # Start background email polling worker
+    try:
+        asyncio.create_task(start_email_poller(AsyncSessionLocal, settings.EMAIL_POLL_INTERVAL_SECONDS))
+    except Exception:
+        # Don't crash app if background task fails to start
+        pass
     yield
     # Shutdown (optional)
 
@@ -63,6 +73,7 @@ app.include_router(bot_access.router)  # Bot access: /api/v1/bots/{bot_id}/acces
 app.include_router(review_queue.router)  # Review queue: /api/v1/bots/{bot_id}/review-queue
 app.include_router(hitl.router)  # HITL review queue: /api/v1/hitl/queue
 app.include_router(integrations.router)  # Email integrations: /api/v1/integrations
+app.include_router(email_rules.router)  # Email monitoring rules: /api/v1/email-rules
 app.include_router(query.router, prefix="/api/v1")  # Legacy: /api/v1/query
 app.include_router(chat.router, prefix="/api/v1")  # Public chat: /api/v1/bots/{bot_id}/public, /api/v1/bots/{bot_id}/chat/query
 app.include_router(chat_history.router, prefix="/api/v1")  # Authenticated chat history

@@ -284,8 +284,8 @@ development_status:
         blocked_by: 3-2-context-only-answer-generation
 
     6-3-email-monitoring-rules:
-        status: drafted
-        assigned_to: null
+        status: in-progress
+        assigned_to: Dario
         blocked_by: 6-1-gmail-oauth-integration
 
     6-4-email-draft-generation:
