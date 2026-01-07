@@ -27,6 +27,9 @@ from app.models.user import User
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
 from app.models.bot import Bot
 from app.models.bot import Bot
+from app.services.embedding_service import EmbeddingService, EmbeddingError
+from app.services.verified_qa import create_verified_qa
+from app.services.document_service import create_document
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -565,12 +568,8 @@ async def approve_queue_item(
                     detail="Access denied: You do not have access to this item",
                 )
 
-        # Mark as resolved
-        item.hitl_resolved = True
-        item.resolution_user_id = current_user.id
-        item.resolution_timestamp = __import__('datetime').datetime.utcnow()
-
-        # Store edits in metadata if provided; reassign the dict so JSON changes persist
+        # Extract question and prepare answer for Verified KB
+        question_text = item.query_text or ""
         metadata = dict(item.metadata_json or {})
         ai_draft = metadata.get("ai_draft", "")
         
@@ -618,33 +617,166 @@ async def approve_queue_item(
             metadata["resolution_action"] = "approved_with_edits"
             logger.info(f"Approval with edits for item {item_id} - AI:{len(ai_draft)} chars → Human:{len(request.edits)} chars")
         else:
-            # No edits - use AI draft as-is
+            # Default to AI draft as the approved answer if no edits supplied
+            ai_draft = metadata.get("ai_draft", "")
             metadata["human_final_answer"] = ai_draft
             metadata["resolution_action"] = "approved"
             logger.debug("Approval without edits - using AI draft")
 
-        # Mark as resolved
-        item.hitl_resolved = True
-        item.resolution_user_id = current_user.id
-        item.resolution_timestamp = datetime.utcnow()
-        
-        # AC1: Mark item for Verified KB update
-        item.is_verified_kb = True
-        metadata["verified_kb_added"] = True
-        metadata["verified_at"] = datetime.utcnow().isoformat()
-        metadata["verified_by"] = str(current_user.id)
-        
         item.metadata_json = metadata
 
-        logger.debug(f"Committing approval for item {item_id}")
-        await db.commit()
-        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
-        
+        # Mark item as resolved BEFORE creating VerifiedQA (which needs resolution timestamp)
+        item.hitl_resolved = True
+        item.resolution_user_id = current_user.id
+        item.resolution_timestamp = __import__('datetime').datetime.utcnow()
+
+        # Prepare the approved answer and citations for storage
+        approved_answer = final_answer
+        source_citations = metadata.get("citations", [])
+        kb_doc_id = None
+
+        # Create VerifiedQA entry (FR52: Auto-add approved HITL to Verified KB)
+        if question_text and approved_answer and item.bot_id:
+            try:
+                # Generate embedding for the question
+                embedding_service = EmbeddingService()
+                question_embedding = await embedding_service.embed_verified_question(question_text)
+                await embedding_service.close()
+                
+                # Fetch bot to get group_id
+                bot_result = await db.execute(
+                    select(Bot).where(
+                        and_(
+                            Bot.id == item.bot_id,
+                            Bot.tenant_id == current_tenant,
+                        )
+                    )
+                )
+                bot = bot_result.scalar_one_or_none()
+                
+                if bot and bot.group_id:
+                    # Create VerifiedQA entry
+                    verified_qa = await create_verified_qa(
+                        db=db,
+                        tenant_id=current_tenant,
+                        group_id=bot.group_id,
+                        bot_id=item.bot_id,
+                        question_text=question_text,
+                        question_embedding=question_embedding,
+                        answer_text=approved_answer,
+                        approved_by_user_id=current_user.id,
+                        approved_at=item.resolution_timestamp,
+                        source_citations=source_citations,
+                    )
+                    
+                    logger.info(
+                        f"Created VerifiedQA entry {verified_qa.id} from HITL approval "
+                        f"(item={item_id}, bot={item.bot_id})"
+                    )
+                    
+                    # Add reference to verified_qa in metadata
+                    item.metadata_json["verified_qa_id"] = str(verified_qa.id)
+                    
+                    # Also add to documents table (knowledge base) for RAG retrieval
+                    kb_doc_id = None
+                    try:
+                        # Format Q&A as a text document
+                        doc_content = f"Question: {question_text}\n\nAnswer: {approved_answer}"
+                        doc_bytes = doc_content.encode('utf-8')
+                        
+                        # Create document with descriptive filename
+                        safe_question = question_text[:50].replace('/', '-').replace('\\', '-')
+                        doc_filename = f"HITL-{item_id[:8]}-{safe_question}.txt"
+                        
+                        doc, _ = await create_document(
+                            db=db,
+                            bot_id=bot.group_id,  # create_document maps bot_id to group_id
+                            tenant_id=current_tenant,
+                            uploader_id=current_user.id,
+                            filename=doc_filename,
+                            size_bytes=len(doc_bytes),
+                            mime_type="text/plain",
+                            file_bytes=doc_bytes,
+                            title=f"Verified Q&A: {question_text[:80]}",
+                        )
+                        
+                        kb_doc_id = str(doc.id)
+                        
+                        # For HITL-approved Q&A, create chunk directly with the existing embedding
+                        # This bypasses async processing which may fail
+                        from app.models.chunk import Chunk
+                        chunk = Chunk(
+                            document_id=doc.id,
+                            tenant_id=current_tenant,
+                            bot_id=bot.group_id,
+                            chunk_index=0,
+                            content=doc_content,
+                            page_number=None,
+                            vector=question_embedding,  # Reuse the embedding from VerifiedQA
+                            metadata_json={"source": "hitl_approval", "verified_qa_id": str(verified_qa.id)},
+                            created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow(),
+                        )
+                        db.add(chunk)
+                        
+                        # Mark document as ready immediately (skip async processing)
+                        doc.status = "ready"
+                        doc.updated_at = datetime.utcnow()
+                        await db.flush()
+                        
+                        logger.info(
+                            f"Created knowledge base document {doc.id} with chunk from HITL approval "
+                            f"(item={item_id}, verified_qa={verified_qa.id})"
+                        )
+                        
+                        # Link document to verified_qa in metadata
+                        item.metadata_json["kb_document_id"] = kb_doc_id
+                        
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to create knowledge base document for HITL item {item_id}: {e}",
+                            exc_info=True
+                        )
+                        # Continue - VerifiedQA still created successfully
+                else:
+                    logger.warning(
+                        f"Bot {item.bot_id} not found or missing group_id, "
+                        f"skipping VerifiedQA creation for HITL item {item_id}"
+                    )
+                        
+            except EmbeddingError as e:
+                logger.error(
+                    f"Failed to generate embedding for VerifiedQA from HITL item {item_id}: {e}"
+                )
+                # Continue with approval even if VerifiedQA creation fails
+                # This prevents blocking the approval workflow
+            except Exception as e:
+                logger.error(
+                    f"Failed to create VerifiedQA entry for HITL item {item_id}: {e}",
+                    exc_info=True
+                )
+                # Continue with approval even if VerifiedQA creation fails
+        else:
+            logger.warning(
+                f"Skipping VerifiedQA creation for HITL item {item_id}: "
+                f"missing question_text={bool(question_text)}, "
+                f"approved_answer={bool(approved_answer)}, "
+                f"bot_id={bool(item.bot_id)}"
+            )
+
+        # Commit transaction (HITL approval + VerifiedQA + Document + Chunk if created)
+        try:
+            logger.debug(f"Committing approval for item {item_id}")
+            await db.commit()
+            logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
+            # Document is already set to "ready" with chunk created inline - no async processing needed
+        except Exception as e:
+            logger.error(f"Transaction failed during approval of {item_id}: {e}", exc_info=True)
+            await db.rollback()
+            raise
+
         # Build response with the approved answer
-        resolved_answer = (
-            request.edits
-            or item.metadata_json.get("ai_draft", "")
-        )
+        resolved_answer = approved_answer
         
         # Send approved answer to chat if requested and session_id is available
         chat_sent = False
@@ -921,89 +1053,83 @@ async def websocket_queue_updates(
     websocket: WebSocket,
     token: Optional[str] = None,
 ):
-    """
-    WebSocket endpoint for real-time HITL queue updates.
+    """WebSocket endpoint for real-time HITL queue updates."""
     
-    Connects to Redis pub-sub to receive real-time notifications when:
-    - New items are added to the queue
-    - Items are resolved (approved/rejected)
-    - Connection heartbeat (every 30 seconds)
+    tenant_id = None
+    user_id = None
+    redis_client = None
+    pubsub = None
     
-    Clients receive:
-    - "heartbeat": Periodic keep-alive message
-    - "queue_update": New item or item resolved
-    - "error": Connection or auth errors
-    
-    Protocol:
-    1. Client connects with WebSocket (token passed as query param)
-    2. Server authenticates and subscribes to tenant's Redis channel
-    3. Server sends heartbeat every 30 seconds to keep connection alive
-    4. Server forwards queue updates from Redis pub-sub
-    5. On any error, client should reconnect with exponential backoff
-    """
-    
-    # Authentication: Extract tenant from token
     try:
+        # Validate token BEFORE accepting connection
         if not token:
+            logger.warning("WebSocket: No token provided")
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token required")
             return
         
-        # Verify token and extract tenant_id
-        payload = verify_websocket_token(token)
-        tenant_id = UUID(payload.get("tenant_id"))
-        user_id = UUID(payload.get("sub"))
+        try:
+            payload = verify_websocket_token(token)
+            tenant_id = UUID(payload.get("tenant_id"))
+            user_id = UUID(payload.get("sub"))
+            logger.info(f"WebSocket auth OK: user={user_id}, tenant={tenant_id}")
+        except Exception as e:
+            logger.error(f"WebSocket auth failed: {e}")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
+            return
         
-    except Exception as e:
-        logger.error(f"WebSocket auth failed: {e}")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid token")
-        return
-    
-    # Accept connection
-    await connection_manager.connect(websocket, tenant_id)
-    
-    # Create Redis pub-sub subscriber
-    redis_client = None
-    pubsub = None
-    heartbeat_task = None
-    pubsub_task = None
-    should_close = asyncio.Event()
-    
-    try:
-        # Connect to Redis
-        redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-        pubsub = redis_client.pubsub()
+        # Accept connection
+        await connection_manager.connect(websocket, tenant_id)
         
-        # Subscribe to tenant-specific channel
-        channel = f"hitl_queue:{tenant_id}"
-        await pubsub.subscribe(channel)
-        logger.info(f"User {user_id} subscribed to {channel}")
+        # Try Redis pub-sub (optional)
+        redis_available = False
+        try:
+            redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            await redis_client.ping()
+            pubsub = redis_client.pubsub()
+            channel = f"hitl_queue:{tenant_id}"
+            await pubsub.subscribe(channel)
+            logger.info(f"WebSocket: Subscribed to {channel}")
+            redis_available = True
+        except Exception as e:
+            logger.warning(f"WebSocket: Redis unavailable: {e}. Heartbeat-only mode")
         
-        # Create background tasks for heartbeat and pub-sub listening
-        async def send_heartbeat():
-            """Send heartbeat every 30 seconds to keep connection alive."""
+        # Send initial connection success
+        try:
+            await websocket.send_json({
+                "type": "connected",
+                "timestamp": datetime.utcnow().isoformat(),
+                "redis_available": redis_available,
+            })
+        except:
+            pass
+        
+        # Keep connection alive with heartbeats and pub-sub messages
+        last_heartbeat = datetime.utcnow()
+        while True:
             try:
-                while True:
-                    await asyncio.sleep(30)
-                    if should_close.is_set():
-                        break
+                # Listen for messages with timeout
+                try:
+                    data = await asyncio.wait_for(websocket.receive_text(), timeout=30)
+                    # Handle client pings
+                    if data:
+                        try:
+                            msg = json.loads(data)
+                            if msg.get("action") == "ping":
+                                await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
+                        except:
+                            pass
+                except asyncio.TimeoutError:
+                    # Send heartbeat on timeout
                     await websocket.send_json({
                         "type": "heartbeat",
                         "timestamp": datetime.utcnow().isoformat(),
                     })
-            except asyncio.CancelledError:
-                pass
-            except Exception as e:
-                logger.error(f"Heartbeat task error: {e}")
-                should_close.set()
-                raise
-        
-        async def listen_pubsub():
-            """Listen for messages from Redis pub-sub."""
-            try:
-                async for message in pubsub.listen():
-                    if should_close.is_set():
-                        break
-                    if message["type"] == "message":
+                    continue
+                
+                # Check for Redis pub-sub messages
+                if redis_available and pubsub:
+                    message = pubsub.get_message()
+                    if message and message.get("type") == "message":
                         try:
                             data = json.loads(message["data"])
                             await websocket.send_json({
@@ -1011,131 +1137,44 @@ async def websocket_queue_updates(
                                 "data": data,
                                 "timestamp": datetime.utcnow().isoformat(),
                             })
-                        except json.JSONDecodeError:
-                            logger.error(f"Invalid JSON in pubsub message: {message['data']}")
-            except asyncio.CancelledError:
-                pass
+                        except:
+                            pass
+                            
+            except WebSocketDisconnect:
+                logger.info(f"WebSocket: Client disconnected, user={user_id}, tenant={tenant_id}")
+                break
             except Exception as e:
-                logger.error(f"PubSub listen error: {e}")
-                should_close.set()
-                raise
-        
-        async def receive_loop():
-            """Listen for client messages."""
-            try:
-                while True:
-                    if should_close.is_set():
-                        break
-                    try:
-                        # Use timeout to periodically check if should_close is set
-                        data = await asyncio.wait_for(websocket.receive_text(), timeout=60)
-                        # Client can send {"action": "ping"} to verify connection is alive
-                        if data:
-                            try:
-                                msg = json.loads(data)
-                                if msg.get("action") == "ping":
-                                    await websocket.send_json({"type": "pong"})
-                            except json.JSONDecodeError:
-                                pass
-                    except asyncio.TimeoutError:
-                        # Timeout is normal, just check if we should close and continue
-                        continue
-                    except WebSocketDisconnect:
-                        # Client disconnected cleanly
-                        logger.info(f"Client disconnected")
-                        should_close.set()
-                        break
-                    except Exception as e:
-                        # Log error but don't raise - let heartbeat/pubsub continue
-                        logger.warning(f"Receive loop warning (non-fatal): {e}")
-            except asyncio.CancelledError:
-                pass
-        
-        # Start all three tasks
-        heartbeat_task = asyncio.create_task(send_heartbeat())
-        pubsub_task = asyncio.create_task(listen_pubsub())
-        receive_task = asyncio.create_task(receive_loop())
-        
-        # Monitor all tasks concurrently
-        # If heartbeat or pubsub fails, should_close.set() signals clean shutdown
-        # If receive_loop fails non-fatally, it logs warning but continues
-        tasks = [heartbeat_task, pubsub_task, receive_task]
-        
-        try:
-            while True:
-                # Check if any background task has failed
-                done, pending = await asyncio.wait(tasks, timeout=5, return_when=asyncio.FIRST_EXCEPTION)
-                
-                for task in done:
-                    try:
-                        await task  # Get result to check for exceptions
-                    except asyncio.CancelledError:
-                        pass
-                    except Exception as e:
-                        logger.error(f"Background task failed: {e}")
-                        should_close.set()
-                        raise
-                
-                # If should_close is set, break and cleanup
-                if should_close.is_set():
-                    break
-                
-                # If no done tasks, continue monitoring
-                if not done:
-                    continue
-        
-        except WebSocketDisconnect:
-            logger.info(f"User {user_id} disconnected from HITL queue")
-        except Exception as e:
-            logger.error(f"WebSocket error for tenant {tenant_id}: {e}")
-            try:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": str(e),
-                })
-            except:
-                pass
-    except WebSocketDisconnect:
-        logger.info(f"User {user_id} disconnected from HITL queue")
+                logger.error(f"WebSocket: Error for tenant {tenant_id}: {e}")
+                try:
+                    await websocket.send_json({"type": "error", "message": str(e)})
+                except:
+                    pass
+                break
+    
     except Exception as e:
-        logger.error(f"WebSocket error for tenant {tenant_id}: {e}")
+        logger.error(f"WebSocket: Unhandled error: {e}")
         try:
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e),
-            })
+            await websocket.close(code=status.WS_1011_SERVER_ERROR, reason="Internal error")
         except:
             pass
+    
     finally:
-        # Signal background tasks to stop
-        should_close.set()
-        
         # Cleanup
-        connection_manager.disconnect(websocket, tenant_id)
-        
-        # Cancel all tasks
-        if heartbeat_task:
-            heartbeat_task.cancel()
-        if pubsub_task:
-            pubsub_task.cancel()
-        if 'receive_task' in locals():
-            receive_task.cancel()
-        
-        # Wait for tasks to finish gracefully
-        tasks_to_wait = [t for t in [heartbeat_task, pubsub_task, locals().get('receive_task')] if t]
-        if tasks_to_wait:
-            await asyncio.gather(*tasks_to_wait, return_exceptions=True)
-        
-        if pubsub:
-            try:
-                await pubsub.unsubscribe(f"hitl_queue:{tenant_id}")
-                await pubsub.close()
-            except:
-                pass
-        
-        if redis_client:
-            try:
-                await redis_client.close()
-            except:
-                pass
+        try:
+            if tenant_id:
+                connection_manager.disconnect(websocket, tenant_id)
+            if pubsub:
+                try:
+                    await pubsub.unsubscribe()
+                    await pubsub.close()
+                except:
+                    pass
+            if redis_client:
+                try:
+                    await redis_client.close()
+                except:
+                    pass
+        except Exception as e:
+            logger.error(f"WebSocket cleanup error: {e}")
+
 

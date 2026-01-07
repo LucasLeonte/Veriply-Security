@@ -78,6 +78,7 @@ export default function SettingsPage() {
 
             const profileResponse = await fetch(`${apiUrl}/api/v1/profile/me`, {
                 method: "GET",
+                credentials: "include",
                 headers: authHeaders,
             });
 
@@ -101,6 +102,7 @@ export default function SettingsPage() {
                 `${apiUrl}/api/v1/profile/team/members`,
                 {
                     method: "GET",
+                    credentials: "include",
                     headers: authHeaders,
                 }
             );

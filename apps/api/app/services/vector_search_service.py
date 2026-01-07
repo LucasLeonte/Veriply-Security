@@ -2,6 +2,7 @@
 
 Performs pgvector cosine similarity search with RLS enforcement for multi-tenant
 bot isolation. Integrates with EmbeddingService for query embedding.
+Also searches verified Q&A entries for human-approved answers (prioritized).
 """
 
 import logging
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Default search parameters
 DEFAULT_TOP_K = 5
 DEFAULT_SIMILARITY_THRESHOLD = 0.5
+VERIFIED_QA_SIMILARITY_THRESHOLD = 0.6  # Threshold for verified answers (lower than 0.7 to improve recall)
 HNSW_EF_SEARCH = 40  # Runtime parameter for HNSW index
 
 
@@ -40,6 +42,7 @@ class SearchResult:
     position: int
     page_number: Optional[int] = None
     is_verified: bool = False
+    verified_answer: Optional[str] = None  # The approved answer if from verified_qa
 
 
 class VectorSearchService:
@@ -104,6 +107,60 @@ class VectorSearchService:
             return [], int((time.time() - start_time) * 1000)
         group_id_val = bot.group_id
 
+        # ============================================================
+        # STEP 1: Search verified Q&A for human-approved answers first
+        # ============================================================
+        verified_results: List[SearchResult] = []
+        try:
+            from app.services.verified_qa import search_verified_qa
+            
+            logger.debug(
+                f"Searching verified Q&A: tenant={tenant_id}, group={group_id_val}, "
+                f"bot={bot_id}, threshold={VERIFIED_QA_SIMILARITY_THRESHOLD}"
+            )
+            
+            verified_qa_matches = await search_verified_qa(
+                db=db,
+                tenant_id=tenant_id,
+                group_id=group_id_val,
+                bot_id=bot_id,
+                query_embedding=query_embedding,
+                k=k,
+                similarity_threshold=VERIFIED_QA_SIMILARITY_THRESHOLD,
+            )
+            
+            logger.debug(f"Verified Q&A search returned {len(verified_qa_matches)} matches")
+            
+            for verified_qa, similarity in verified_qa_matches:
+                # Create SearchResult from verified Q&A
+                verified_results.append(
+                    SearchResult(
+                        chunk_id=f"verified_qa_{verified_qa.id}",
+                        document_id=str(verified_qa.id),
+                        document_name=f"Verified Q&A: {verified_qa.question_text[:50]}...",
+                        section="Verified Knowledge Base",
+                        text=verified_qa.question_text,
+                        similarity=similarity,
+                        position=0,
+                        page_number=None,
+                        is_verified=True,
+                        verified_answer=verified_qa.answer_text,
+                    )
+                )
+            
+            if verified_results:
+                logger.info(
+                    f"Found {len(verified_results)} verified Q&A match(es) for query '{query[:50]}...'"
+                )
+            else:
+                logger.debug(f"No verified Q&A matches found for query '{query[:50]}...'")
+        except Exception as e:
+            logger.warning(f"Verified Q&A search failed, continuing with document search: {e}", exc_info=True)
+
+        # ============================================================
+        # STEP 2: Search document chunks (standard RAG)
+        # ============================================================
+        
         # Determine document IDs this bot can access using allowlist rules
         # Access logic:
         #  - Explicit document records with is_allowed=true are allowed
@@ -193,26 +250,26 @@ class VectorSearchService:
 
         # Convert distance to similarity and filter by threshold
         # Cosine similarity = 1 - cosine distance
-        results = []
+        chunk_results = []
         for row in rows:
             similarity = 1.0 - row.distance
             if similarity >= similarity_threshold:
-                results.append((row, similarity))
-            if len(results) >= k:
+                chunk_results.append((row, similarity))
+            if len(chunk_results) >= k:
                 break
 
         # Fetch document names for results
-        if results:
-            document_ids = [row[0].document_id for row in results]
+        if chunk_results:
+            document_ids = [row[0].document_id for row in chunk_results]
             doc_stmt = select(Document).where(Document.id.in_(document_ids))
             doc_result = await db.execute(doc_stmt)
             documents = {doc.id: doc for doc in doc_result.scalars().all()}
         else:
             documents = {}
 
-        # Build search results
-        search_results = []
-        for row, similarity in results:
+        # Build search results from document chunks
+        document_search_results = []
+        for row, similarity in chunk_results:
             chunk = row
             doc = documents.get(chunk.document_id)
             document_name = doc.filename if doc else "Unknown"
@@ -230,7 +287,7 @@ class VectorSearchService:
                 except (json.JSONDecodeError, AttributeError):
                     pass
 
-            search_results.append(
+            document_search_results.append(
                 SearchResult(
                     chunk_id=str(chunk.id),
                     document_id=str(chunk.document_id),
@@ -244,10 +301,30 @@ class VectorSearchService:
                 )
             )
 
+        # ============================================================
+        # STEP 3: Merge results - verified Q&A takes priority
+        # ============================================================
+        # If we have verified Q&A matches, they go first (they're human-approved)
+        # Then fill remaining slots with document chunk results
+        
+        search_results = []
+        
+        # Add verified results first (they're prioritized)
+        for vr in verified_results:
+            if len(search_results) < k:
+                search_results.append(vr)
+        
+        # Fill remaining slots with document results
+        for dr in document_search_results:
+            if len(search_results) < k:
+                search_results.append(dr)
+
         latency_ms = int((time.time() - start_time) * 1000)
+        verified_count = len([r for r in search_results if r.is_verified])
         logger.info(
             f"Vector search completed: query='{query[:50]}...', "
-            f"bot_id={bot_id}, results={len(search_results)}, latency={latency_ms}ms"
+            f"bot_id={bot_id}, results={len(search_results)} "
+            f"(verified={verified_count}), latency={latency_ms}ms"
         )
 
         return search_results, latency_ms

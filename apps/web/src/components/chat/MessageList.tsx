@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ChatMessage, Citation } from "@/types/chat";
-import { Loader2, FileText, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, FileText, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { CitationViewer } from "./CitationViewer";
-import { sendToReviewQueue } from "@/lib/api/chat";
 import ContextSummary from "./ContextSummary";
 import TrustBadge from "./TrustBadge";
 import PendingVerification from "./PendingVerification";
 import FeedbackBar, { FeedbackSnapshot } from "../FeedbackBar";
+import { sendToReviewQueue } from "@/lib/api/chat";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -104,14 +104,14 @@ export default function MessageList({
                         message.confidence,
                         message.citations,
                         sessionId
-                    ).then((result) => {
+                    ).then((result: { success: boolean; message?: string }) => {
                         // Mark as sent even if backend reports logical failure,
                         // to avoid hammering the endpoint on every render
                         if (!result?.success) {
                             console.warn("Review queue send reported failure:", result?.message);
                         }
                         setSentToReview(prev => new Set(prev).add(message.id));
-                    }).catch(err => {
+                    }).catch((err: Error) => {
                         console.error("Failed to send to review queue:", err);
                         // Prevent infinite retry loops on hard failures
                         setSentToReview(prev => new Set(prev).add(message.id));
@@ -266,30 +266,13 @@ export default function MessageList({
                                                             }}
                                                         />
                                                     </div>
-                                                    {message.confidence < reviewThreshold && (
+                                                    {/* Low confidence messages are automatically routed to HITL review by the backend */}
+                                                    {message.confidence < (confidenceThresholdPercent ? confidenceThresholdPercent / 100 : 0.8) && (
                                                         <div className="mt-2 flex items-center gap-1.5 text-xs">
-                                                            {sendingToReview.has(message.id) ? (
-                                                                <>
-                                                                    <Loader2 className="h-3 w-3 animate-spin text-amber-500" />
-                                                                    <span className="text-amber-600">
-                                                                        Sending to review queue...
-                                                                    </span>
-                                                                </>
-                                                            ) : sentToReview.has(message.id) ? (
-                                                                <>
-                                                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                                                    <span className="text-green-600">
-                                                                        Sent to team for review
-                                                                    </span>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <AlertCircle className="h-3 w-3 text-amber-500" />
-                                                                    <span className="text-amber-600">
-                                                                        Will be sent to team for review
-                                                                    </span>
-                                                                </>
-                                                            )}
+                                                            <AlertCircle className="h-3 w-3 text-amber-500" />
+                                                            <span className="text-amber-600">
+                                                                Sent to team for review
+                                                            </span>
                                                         </div>
                                                     )}
                                                 </div>

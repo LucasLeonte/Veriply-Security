@@ -70,7 +70,7 @@ class ConfidenceLog(Base):
     # Result
     overall_confidence = Column(Numeric(4, 3), nullable=False)
     threshold_used = Column(Numeric(4, 3), nullable=False)  # Bot threshold at query time
-    routing_decision = Column(SQLEnum(RoutingDecision), nullable=False)
+    routing_decision = Column(SQLEnum(RoutingDecision, values_callable=lambda x: [e.value for e in x]), nullable=False)
     is_verified_kb = Column(Boolean, default=False, nullable=False)
     
     # HITL Review
