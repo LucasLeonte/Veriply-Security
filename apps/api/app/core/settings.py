@@ -216,6 +216,27 @@ class Settings(BaseSettings):
     VECTOR_DIMENSION: int = 384
     SIMILARITY_THRESHOLD: float = 0.7
     
+    # Story 7.2: Verified KB Priority Configuration
+    # Verified KB similarity threshold (higher than document search for precision)
+    VERIFIED_KB_SIMILARITY_THRESHOLD: float = Field(
+        default=0.95,
+        description="Minimum similarity score for verified KB matches (0-1, default 0.95)"
+    )
+    # Latency budget for verified KB lookup in milliseconds
+    VERIFIED_KB_LATENCY_BUDGET_MS: int = Field(
+        default=50,
+        description="Maximum latency budget for verified KB lookup in milliseconds"
+    )
+    # Enable in-memory caching for hot verified questions
+    VERIFIED_KB_CACHE_ENABLED: bool = Field(
+        default=False,
+        description="Enable in-memory caching for frequently accessed verified questions"
+    )
+    VERIFIED_KB_CACHE_TTL_SECONDS: int = Field(
+        default=300,
+        description="Time-to-live for cached verified questions in seconds (default 5 minutes)"
+    )
+    
     # ========================================================================
     # FILE UPLOAD CONFIGURATION
     # ========================================================================

@@ -2,7 +2,10 @@
 
 Performs pgvector cosine similarity search with RLS enforcement for multi-tenant
 bot isolation. Integrates with EmbeddingService for query embedding.
-Also searches verified Q&A entries for human-approved answers (prioritized).
+
+Story 7.2: Implements two-stage retrieval with verified KB priority. When a high-
+confidence match (>= 0.95 similarity) is found in verified_qa, the answer is
+returned immediately WITHOUT invoking LLM generation or document retrieval.
 """
 
 import logging
@@ -19,19 +22,24 @@ from app.models.document import Document
 from app.models.bot import Bot
 from app.models.bot_document_access import BotDocumentAccess
 from app.services.embedding_service import EmbeddingService, EmbeddingError
+from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
 # Default search parameters
 DEFAULT_TOP_K = 5
 DEFAULT_SIMILARITY_THRESHOLD = 0.5
-VERIFIED_QA_SIMILARITY_THRESHOLD = 0.6  # Threshold for verified answers (lower than 0.7 to improve recall)
+# Story 7.2: Configurable threshold for verified KB (default 0.95)
+VERIFIED_KB_SIMILARITY_THRESHOLD = settings.VERIFIED_KB_SIMILARITY_THRESHOLD
 HNSW_EF_SEARCH = 40  # Runtime parameter for HNSW index
 
 
 @dataclass
 class SearchResult:
-    """Search result containing chunk data and similarity score."""
+    """Search result containing chunk data and similarity score.
+    
+    Story 7.2: Extended with verified KB metadata for provenance tracking.
+    """
 
     chunk_id: str
     document_id: str
@@ -41,8 +49,11 @@ class SearchResult:
     similarity: float
     position: int
     page_number: Optional[int] = None
+    # Story 7.2: Verified KB fields
     is_verified: bool = False
     verified_answer: Optional[str] = None  # The approved answer if from verified_qa
+    verified_id: Optional[UUID] = None  # VerifiedQA entry ID for provenance
+    verified_citations: Optional[dict] = None  # Source citations from verified entry
 
 
 class VectorSearchService:
@@ -64,8 +75,13 @@ class VectorSearchService:
         query: str,
         k: int = DEFAULT_TOP_K,
         similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
+        verified_only: bool = False,
     ) -> tuple[List[SearchResult], int]:
         """Perform semantic vector search with RLS enforcement.
+        
+        Story 7.2: Implements two-stage retrieval with verified KB short-circuit.
+        When a high-confidence verified match (>= threshold) exists, returns immediately
+        WITHOUT performing document search, reducing latency and ensuring consistency.
 
         Args:
             db: Database session
@@ -73,7 +89,8 @@ class VectorSearchService:
             tenant_id: Tenant ID for RLS filtering
             query: Search query text
             k: Number of top results to return
-            similarity_threshold: Minimum similarity score (0-1)
+            similarity_threshold: Minimum similarity score for document chunks (0-1)
+            verified_only: If True, only search verified KB (skip document search)
 
         Returns:
             Tuple of (search results, latency in milliseconds)
@@ -108,15 +125,17 @@ class VectorSearchService:
         group_id_val = bot.group_id
 
         # ============================================================
-        # STEP 1: Search verified Q&A for human-approved answers first
+        # STEP 1: Search verified Q&A FIRST (Story 7.2)
         # ============================================================
         verified_results: List[SearchResult] = []
+        verified_latency_ms = 0
         try:
             from app.services.verified_qa import search_verified_qa
             
+            verified_start = time.time()
             logger.debug(
-                f"Searching verified Q&A: tenant={tenant_id}, group={group_id_val}, "
-                f"bot={bot_id}, threshold={VERIFIED_QA_SIMILARITY_THRESHOLD}"
+                f"[Story 7.2] Searching verified KB: tenant={tenant_id}, group={group_id_val}, "
+                f"bot={bot_id}, threshold={VERIFIED_KB_SIMILARITY_THRESHOLD}"
             )
             
             verified_qa_matches = await search_verified_qa(
@@ -126,13 +145,30 @@ class VectorSearchService:
                 bot_id=bot_id,
                 query_embedding=query_embedding,
                 k=k,
-                similarity_threshold=VERIFIED_QA_SIMILARITY_THRESHOLD,
+                similarity_threshold=VERIFIED_KB_SIMILARITY_THRESHOLD,
             )
             
-            logger.debug(f"Verified Q&A search returned {len(verified_qa_matches)} matches")
+            verified_latency_ms = int((time.time() - verified_start) * 1000)
+            logger.debug(
+                f"[Story 7.2] Verified KB search: {len(verified_qa_matches)} matches "
+                f"in {verified_latency_ms}ms"
+            )
+            
+            # Story 7.2: AC #4 - Check latency budget and log metrics
+            if verified_latency_ms > settings.VERIFIED_KB_LATENCY_BUDGET_MS:
+                logger.warning(
+                    f"[Story 7.2] LATENCY_BUDGET_EXCEEDED: Verified KB search took "
+                    f"{verified_latency_ms}ms (budget: {settings.VERIFIED_KB_LATENCY_BUDGET_MS}ms) "
+                    f"- consider optimization or caching"
+                )
+            else:
+                logger.info(
+                    f"[Story 7.2] LATENCY_OK: Verified KB search within budget "
+                    f"({verified_latency_ms}ms / {settings.VERIFIED_KB_LATENCY_BUDGET_MS}ms)"
+                )
             
             for verified_qa, similarity in verified_qa_matches:
-                # Create SearchResult from verified Q&A
+                # Story 7.2: Create SearchResult with full provenance metadata
                 verified_results.append(
                     SearchResult(
                         chunk_id=f"verified_qa_{verified_qa.id}",
@@ -145,21 +181,37 @@ class VectorSearchService:
                         page_number=None,
                         is_verified=True,
                         verified_answer=verified_qa.answer_text,
+                        verified_id=verified_qa.id,
+                        verified_citations=verified_qa.source_citations,
                     )
                 )
             
+            # Story 7.2: SHORT-CIRCUIT LOGIC (AC #2)
+            # If we have high-confidence verified match(es), return immediately
+            # No need to search documents or invoke LLM
             if verified_results:
+                total_latency_ms = int((time.time() - start_time) * 1000)
                 logger.info(
-                    f"Found {len(verified_results)} verified Q&A match(es) for query '{query[:50]}...'"
+                    f"[Story 7.2] SHORT-CIRCUIT: Returning {len(verified_results)} verified "
+                    f"answer(s), skipping document search and LLM generation "
+                    f"(total latency: {total_latency_ms}ms)"
                 )
-            else:
-                logger.debug(f"No verified Q&A matches found for query '{query[:50]}...'")
+                return verified_results, total_latency_ms
+            
+            logger.debug("[Story 7.2] No verified matches, continuing to document search")
+            
         except Exception as e:
-            logger.warning(f"Verified Q&A search failed, continuing with document search: {e}", exc_info=True)
+            logger.warning(f"Verified KB search failed, continuing with document search: {e}", exc_info=True)
 
         # ============================================================
-        # STEP 2: Search document chunks (standard RAG)
+        # STEP 2: Search document chunks (standard RAG) - Story 7.2: AC #3
+        # Only execute if no verified matches found (fallback path)
         # ============================================================
+        
+        # Story 7.2: Skip document search if verified_only mode
+        if verified_only:
+            logger.debug("[Story 7.2] verified_only=True, skipping document search")
+            return [], int((time.time() - start_time) * 1000)
         
         # Determine document IDs this bot can access using allowlist rules
         # Access logic:
@@ -301,33 +353,15 @@ class VectorSearchService:
                 )
             )
 
-        # ============================================================
-        # STEP 3: Merge results - verified Q&A takes priority
-        # ============================================================
-        # If we have verified Q&A matches, they go first (they're human-approved)
-        # Then fill remaining slots with document chunk results
-        
-        search_results = []
-        
-        # Add verified results first (they're prioritized)
-        for vr in verified_results:
-            if len(search_results) < k:
-                search_results.append(vr)
-        
-        # Fill remaining slots with document results
-        for dr in document_search_results:
-            if len(search_results) < k:
-                search_results.append(dr)
-
+        # Story 7.2: Return document results (verified KB already short-circuited above)
         latency_ms = int((time.time() - start_time) * 1000)
-        verified_count = len([r for r in search_results if r.is_verified])
         logger.info(
-            f"Vector search completed: query='{query[:50]}...', "
-            f"bot_id={bot_id}, results={len(search_results)} "
-            f"(verified={verified_count}), latency={latency_ms}ms"
+            f"Document search completed: query='{query[:50]}...', "
+            f"bot_id={bot_id}, results={len(document_search_results)}, "
+            f"latency={latency_ms}ms (verified KB returned no matches, using RAG fallback)"
         )
 
-        return search_results, latency_ms
+        return document_search_results, latency_ms
 
 
 class VectorSearchError(Exception):
