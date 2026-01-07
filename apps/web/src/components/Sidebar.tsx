@@ -13,6 +13,7 @@ import {
     Mail,
     Menu,
     ChevronDown,
+    ListFilter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
@@ -32,7 +33,15 @@ const NAVIGATION_ITEMS = [
     { href: "/inbox", icon: Inbox, label: "Review Queue" },
     { href: "/dashboard/knowledge-base", icon: BookOpen, label: "Knowledge Base" },
     { href: "/dashboard/emails", icon: Mail, label: "Email Hub" },
-    { href: "/dashboard/integrations", icon: Settings, label: "Email Integrations" },
+    { 
+        href: "/dashboard/integrations", 
+        icon: Settings, 
+        label: "Email Integrations",
+        submenu: [
+            { href: "/dashboard/integrations", label: "Manage Integrations" },
+            { href: "/dashboard/email-rules", label: "Monitoring Rules" },
+        ]
+    },
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/settings", icon: Settings, label: "Settings" },
 ];
@@ -45,13 +54,23 @@ export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const { stats } = useHITLQueue();
     const { currentGroup } = useGroup();
+    const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+    const toggleExpanded = (href: string) => {
+        setExpandedItems(prev => 
+            prev.includes(href) 
+                ? prev.filter(h => h !== href)
+                : [...prev, href]
+        );
+    };
 
     const navItems = NAVIGATION_ITEMS.map((item) => ({
         ...item,
         isActive:
             pathname === item.href ||
             (pathname.startsWith(item.href + "/") &&
-                item.href !== "/dashboard"),
+                item.href !== "/dashboard") ||
+            (item.submenu?.some(sub => pathname === sub.href)),
     }));
 
     return (
@@ -74,26 +93,68 @@ export function Sidebar({ className }: SidebarProps) {
                         item.href === "/inbox" && stats.pending > 0
                             ? stats.pending
                             : null;
+                    const isExpanded = expandedItems.includes(item.href);
+                    const hasSubmenu = item.submenu && item.submenu.length > 0;
 
                     return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium border border-transparent",
-                                item.isActive
-                                    ? "bg-sky-50 text-sky-700 border-sky-100"
-                                    : "text-slate-600 hover:bg-slate-50"
+                        <div key={item.href}>
+                            {hasSubmenu ? (
+                                <button
+                                    onClick={() => toggleExpanded(item.href)}
+                                    className={cn(
+                                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium border border-transparent",
+                                        item.isActive
+                                            ? "bg-sky-50 text-sky-700 border-sky-100"
+                                            : "text-slate-600 hover:bg-slate-50"
+                                    )}
+                                >
+                                    <Icon className="w-5 h-5 flex-shrink-0" />
+                                    <span className="flex-1 text-left">{item.label}</span>
+                                    <ChevronDown className={cn(
+                                        "w-4 h-4 transition-transform",
+                                        isExpanded && "rotate-180"
+                                    )} />
+                                </button>
+                            ) : (
+                                <Link
+                                    href={item.href}
+                                    className={cn(
+                                        "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm font-medium border border-transparent",
+                                        item.isActive
+                                            ? "bg-sky-50 text-sky-700 border-sky-100"
+                                            : "text-slate-600 hover:bg-slate-50"
+                                    )}
+                                >
+                                    <Icon className="w-5 h-5 flex-shrink-0" />
+                                    <span className="flex-1">{item.label}</span>
+                                    {badge && (
+                                        <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
+                                            {badge}
+                                        </span>
+                                    )}
+                                </Link>
                             )}
-                        >
-                            <Icon className="w-5 h-5 flex-shrink-0" />
-                            <span className="flex-1">{item.label}</span>
-                            {badge && (
-                                <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">
-                                    {badge}
-                                </span>
+                            
+                            {/* Submenu */}
+                            {hasSubmenu && isExpanded && (
+                                <div className="ml-8 mt-1 space-y-1">
+                                    {item.submenu.map((subItem) => (
+                                        <Link
+                                            key={subItem.href}
+                                            href={subItem.href}
+                                            className={cn(
+                                                "block px-3 py-1.5 text-sm rounded-lg transition-colors",
+                                                pathname === subItem.href
+                                                    ? "text-sky-700 bg-sky-50 font-medium"
+                                                    : "text-slate-600 hover:bg-slate-50"
+                                            )}
+                                        >
+                                            {subItem.label}
+                                        </Link>
+                                    ))}
+                                </div>
                             )}
-                        </Link>
+                        </div>
                     );
                 })}
             </div>
