@@ -46,12 +46,12 @@ async def create_rule(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await _validate_bot_and_integration(db, current_user["tenant_id"], payload.bot_id, payload.integration_id)
+    await _validate_bot_and_integration(db, current_user.tenant_id, payload.bot_id, payload.integration_id)
 
     rule = EmailMonitoringRule(
         id=uuid4(),
-        tenant_id=current_user["tenant_id"],
-        user_id=current_user["sub"],
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id,
         integration_id=payload.integration_id,
         bot_id=payload.bot_id,
         folder_labels=payload.folder_labels or [],
@@ -74,7 +74,7 @@ async def list_rules(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = select(EmailMonitoringRule).where(EmailMonitoringRule.tenant_id == current_user["tenant_id"]).order_by(EmailMonitoringRule.priority.asc())
+    q = select(EmailMonitoringRule).where(EmailMonitoringRule.tenant_id == current_user.tenant_id).order_by(EmailMonitoringRule.priority.asc())
     if integration_id:
         q = q.where(EmailMonitoringRule.integration_id == integration_id)
     res = await db.execute(q)
@@ -88,13 +88,13 @@ async def update_rule(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.id == rule_id, EmailMonitoringRule.tenant_id == current_user["tenant_id"])) )
+    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.id == rule_id, EmailMonitoringRule.tenant_id == current_user.tenant_id)) )
     rule = res.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
 
     if payload.bot_id is not None:
-        await _validate_bot_and_integration(db, current_user["tenant_id"], payload.bot_id, rule.integration_id)
+        await _validate_bot_and_integration(db, current_user.tenant_id, payload.bot_id, rule.integration_id)
         rule.bot_id = payload.bot_id
 
     if payload.folder_labels is not None:
@@ -120,7 +120,7 @@ async def delete_rule(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.id == rule_id, EmailMonitoringRule.tenant_id == current_user["tenant_id"])) )
+    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.id == rule_id, EmailMonitoringRule.tenant_id == current_user.tenant_id)) )
     rule = res.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
@@ -138,7 +138,7 @@ async def reorder_rules(
     # Assign sequential priorities starting at 1
     priorities = {rid: i + 1 for i, rid in enumerate(payload.ordered_ids)}
 
-    res = await db.execute(select(EmailMonitoringRule).where(EmailMonitoringRule.tenant_id == current_user["tenant_id"]))
+    res = await db.execute(select(EmailMonitoringRule).where(EmailMonitoringRule.tenant_id == current_user.tenant_id))
     rules = res.scalars().all()
 
     for r in rules:
@@ -155,7 +155,7 @@ async def toggle_rule(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.id == rule_id, EmailMonitoringRule.tenant_id == current_user["tenant_id"])) )
+    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.id == rule_id, EmailMonitoringRule.tenant_id == current_user.tenant_id)) )
     rule = res.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
@@ -175,12 +175,12 @@ async def test_rule(
     current_user: User = Depends(get_current_user),
 ):
     # Load the rule and other active rules for the same integration
-    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.tenant_id == current_user["tenant_id"], EmailMonitoringRule.id == rule_id)))
+    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.tenant_id == current_user.tenant_id, EmailMonitoringRule.id == rule_id)))
     rule = res.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")
 
-    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.tenant_id == current_user["tenant_id"], EmailMonitoringRule.integration_id == rule.integration_id)))
+    res = await db.execute(select(EmailMonitoringRule).where(and_(EmailMonitoringRule.tenant_id == current_user.tenant_id, EmailMonitoringRule.integration_id == rule.integration_id)))
     rules = res.scalars().all()
 
     sample = EmailSample(
