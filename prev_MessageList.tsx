@@ -1,12 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ChatMessage, Citation } from "@/types/chat";
-import { Loader2, FileText } from "lucide-react";
+import {
+    Avatar,
+    AvatarFallback,
+    AvatarImage,
+} from "./apps/web/src/components/ui/avatar";
+import { ChatMessage, Citation } from "./apps/web/src/types/chat";
+import { Loader2, FileText, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
-import { CitationViewer } from "./CitationViewer";
-import FeedbackBar, { FeedbackSnapshot } from "../FeedbackBar";
+import { CitationViewer } from "./apps/web/src/components/chat/CitationViewer";
+import FeedbackBar, {
+    FeedbackSnapshot,
+} from "./apps/web/src/components/FeedbackBar";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -18,7 +24,12 @@ interface MessageListProps {
         messageId: string;
         answerId?: string;
         type: "positive" | "negative";
-        reason?: "incorrect" | "not_helpful" | "incomplete" | "harmful" | "other";
+        reason?:
+            | "incorrect"
+            | "not_helpful"
+            | "incomplete"
+            | "harmful"
+            | "other";
         notes?: string;
     }) => Promise<{ success: boolean; error?: string } | void>;
 }
@@ -32,12 +43,16 @@ export default function MessageList({
     onSubmitFeedback,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
+    const [selectedCitation, setSelectedCitation] = useState<Citation | null>(
+        null
+    );
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
-        const el = messagesEndRef.current as unknown as { scrollIntoView?: (opts?: ScrollIntoViewOptions) => void } | null;
+        const el = messagesEndRef.current as unknown as {
+            scrollIntoView?: (opts?: ScrollIntoViewOptions) => void;
+        } | null;
         if (el && typeof el.scrollIntoView === "function") {
             el.scrollIntoView({ behavior: "smooth" });
         }
@@ -52,14 +67,16 @@ export default function MessageList({
                     <div
                         key={message.id}
                         className={`flex gap-3 ${
-                            message.role === "user" ? "justify-end" : "justify-start"
+                            message.role === "user"
+                                ? "justify-end"
+                                : "justify-start"
                         }`}
                     >
                         {message.role === "assistant" && (
                             <Avatar className="h-8 w-8 mt-1">
                                 <AvatarImage src={botAvatar} alt={botName} />
                                 <AvatarFallback className="bg-sky-500 text-white text-xs">
-                                    {botName.charAt(0).toUpperCase()}
+                                    <User className="w-full h-full" />
                                 </AvatarFallback>
                             </Avatar>
                         )}
@@ -134,32 +151,48 @@ export default function MessageList({
                                     >
                                         {message.content}
                                     </ReactMarkdown>
-                                    {message.citations && message.citations.length > 0 && (
-                                        <div className="mt-4 pt-3 border-t border-slate-100">
-                                            <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
-                                                Sources
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {message.citations
-                                                    .filter(c => (c.similarity ?? 0) >= 0.65)
-                                                    .map((citation, idx) => (
-                                                        <button
-                                                            key={idx}
-                                                            onClick={() => {
-                                                                setSelectedCitation(citation);
-                                                                setSelectedMessageText(message.content);
-                                                            }}
-                                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 rounded text-xs font-medium text-slate-600 hover:text-sky-700 transition-colors"
-                                                        >
-                                                            <FileText size={12} />
-                                                            <span className="truncate max-w-[150px]">
-                                                                {citation.document_name || citation.source}
-                                                            </span>
-                                                        </button>
-                                                    ))}
+                                    {message.citations &&
+                                        message.citations.length > 0 && (
+                                            <div className="mt-4 pt-3 border-t border-slate-100">
+                                                <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
+                                                    Sources
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {message.citations
+                                                        .filter(
+                                                            (c) =>
+                                                                (c.similarity ??
+                                                                    0) >= 0.65
+                                                        )
+                                                        .map(
+                                                            (citation, idx) => (
+                                                                <button
+                                                                    key={idx}
+                                                                    onClick={() => {
+                                                                        setSelectedCitation(
+                                                                            citation
+                                                                        );
+                                                                        setSelectedMessageText(
+                                                                            message.content
+                                                                        );
+                                                                    }}
+                                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-200 rounded text-xs font-medium text-slate-600 hover:text-sky-700 transition-colors"
+                                                                >
+                                                                    <FileText
+                                                                        size={
+                                                                            12
+                                                                        }
+                                                                    />
+                                                                    <span className="truncate max-w-[150px]">
+                                                                        {citation.document_name ||
+                                                                            citation.source}
+                                                                    </span>
+                                                                </button>
+                                                            )
+                                                        )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
 
                                     <FeedbackBar
                                         messageId={message.id}
@@ -173,7 +206,7 @@ export default function MessageList({
                         {message.role === "user" && (
                             <Avatar className="h-8 w-8 mt-1">
                                 <AvatarFallback className="bg-slate-700 text-white text-xs">
-                                    You
+                                    <User className="w-full h-full" />
                                 </AvatarFallback>
                             </Avatar>
                         )}
@@ -186,7 +219,7 @@ export default function MessageList({
                         <Avatar className="h-8 w-8 mt-1">
                             <AvatarImage src={botAvatar} alt={botName} />
                             <AvatarFallback className="bg-sky-500 text-white text-xs">
-                                {botName.charAt(0).toUpperCase()}
+                                <User className="w-full h-full" />
                             </AvatarFallback>
                         </Avatar>
                         <div className="bg-white border border-slate-200 rounded-lg px-4 py-2">

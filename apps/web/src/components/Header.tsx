@@ -4,6 +4,7 @@ import React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
+import { User } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
 import { MobileSidebar } from "./Sidebar";
@@ -142,16 +143,9 @@ export function Header({ className }: HeaderProps) {
                             className="flex items-center gap-2 text-slate-700 hover:bg-slate-100"
                         >
                             <Avatar className="h-8 w-8">
-                                <AvatarImage
-                                    src={
-                                        avatarUrl ||
-                                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(
-                                            displayName || "user"
-                                        )}`
-                                    }
-                                />
-                                <AvatarFallback className="text-xs">
-                                    {initials || "?"}
+                                <AvatarImage src={avatarUrl} />
+                                <AvatarFallback className="text-xs p-1.5">
+                                    <User className="w-full h-full" />
                                 </AvatarFallback>
                             </Avatar>
                             <span className="hidden sm:inline text-sm font-medium">

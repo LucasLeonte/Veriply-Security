@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Clock3, Loader2, RefreshCw, Send, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -238,8 +239,11 @@ export default function ChatInterface({
                             userSessions.map((s) => (
                                 <div
                                     key={s.id}
-                                    className={`w-full text-left p-3 transition-colors group cursor-pointer ${selectedSessionId === s.id ? "bg-sky-50" : "hover:bg-slate-50"
-                                        }`}
+                                    className={`w-full text-left p-3 transition-colors group cursor-pointer ${
+                                        selectedSessionId === s.id
+                                            ? "bg-sky-50"
+                                            : "hover:bg-slate-50"
+                                    }`}
                                     onClick={() => {
                                         resumeSession(s.id);
                                     }}
@@ -282,7 +286,7 @@ export default function ChatInterface({
                             <Avatar className="h-10 w-10">
                                 <AvatarImage src={botAvatar} alt={botName} />
                                 <AvatarFallback className="bg-sky-500 text-white">
-                                    {botName.charAt(0).toUpperCase()}
+                                    <User className="w-full h-full" />
                                 </AvatarFallback>
                             </Avatar>
                             <div>
@@ -355,8 +359,8 @@ export default function ChatInterface({
                                         src={botAvatar}
                                         alt={botName}
                                     />
-                                    <AvatarFallback className="bg-sky-500 text-white text-2xl">
-                                        {botName.charAt(0).toUpperCase()}
+                                    <AvatarFallback className="bg-sky-500 text-white">
+                                        <User className="w-full h-full" />
                                     </AvatarFallback>
                                 </Avatar>
                                 <h2 className="text-xl font-semibold text-slate-900 mb-2">
