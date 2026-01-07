@@ -103,6 +103,30 @@ export default function SettingsPage() {
         }
     };
 
+    // Get available roles based on current user's role
+    const getAvailableRoles = () => {
+        const allRoles = [
+            { value: "owner", label: "Owner" },
+            { value: "admin", label: "Admin" },
+            { value: "manager", label: "Manager" },
+            { value: "agent", label: "Agent" },
+            { value: "viewer", label: "Viewer" },
+        ];
+
+        // Only owners can create other owners
+        if (currentUserRole === "owner") {
+            return allRoles;
+        }
+
+        // Admins can create admins, managers, agents, and viewers (but not owners)
+        if (currentUserRole === "admin") {
+            return allRoles.filter((role) => role.value !== "owner");
+        }
+
+        // Managers and below cannot invite
+        return [];
+    };
+
     const handleRemoveMember = async (memberId: string) => {
         if (
             !confirm(
@@ -271,6 +295,10 @@ export default function SettingsPage() {
 
             setSuccessMessage("Invite sent successfully");
             setSuccess(true);
+
+            // Refresh the member list to show any updates
+            await fetchInitialData();
+
             setTimeout(() => {
                 setSuccess(false);
                 setSuccessMessage(null);
@@ -544,11 +572,14 @@ export default function SettingsPage() {
                                         }
                                         className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     >
-                                        <option value="owner">Owner</option>
-                                        <option value="admin">Admin</option>
-                                        <option value="manager">Manager</option>
-                                        <option value="agent">Agent</option>
-                                        <option value="viewer">Viewer</option>
+                                        {getAvailableRoles().map((role) => (
+                                            <option
+                                                key={role.value}
+                                                value={role.value}
+                                            >
+                                                {role.label}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                                 <p className="text-xs text-slate-500">
