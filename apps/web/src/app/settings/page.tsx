@@ -529,6 +529,26 @@ export default function SettingsPage() {
     return (
         <DashboardLayout>
             <div className="max-w-4xl mx-auto p-6">
+                {/* Success Message Banner */}
+                {success && successMessage && (
+                    <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-green-800 font-medium flex items-center gap-2">
+                            <span className="inline-block w-2 h-2 bg-green-600 rounded-full"></span>
+                            {successMessage}
+                        </p>
+                    </div>
+                )}
+
+                {/* Error Message Banner */}
+                {error && (
+                    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-800 font-medium flex items-center gap-2">
+                            <span className="inline-block w-2 h-2 bg-red-600 rounded-full"></span>
+                            {error}
+                        </p>
+                    </div>
+                )}
+
                 {/* Groups Management */}
                 <div className="mt-10 space-y-4">
                     <h1 className="text-1xl font-semibold text-slate-900">

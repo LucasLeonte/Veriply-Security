@@ -321,6 +321,10 @@ async def accept_team_invite(req: AcceptTeamInviteRequest, db: AsyncSession = De
 @router.post("/accept-group-invite")
 async def accept_group_invite(req: AcceptTeamInviteRequest, db: AsyncSession = Depends(get_db)):
     """Accept a group invitation by verified token; adds user to group with specified role."""
+    # Import here to avoid circular imports
+    from app.models import GroupMember, GroupRole, Group
+    from app.services.group_service import GroupService
+
     try:
         # Decode the signed JWT token
         payload = jwt.decode(req.token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
@@ -341,10 +345,6 @@ async def accept_group_invite(req: AcceptTeamInviteRequest, db: AsyncSession = D
     invited_by_id = UUID(payload["invited_by_id"])
     role_str = payload["role"]
     role = GroupRole(role_str)
-
-    # Import here to avoid circular imports
-    from app.models import GroupMember, GroupRole, Group
-    from app.services.group_service import GroupService
 
     # Check if group exists
     group = await db.scalar(select(Group).where(Group.id == group_id))
