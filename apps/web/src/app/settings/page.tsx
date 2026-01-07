@@ -742,13 +742,18 @@ export default function SettingsPage() {
                     )}
                 </div>
 
-                {members.length > 0 && (
+                {groupMembers.length > 0 && (
                     <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">
                         <p>
-                            <strong>Total Members:</strong> {members.length}
+                            <strong>Total Members:</strong>{" "}
+                            {groupMembers.length}
                         </p>
                         <p>
-                            <strong>Owners:</strong> {ownerCount}
+                            <strong>Owners:</strong>{" "}
+                            {
+                                groupMembers.filter((m) => m.role === "owner")
+                                    .length
+                            }
                         </p>
                     </div>
                 )}
