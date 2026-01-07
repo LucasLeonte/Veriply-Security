@@ -140,10 +140,52 @@ class DocumentGroupService:
         
         Note: Chunks remain in KB but are orphaned. Document can be
         restored by clearing deleted_at if needed.
+        
+        IMPORTANT: If this is a "Verified Q&A" document created from HITL approval,
+        the associated verified_qa entry is also deleted to ensure the bot no longer
+        answers from this knowledge source.
         """
         doc = await DocumentGroupService.get_document(db, doc_id, group_id, tenant_id)
         if not doc:
             raise ValueError(f"Document {doc_id} not found")
+
+        # Check if this is a Verified Q&A document and delete associated verified_qa entry
+        doc_title = doc.title or ""
+        if doc_title.startswith("Verified Q&A:") or doc_title.startswith("HITL-"):
+            try:
+                # Find and delete verified_qa entries that match this document's question
+                from app.models.verified_qa import VerifiedQA
+                from sqlalchemy import delete, or_
+                
+                # Extract the question text from the title for matching
+                # Title format: "Verified Q&A: {question[:80]}" or "HITL-{id}-{question[:50]}.txt"
+                question_fragment = None
+                if doc_title.startswith("Verified Q&A:"):
+                    question_fragment = doc_title.replace("Verified Q&A:", "").strip()[:50]
+                elif doc_title.startswith("HITL-"):
+                    # Extract question from HITL filename
+                    parts = doc_title.split("-", 2)
+                    if len(parts) >= 3:
+                        question_fragment = parts[2].replace(".txt", "").strip()[:50]
+                
+                if question_fragment:
+                    # Delete verified_qa entries with matching question text in this group
+                    delete_stmt = delete(VerifiedQA).where(
+                        VerifiedQA.tenant_id == tenant_id,
+                        VerifiedQA.group_id == group_id,
+                        VerifiedQA.question_text.ilike(f"%{question_fragment}%")
+                    )
+                    result = await db.execute(delete_stmt)
+                    if result.rowcount > 0:
+                        logger.info(
+                            f"Deleted {result.rowcount} verified_qa entries associated with "
+                            f"document {doc_id} (question_fragment='{question_fragment}')"
+                        )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to delete associated verified_qa entries for document {doc_id}: {e}"
+                )
+                # Continue with document deletion even if verified_qa cleanup fails
 
         # Rename document to avoid potential conflicts on recreate
         ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")

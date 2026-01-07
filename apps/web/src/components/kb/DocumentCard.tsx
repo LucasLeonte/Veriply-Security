@@ -58,6 +58,7 @@ export function DocumentCard({
 
         switch (document.status) {
             case "ready":
+            case "processed": // Legacy status - treat as ready
                 return {
                     icon: (
                         <CheckCircle
@@ -98,6 +99,7 @@ export function DocumentCard({
                     className: "text-amber-500",
                 };
             case "failed":
+            case "error": // Legacy status - treat as failed
                 return {
                     icon: (
                         <AlertCircle
@@ -216,7 +218,7 @@ export function DocumentCard({
                             {status.icon}
                             <span>{status.text}</span>
                         </div>
-                        {document.status === "ready" && (
+                        {(document.status === "ready" || document.status === "processed") && (
                             <>
                                 <span className="text-slate-300">•</span>
                                 <span className="text-sm text-slate-600">
@@ -231,7 +233,7 @@ export function DocumentCard({
                     </div>
 
                     {/* Error Message */}
-                    {document.status === "failed" && document.error_message && (
+                    {(document.status === "failed" || document.status === "error") && document.error_message && (
                         <p className="text-sm text-red-600 mt-1 line-clamp-1">
                             Error: {document.error_message}
                         </p>

@@ -674,16 +674,24 @@ async def websocket_queue_updates(
     heartbeat_task = None
     pubsub_task = None
     should_close = asyncio.Event()
+    redis_available = False
     
     try:
-        # Connect to Redis
-        redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-        pubsub = redis_client.pubsub()
-        
-        # Subscribe to tenant-specific channel
-        channel = f"hitl_queue:{tenant_id}"
-        await pubsub.subscribe(channel)
-        logger.info(f"User {user_id} subscribed to {channel}")
+        # Try to connect to Redis (optional - graceful fallback if unavailable)
+        try:
+            redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            await redis_client.ping()  # Test connection
+            pubsub = redis_client.pubsub()
+            
+            # Subscribe to tenant-specific channel
+            channel = f"hitl_queue:{tenant_id}"
+            await pubsub.subscribe(channel)
+            logger.info(f"User {user_id} subscribed to {channel}")
+            redis_available = True
+        except Exception as redis_err:
+            logger.warning(f"Redis unavailable for WebSocket (tenant {tenant_id}): {redis_err}. Real-time pub-sub disabled, heartbeat-only mode.")
+            redis_client = None
+            pubsub = None
         
         # Create background tasks for heartbeat and pub-sub listening
         async def send_heartbeat():
@@ -760,13 +768,14 @@ async def websocket_queue_updates(
         
         # Start all three tasks
         heartbeat_task = asyncio.create_task(send_heartbeat())
-        pubsub_task = asyncio.create_task(listen_pubsub())
         receive_task = asyncio.create_task(receive_loop())
         
-        # Monitor all tasks concurrently
-        # If heartbeat or pubsub fails, should_close.set() signals clean shutdown
-        # If receive_loop fails non-fatally, it logs warning but continues
-        tasks = [heartbeat_task, pubsub_task, receive_task]
+        # Only start pubsub task if Redis is available
+        if redis_available and pubsub:
+            pubsub_task = asyncio.create_task(listen_pubsub())
+            tasks = [heartbeat_task, pubsub_task, receive_task]
+        else:
+            tasks = [heartbeat_task, receive_task]
         
         try:
             while True:
