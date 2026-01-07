@@ -575,56 +575,56 @@ export default function SettingsPage() {
                     </div>
                 )}
 
+                <div className="bg-white rounded-lg border border-slate-200 p-4">
+                    {currentGroup ? (
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="font-medium text-slate-900">
+                                    {currentGroup.name}
+                                </p>
+                                {currentGroup.description && (
+                                    <p className="text-sm text-slate-600">
+                                        {currentGroup.description}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setGroupToRename(currentGroup);
+                                        setNewGroupName(currentGroup.name);
+                                        setNewGroupDescription(
+                                            currentGroup.description || ""
+                                        );
+                                        setShowGroupRenameModal(true);
+                                    }}
+                                    className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
+                                >
+                                    Rename
+                                </button>
+                                <button
+                                    onClick={() =>
+                                        handleDeleteGroup(currentGroup)
+                                    }
+                                    className="px-3 py-1 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-slate-600">
+                            Select a group from the sidebar to manage it, or
+                            create a new group.
+                        </div>
+                    )}
+                </div>
+
                 {/* Groups Management */}
                 <div className="mt-10 space-y-4">
                     <h1 className="text-1xl font-semibold text-slate-900">
                         Group Management
                     </h1>
-
-                    <div className="bg-white rounded-lg border border-slate-200 p-4">
-                        {currentGroup ? (
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="font-medium text-slate-900">
-                                        {currentGroup.name}
-                                    </p>
-                                    {currentGroup.description && (
-                                        <p className="text-sm text-slate-600">
-                                            {currentGroup.description}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => {
-                                            setGroupToRename(currentGroup);
-                                            setNewGroupName(currentGroup.name);
-                                            setNewGroupDescription(
-                                                currentGroup.description || ""
-                                            );
-                                            setShowGroupRenameModal(true);
-                                        }}
-                                        className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
-                                    >
-                                        Rename
-                                    </button>
-                                    <button
-                                        onClick={() =>
-                                            handleDeleteGroup(currentGroup)
-                                        }
-                                        className="px-3 py-1 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-slate-600">
-                                Select a group from the sidebar to manage it, or
-                                create a new group.
-                            </div>
-                        )}
-                    </div>
 
                     {currentGroup && (
                         <div className="bg-white rounded-lg border border-slate-200">
