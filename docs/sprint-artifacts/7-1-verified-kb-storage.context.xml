@@ -1,0 +1,538 @@
+<story-context id=".bmad/bmm/workflows/4-implementation/story-context/template" v="1.0">
+  <metadata>
+    <epicId>7</epicId>
+    <storyId>1</storyId>
+    <title>Verified KB Storage</title>
+    <status>drafted</status>
+    <generatedAt>2026-01-06</generatedAt>
+    <generator>BMAD Story Context Workflow</generator>
+    <sourceStoryPath>docs/sprint-artifacts/7-1-verified-kb-storage.md</sourceStoryPath>
+  </metadata>
+
+  <story>
+    <asA>System</asA>
+    <iWant>to maintain a separate index of verified Q&A pairs</iWant>
+    <soThat>approved answers are prioritized in future queries</soThat>
+    <tasks>
+      - [ ] **Task 1: Database Schema Design** (AC: #1, #3, #4)
+        - [ ] Create `verified_qa` table with columns: id, tenant_id, group_id, bot_id, question_text, question_embedding (vector 1024), answer_text, source_citations (jsonb), approved_by_user_id, approved_at, created_at, updated_at
+        - [ ] Add vector index on question_embedding column for fast similarity search
+        - [ ] Implement RLS policies: `tenant_id = current_tenant() AND group_id = current_group()`
+        - [ ] Add composite indexes: (tenant_id, group_id, bot_id) and (tenant_id, group_id)
+        - [ ] Create Alembic migration script with rollback support
+
+      - [ ] **Task 2: Backend API Models** (AC: #1, #4)
+        - [ ] Define SQLAlchemy model `VerifiedQA` in `apps/api/app/models/verified_qa.py`
+        - [ ] Include relationships to User (approved_by), Bot, Group, Tenant
+        - [ ] Add Pydantic schemas: `VerifiedQACreate`, `VerifiedQAResponse`, `VerifiedQAUpdate`
+        - [ ] Implement validation: question_text (required, max 2000 chars), answer_text (required)
+        - [ ] Add created_at/updated_at timestamp handling
+
+      - [ ] **Task 3: Embedding Service Integration** (AC: #2)
+        - [ ] Add method `embed_verified_question()` to existing embedding service
+        - [ ] Use nomic-embed-text model (same as documents) via Ollama
+        - [ ] Return 1024-dimension vector for storage
+        - [ ] Handle embedding errors with proper logging and retries
+        - [ ] Verify embedding dimension matches document chunks
+
+      - [ ] **Task 4: HITL Approval Integration** (AC: #1)
+        - [ ] Modify HITL approval endpoint to create VerifiedQA entry on approval
+        - [ ] Extract question, answer, citations from HITL item
+        - [ ] Generate embedding for approved question
+        - [ ] Store with proper tenant_id, group_id, bot_id scoping
+        - [ ] Include approved_by_user_id from authenticated user
+        - [ ] Transaction: HITL approval + VerifiedQA creation must be atomic
+
+      - [ ] **Task 5: Basic CRUD Operations** (AC: #1, #4, #5)
+        - [ ] Implement `create_verified_qa(db, schema)` service function
+        - [ ] Implement `get_verified_qa_by_id(db, id)` with RLS enforcement
+        - [ ] Implement `list_verified_qa(db, tenant_id, group_id, bot_id)` with pagination
+        - [ ] Validate all operations respect tenant/group/bot scoping
+        - [ ] Add proper error handling and logging
+
+      - [ ] **Task 6: Testing** (AC: all)
+        - [ ] Unit tests: VerifiedQA model CRUD operations
+        - [ ] Integration test: HITL approval creates VerifiedQA entry
+        - [ ] Test RLS: verify cross-tenant/cross-group isolation
+        - [ ] Test embedding generation and storage
+        - [ ] Test data validation and error cases
+        - [ ] Add test fixtures for verified_qa entries
+    </tasks>
+  </story>
+
+  <acceptanceCriteria>
+    1. **Given** a Q&A pair is approved via HITL
+       **Then** it is stored in the Verified KB with:
+       - Question (embedded for semantic match)
+       - Answer (full text)
+       - Source citations
+       - Approved by (user)
+       - Approved at (timestamp)
+       - Bot ID (scoped)
+       - Group ID (group-scoped)
+       - Tenant ID (for RLS)
+
+    2. **Embeddings use same model as documents** (nomic-embed-text, 1024 dimensions)
+
+    3. **Verified KB is separate from document chunks** (dedicated table)
+
+    4. **All entries are scoped** by tenant_id, group_id, and bot_id for proper isolation
+
+    5. **Verified entries include full metadata** for traceability and audit compliance
+  </acceptanceCriteria>
+
+  <artifacts>
+    <docs>
+      <!-- PRD - Verified KB Requirements -->
+      <doc>
+        <path>docs/prd.md</path>
+        <title>Product Requirements Document</title>
+        <section>Verified Knowledge Base (FR51-FR55)</section>
+        <snippet>
+          FR51: System maintains a separate index of verified Q&A pairs (Golden Dataset)
+          FR52: Approved HITL responses automatically add to Verified KB
+          FR53: Users can manually add Q&A pairs to Verified KB
+          FR54: Users can edit or remove entries from Verified KB
+          FR55: Verified KB entries take priority over RAG-generated answers
+        </snippet>
+      </doc>
+
+      <!-- Epic 7 - Verified KB Stories -->
+      <doc>
+        <path>docs/epics.md</path>
+        <title>Epic Breakdown</title>
+        <section>Epic 7: Verified Knowledge Base</section>
+        <snippet>
+          Story 7.1: Verified KB Storage - Maintain separate index of verified Q&A pairs with embeddings using same model as documents (nomic-embed-text). Scoped by tenant_id and bot_id.
+          Story 7.2: Verified KB Priority - Check Verified KB FIRST before generating new answers, return with "Verified" badge
+          Story 7.3: Manual Q&A Entry - Allow users to manually add Q&A pairs
+          Story 7.4: Verified KB Management - Edit or remove Verified KB entries
+        </snippet>
+      </doc>
+
+      <!-- Architecture - Multi-Tenancy and Vector Search -->
+      <doc>
+        <path>docs/architecture.md</path>
+        <title>System Architecture</title>
+        <section>Multi-Tenancy with Groups & Vector Storage</section>
+        <snippet>
+          RLS policies enforce tenant + group isolation at DB layer. All embeddings scoped by (tenant_id, group_id, bot_id).
+          Use pgvector with IVFFLAT index for semantic search. Vector queries always constrain by tenant_id + group_id.
+          Separate table for verified_qa allows different query strategies and independent lifecycle management.
+        </snippet>
+      </doc>
+
+      <!-- Tech Spec - Embedding Pipeline -->
+      <doc>
+        <path>docs/tech-spec.md</path>
+        <title>Technical Specification</title>
+        <section>Vector Store & Embedding Pipeline</section>
+        <snippet>
+          Use pgvector for embeddings with composite index (tenant_id, group_id, embedding) and IVFFlat for performance.
+          Embedding model: nomic-embed-text via Ollama, 768 dimensions (Note: Story mentions 1024, verify actual dimension).
+          All vector queries must constrain by tenant_id + group_id for proper isolation.
+        </snippet>
+      </doc>
+
+      <!-- Sprint Artifacts - HITL Story 5.1 -->
+      <doc>
+        <path>docs/sprint-artifacts/epic-5/5-1-hitl-queue-view.md</path>
+        <title>Story 5.1: HITL Queue View</title>
+        <section>HITL Approval Flow</section>
+        <snippet>
+          HITL approval endpoint at /api/v1/hitl/queue/{id}/approve handles human review approvals.
+          When approved, Q&A should be added to Verified KB automatically (FR52).
+          Approval must be atomic transaction: HITL status update + Verified KB creation.
+        </snippet>
+      </doc>
+
+      <!-- Story 3.4 - Confidence Scoring -->
+      <doc>
+        <path>docs/sprint-artifacts/epic-3/story-3-4-confidence-scoring-routing.md</path>
+        <title>Story 3.4: Confidence Scoring & Routing</title>
+        <section>Verified KB Integration</section>
+        <snippet>
+          Confidence scoring includes is_verified_kb flag for tracking verified answers.
+          Verified KB boost: answers from verified KB receive 95+ confidence score.
+          Future integration: Check Verified KB first before RAG generation (Story 7.2).
+        </snippet>
+      </doc>
+    </docs>
+
+    <code>
+      <!-- Existing Database Models -->
+      <artifact>
+        <path>apps/api/app/models/embedding.py</path>
+        <kind>model</kind>
+        <symbol>Embedding</symbol>
+        <lines>1-22</lines>
+        <reason>Reference for vector column structure - uses Vector(1024) with pgvector, includes bot_id/document_id scoping and indexes</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/models/document.py</path>
+        <kind>model</kind>
+        <symbol>Document</symbol>
+        <lines>1-38</lines>
+        <reason>Reference for multi-tenant model structure with tenant_id, group_id, folder_id, and composite indexes for RLS filtering</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/models/confidence_log.py</path>
+        <kind>model</kind>
+        <symbol>ConfidenceLog</symbol>
+        <lines>1-80</lines>
+        <reason>Confidence log includes is_verified_kb flag and HITL routing decision. Used for tracking HITL items to be approved.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/models/bot.py</path>
+        <kind>model</kind>
+        <symbol>Bot</symbol>
+        <lines>1-40</lines>
+        <reason>Bot model with tenant_id, group_id scoping pattern to follow for VerifiedQA relationships</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/app/models/user.py</path>
+        <kind>model</kind>
+        <symbol>User</symbol>
+        <lines>1-30</lines>
+        <reason>User model for approved_by_user_id foreign key relationship in VerifiedQA</reason>
+      </artifact>
+
+      <!-- Embedding Service -->
+      <artifact>
+        <path>apps/api/app/services/embedding_service.py</path>
+        <kind>service</kind>
+        <symbol>EmbeddingService</symbol>
+        <lines>1-150</lines>
+        <reason>Existing embedding service using Ollama nomic-embed-text model. Need to add embed_verified_question() method here. Current dimension: 768 (Note: Story says 1024, needs verification)</reason>
+      </artifact>
+
+      <!-- HITL Routes -->
+      <artifact>
+        <path>apps/api/app/api/routes/hitl.py</path>
+        <kind>route</kind>
+        <symbol>get_review_queue, approve_queue_item</symbol>
+        <lines>1-150</lines>
+        <reason>HITL approval endpoint where VerifiedQA creation should be integrated. Need to modify approval handler to create VerifiedQA entry atomically.</reason>
+      </artifact>
+
+      <!-- Database Migrations -->
+      <artifact>
+        <path>apps/api/alembic/versions/006_add_groups_and_provenance.py</path>
+        <kind>migration</kind>
+        <symbol>upgrade, downgrade</symbol>
+        <lines>1-100</lines>
+        <reason>Reference migration showing group scoping pattern, composite indexes, and foreign key relationships to follow</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/alembic/versions/009_update_vector_dimensions.py</path>
+        <kind>migration</kind>
+        <symbol>upgrade</symbol>
+        <lines>1-50</lines>
+        <reason>Reference for creating vector columns with pgvector and IVFFLAT indexes. Shows dimension is 768 for nomic-embed-text, not 1024.</reason>
+      </artifact>
+
+      <artifact>
+        <path>apps/api/alembic/versions/003_bot_isolation_rls.py</path>
+        <kind>migration</kind>
+        <symbol>upgrade</symbol>
+        <lines>1-50</lines>
+        <reason>Reference for creating RLS policies on tables with tenant isolation patterns</reason>
+      </artifact>
+
+      <!-- Vector Search Service -->
+      <artifact>
+        <path>apps/api/app/services/vector_search_service.py</path>
+        <kind>service</kind>
+        <symbol>VectorSearchService.search</symbol>
+        <lines>100-220</lines>
+        <reason>Shows how to query vector embeddings with pgvector cosine distance operator and RLS filtering by tenant_id + group_id + bot_id</reason>
+      </artifact>
+
+      <!-- Base Model -->
+      <artifact>
+        <path>apps/api/app/models/base.py</path>
+        <kind>model</kind>
+        <symbol>Base</symbol>
+        <lines>1-20</lines>
+        <reason>SQLAlchemy declarative base class for all models</reason>
+      </artifact>
+    </code>
+
+    <dependencies>
+      <python>
+        <package name="sqlalchemy" version="^2.0" />
+        <package name="alembic" version="^1.12" />
+        <package name="pgvector" version="^0.2" />
+        <package name="pydantic" version="^2.0" />
+        <package name="fastapi" version="^0.104" />
+        <package name="asyncpg" version="^0.29" />
+        <package name="httpx" version="^0.25" />
+        <package name="numpy" version="^1.24" />
+      </python>
+    </dependencies>
+  </artifacts>
+
+  <constraints>
+    **Architectural Constraints:**
+    - Verified KB must be stored in separate table from document embeddings for independent lifecycle management
+    - All database operations must respect RLS policies with tenant_id + group_id isolation
+    - Embedding model must be consistent: nomic-embed-text (768 dimensions, not 1024 as mentioned in story - verify with existing embeddings table)
+    - HITL approval and VerifiedQA creation must be atomic (single database transaction)
+
+    **Data Isolation:**
+    - Every VerifiedQA entry MUST have tenant_id, group_id, bot_id for proper multi-tenant isolation
+    - RLS policies must enforce: tenant_id = current_tenant AND group_id = current_group
+    - Bots in same group can share verified answers with full provenance tracking
+
+    **Vector Index Performance:**
+    - Use IVFFLAT index on question_embedding for fast semantic search
+    - Index tuning: lists=100 for datasets &lt;10K vectors (default), tune in Story 7.2 for larger datasets
+    - Composite indexes on (tenant_id, group_id, bot_id) for scoped queries
+
+    **Transaction Boundaries:**
+    - HITL approval + VerifiedQA creation must be in same transaction to prevent orphaned approvals
+    - Use SQLAlchemy AsyncSession transaction management
+
+    **Testing Standards:**
+    - Unit tests for model CRUD operations and validation
+    - Integration tests for end-to-end HITL approval → VerifiedQA creation
+    - RLS tests must verify cross-tenant and cross-group isolation
+    - Test data must span multiple tenants/groups
+  </constraints>
+
+  <interfaces>
+    <!-- Database Schema -->
+    <interface>
+      <name>verified_qa table schema</name>
+      <kind>database</kind>
+      <signature>
+        CREATE TABLE verified_qa (
+          id UUID PRIMARY KEY,
+          tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+          group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+          bot_id UUID NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+          question_text TEXT NOT NULL CHECK(length(question_text) &lt;= 2000),
+          question_embedding VECTOR(768) NOT NULL,
+          answer_text TEXT NOT NULL,
+          source_citations JSONB,
+          approved_by_user_id UUID NOT NULL REFERENCES users(id),
+          approved_at TIMESTAMP NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        );
+        
+        -- Vector index for semantic search
+        CREATE INDEX verified_qa_embedding_idx 
+          ON verified_qa USING ivfflat (question_embedding vector_cosine_ops)
+          WITH (lists = 100);
+        
+        -- Composite indexes for scoped queries
+        CREATE INDEX verified_qa_scope_idx 
+          ON verified_qa (tenant_id, group_id, bot_id);
+        
+        CREATE INDEX verified_qa_tenant_group_idx
+          ON verified_qa (tenant_id, group_id);
+        
+        -- RLS policy
+        CREATE POLICY verified_qa_isolation ON verified_qa
+          USING (tenant_id = current_setting('app.current_tenant_id')::uuid 
+                 AND group_id = current_setting('app.current_group_id')::uuid);
+      </signature>
+      <path>apps/api/alembic/versions/XXX_add_verified_qa.py</path>
+    </interface>
+
+    <!-- SQLAlchemy Model -->
+    <interface>
+      <name>VerifiedQA Model</name>
+      <kind>class</kind>
+      <signature>
+        class VerifiedQA(Base):
+            __tablename__ = "verified_qa"
+            id: UUID
+            tenant_id: UUID (FK → tenants.id)
+            group_id: UUID (FK → groups.id)
+            bot_id: UUID (FK → bots.id)
+            question_text: str (max 2000 chars)
+            question_embedding: Vector(768)
+            answer_text: str
+            source_citations: dict (JSONB)
+            approved_by_user_id: UUID (FK → users.id)
+            approved_at: datetime
+            created_at: datetime
+            updated_at: datetime
+            
+            # Relationships
+            bot: relationship(Bot)
+            group: relationship(Group)
+            tenant: relationship(Tenant)
+            approved_by: relationship(User)
+      </signature>
+      <path>apps/api/app/models/verified_qa.py</path>
+    </interface>
+
+    <!-- Pydantic Schemas -->
+    <interface>
+      <name>VerifiedQA Schemas</name>
+      <kind>schema</kind>
+      <signature>
+        class VerifiedQACreate(BaseModel):
+            question_text: str (max_length=2000)
+            answer_text: str
+            source_citations: Optional[dict]
+            bot_id: UUID
+            
+        class VerifiedQAResponse(BaseModel):
+            id: UUID
+            tenant_id: UUID
+            group_id: UUID
+            bot_id: UUID
+            question_text: str
+            answer_text: str
+            source_citations: Optional[dict]
+            approved_by_user_id: UUID
+            approved_at: datetime
+            created_at: datetime
+            updated_at: datetime
+            
+        class VerifiedQAUpdate(BaseModel):
+            question_text: Optional[str]
+            answer_text: Optional[str]
+            source_citations: Optional[dict]
+      </signature>
+      <path>apps/api/app/schemas/verified_qa.py</path>
+    </interface>
+
+    <!-- Embedding Service Interface -->
+    <interface>
+      <name>EmbeddingService.embed_verified_question</name>
+      <kind>method</kind>
+      <signature>
+        async def embed_verified_question(self, question_text: str) -> List[float]:
+            """Generate normalized embedding vector for a verified question.
+            
+            Args:
+                question_text: Question text to embed
+                
+            Returns:
+                Normalized 768-dimensional embedding vector
+                
+            Raises:
+                EmbeddingError: If embedding generation fails after retries
+            """
+      </signature>
+      <path>apps/api/app/services/embedding_service.py</path>
+    </interface>
+
+    <!-- HITL Approval Integration -->
+    <interface>
+      <name>HITL Approval Endpoint (to modify)</name>
+      <kind>endpoint</kind>
+      <signature>
+        POST /api/v1/hitl/queue/{id}/approve
+        Request: ApproveQueueItemRequest { edits?: string }
+        
+        Flow:
+        1. Load ConfidenceLog item by ID with RLS check
+        2. Extract question, answer (or edited answer), citations from item
+        3. Generate embedding for question via EmbeddingService
+        4. Begin database transaction
+        5. Create VerifiedQA entry with all required fields
+        6. Update ConfidenceLog.hitl_resolved = True
+        7. Commit transaction
+        8. Return success response
+      </signature>
+      <path>apps/api/app/api/routes/hitl.py</path>
+    </interface>
+
+    <!-- Service Layer CRUD -->
+    <interface>
+      <name>VerifiedQA Service Functions</name>
+      <kind>service</kind>
+      <signature>
+        async def create_verified_qa(
+            db: AsyncSession,
+            tenant_id: UUID,
+            group_id: UUID,
+            bot_id: UUID,
+            question_text: str,
+            question_embedding: List[float],
+            answer_text: str,
+            source_citations: Optional[dict],
+            approved_by_user_id: UUID
+        ) -> VerifiedQA
+        
+        async def get_verified_qa_by_id(
+            db: AsyncSession,
+            id: UUID,
+            tenant_id: UUID,
+            group_id: UUID
+        ) -> Optional[VerifiedQA]
+        
+        async def list_verified_qa(
+            db: AsyncSession,
+            tenant_id: UUID,
+            group_id: UUID,
+            bot_id: Optional[UUID],
+            limit: int = 50,
+            offset: int = 0
+        ) -> List[VerifiedQA]
+      </signature>
+      <path>apps/api/app/services/verified_qa.py</path>
+    </interface>
+  </interfaces>
+
+  <tests>
+    <standards>
+      Testing follows pytest + pytest-asyncio for async database operations. All tests use fixtures for database session, test tenants, groups, bots, and users. RLS enforcement is verified by attempting cross-tenant/cross-group access and asserting failures. Integration tests use FastAPI TestClient with async support. Vector operations tested with sample embeddings. Transaction boundaries verified using rollback tests. Test coverage target: &gt;80% for new code.
+    </standards>
+
+    <locations>
+      - Unit tests: apps/api/tests/unit/test_verified_qa_model.py
+      - Integration tests: apps/api/tests/integration/test_verified_qa_hitl_approval.py
+      - RLS tests: apps/api/tests/security/test_verified_qa_rls.py
+      - Service tests: apps/api/tests/services/test_verified_qa_service.py
+    </locations>
+
+    <ideas>
+      **AC1 - HITL Approval Creates VerifiedQA:**
+      - Test successful HITL approval creates VerifiedQA entry with all required fields
+      - Test embedding is generated and stored correctly (768 dimensions)
+      - Test atomic transaction: if VerifiedQA creation fails, HITL item remains unresolved
+      - Test with edited answer text from approval request
+      - Test source_citations JSONB is properly stored and retrieved
+      
+      **AC2 - Embedding Model Consistency:**
+      - Test question_embedding dimension matches document embeddings (768, not 1024)
+      - Test embedding service uses nomic-embed-text model
+      - Test embedding normalization for cosine similarity
+      
+      **AC3 - Separate Table Structure:**
+      - Test VerifiedQA table exists and is independent of chunks/embeddings tables
+      - Test VerifiedQA entries persist even if source documents are deleted
+      
+      **AC4 - Multi-Tenant Scoping:**
+      - Test RLS prevents Tenant A from accessing Tenant B's verified_qa entries
+      - Test RLS prevents Group A from accessing Group B's verified_qa entries (same tenant)
+      - Test composite index on (tenant_id, group_id, bot_id) improves query performance
+      - Test all CRUD operations include tenant_id + group_id filters
+      
+      **AC5 - Full Metadata and Traceability:**
+      - Test approved_by_user_id references correct user
+      - Test approved_at timestamp is set correctly
+      - Test created_at and updated_at timestamps
+      - Test source_citations JSONB contains document references
+      
+      **Edge Cases:**
+      - Test question_text exceeds 2000 char limit (validation error)
+      - Test missing required fields (validation error)
+      - Test invalid UUID references (foreign key error)
+      - Test concurrent HITL approvals (race conditions)
+      - Test embedding service failure (retry logic and error handling)
+    </ideas>
+  </tests>
+</story-context>

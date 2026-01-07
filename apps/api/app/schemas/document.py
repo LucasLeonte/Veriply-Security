@@ -8,9 +8,12 @@ from enum import Enum
 class DocumentStatus(str, Enum):
     """Document processing status"""
     PENDING = "pending"
+    UPLOADED = "uploaded"
     PROCESSING = "processing"
-    PROCESSED = "processed"
+    READY = "ready"
+    PROCESSED = "processed"  # Legacy - use READY instead
     FAILED = "failed"
+    ERROR = "error"  # Legacy - use FAILED instead
 
 
 class DocumentResponse(BaseModel):

@@ -57,6 +57,8 @@ export async function* streamChatQuery(
     options?: {
         context?: ChatMessage[];
         contextWindow?: number;
+        sessionId?: string;
+        messageId?: string;
     }
 ): AsyncGenerator<
     | { type: "token"; content: string }
@@ -103,6 +105,8 @@ export async function* streamChatQuery(
                     timestamp: msg.timestamp,
                 })),
                 context_window: options?.contextWindow,
+                session_id: options?.sessionId,
+                message_id: options?.messageId,
             }),
         }
     );

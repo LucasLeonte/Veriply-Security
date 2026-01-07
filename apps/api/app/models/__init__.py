@@ -19,6 +19,7 @@ from .feedback import (
     UserAbuseSuspicion as UserAbuseSuspicion,
 )
 from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
+from .verified_qa import VerifiedQA as VerifiedQA
 from .widget_config import WidgetConfig as WidgetConfig
 from .email_integration import EmailIntegration as EmailIntegration
 from .integration_credentials import IntegrationCredentials as IntegrationCredentials

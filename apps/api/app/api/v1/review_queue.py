@@ -75,6 +75,14 @@ class ReviewQueueSubmissionRequest(BaseModel):
     )
 
 
+# Placeholder messages that should be rejected - these don't contain real AI responses
+PLACEHOLDER_MESSAGES = [
+    "I'm checking with the team for the best answer",
+    "You'll hear from us shortly",
+    "checking with the team",
+]
+
+
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def submit_to_review_queue(
     bot_id: UUID,
@@ -89,7 +97,7 @@ async def submit_to_review_queue(
     
     **Request Body:**
     - `user_question`: The original question from the user
-    - `ai_draft`: The AI-generated response
+    - `ai_draft`: The AI-generated response (must be real AI response, not placeholder)
     - `confidence`: Confidence score between 0 and 1
     - `citations`: Optional list of source citations
     
@@ -97,7 +105,24 @@ async def submit_to_review_queue(
     - `success`: Whether the submission was successful
     - `message`: Confirmation message
     - `queue_item_id`: ID of the created review queue item
+    
+    **Note:** This endpoint rejects placeholder messages and duplicate submissions.
+    The backend already creates review queue entries via calculate_confidence().
     """
+    # GUARD: Reject placeholder messages - these are not real AI responses
+    ai_draft_lower = (request.ai_draft or "").lower()
+    for placeholder in PLACEHOLDER_MESSAGES:
+        if placeholder.lower() in ai_draft_lower:
+            logger.warning(
+                "Rejected review queue submission with placeholder message for bot_id=%s", 
+                bot_id
+            )
+            return {
+                "success": False,
+                "message": "Submission rejected: contains placeholder message, not actual AI response",
+                "queue_item_id": None,
+            }
+    
     # Verify bot exists (best-effort for public chat submissions)
     bot = await session.scalar(select(Bot).where(Bot.id == bot_id))
     if not bot:
@@ -133,10 +158,41 @@ async def submit_to_review_queue(
             logger.info("AI draft indicates no answer - setting confidence to 0")
             actual_confidence = 0.0
         
+        # GUARD: Check for duplicate - if a ConfidenceLog already exists for this 
+        # exact query_text and bot_id within the last 5 minutes, don't create another.
+        # The backend's calculate_confidence() already creates the entry.
+        from sqlalchemy import and_
+        from datetime import datetime, timedelta
+        
+        recent_cutoff = datetime.utcnow() - timedelta(minutes=5)
+        existing = await session.scalar(
+            select(ConfidenceLog).where(
+                and_(
+                    ConfidenceLog.bot_id == bot_id,
+                    ConfidenceLog.query_text == (request.user_question[:500] if request.user_question else None),
+                    ConfidenceLog.created_at >= recent_cutoff,
+                    ConfidenceLog.hitl_resolved == False,
+                )
+            ).order_by(ConfidenceLog.created_at.desc())
+        )
+        
+        if existing:
+            logger.info(
+                "Skipping duplicate review queue submission for bot_id=%s, query='%s' - "
+                "entry %s already exists",
+                bot_id, request.user_question[:50], existing.id
+            )
+            return {
+                "success": True,
+                "message": "Entry already exists in review queue",
+                "queue_item_id": str(existing.id),
+            }
+        
         # Create a new confidence log entry for review
         confidence_log = ConfidenceLog(
             bot_id=bot_id,
             tenant_id=bot.tenant_id,
+            group_id=bot.group_id,  # Include group_id from bot for RLS
             query_id=uuid4(),  # Generate unique query ID
             query_text=request.user_question[:500] if request.user_question else None,  # Truncate to fit
             retrieval_confidence=actual_confidence,  # Use corrected confidence
@@ -167,9 +223,9 @@ async def submit_to_review_queue(
         }
     
     except Exception as e:
-        logger.error(f"Error submitting to review queue: {e}")
+        logger.error(f"Error submitting to review queue: {e}", exc_info=True)
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to submit to review queue",
+            detail=f"Failed to submit to review queue: {str(e)}",
         )

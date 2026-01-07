@@ -3,7 +3,9 @@ export type DocumentStatus =
     | "uploaded"
     | "processing"
     | "ready"
-    | "failed";
+    | "processed" // Legacy status - treat as "ready"
+    | "failed"
+    | "error"; // Legacy status - treat as "failed"
 
 export interface Document {
     id: string;

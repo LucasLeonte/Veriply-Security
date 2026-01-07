@@ -242,19 +242,23 @@ export function useHITLQueue(
                 }
             };
 
-            ws.onerror = (event) => {
+            ws.onerror = (event: Event) => {
                 clearTimeout(connectionTimeout);
                 // Browser provides limited error information for security reasons
                 const readyStateText =
                     ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][
                         ws.readyState
                     ] || "UNKNOWN";
-                console.error("WebSocket connection error:", {
+                const errorDetails = {
                     readyState: ws.readyState,
                     readyStateText,
                     url: wsUrl.replace(/token=[^&]+/, "token=***"), // Hide token in logs
                     timestamp: new Date().toISOString(),
-                });
+                };
+                console.error(
+                    "WebSocket connection error: " +
+                        JSON.stringify(errorDetails, null, 2)
+                );
 
                 // If error occurs during connection (readyState 0), start polling immediately
                 if (
@@ -382,7 +386,7 @@ export function useHITLQueue(
             // Find the item to get its metadata (contains session_id)
             const item = items.find((i) => i.id === itemId);
 
-            const response = await fetch(`/api/hitl/queue/${itemId}/approve`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/hitl/queue/${itemId}/approve`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify({ edits, send_to_chat: true }),
@@ -433,7 +437,7 @@ export function useHITLQueue(
                 headers.Authorization = `Bearer ${token}`;
             }
 
-            const response = await fetch(`/api/hitl/queue/${itemId}/reject`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/hitl/queue/${itemId}/reject`, {
                 method: "POST",
                 headers,
                 body: JSON.stringify({ reason }),

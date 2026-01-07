@@ -45,6 +45,13 @@ class UserResponse(BaseModel):
             return str(value)
         return value
 
+    @field_serializer('is_active')
+    def serialize_is_active(self, value: str | bool) -> str:
+        """Convert is_active boolean to string for API compatibility."""
+        if isinstance(value, bool):
+            return "active" if value else "inactive"
+        return value
+
 class TenantResponse(BaseModel):
     id: str
     name: str
@@ -91,6 +98,13 @@ class TeamMemberResponse(BaseModel):
         """Convert UUID objects to strings."""
         if isinstance(value, UUID):
             return str(value)
+        return value
+
+    @field_serializer('is_active')
+    def serialize_is_active(self, value: str | bool) -> str:
+        """Convert is_active boolean to string for API compatibility."""
+        if isinstance(value, bool):
+            return "active" if value else "inactive"
         return value
 
 class RoleChangeRequest(BaseModel):
