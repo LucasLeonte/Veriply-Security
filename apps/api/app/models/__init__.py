@@ -21,6 +21,10 @@ from .feedback import (
 from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
 from .verified_qa import VerifiedQA as VerifiedQA
 from .widget_config import WidgetConfig as WidgetConfig
+from .email_integration import EmailIntegration as EmailIntegration
+from .integration_credentials import IntegrationCredentials as IntegrationCredentials
+from .email_monitoring_rule import EmailMonitoringRule as EmailMonitoringRule
+from .email_processing_queue import EmailProcessingQueue as EmailProcessingQueue
 
 __all__ = [
     "Base",
@@ -45,4 +49,9 @@ __all__ = [
     "UserAbuseSuspicion",
     "ConfidenceLog",
     "RoutingDecision",
+    "WidgetConfig",
+    "EmailIntegration",
+    "IntegrationCredentials",
+    "EmailMonitoringRule",
+    "EmailProcessingQueue",
 ]
