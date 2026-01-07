@@ -34,7 +34,7 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     notification_frequency: str = "weekly"
     last_active: Optional[datetime] = None
-    is_active: str = "active"
+    is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -82,7 +82,7 @@ class TeamMemberResponse(BaseModel):
     name: Optional[str] = None
     role: str
     last_active: Optional[datetime] = None
-    is_active: str
+    is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -106,7 +106,7 @@ async def get_team_members(tenant_id: str, session: AsyncSession) -> list[User]:
     stmt = select(User).where(
         and_(
             User.tenant_id == uuid.UUID(tenant_id),
-            User.is_active == "active"
+            User.is_active.is_(True)
         )
     ).order_by(User.name)
     
@@ -147,7 +147,7 @@ async def remove_team_member(
         )
     
     # Mark as inactive
-    target.is_active = "inactive"
+    target.is_active = False
     target.updated_at = datetime.utcnow()
     session.add(target)
     await session.commit()
@@ -222,7 +222,7 @@ async def count_owners_in_tenant(tenant_id: str, session: AsyncSession) -> int:
         and_(
             User.tenant_id == uuid.UUID(tenant_id),
             User.role == "owner",
-            User.is_active == "active"
+            User.is_active.is_(True)
         )
     )
     result = await session.execute(stmt)
@@ -278,14 +278,23 @@ async def invite_team_member(
     existing_user = result.scalars().first()
     
     if existing_user:
-        # User already exists, update their role if they're inactive
-        if existing_user.is_active == "inactive":
-            existing_user.is_active = "active"
+        # User already exists, only allow resending invite if they're inactive
+        if existing_user.is_active == False:
+            # Generate new token for reinvitation
+            reset_token = secrets.token_urlsafe(32)
             existing_user.role = role
+            existing_user.password_reset_token = reset_token
+            existing_user.password_reset_expires = datetime.utcnow() + timedelta(hours=48)
             existing_user.updated_at = datetime.utcnow()
             session.add(existing_user)
             await session.commit()
             await session.refresh(existing_user)
+            
+            # Send team invite email with new token
+            try:
+                await EmailService.send_team_invite_email(email, reset_token)
+            except Exception:
+                pass
             
             await log_audit_action(
                 tenant_id=uuid.UUID(tenant_id),
@@ -297,7 +306,7 @@ async def invite_team_member(
             )
             return existing_user
         else:
-            # User is already active
+            # User is already active, cannot resend invite
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"User with email {email} is already a team member"
@@ -345,7 +354,7 @@ async def invite_team_member(
         email=email,
         tenant_id=uuid.UUID(tenant_id),
         role=role,
-        is_active="active",
+        is_active=False,
         password_hash=hash_password(temp_password),
         password_reset_token=reset_token,
         password_reset_expires=datetime.utcnow() + timedelta(hours=48),
@@ -356,9 +365,9 @@ async def invite_team_member(
     await session.commit()
     await session.refresh(new_user)
 
-    # Send initial password set email
+    # Send team invite email
     try:
-        await EmailService.send_password_reset_email(email, reset_token)
+        await EmailService.send_team_invite_email(email, reset_token)
     except Exception:
         pass
     
