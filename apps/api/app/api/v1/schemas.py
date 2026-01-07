@@ -34,7 +34,7 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     notification_frequency: str = "weekly"
     last_active: Optional[datetime] = None
-    is_active: str = "active"
+    is_active: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -89,7 +89,7 @@ class TeamMemberResponse(BaseModel):
     name: Optional[str] = None
     role: str
     last_active: Optional[datetime] = None
-    is_active: str
+    is_active: bool
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -121,6 +121,26 @@ class RoleChangeRequest(BaseModel):
         json_schema_extra = {
             "example": {"role": "admin"}
         }
+
+class InviteTeamMemberRequest(BaseModel):
+    email: str
+    role: Optional[str] = "manager"
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        if "@" not in v or "." not in v.split("@")[1]:
+            raise ValueError("Invalid email format")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if v not in ["owner", "admin", "manager", "agent", "viewer"]:
+            raise ValueError("Invalid role")
+        return v
 
 class AuditLogResponse(BaseModel):
     id: str | UUID

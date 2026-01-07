@@ -16,6 +16,13 @@ from app.main import app
 from app.core.database import get_db
 from app.core.settings import settings
 
+# Ensure integrations router is registered (for Story 6.1 tests)
+# Note: Integrations router may not auto-register in test environment,
+# so we explicitly check and add it here for consistency
+from app.api.routes import integrations
+if not any(r.path.startswith("/api/v1/integrations") for r in app.routes if hasattr(r, 'path')):
+    app.include_router(integrations.router)
+
 # Import Base from models.base and all models to register them with metadata
 from app.models import Base  # noqa: F401 - imported for model registration
 from app.models.user import User  # noqa: F401

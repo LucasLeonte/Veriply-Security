@@ -18,8 +18,13 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [currentUserRole, setCurrentUserRole] = useState<string>("");
     const [showRoleMenu, setShowRoleMenu] = useState<string | null>(null);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [inviteEmail, setInviteEmail] = useState("");
+    const [inviteRole, setInviteRole] = useState("manager");
+    const [inviteLoading, setInviteLoading] = useState(false);
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
     useEffect(() => {
@@ -143,8 +148,12 @@ export default function SettingsPage() {
             }
 
             setMembers((prev) => prev.filter((m) => m.id !== memberId));
+            setSuccessMessage("Team member removed successfully");
             setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+            setTimeout(() => {
+                setSuccess(false);
+                setSuccessMessage(null);
+            }, 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
         }
@@ -195,10 +204,84 @@ export default function SettingsPage() {
                 )
             );
             setShowRoleMenu(null);
+            setSuccessMessage("Team member updated successfully");
             setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+            setTimeout(() => {
+                setSuccess(false);
+                setSuccessMessage(null);
+            }, 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
+        }
+    };
+
+    const handleInviteMember = async () => {
+        if (!inviteEmail.trim()) {
+            setError("Please enter an email address");
+            return;
+        }
+
+        // Basic email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(inviteEmail)) {
+            setError("Please enter a valid email address");
+            return;
+        }
+
+        try {
+            setError(null);
+            setInviteLoading(true);
+
+            const token = getAccessToken();
+            if (!token) {
+                setError("Not authenticated. Please log in.");
+                setTimeout(() => {
+                    window.location.href = "/login";
+                }, 1000);
+                return;
+            }
+
+            const response = await fetch(
+                `${apiUrl}/api/v1/profile/team/invite`,
+                {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        email: inviteEmail,
+                        role: inviteRole,
+                    }),
+                }
+            );
+
+            if (response.status === 401) {
+                setError("Session expired. Please log in again.");
+                clearAccessToken();
+                window.location.href = "/login";
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                setError(errorData.detail || "Failed to send invitation");
+                return;
+            }
+
+            setSuccessMessage("Invite sent successfully");
+            setSuccess(true);
+            setTimeout(() => {
+                setSuccess(false);
+                setSuccessMessage(null);
+            }, 3000);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "An error occurred");
+        } finally {
+            setInviteLoading(false);
+            setShowInviteModal(false);
+            setInviteEmail("");
+            setInviteRole("manager");
         }
     };
 
@@ -234,7 +317,7 @@ export default function SettingsPage() {
 
                 {success && (
                     <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                        Team member updated successfully
+                        {successMessage || "Operation successful"}
                     </div>
                 )}
 
@@ -242,6 +325,18 @@ export default function SettingsPage() {
                     <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
                         You do not have permission to manage team members. Only
                         Owners and Admins can manage the team.
+                    </div>
+                )}
+
+                {/* Invite Member Button */}
+                {canManageTeam && (
+                    <div className="mb-6">
+                        <button
+                            onClick={() => setShowInviteModal(true)}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium"
+                        >
+                            + Invite Team Member
+                        </button>
                     </div>
                 )}
 
@@ -408,6 +503,83 @@ export default function SettingsPage() {
                         <p>
                             <strong>Owners:</strong> {ownerCount}
                         </p>
+                    </div>
+                )}
+
+                {/* Invite Member Modal */}
+                {showInviteModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+                            <h2 className="text-xl font-semibold mb-4 text-slate-900">
+                                Invite Team Member
+                            </h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-slate-700">
+                                        Email Address
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={inviteEmail}
+                                        onChange={(e) =>
+                                            setInviteEmail(e.target.value)
+                                        }
+                                        onKeyPress={(e) => {
+                                            if (e.key === "Enter") {
+                                                handleInviteMember();
+                                            }
+                                        }}
+                                        placeholder="user@example.com"
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-slate-700">
+                                        Role
+                                    </label>
+                                    <select
+                                        value={inviteRole}
+                                        onChange={(e) =>
+                                            setInviteRole(e.target.value)
+                                        }
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="owner">Owner</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="manager">Manager</option>
+                                        <option value="agent">Agent</option>
+                                        <option value="viewer">Viewer</option>
+                                    </select>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    An invitation email will be sent to this
+                                    address with a signup link.
+                                </p>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button
+                                    onClick={handleInviteMember}
+                                    disabled={inviteLoading}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {inviteLoading
+                                        ? "Sending..."
+                                        : "Send Invite"}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowInviteModal(false);
+                                        setInviteEmail("");
+                                        setInviteRole("manager");
+                                        setError(null);
+                                    }}
+                                    disabled={inviteLoading}
+                                    className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition font-medium disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

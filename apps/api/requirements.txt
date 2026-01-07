@@ -25,3 +25,5 @@ email-validator
 presidio-analyzer
 presidio-anonymizer
 spacy
+cryptography
+httpx
