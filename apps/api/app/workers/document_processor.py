@@ -117,13 +117,13 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
         file_bytes = await asyncio.to_thread(storage.download_bytes, doc.storage_path)
     except Exception as e:
         logger.exception("Failed to download document %s: %s", document_id, e)
-        doc.status = "error"
+        doc.status = "failed"
         await db_session.flush()
         try:
             await db_session.commit()
         except Exception:
             await db_session.rollback()
-        return {"document_id": document_id, "status": "download_failed", "error": str(e)}
+        return {"document_id": document_id, "status": "failed", "error": str(e)}
 
     # Extract text
     if hasattr(doc, 'processing_progress'):
@@ -193,7 +193,7 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
 
         await db_session.flush()
 
-        doc.status = "processed"
+        doc.status = "ready"
         doc.updated_at = datetime.utcnow()
         await db_session.flush()
         try:
@@ -202,15 +202,15 @@ async def process_document(document_id: str, db_session: Optional[AsyncSession] 
             await db_session.rollback()
     except Exception as e:
         logger.exception("Failed persisting chunks for document %s: %s", document_id, e)
-        doc.status = "error"
+        doc.status = "failed"
         await db_session.flush()
         try:
             await db_session.commit()
         except Exception:
             await db_session.rollback()
-        return {"document_id": document_id, "status": "persist_failed", "error": str(e)}
+        return {"document_id": document_id, "status": "failed", "error": str(e)}
 
-    return {"document_id": document_id, "status": "processed", "chunks_created": created}
+    return {"document_id": document_id, "status": "ready", "chunks_created": created}
 
 
 def main():

@@ -16,7 +16,15 @@ logger = logging.getLogger(__name__)
 
 async def get_user_profile(user_id: str, session: AsyncSession) -> User:
     """Get user profile by ID."""
-    stmt = select(User).where(User.id == uuid.UUID(user_id))
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except (ValueError, TypeError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid user ID format: {str(e)}"
+        )
+    
+    stmt = select(User).where(User.id == user_uuid)
     result = await session.execute(stmt)
     user = result.scalars().first()
     

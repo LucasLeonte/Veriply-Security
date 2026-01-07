@@ -33,6 +33,8 @@ from app.models.bot import Bot, BotStatus  # noqa: F401
 from app.models.document import Document  # noqa: F401
 from app.models.chunk import Chunk  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
+from app.models.verified_qa import VerifiedQA  # noqa: F401
+from app.models.confidence_log import ConfidenceLog, RoutingDecision  # noqa: F401
 
 
 # SQLite fallback for JSONB columns used in Postgres

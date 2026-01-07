@@ -54,6 +54,7 @@ export default function ProfilePage() {
 
             const response = await fetch(`${apiUrl}/api/v1/profile/me`, {
                 method: "GET",
+                credentials: "include",
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
@@ -121,6 +122,7 @@ export default function ProfilePage() {
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
             const response = await fetch(`${apiUrl}/api/v1/profile/me`, {
                 method: "PUT",
+                credentials: "include",
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
@@ -195,6 +197,7 @@ export default function ProfilePage() {
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
             const response = await fetch(`${apiUrl}/api/v1/profile/avatar`, {
                 method: "POST",
+                credentials: "include",
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },

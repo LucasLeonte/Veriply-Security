@@ -270,6 +270,8 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 for await (const chunk of streamChatQuery(botId, query, {
                     context: contextPayload,
                     contextWindow,
+                    sessionId: sessionIdRef.current,
+                    messageId: assistantMessage.id,
                 })) {
                     if (chunk.type === "token") {
                         fullContent += chunk.content;
