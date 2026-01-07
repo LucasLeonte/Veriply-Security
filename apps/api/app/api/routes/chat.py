@@ -5,18 +5,22 @@ import logging
 from typing import AsyncIterator
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.bot import Bot
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
+from app.schemas.widget import WidgetConfigResponse
+from app.models import WidgetConfig
 from app.services.llm_service import LLMService
 from app.services.vector_search_service import VectorSearchService
 from app.services.embedding_service import EmbeddingService
 from app.services.context_service import ContextService, DEFAULT_CONTEXT_WINDOW
 from app.services.confidence_service import ConfidenceCalculatorService
+from app.services.domain_whitelist_service import extract_request_origin, matches_whitelist
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,7 @@ context_service = ContextService()
 @router.get("/{bot_id}/public", response_model=PublicBotInfo)
 async def get_public_bot_info(
     bot_id: UUID,
+    response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -40,6 +45,11 @@ async def get_public_bot_info(
         - 404: Bot not found
         - 403: Bot is not public
     """
+    # Add CORS headers for widget embedding
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
     try:
         # Get bot without tenant/user context (public endpoint)
         bot = await db.get(Bot, bot_id)
@@ -60,12 +70,8 @@ async def get_public_bot_info(
         return PublicBotInfo(
             id=str(bot.id),
             name=bot.name,
+            description=bot.description,
             avatar_url=getattr(bot, "avatar_url", None),
-            welcome_message=(
-                getattr(bot, "welcome_message", None)
-                or bot.description
-                or f"Hi! I'm {bot.name}. Ask me anything!"
-            ),
             is_public=getattr(bot, "is_public", True),
             confidence_threshold=getattr(bot, "confidence_threshold", 80),
         )
@@ -84,6 +90,7 @@ async def get_public_bot_info(
 async def chat_query(
     bot_id: UUID,
     request: ChatQueryRequest,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -151,7 +158,7 @@ async def chat_query(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Context window must be between 1 and 100",
         )
-    
+
     context_messages: list[ChatMessage] = []
 
     if request.context:
@@ -186,7 +193,22 @@ async def chat_query(
         # Get tenant_id from bot for context retrieval
         tenant_id = bot.tenant_id
 
-        # Retrieve relevant context from vector store (includes verified Q&A)
+        # Enforce domain whitelist before processing request
+        widget_cfg_result = await db.execute(
+            select(WidgetConfig).where(WidgetConfig.bot_id == bot_id)
+        )
+        widget_cfg = widget_cfg_result.scalar_one_or_none()
+        allowed_domains = (widget_cfg.allowed_domains or []) if widget_cfg else []
+
+        if allowed_domains:
+            origin = extract_request_origin(http_request)
+            if not matches_whitelist(origin, allowed_domains):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This widget is not authorized for this domain",
+                )
+
+        # Retrieve relevant context from vector store
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
@@ -198,10 +220,14 @@ async def chat_query(
 
         if not search_results:
             # No relevant context found
-            return StreamingResponse(
+            response = StreamingResponse(
                 _stream_no_context_response(),
                 media_type="text/event-stream",
             )
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
 
         # Check if we have a verified Q&A match - if so, use it directly
         # Verified answers have is_verified=True and verified_answer set
@@ -322,12 +348,16 @@ async def chat_query(
 
         # Routing decision: send a wait message for HITL, otherwise stream draft
         if confidence_result.routing_decision.value == "hitl":
-            return StreamingResponse(
+            response = StreamingResponse(
                 _stream_hitl_wait_response(confidence_value),
                 media_type="text/event-stream",
             )
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
 
-        return StreamingResponse(
+        response = StreamingResponse(
             _stream_precomputed_response(
                 tokens=draft_tokens,
                 citations=streaming_citations,
@@ -336,13 +366,23 @@ async def chat_query(
             ),
             media_type="text/event-stream",
         )
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error processing chat query: {e}")
-        return StreamingResponse(
+        response = StreamingResponse(
             _stream_error_response(str(e)),
             media_type="text/event-stream",
         )
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        return response
 
 
 @router.get("/{bot_id}/chat/{message_id}/status")
@@ -457,3 +497,47 @@ async def _stream_error_response(error: str) -> AsyncIterator[str]:
     """Stream an error response."""
     yield f"data: {json.dumps({'error': 'Sorry, I encountered an issue. Please try again.', 'detail': error})}\n\n"
     yield "data: [DONE]\n\n"
+
+
+@router.get("/{bot_id}/widget/config", response_model=WidgetConfigResponse)
+async def get_public_widget_config(
+    bot_id: UUID,
+    http_request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public widget configuration for a bot (no auth).
+
+    Returns defaults if no explicit config exists. Only allowed if bot is public.
+    """
+    # Validate bot exists and public
+    bot = await db.get(Bot, bot_id)
+    if not bot:
+        raise HTTPException(status_code=404, detail="Bot not found")
+    if hasattr(bot, "is_public") and not bot.is_public:
+        raise HTTPException(status_code=403, detail="Bot is not public")
+
+    result = await db.execute(select(WidgetConfig).where(WidgetConfig.bot_id == bot_id))
+    cfg = result.scalar_one_or_none()
+    allowed_domains = (cfg.allowed_domains or []) if cfg else []
+
+    if allowed_domains:
+        origin = extract_request_origin(http_request)
+        if not matches_whitelist(origin, allowed_domains):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This widget is not authorized for this domain",
+            )
+
+    if cfg is None:
+        # Compose defaults with bot welcome message if present
+        return WidgetConfigResponse(
+            bot_id=str(bot_id),
+            position="bottom-right",
+            primary_color="#3B82F6",
+            welcome_message=getattr(bot, "welcome_message", None),
+            auto_open=False,
+            allowed_domains=[],
+        )
+
+    return WidgetConfigResponse(**cfg.to_dict())

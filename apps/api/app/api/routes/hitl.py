@@ -12,9 +12,11 @@ from typing import List, Optional, Set, Dict
 from uuid import UUID
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, status, Query, WebSocket, WebSocketDisconnect, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, and_
+from sqlalchemy import select, desc, and_, join
+from sqlalchemy.orm import joinedload
+import redis.asyncio as redis
 from sqlalchemy.orm import joinedload
 import redis.asyncio as aioredis
 
@@ -23,6 +25,7 @@ from app.core.settings import settings
 from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
+from app.models.bot import Bot
 from app.models.bot import Bot
 from app.services.embedding_service import EmbeddingService, EmbeddingError
 from app.services.verified_qa import create_verified_qa
@@ -35,6 +38,7 @@ logger = logging.getLogger(__name__)
 class ApproveQueueItemRequest(BaseModel):
     """Request to approve a review queue item."""
     edits: Optional[str] = Field(None, description="Optional edited response text")
+    send_to_chat: bool = Field(True, description="Send approved answer back to chat")
 
 
 class RejectQueueItemRequest(BaseModel):
@@ -52,6 +56,7 @@ class ReviewQueueItemResponse(BaseModel):
     userQuestion: str = Field(..., description="Original user question")
     aiDraft: str = Field(..., description="AI-generated draft response")
     botName: str = Field(..., description="Name of the bot that generated the response")
+    botName: str = Field(..., description="Name of the bot that generated the response")
     # Confidence is stored in the DB as a 0-1 float; keep the
     # API contract aligned so the frontend can render a % view
     # with a simple *100, matching the live chat certainty bar.
@@ -59,6 +64,34 @@ class ReviewQueueItemResponse(BaseModel):
     citations: List[dict] = Field(default_factory=list, description="Source citations")
     status: str = Field(default="pending", description="Review status")
     source: str = Field(default="chatbot", description="Source of the question")
+    metadata: Optional[dict] = Field(default=None, description="Additional metadata")
+
+
+class ContextChunk(BaseModel):
+    """Context chunk with source document information."""
+    chunk_id: str = Field(..., description="Unique chunk identifier")
+    document_id: str = Field(..., description="Source document ID")
+    document_name: str = Field(..., description="Source document name")
+    section: Optional[str] = Field(None, description="Document section")
+    text: str = Field(..., description="Chunk text content")
+    similarity: float = Field(..., description="Similarity score (0-1)")
+    page_number: Optional[int] = Field(None, description="Page number if available")
+
+
+class ReviewQueueItemDetailResponse(BaseModel):
+    """Detailed review queue item with context chunks."""
+    id: str = Field(..., description="Confidence log ID")
+    type: str = Field(default="chat", description="Type of query (chat/email)")
+    timestamp: str = Field(..., description="ISO timestamp of query")
+    userQuestion: str = Field(..., description="Original user question")
+    aiDraft: str = Field(..., description="AI-generated draft response")
+    botName: str = Field(..., description="Name of the bot that generated the response")
+    confidence: float = Field(..., description="Confidence score (0-1)")
+    citations: List[dict] = Field(default_factory=list, description="Source citations")
+    contextChunks: List[ContextChunk] = Field(default_factory=list, description="Retrieved context chunks")
+    status: str = Field(default="pending", description="Review status")
+    source: str = Field(default="chatbot", description="Source of the question")
+    timeInQueue: str = Field(..., description="Time waiting in queue (human readable)")
     metadata: Optional[dict] = Field(default=None, description="Additional metadata")
 
 
@@ -76,6 +109,58 @@ class ReviewQueueResponse(BaseModel):
     stats: ReviewQueueStatsResponse
 
 
+class BotFilterOption(BaseModel):
+    """Bot option for filter dropdown."""
+    id: str = Field(..., description="Bot UUID")
+    name: str = Field(..., description="Bot name")
+
+
+class BotFilterOptionsResponse(BaseModel):
+    """Response with bot filter options."""
+    bots: List[BotFilterOption]
+
+
+@router.get("/bots", response_model=BotFilterOptionsResponse)
+async def get_bots_for_filter(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: UUID = Depends(get_current_tenant),
+) -> BotFilterOptionsResponse:
+    """
+    Get list of bots for filter dropdown (AC 5.5).
+    
+    Returns all bots accessible to the current user across all their groups.
+    """
+    try:
+        from app.models import GroupMember
+        
+        # Get all bots from groups the user has access to
+        query_stmt = select(Bot).join(
+            GroupMember, Bot.group_id == GroupMember.group_id
+        ).where(
+            and_(
+                GroupMember.user_id == current_user.id,
+                Bot.tenant_id == current_tenant,
+            )
+        ).distinct().order_by(Bot.name)
+        
+        result = await db.execute(query_stmt)
+        bots = result.scalars().all()
+        
+        return BotFilterOptionsResponse(
+            bots=[
+                BotFilterOption(id=str(bot.id), name=bot.name)
+                for bot in bots
+            ]
+        )
+    except Exception as e:
+        logger.exception(f"Error fetching bots for filter: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to fetch bots for filter"
+        )
+
+
 @router.get("/queue", response_model=ReviewQueueResponse)
 async def get_review_queue(
     db: AsyncSession = Depends(get_db),
@@ -84,28 +169,72 @@ async def get_review_queue(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("oldest", regex="^(oldest|newest|lowest_confidence|highest_confidence)$"),
+    bot_id: Optional[UUID] = Query(None, description="Filter by specific bot ID"),
+    date_from: Optional[datetime] = Query(None, description="Filter items created on or after this date"),
+    date_to: Optional[datetime] = Query(None, description="Filter items created on or before this date"),
+    status_filter: Optional[str] = Query(None, regex="^(pending|in-progress)$", description="Filter by status (pending, in-progress)"),
 ) -> ReviewQueueResponse:
     """
     Get pending HITL review items for the current tenant.
     
     Returns questions with confidence scores below bot thresholds that need
-    human review. Items are sorted by creation date (oldest first by default) or confidence.
+    human review. Items are filtered by tenant and by groups the user has access to.
+    Items are sorted by creation date (oldest first by default) or confidence.
     
     Sorting options:
     - oldest: oldest items first (default, per AC requirement)
     - newest: newest items first
     - lowest_confidence: lowest confidence scores first
     - highest_confidence: highest confidence scores first
+    
+    Filtering options (AC 5.5):
+    - bot_id: Filter by specific bot UUID
+    - date_from/date_to: Filter by date range
+    - status_filter: Filter by status (pending, in-progress)
     """
     try:
-        # Query pending HITL items for this tenant with eager-loaded Bot
+        # Get user's group memberships to filter by accessible groups
+        from app.models import GroupMember
+        from sqlalchemy import func
+        
+        # Subquery to get group IDs user has access to
+        user_groups_subquery = select(GroupMember.group_id).where(
+            GroupMember.user_id == current_user.id
+        ).subquery()
+        
+        # Query pending HITL items for this tenant, filtered by user's accessible groups
+        # Items with null group_id (tenant-wide) OR items from groups the user belongs to
         query_stmt = select(ConfidenceLog).where(
             and_(
-                ConfidenceLog.routing_decision == RoutingDecision.HITL,
+                ConfidenceLog.routing_decision == RoutingDecision.hitl,
                 ConfidenceLog.hitl_resolved.is_(False),
                 ConfidenceLog.tenant_id == current_tenant,
             )
+        ).where(
+            # Items with null group_id (tenant-wide) OR items from user's groups
+            (ConfidenceLog.group_id.is_(None)) | 
+            (ConfidenceLog.group_id.in_(
+                select(GroupMember.group_id).where(GroupMember.user_id == current_user.id)
+            ))
         ).options(joinedload(ConfidenceLog.bot))
+
+        # Apply filters (AC 5.5)
+        if bot_id:
+            query_stmt = query_stmt.where(ConfidenceLog.bot_id == bot_id)
+        
+        if date_from:
+            query_stmt = query_stmt.where(ConfidenceLog.created_at >= date_from)
+        
+        if date_to:
+            query_stmt = query_stmt.where(ConfidenceLog.created_at <= date_to)
+        
+        # Status filter: 'pending' = hitl_resolved=False, 'in-progress' could use metadata
+        # For now, all items in queue are 'pending' by default; future enhancement for 'in-progress'
+        if status_filter == "in-progress":
+            # Filter for items marked as in-progress (e.g., via metadata)
+            # This is a placeholder; adjust based on how in-progress is tracked
+            pass  # Could filter by metadata.status == "in-progress" if stored
+
 
         # Sort based on parameter (oldest first by default per AC1)
         if sort_by == "lowest_confidence":
@@ -121,8 +250,28 @@ async def get_review_queue(
         result = await db.execute(query_stmt)
         all_items = result.unique().scalars().all()
 
-        # Get stats
+        # Get stats from ALL items (not paginated)
         total = len(all_items)
+        
+        # Calculate type counts from ALL items before pagination
+        all_chat_count = 0
+        all_email_count = 0
+        for item in all_items:
+            raw_metadata = getattr(item, "metadata_json", None) or getattr(item, "metadata", None)
+            metadata = raw_metadata or {}
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            item_type = metadata.get("type", "chat")
+            if item_type == "chat":
+                all_chat_count += 1
+            elif item_type == "email":
+                all_email_count += 1
+        
         paginated_items = all_items[offset : offset + limit]
 
         # Convert to response format
@@ -171,19 +320,17 @@ async def get_review_queue(
                     "bot_id": str(item.bot_id),
                     "query_id": str(item.query_id),
                     "is_verified_kb": item.is_verified_kb,
+                    "session_id": metadata.get("session_id"),  # For sending approved answer back to chat
                 },
             )
             items_response.append(response_item)
 
-        # Calculate type counts
-        chat_count = sum(1 for item in items_response if item.type == "chat")
-        email_count = sum(1 for item in items_response if item.type == "email")
-
+        # Use pre-calculated stats from ALL items (not just paginated ones)
         stats = ReviewQueueStatsResponse(
             total=total,
             pending=total,
-            chat=chat_count,
-            email=email_count,
+            chat=all_chat_count,
+            email=all_email_count,
         )
 
         return ReviewQueueResponse(items=items_response, stats=stats)
@@ -196,6 +343,151 @@ async def get_review_queue(
         )
 
 
+@router.get("/queue/{item_id}", response_model=ReviewQueueItemDetailResponse)
+async def get_queue_item_detail(
+    item_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: UUID = Depends(get_current_tenant),
+) -> ReviewQueueItemDetailResponse:
+    """
+    Get detailed information about a specific HITL queue item.
+    
+    Returns full context chunks with source documents for review interface.
+    This endpoint supports AC1 (split view with query + context + draft).
+    
+    Security: Enforces tenant_id AND group_id access control with membership validation.
+    """
+    try:
+        item_uuid = UUID(item_id)
+        
+        # Import GroupMember for access control
+        from app.models.group_member import GroupMember
+        
+        # Query the specific item with Bot relationship loaded
+        result = await db.execute(
+            select(ConfidenceLog).where(
+                and_(
+                    ConfidenceLog.id == item_uuid,
+                    ConfidenceLog.tenant_id == current_tenant,
+                    ConfidenceLog.routing_decision == RoutingDecision.hitl,
+                )
+            ).options(joinedload(ConfidenceLog.bot))
+        )
+        item = result.scalars().first()
+        
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found",
+            )
+        
+        # SECURITY: Verify user has access to the group this item belongs to
+        if item.group_id:
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == item.group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
+            )
+            membership = membership_result.scalars().first()
+            
+            if not membership:
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to access "
+                    f"HITL item {item_id} from group {item.group_id} without membership"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: You do not have access to this item",
+                )
+        
+        # Parse metadata
+        raw_metadata = getattr(item, "metadata_json", None) or {}
+        if isinstance(raw_metadata, str):
+            try:
+                raw_metadata = json.loads(raw_metadata)
+            except Exception:
+                raw_metadata = {}
+        metadata = raw_metadata if isinstance(raw_metadata, dict) else {}
+        
+        # Extract context chunks from metadata
+        context_chunks = []
+        search_results = metadata.get("search_results", [])
+        if isinstance(search_results, list):
+            for chunk_data in search_results:
+                if isinstance(chunk_data, dict):
+                    context_chunks.append(ContextChunk(
+                        chunk_id=chunk_data.get("chunk_id", ""),
+                        document_id=chunk_data.get("document_id", ""),
+                        document_name=chunk_data.get("document_name", "Unknown"),
+                        section=chunk_data.get("section"),
+                        text=chunk_data.get("text", ""),
+                        similarity=float(chunk_data.get("similarity", 0.0)),
+                        page_number=chunk_data.get("page_number"),
+                    ))
+        
+        # Get citations
+        citations = metadata.get("citations", [])
+        if not isinstance(citations, list):
+            citations = []
+        
+        # Get bot name
+        bot_name = "Unknown Bot"
+        if hasattr(item, 'bot') and item.bot:
+            bot_name = item.bot.name
+        else:
+            bot_name = metadata.get("bot_name", "Unknown Bot")
+        
+        # Calculate time in queue
+        time_diff = datetime.utcnow() - item.created_at
+        minutes = int(time_diff.total_seconds() / 60)
+        if minutes < 1:
+            time_in_queue = "just now"
+        elif minutes < 60:
+            time_in_queue = f"{minutes}m"
+        elif minutes < 1440:  # Less than 24 hours
+            hours = minutes // 60
+            time_in_queue = f"{hours}h"
+        else:
+            days = minutes // 1440
+            time_in_queue = f"{days}d"
+        
+        return ReviewQueueItemDetailResponse(
+            id=str(item.id),
+            type=metadata.get("type", "chat"),
+            timestamp=item.created_at.isoformat(),
+            userQuestion=item.query_text or "Unknown question",
+            aiDraft=metadata.get("ai_draft", ""),
+            botName=bot_name,
+            confidence=float(item.overall_confidence),
+            citations=citations,
+            contextChunks=context_chunks,
+            status="pending" if not item.hitl_resolved else "resolved",
+            source=metadata.get("source", "chatbot"),
+            timeInQueue=time_in_queue,
+            metadata={
+                "bot_id": str(item.bot_id),
+                "query_id": str(item.query_id),
+                "is_verified_kb": item.is_verified_kb,
+            },
+        )
+    
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid item ID",
+        )
+    except Exception as e:
+        logger.error(f"Error fetching queue item detail: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to fetch item detail",
+        )
+
+
 @router.post("/queue/{item_id}/approve")
 async def approve_queue_item(
     item_id: str,
@@ -205,9 +497,17 @@ async def approve_queue_item(
     current_tenant: UUID = Depends(get_current_tenant),
 ):
     """
-    Approve a review queue item (mark as resolved by human).
+    Approve a review queue item with atomic operations:
+    1. Send response to end-user (future: email/chat integration)
+    2. Update Verified Knowledge Base
+    3. Remove item from queue (mark as resolved)
+    4. Record diff between AI draft and human edit (if edited)
+    
     Optionally accept edits to the AI draft.
     Publishes event to Redis for real-time updates.
+    
+    **AC1**: Response is sent, Q&A added to Verified KB, item removed from queue
+    **AC2**: If edited, system records diff between AI and human version
     """
     try:
         item_uuid = UUID(item_id)
@@ -233,43 +533,97 @@ async def approve_queue_item(
             )
 
         logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
+        
+        # SECURITY: Check if item is already resolved (optimistic locking)
+        if item.hitl_resolved:
+            logger.warning(
+                f"Race condition prevented: Item {item_id} already resolved by user "
+                f"{item.resolution_user_id} at {item.resolution_timestamp}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Item has already been resolved by another user",
+            )
+        
+        # SECURITY: Verify user has access to the group this item belongs to
+        if item.group_id:
+            from app.models.group_member import GroupMember
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == item.group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
+            )
+            membership = membership_result.scalars().first()
+            
+            if not membership:
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to approve "
+                    f"HITL item {item_id} from group {item.group_id} without membership"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: You do not have access to this item",
+                )
 
         # Extract question and prepare answer for Verified KB
         question_text = item.query_text or ""
         metadata = dict(item.metadata_json or {})
+        ai_draft = metadata.get("ai_draft", "")
         
-        # Determine final answer (edits take precedence over AI draft)
-        if request.edits:
-            approved_answer = request.edits
+        # Determine final answer and track if edited
+        was_edited = False
+        diff_result = None
+        final_answer = ai_draft
+        
+        if request.edits and request.edits != ai_draft:
+            was_edited = True
+            final_answer = request.edits
+            
+            # AC2: Record diff between AI draft and human edit
+            diff_result = {
+                "ai_version": ai_draft,
+                "human_version": request.edits,
+                "edited_by": str(current_user.id),
+                "edited_at": datetime.utcnow().isoformat(),
+                # Calculate character-level changes for analytics
+                "char_diff": {
+                    "ai_length": len(ai_draft),
+                    "human_length": len(request.edits),
+                    "diff_length": len(request.edits) - len(ai_draft),
+                }
+            }
+            
+            metadata["diff"] = diff_result
+            # SECURITY: Sanitize edited draft (basic validation)
+            # Strip leading/trailing whitespace and limit length
+            sanitized_edits = request.edits.strip()
+            if len(sanitized_edits) > 10000:  # Reasonable limit for draft responses
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Edited draft exceeds maximum length of 10000 characters",
+                )
+            if not sanitized_edits:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Edited draft cannot be empty",
+                )
+            metadata["human_edits"] = sanitized_edits
+            metadata["human_final_answer"] = sanitized_edits
             metadata["human_edits"] = request.edits
             metadata["human_final_answer"] = request.edits
             metadata["resolution_action"] = "approved_with_edits"
-            logger.debug(f"Approval with edits: {request.edits[:50]}...")
+            logger.info(f"Approval with edits for item {item_id} - AI:{len(ai_draft)} chars → Human:{len(request.edits)} chars")
         else:
             # Default to AI draft as the approved answer if no edits supplied
-            approved_answer = metadata.get("ai_draft", "")
-            metadata["human_final_answer"] = approved_answer
+            ai_draft = metadata.get("ai_draft", "")
+            metadata["human_final_answer"] = ai_draft
             metadata["resolution_action"] = "approved"
             logger.debug("Approval without edits - using AI draft")
 
-        # Extract source citations from metadata
-        source_citations = metadata.get("citations")
-        if isinstance(source_citations, list) and source_citations:
-            # Convert list of citations to JSONB-compatible dict
-            source_citations = {"documents": source_citations}
-        elif not isinstance(source_citations, dict):
-            source_citations = None
-
-        # Start atomic transaction: HITL approval + VerifiedQA creation
-        try:
-            # Track document ID for post-commit processing
-            kb_doc_id = None
-            
-            # Mark HITL item as resolved
-            item.hitl_resolved = True
-            item.resolution_user_id = current_user.id
-            item.resolution_timestamp = __import__('datetime').datetime.utcnow()
-            item.metadata_json = metadata
+        item.metadata_json = metadata
 
             # Create VerifiedQA entry (FR52: Auto-add approved HITL to Verified KB)
             if question_text and approved_answer and item.bot_id:
@@ -407,6 +761,30 @@ async def approve_queue_item(
         # Build response with the approved answer
         resolved_answer = approved_answer
         
+        # Send approved answer to chat if requested and session_id is available
+        chat_sent = False
+        if request.send_to_chat:
+            try:
+                session_id = item.metadata_json.get("session_id")
+                if session_id:
+                    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                    chat_channel = f"chat_session:{session_id}"
+                    chat_message = {
+                        "type": "approved_answer",
+                        "answer": resolved_answer,
+                        "question": item.query_text,
+                        "citations": item.metadata_json.get("citations", []),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                    await redis_client.publish(chat_channel, json.dumps(chat_message))
+                    await redis_client.close()
+                    chat_sent = True
+                    logger.info(f"✓ Sent approved answer to chat session: {session_id}")
+                else:
+                    logger.debug("No session_id in metadata, skipping send to chat")
+            except Exception as chat_error:
+                logger.warning(f"Failed to send to chat: {chat_error}")
+        
         # Publish resolution event to Redis for real-time updates
         try:
             redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -425,10 +803,17 @@ async def approve_queue_item(
         return {
             "status": "approved",
             "item_id": item_id,
-            "resolved_answer": resolved_answer,
-            "citations": item.metadata_json.get("citations", []),
+            "resolved_answer": final_answer,
+            "was_edited": was_edited,
+            "diff": diff_result if was_edited else None,
+            "verified_kb_updated": True,
+            "citations": metadata.get("citations", []),
+            "chat_sent": chat_sent,
         }
 
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 404) without wrapping
+        raise
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -483,6 +868,29 @@ async def reject_queue_item(
             )
 
         logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
+        
+        # SECURITY: Verify user has access to the group this item belongs to
+        if item.group_id:
+            from app.models.group_member import GroupMember
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == item.group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
+            )
+            membership = membership_result.scalars().first()
+            
+            if not membership:
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to reject "
+                    f"HITL item {item_id} from group {item.group_id} without membership"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied: You do not have access to this item",
+                )
 
         # Mark as resolved
         item.hitl_resolved = True

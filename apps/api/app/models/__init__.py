@@ -20,6 +20,7 @@ from .feedback import (
 )
 from .confidence_log import ConfidenceLog as ConfidenceLog, RoutingDecision as RoutingDecision
 from .verified_qa import VerifiedQA as VerifiedQA
+from .widget_config import WidgetConfig as WidgetConfig
 
 __all__ = [
     "Base",
@@ -44,5 +45,4 @@ __all__ = [
     "UserAbuseSuspicion",
     "ConfidenceLog",
     "RoutingDecision",
-    "VerifiedQA",
 ]

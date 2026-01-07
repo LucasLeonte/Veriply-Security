@@ -1,8 +1,8 @@
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, String, DateTime, Index, ForeignKey, Text
-from sqlalchemy.dialects.postgresql import UUID as PGUUID, JSONB
+from sqlalchemy import Column, String, DateTime, Index, ForeignKey, Text, JSON
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 
 from .base import Base
 
@@ -19,7 +19,7 @@ class ChatMessageLog(Base):
     answer_id = Column(PGUUID(as_uuid=True), nullable=True)
     role = Column(String(20), nullable=False)
     content = Column(Text, nullable=False)
-    citations = Column(JSONB, nullable=True)
+    citations = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     __table_args__ = (

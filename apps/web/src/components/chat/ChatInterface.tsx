@@ -1,36 +1,44 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { X, Send, Loader2, RefreshCw, Clock3, Trash2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { useEffect, useRef, useState } from "react";
+import { Clock3, Loader2, RefreshCw, Send, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import ContextSummary from "../ContextSummary";
 import { useChat } from "@/hooks/useChat";
 import MessageList from "./MessageList";
-import ContextSummary from "../ContextSummary";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { getUserSessions, clearChatHistory } from "@/lib/api/chat";
+import { clearChatHistory, getUserSessions } from "@/lib/api/chat";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 interface ChatInterfaceProps {
     botId: string;
     botName: string;
     botAvatar?: string;
-    welcomeMessage: string;
+    description?: string;
     isPublic: boolean;
     confidenceThreshold: number; // 0-100 percentage from bot config
+    embedded?: boolean; // whether to display in embedded mode
 }
 
 export default function ChatInterface({
     botId,
     botName,
     botAvatar,
-    welcomeMessage,
+    description,
     isPublic,
     confidenceThreshold,
+    embedded = false,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const [showClearDialog, setShowClearDialog] = useState(false);
+    const [keyboardOffset, setKeyboardOffset] = useState(0);
     const {
         messages,
         loading,
@@ -50,21 +58,34 @@ export default function ChatInterface({
 
     // Validate message structure at runtime for defensive programming
     const validateMessages = (msgs: any[]) => {
-        return msgs.every(msg =>
-            typeof msg === 'object' &&
-            ['user', 'assistant'].includes(msg.role) &&
-            typeof msg.content === 'string'
+        return msgs.every(
+            (msg) =>
+                typeof msg === "object" &&
+                ["user", "assistant"].includes(msg.role) &&
+                typeof msg.content === "string"
         );
     };
 
     if (messages.length > 0 && !validateMessages(messages)) {
-        console.warn('[ChatInterface] Invalid message structure detected:', messages);
+        console.warn(
+            "[ChatInterface] Invalid message structure detected:",
+            messages
+        );
     }
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const [historyOpen, setHistoryOpen] = useState(false);
-    const [userSessions, setUserSessions] = useState<Array<{ id: string; title: string; lastTimestamp: number; count: number }>>([]);
-    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+    const [userSessions, setUserSessions] = useState<
+        Array<{
+            id: string;
+            title: string;
+            lastTimestamp: number;
+            count: number;
+        }>
+    >([]);
+    const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+        null
+    );
 
     // Sync selectedSessionId with the one in useChat
     useEffect(() => {
@@ -82,7 +103,9 @@ export default function ChatInterface({
         e.stopPropagation();
         if (loading) return;
 
-        if (window.confirm("Are you sure you want to delete this conversation?")) {
+        if (
+            window.confirm("Are you sure you want to delete this conversation?")
+        ) {
             clearChatHistory(botId, sId);
             refreshSessions();
             if (sId === sessionId) {
@@ -106,6 +129,25 @@ export default function ChatInterface({
             textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
         }
     }, [input]);
+
+    // Handle mobile keyboard visibility (embedded or narrow screens)
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const viewport = window.visualViewport;
+        const handleResize = () => {
+            if (!viewport) return;
+            const offset = Math.max(0, window.innerHeight - viewport.height);
+            setKeyboardOffset(offset);
+        };
+
+        handleResize();
+        viewport?.addEventListener("resize", handleResize);
+        window.addEventListener("orientationchange", handleResize);
+        return () => {
+            viewport?.removeEventListener("resize", handleResize);
+            window.removeEventListener("orientationchange", handleResize);
+        };
+    }, [embedded]);
 
     // Refresh sessions when messages change (keeps sidebar index fresh)
     useEffect(() => {
@@ -159,11 +201,22 @@ export default function ChatInterface({
 
     return (
         <>
-            <div className="w-full max-w-6xl h-[90vh] flex gap-4">
+            <div
+                className={`w-full max-w-6xl flex gap-4 ${
+                    embedded ? "h-full" : "h-[calc(100vh-64px)]"
+                } flex-col md:flex-row`}
+                style={
+                    keyboardOffset
+                        ? { paddingBottom: keyboardOffset + 12 }
+                        : undefined
+                }
+            >
                 {/* Sidebar (Your chats) */}
                 <aside className="hidden md:flex md:flex-col w-[260px] border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden">
                     <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                        <p className="text-sm font-semibold text-slate-700">Conversations</p>
+                        <p className="text-sm font-semibold text-slate-700">
+                            Conversations
+                        </p>
                         <Button
                             variant="ghost"
                             size="icon"
@@ -178,7 +231,9 @@ export default function ChatInterface({
                     </div>
                     <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
                         {userSessions.length === 0 ? (
-                            <div className="p-4 text-sm text-slate-600">No conversations yet.</div>
+                            <div className="p-4 text-sm text-slate-600">
+                                No conversations yet.
+                            </div>
                         ) : (
                             userSessions.map((s) => (
                                 <div
@@ -188,19 +243,32 @@ export default function ChatInterface({
                                     onClick={() => {
                                         resumeSession(s.id);
                                     }}
+                                    className={`w-full text-left p-3 transition-colors group ${
+                                        selectedSessionId === s.id
+                                            ? "bg-sky-50"
+                                            : "hover:bg-slate-50"
+                                    }`}
                                 >
                                     <div className="flex items-center justify-between w-full">
                                         <div className="flex-1 min-w-0 pr-2">
-                                            <p className="text-sm text-slate-900 line-clamp-1">{s.title}</p>
+                                            <p className="text-sm text-slate-900 line-clamp-1">
+                                                {s.title}
+                                            </p>
                                             <p className="text-[11px] text-slate-500">
-                                                {new Date(s.lastTimestamp).toLocaleString()} • {s.count} message{s.count !== 1 ? "s" : ""}
+                                                {new Date(
+                                                    s.lastTimestamp
+                                                ).toLocaleString()}{" "}
+                                                • {s.count} message
+                                                {s.count !== 1 ? "s" : ""}
                                             </p>
                                         </div>
                                         <Button
                                             variant="ghost"
                                             size="icon"
                                             className="h-6 w-6 text-slate-400 hover:text-red-600 hover:bg-red-50 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={(e) => handleDeleteSession(e, s.id)}
+                                            onClick={(e) =>
+                                                handleDeleteSession(e, s.id)
+                                            }
                                             title="Delete conversation"
                                         >
                                             <Trash2 className="h-3.5 w-3.5" />
@@ -212,7 +280,7 @@ export default function ChatInterface({
                     </div>
                 </aside>
 
-                <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative">
+                <div className="flex-1 h-full flex flex-col bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden relative min-h-[480px]">
                     {/* Header */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-50 bg-white/80 backdrop-blur-sm z-10 sticky top-0">
                         <div className="flex items-center gap-3">
@@ -230,13 +298,19 @@ export default function ChatInterface({
                                     {streaming
                                         ? "Typing..."
                                         : loading
-                                            ? "Thinking..."
-                                            : "Online"}
+                                        ? "Thinking..."
+                                        : "Online"}
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className={`text-[10px] px-2 py-1 rounded-full border ${isPublic ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-600 border-slate-200"}`}>
+                            <span
+                                className={`text-[10px] px-2 py-1 rounded-full border ${
+                                    isPublic
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-slate-100 text-slate-600 border-slate-200"
+                                }`}
+                            >
                                 {isPublic ? "Public" : "Private"}
                             </span>
                             {/* Mobile-only: open your chats */}
@@ -265,7 +339,14 @@ export default function ChatInterface({
                     </div>
 
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
+                    <div
+                        className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth"
+                        style={
+                            keyboardOffset
+                                ? { scrollPaddingBottom: keyboardOffset + 160 }
+                                : undefined
+                        }
+                    >
                         {messages.length > 0 && (
                             <ContextSummary
                                 messages={messages}
@@ -275,17 +356,20 @@ export default function ChatInterface({
                         {messages.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-center px-6">
                                 <Avatar className="h-16 w-16 mb-4">
-                                    <AvatarImage src={botAvatar} alt={botName} />
+                                    <AvatarImage
+                                        src={botAvatar}
+                                        alt={botName}
+                                    />
                                     <AvatarFallback className="bg-sky-500 text-white text-2xl">
                                         {botName.charAt(0).toUpperCase()}
                                     </AvatarFallback>
                                 </Avatar>
                                 <h2 className="text-xl font-semibold text-slate-900 mb-2">
-                                    {welcomeMessage || `Hi! I'm ${botName}`}
+                                    {`Hi! I'm ${botName}`}
                                 </h2>
                                 <p className="text-slate-600 max-w-md">
-                                    Ask me a question and I'll do my best to help you
-                                    based on my knowledge base.
+                                    Ask me a question and I'll do my best to
+                                    help you based on my knowledge base.
                                 </p>
                             </div>
                         ) : (
@@ -295,6 +379,7 @@ export default function ChatInterface({
                                 botAvatar={botAvatar}
                                 streaming={streaming}
                                 botId={botId}
+                                sessionId={sessionId}
                                 confidenceThresholdPercent={confidenceThreshold}
                                 feedbackState={feedbackState}
                                 onSubmitFeedback={submitFeedbackForMessage}
@@ -304,7 +389,9 @@ export default function ChatInterface({
                         {/* Error Display */}
                         {error && (
                             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-red-800 text-sm mb-2">{error}</p>
+                                <p className="text-red-800 text-sm mb-2">
+                                    {error}
+                                </p>
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -318,12 +405,20 @@ export default function ChatInterface({
                     </div>
 
                     {/* Input Area - Floating Capsule */}
-                    <div className="p-4 md:p-6 bg-gradient-to-t from-white via-white to-transparent pt-10">
+                    <div
+                        className="p-4 md:p-6 bg-gradient-to-t from-white via-white to-transparent pt-10"
+                        style={
+                            keyboardOffset
+                                ? { paddingBottom: keyboardOffset + 16 }
+                                : undefined
+                        }
+                    >
                         {/* Context Indicator */}
                         {messages.length > 0 && (
                             <div className="mb-3 text-center">
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
-                                    Context: {contextSize} message{contextSize !== 1 ? 's' : ''}
+                                    Context: {contextSize} message
+                                    {contextSize !== 1 ? "s" : ""}
                                 </span>
                             </div>
                         )}
@@ -342,7 +437,11 @@ export default function ChatInterface({
                                 <Button
                                     onClick={handleSend}
                                     disabled={!input.trim() || loading}
-                                    className={`mb-1 mr-1 rounded-full w-10 h-10 transition-all duration-300 ${input.trim() ? "bg-sky-600 hover:bg-sky-700 text-white shadow-md shadow-sky-200" : "bg-slate-100 text-slate-400 hover:bg-slate-200"}`}
+                                    className={`mb-1 mr-1 rounded-full w-11 h-11 min-w-[44px] transition-all duration-300 ${
+                                        input.trim()
+                                            ? "bg-sky-600 hover:bg-sky-700 text-white shadow-md shadow-sky-200"
+                                            : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                                    }`}
                                     size="icon"
                                     aria-label="Send"
                                     title="Send"
@@ -368,12 +467,15 @@ export default function ChatInterface({
                                     Start New Conversation?
                                 </h3>
                                 <p className="text-slate-700 mb-4">
-                                    This will clear your conversation history. This action cannot be undone.
+                                    This will clear your conversation history.
+                                    This action cannot be undone.
                                 </p>
                                 <div className="flex gap-3 justify-end">
                                     <Button
                                         variant="outline"
-                                        onClick={() => setShowClearDialog(false)}
+                                        onClick={() =>
+                                            setShowClearDialog(false)
+                                        }
                                     >
                                         Cancel
                                     </Button>
@@ -399,17 +501,30 @@ export default function ChatInterface({
                         <DialogTitle>Your conversations</DialogTitle>
                     </DialogHeader>
                     {userSessions.length === 0 ? (
-                        <p className="text-sm text-slate-600">No conversations yet.</p>
+                        <p className="text-sm text-slate-600">
+                            No conversations yet.
+                        </p>
                     ) : (
                         <div className="divide-y divide-slate-100 border border-slate-200 rounded-md">
                             {userSessions.map((s) => (
-                                <div key={s.id} className="p-3 flex items-center justify-between gap-3">
+                                <div
+                                    key={s.id}
+                                    className="p-3 flex items-center justify-between gap-3"
+                                >
                                     <div>
-                                        <p className="text-sm text-slate-900 line-clamp-1">{s.title}</p>
-                                        <p className="text-[11px] text-slate-500">
-                                            {new Date(s.lastTimestamp).toLocaleString()} • {s.count} message{s.count !== 1 ? "s" : ""}
+                                        <p className="text-sm text-slate-900 line-clamp-1">
+                                            {s.title}
                                         </p>
-                                        <p className="text-[11px] text-slate-500 font-mono mt-1">{s.id}</p>
+                                        <p className="text-[11px] text-slate-500">
+                                            {new Date(
+                                                s.lastTimestamp
+                                            ).toLocaleString()}{" "}
+                                            • {s.count} message
+                                            {s.count !== 1 ? "s" : ""}
+                                        </p>
+                                        <p className="text-[11px] text-slate-500 font-mono mt-1">
+                                            {s.id}
+                                        </p>
                                     </div>
                                     <Button
                                         size="sm"
@@ -424,7 +539,9 @@ export default function ChatInterface({
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 p-0"
-                                        onClick={(e) => handleDeleteSession(e, s.id)}
+                                        onClick={(e) =>
+                                            handleDeleteSession(e, s.id)
+                                        }
                                         title="Delete conversation"
                                     >
                                         <Trash2 className="h-4 w-4" />

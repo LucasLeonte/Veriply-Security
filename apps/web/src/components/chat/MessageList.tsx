@@ -17,6 +17,7 @@ interface MessageListProps {
     botAvatar?: string;
     streaming: boolean;
     botId?: string;
+    sessionId?: string;
     // Bot confidence threshold as percentage (0-100)
     confidenceThresholdPercent?: number;
     contextWindowSize?: number;
@@ -36,6 +37,7 @@ export default function MessageList({
     botAvatar,
     streaming,
     botId,
+    sessionId,
     confidenceThresholdPercent,
     contextWindowSize = 10,
     feedbackState = {},
@@ -44,6 +46,17 @@ export default function MessageList({
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(null);
     const [selectedMessageText, setSelectedMessageText] = useState<string>("");
+    const [sentToReview, setSentToReview] = useState<Set<string>>(new Set());
+    const [sendingToReview, setSendingToReview] = useState<Set<string>>(new Set());
+    
+    // Use ref to track submission attempts across renders (persists between useEffect calls)
+    const submissionAttemptsRef = useRef<Set<string>>(new Set());
+
+    // Default to 80% if not provided
+    const reviewThreshold = Math.min(
+        1,
+        Math.max(0, (typeof confidenceThresholdPercent === "number" ? confidenceThresholdPercent : 80) / 100)
+    );
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -53,14 +66,68 @@ export default function MessageList({
         }
     }, [messages, streaming]);
 
-    // NOTE: Auto-submission to review queue is DISABLED.
-    // The backend confidence_service.calculate_confidence() already creates the HITL entry
-    // with the correct ai_draft (the actual LLM response). Auto-submitting from the frontend
-    // creates duplicate entries with the placeholder message ("I'm checking with the team...")
-    // which causes approved answers to store the wrong content in the verified knowledge base.
-    //
-    // The HITL review queue at /api/v1/hitl/queue shows entries created by the backend,
-    // which already have the correct ai_draft for approval.
+    // Auto-send low confidence messages to review queue
+    useEffect(() => {
+        if (!botId || !sessionId) return;
+
+        messages.forEach((message, idx) => {
+            // Skip if already processed using ref (guards against concurrent useEffect runs)
+            if (submissionAttemptsRef.current.has(message.id)) return;
+            
+            if (
+                message.role === "assistant" &&
+                message.confidence !== undefined &&
+                message.confidence < reviewThreshold &&
+                !sentToReview.has(message.id) &&
+                !sendingToReview.has(message.id)
+            ) {
+                // Mark as attempted immediately to prevent duplicate calls
+                submissionAttemptsRef.current.add(message.id);
+                
+                // Find the user message before this one
+                let userQuestion = "";
+                for (let i = idx - 1; i >= 0; i--) {
+                    if (messages[i].role === "user") {
+                        userQuestion = messages[i].content;
+                        break;
+                    }
+                }
+
+                if (userQuestion) {
+                    setSendingToReview(prev => new Set(prev).add(message.id));
+
+                    sendToReviewQueue(
+                        botId,
+                        userQuestion,
+                        message.content,
+                        message.confidence,
+                        message.citations,
+                        sessionId
+                    ).then((result) => {
+                        // Mark as sent even if backend reports logical failure,
+                        // to avoid hammering the endpoint on every render
+                        if (!result?.success) {
+                            console.warn("Review queue send reported failure:", result?.message);
+                        }
+                        setSentToReview(prev => new Set(prev).add(message.id));
+                    }).catch(err => {
+                        console.error("Failed to send to review queue:", err);
+                        // Prevent infinite retry loops on hard failures
+                        setSentToReview(prev => new Set(prev).add(message.id));
+                    }).finally(() => {
+                        setSendingToReview(prev => {
+                            const next = new Set(prev);
+                            next.delete(message.id);
+                            return next;
+                        });
+                    });
+                } else {
+                    // No user question found, remove from attempts so it can retry
+                    submissionAttemptsRef.current.delete(message.id);
+                }
+            }
+        });
+    }, [messages, botId, sessionId, sentToReview, sendingToReview, reviewThreshold]);
 
     return (
         <>

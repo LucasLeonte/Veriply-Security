@@ -33,8 +33,8 @@ export interface Citation {
 export interface BotPublicInfo {
     id: string;
     name: string;
+    description?: string;
     avatar_url?: string;
-    welcome_message: string;
     is_public: boolean;
     confidence_threshold: number;
 }

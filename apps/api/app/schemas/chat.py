@@ -64,7 +64,7 @@ class PublicBotInfo(BaseModel):
 
     id: str
     name: str
+    description: Optional[str] = None
     avatar_url: Optional[str] = None
-    welcome_message: str
     is_public: bool
     confidence_threshold: int

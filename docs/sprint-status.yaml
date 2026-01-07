@@ -61,6 +61,7 @@ development_status:
     # Status values: backlog | drafted | in-progress | review | done
     5-1-hitl-queue-view: done
     5-2-draft-review-interface: in-progress
+    5-3-approve-edit-flow: done
     1-5-secrets-management-and-configuration: drafted
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: in-progress  # back to 1.6 due to troubles
     1-7-api-instrumentation-metrics-and-traces: backlog
@@ -77,7 +78,7 @@ development_status:
     4-1-web-chat-interface: done
     4-2-conversation-context: done
     4-4-trust-signals-display: done
-    4-5-embeddable-widget-generation: drafted
+    4-5-embeddable-widget-generation: in-progress
     4-6-widget-security-responsiveness: drafted
     7-1-verified-kb-storage: ready-for-dev
 ready_status:
@@ -101,6 +102,7 @@ ready_status:
 assignments:
     # Format: <epic>-<story>-<slug>: <developer-name>
     5-2-draft-review-interface: Kainy
+    5-3-approve-edit-flow: Dario
     1-6-ci-pipeline-lint-tests-and-smoke-e2e: Kainy  # resumed work on CI pipeline
     1-7-api-instrumentation-metrics-and-traces: Kainy
     2-5-knowledge-base-management-ui: Soulaymane

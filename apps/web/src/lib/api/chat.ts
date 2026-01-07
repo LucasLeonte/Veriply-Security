@@ -5,23 +5,44 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 /**
  * Fetch public bot information (no authentication required)
  */
-export async function getBotPublicInfo(botId: string): Promise<BotPublicInfo> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/bots/${botId}/public`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        cache: "no-store", // Disable caching for now, we'll add it later with TTL
-    });
+export async function getBotPublicInfo(
+    botId: string,
+    embedOrigin?: string
+): Promise<BotPublicInfo> {
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+    };
+    if (embedOrigin) {
+        headers["X-Embed-Origin"] = embedOrigin;
+    }
+
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/bots/${botId}/public`,
+        {
+            method: "GET",
+            headers,
+            cache: "no-store", // Disable caching for now, we'll add it later with TTL
+        }
+    );
 
     if (!response.ok) {
+        let detail = "Failed to fetch bot information";
+        try {
+            const body = await response.json();
+            if (body?.detail) {
+                detail = body.detail;
+            }
+        } catch {
+            // ignore parse errors
+        }
+
         if (response.status === 404) {
             throw new Error("Bot not found");
         }
         if (response.status === 403) {
-            throw new Error("Bot is not public");
+            throw new Error(detail || "Bot is not public");
         }
-        throw new Error("Failed to fetch bot information");
+        throw new Error(detail);
     }
 
     return response.json();
@@ -38,16 +59,39 @@ export async function* streamChatQuery(
         contextWindow?: number;
     }
 ): AsyncGenerator<
-    { type: "token"; content: string } | { type: "metadata"; data: Record<string, unknown> },
+    | { type: "token"; content: string }
+    | { type: "metadata"; data: Record<string, unknown> },
     void,
     unknown
 > {
+    const embedOrigin =
+        typeof document !== "undefined"
+            ? (() => {
+                  try {
+                      const params = new URLSearchParams(
+                          window.location.search || ""
+                      );
+                      const qp = params.get("embed_origin");
+                      if (qp) return qp;
+                      // Prefer ancestor origin when referrer is stripped
+                      // @ts-ignore: ancestorOrigins exists on window in browsers
+                      const ancestor = window.location.ancestorOrigins?.[0];
+                      if (ancestor) return ancestor;
+                      if (document.referrer) return document.referrer;
+                      return window.location.origin;
+                  } catch {
+                      return undefined;
+                  }
+              })()
+            : undefined;
+
     const response = await fetch(
         `${API_BASE_URL}/api/v1/bots/${botId}/chat/query`,
         {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                ...(embedOrigin ? { "X-Embed-Origin": embedOrigin } : {}),
             },
             body: JSON.stringify({
                 query,
@@ -64,7 +108,16 @@ export async function* streamChatQuery(
     );
 
     if (!response.ok) {
-        throw new Error(`Query failed: ${response.statusText}`);
+        let detail = response.statusText;
+        try {
+            const errorBody = await response.json();
+            if (errorBody?.detail) {
+                detail = errorBody.detail;
+            }
+        } catch (err) {
+            // ignore parse errors
+        }
+        throw new Error(detail || `Query failed: ${response.status}`);
     }
 
     const reader = response.body?.getReader();
@@ -108,11 +161,16 @@ export async function* streamChatQuery(
 /**
  * Load chat history from localStorage for a specific bot
  */
-export function loadChatHistory(botId: string, sessionId: string): ChatMessage[] {
+export function loadChatHistory(
+    botId: string,
+    sessionId: string
+): ChatMessage[] {
     if (typeof window === "undefined") return [];
 
     try {
-        const stored = localStorage.getItem(`chat_history_${botId}_${sessionId}`);
+        const stored = localStorage.getItem(
+            `chat_history_${botId}_${sessionId}`
+        );
         if (!stored) return [];
         return JSON.parse(stored);
     } catch (error) {
@@ -140,18 +198,33 @@ export function saveChatHistory(
         // Maintain a simple sessions index per bot for this browser
         const indexKey = `chat_session_index_${botId}`;
         const indexRaw = localStorage.getItem(indexKey);
-        let index: Array<{ id: string; title: string; lastTimestamp: number; count: number }> = [];
+        let index: Array<{
+            id: string;
+            title: string;
+            lastTimestamp: number;
+            count: number;
+        }> = [];
         if (indexRaw) {
-            try { index = JSON.parse(indexRaw); } catch { }
+            try {
+                index = JSON.parse(indexRaw);
+            } catch {}
         }
 
-        const lastTimestamp = messages.length ? messages[messages.length - 1].timestamp : Date.now();
+        const lastTimestamp = messages.length
+            ? messages[messages.length - 1].timestamp
+            : Date.now();
         const firstUserMsg = messages.find((m) => m.role === "user");
         const title = firstUserMsg?.content?.slice(0, 80) || "Conversation";
 
         const existingIdx = index.findIndex((i) => i.id === sessionId);
-        const entry = { id: sessionId, title, lastTimestamp, count: messages.length };
-        if (existingIdx >= 0) index[existingIdx] = entry; else index.push(entry);
+        const entry = {
+            id: sessionId,
+            title,
+            lastTimestamp,
+            count: messages.length,
+        };
+        if (existingIdx >= 0) index[existingIdx] = entry;
+        else index.push(entry);
         index.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
         localStorage.setItem(indexKey, JSON.stringify(index));
     } catch (error) {
@@ -174,9 +247,9 @@ export function clearChatHistory(botId: string, sessionId: string): void {
         if (indexRaw) {
             try {
                 const index = JSON.parse(indexRaw) as Array<{ id: string }>;
-                const newIndex = index.filter(i => i.id !== sessionId);
+                const newIndex = index.filter((i) => i.id !== sessionId);
                 localStorage.setItem(indexKey, JSON.stringify(newIndex));
-            } catch { }
+            } catch {}
         }
     } catch (error) {
         console.error("Failed to clear chat history:", error);
@@ -191,7 +264,8 @@ export async function sendToReviewQueue(
     userQuestion: string,
     aiDraft: string,
     confidence: number,
-    citations?: Array<{ source: string; url?: string }>
+    citations?: Array<{ source: string; url?: string }>,
+    sessionId?: string
 ): Promise<{ success: boolean; message: string }> {
     const response = await fetch(
         `${API_BASE_URL}/api/v1/bots/${botId}/review-queue`,
@@ -205,6 +279,7 @@ export async function sendToReviewQueue(
                 ai_draft: aiDraft,
                 confidence,
                 citations: citations || [],
+                session_id: sessionId,
             }),
         }
     );
@@ -218,19 +293,28 @@ export async function sendToReviewQueue(
             };
         }
 
-        throw new Error(`Failed to send to review queue: ${response.statusText}`);
+        throw new Error(
+            `Failed to send to review queue: ${response.statusText}`
+        );
     }
 
     return response.json();
 }
 
-export function getUserSessions(botId: string): Array<{ id: string; title: string; lastTimestamp: number; count: number }> {
+export function getUserSessions(
+    botId: string
+): Array<{ id: string; title: string; lastTimestamp: number; count: number }> {
     if (typeof window === "undefined") return [];
     try {
         const indexKey = `chat_session_index_${botId}`;
         const indexRaw = localStorage.getItem(indexKey);
         if (!indexRaw) return [];
-        const index = JSON.parse(indexRaw) as Array<{ id: string; title: string; lastTimestamp: number; count: number }>;
+        const index = JSON.parse(indexRaw) as Array<{
+            id: string;
+            title: string;
+            lastTimestamp: number;
+            count: number;
+        }>;
         return Array.isArray(index) ? index : [];
     } catch (e) {
         console.error("Failed to get user sessions index", e);

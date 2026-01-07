@@ -38,22 +38,78 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     const [feedbackRateLog, setFeedbackRateLog] = useState<number[]>([]);
     const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
-    // Initialize sessionId from sessionStorage to persist across tab switches
-    const sessionIdRef = useRef<string>('');
-
-    // Set up sessionId on mount
-    useEffect(() => {
-        if (!sessionIdRef.current) {
-            const key = `chat_session_${botId}`;
-            let sessionId = typeof window !== 'undefined' ? sessionStorage.getItem(key) : null;
-            if (!sessionId) {
-                sessionId = uuidv4();
-            }
-            if (typeof window !== 'undefined' && sessionId) {
+    // Initialize sessionId synchronously to ensure it's available immediately
+    const getOrCreateSessionId = useCallback(() => {
+        const key = `chat_session_${botId}`;
+        let sessionId = typeof window !== 'undefined' ? sessionStorage.getItem(key) : null;
+        if (!sessionId) {
+            sessionId = uuidv4();
+            if (typeof window !== 'undefined') {
                 sessionStorage.setItem(key, sessionId);
             }
-            sessionIdRef.current = sessionId || uuidv4();
         }
+        return sessionId;
+    }, [botId]);
+    
+    const sessionIdRef = useRef<string>(typeof window !== 'undefined' ? getOrCreateSessionId() : '');
+
+    // Ensure sessionId is set on client-side mount (for SSR hydration)
+    useEffect(() => {
+        if (!sessionIdRef.current) {
+            sessionIdRef.current = getOrCreateSessionId();
+        }
+    }, [getOrCreateSessionId]);
+
+    // Listen for storage events (for cross-tab communication only)
+    // The initial localStorage check is done in the history loading useEffect
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        
+        const currentSession = sessionIdRef.current;
+        
+        // Listen for storage events (for cross-tab communication)
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key?.startsWith("approved_answer_") && event.newValue) {
+                try {
+                    const data = JSON.parse(event.newValue);
+                    const { type, sessionId, answer, timestamp } = data;
+                    
+                    if (
+                        type === "approved_answer" && 
+                        sessionId === currentSession
+                    ) {
+                        
+                        const approvedMessage: ChatMessage = {
+                            id: uuidv4(),
+                            role: "assistant",
+                            content: answer,
+                            timestamp: new Date(timestamp).getTime(),
+                            confidence: 1.0,
+                            trustLevel: "verified",
+                            sourceType: "hitl",
+                        };
+                        
+                        setMessages((prev) => {
+                            const alreadyExists = prev.some(
+                                (m) => m.sourceType === "hitl" && m.content === answer
+                            );
+                            if (alreadyExists) return prev;
+                            return [...prev, approvedMessage];
+                        });
+                        
+                        localStorage.removeItem(`approved_answer_${sessionId}`);
+                    }
+                } catch (err) {
+                    console.error("Error handling storage event:", err);
+                }
+            }
+        };
+        
+        window.addEventListener("storage", handleStorage);
+        
+        return () => {
+            window.removeEventListener("storage", handleStorage);
+        };
     }, [botId]);
 
     const lastQueryRef = useRef<string>("");
@@ -66,10 +122,58 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         return 10;
     }, []);
 
-    // Load chat history on mount
+    // Track if we've processed the approved answer to handle Strict Mode double-renders
+    const processedApprovedAnswerRef = useRef<string | null>(null);
+    const initialLoadDoneRef = useRef<boolean>(false);
+
+    // Load chat history on mount AND check for pending approved answers
     useEffect(() => {
-        const history = loadChatHistory(botId, sessionIdRef.current);
+        // Prevent Strict Mode from running this twice and overwriting messages
+        if (initialLoadDoneRef.current) {
+            return;
+        }
+        
+        const sessionId = sessionIdRef.current;
+        let history = loadChatHistory(botId, sessionId);
+        
+        // Check for pending approved answer in localStorage
+        if (sessionId) {
+            const approvedKey = `approved_answer_${sessionId}`;
+            const stored = localStorage.getItem(approvedKey);
+            if (stored) {
+                try {
+                    const data = JSON.parse(stored);
+                    
+                    if (data.type === "approved_answer" && data.sessionId === sessionId) {
+                        // Check if this answer is already in history
+                        const alreadyExists = history.some(
+                            (m: ChatMessage) => m.sourceType === "hitl" && m.content === data.answer
+                        );
+                        if (!alreadyExists) {
+                            const approvedMessage: ChatMessage = {
+                                id: uuidv4(),
+                                role: "assistant",
+                                content: data.answer,
+                                timestamp: new Date(data.timestamp).getTime(),
+                                confidence: 1.0,
+                                trustLevel: "verified",
+                                sourceType: "hitl",
+                            };
+                            history = [...history, approvedMessage];
+                            // Mark as processed and remove from localStorage
+                            const answerKey = `${data.sessionId}_${data.timestamp}`;
+                            processedApprovedAnswerRef.current = answerKey;
+                            localStorage.removeItem(approvedKey);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error processing pending approved answer:", err);
+                }
+            }
+        }
+        
         setMessages(history);
+        initialLoadDoneRef.current = true;
     }, [botId]);
 
     // Load feedback state for this session

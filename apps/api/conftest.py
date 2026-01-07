@@ -19,15 +19,28 @@ from app.core.settings import settings
 # Import Base from models.base and all models to register them with metadata
 from app.models import Base  # noqa: F401 - imported for model registration
 from app.models.user import User  # noqa: F401
-from app.models.tenant import Tenant  # noqa: F401
+from app.models.tenant import Tenant, SubscriptionTier  # noqa: F401
 from app.models.group import Group  # noqa: F401
 from app.models.group_member import GroupMember, GroupRole  # noqa: F401
-from app.models.bot import Bot  # noqa: F401
+from app.models.bot import Bot, BotStatus  # noqa: F401
 from app.models.document import Document  # noqa: F401
 from app.models.chunk import Chunk  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
 from app.models.verified_qa import VerifiedQA  # noqa: F401
 from app.models.confidence_log import ConfidenceLog, RoutingDecision  # noqa: F401
+
+
+# SQLite fallback for JSONB columns used in Postgres
+def _install_sqlite_jsonb_compiler():
+    from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+
+    # Treat JSONB as JSON when compiling DDL for SQLite test database
+    def visit_JSONB(self, type_, **kw):  # noqa: N802 - external API naming
+        return "JSON"
+
+    # Only install once
+    if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
+        SQLiteTypeCompiler.visit_JSONB = visit_JSONB
 
 
 # Test database URL - use file-based SQLite for tests to avoid in-memory connection issues
@@ -96,6 +109,9 @@ async def db_engine():
         echo=False,
         poolclass=NullPool,
     )
+
+    if engine.dialect.name == "sqlite":
+        _install_sqlite_jsonb_compiler()
     
     # Create all tables
     async with engine.begin() as conn:
@@ -129,13 +145,55 @@ async def db_session(db_engine) -> AsyncGenerator[AsyncSession, None]:
 
 @pytest_asyncio.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Create a test HTTP client with database session override."""
+    """Create a test HTTP client with database session and auth overrides."""
     from httpx import ASGITransport
+    from app.api.v1.auth import get_current_user, get_current_tenant
+    from sqlalchemy import select
+    import uuid
     
     async def override_get_db():
         yield db_session
     
+    async def override_get_current_user(credentials=None, db=None):
+        """Bypass JWT auth for tests - use first user from test database."""
+        # Import here to avoid circular dependency
+        from app.models.user import User
+        
+        # Use the test database session
+        test_db = db if db is not None else db_session
+            
+        # Get first user from database (created by test fixtures)
+        result = await test_db.execute(select(User).limit(1))
+        user = result.scalars().first()
+        
+        if user:
+            return user
+            
+        # Fallback: create a mock user
+        mock_user = User()
+        mock_user.id = uuid.uuid4()
+        mock_user.tenant_id = uuid.uuid4()
+        mock_user.email = "test@example.com"
+        mock_user.role = "agent"
+        return mock_user
+    
+    async def override_get_current_tenant(credentials=None):
+        """Bypass JWT auth for tests - return tenant_id from first user."""
+        from app.models.user import User
+        
+        # Get first user from database
+        result = await db_session.execute(select(User).limit(1))
+        user = result.scalars().first()
+        
+        if user:
+            return user.tenant_id
+            
+        # Fallback
+        return uuid.uuid4()
+    
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_current_tenant] = override_get_current_tenant
     
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         yield ac
@@ -143,18 +201,19 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
-# Test data fixtures
+# =============================================================================
+# Test User/Bot Fixtures
+# =============================================================================
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def test_tenant(db_session: AsyncSession):
     """Create a test tenant."""
     from uuid import uuid4
-    from datetime import datetime
-    
     tenant = Tenant(
         id=uuid4(),
         name="Test Tenant",
-        created_at=datetime.utcnow(),
+        plan="pro",
+        subscription_tier=SubscriptionTier.PRO
     )
     db_session.add(tenant)
     await db_session.commit()
@@ -162,18 +221,18 @@ async def test_tenant(db_session: AsyncSession):
     return tenant
 
 
-@pytest_asyncio.fixture
-async def test_user(db_session: AsyncSession, test_tenant):
+@pytest_asyncio.fixture(scope="function")
+async def test_user(db_session: AsyncSession, test_tenant: Tenant):
     """Create a test user."""
     from uuid import uuid4
-    from datetime import datetime
+    from app.services.auth_service import hash_password
     
     user = User(
         id=uuid4(),
-        tenant_id=test_tenant.id,
         email="test@example.com",
-        name="Test User",
-        created_at=datetime.utcnow(),
+        password_hash=hash_password("testpassword"),
+        tenant_id=test_tenant.id,
+        role="admin"
     )
     db_session.add(user)
     await db_session.commit()
@@ -181,28 +240,8 @@ async def test_user(db_session: AsyncSession, test_tenant):
     return user
 
 
-@pytest_asyncio.fixture
-async def test_group(db_session: AsyncSession, test_tenant, test_user):
-    """Create a test group."""
-    from uuid import uuid4
-    from datetime import datetime
-    
-    group = Group(
-        id=uuid4(),
-        tenant_id=test_tenant.id,
-        name="Test Group",
-        created_by=test_user.id,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    )
-    db_session.add(group)
-    await db_session.commit()
-    await db_session.refresh(group)
-    return group
-
-
-@pytest_asyncio.fixture
-async def test_bot(db_session: AsyncSession, test_tenant, test_group):
+@pytest_asyncio.fixture(scope="function")
+async def test_bot(db_session: AsyncSession, test_tenant: Tenant, test_user: User):
     """Create a test bot."""
     from uuid import uuid4
     from datetime import datetime
@@ -210,9 +249,13 @@ async def test_bot(db_session: AsyncSession, test_tenant, test_group):
     bot = Bot(
         id=uuid4(),
         tenant_id=test_tenant.id,
-        group_id=test_group.id,
         name="Test Bot",
+        description="Test bot for HITL tests",
+        confidence_threshold=80,
+        status=BotStatus.READY,
+        created_by=test_user.id,
         created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
     db_session.add(bot)
     await db_session.commit()
@@ -220,32 +263,24 @@ async def test_bot(db_session: AsyncSession, test_tenant, test_group):
     return bot
 
 
-@pytest_asyncio.fixture
-async def test_confidence_log_hitl(db_session: AsyncSession, test_tenant, test_group, test_bot):
-    """Create a test confidence log routed to HITL."""
-    from uuid import uuid4
-    from datetime import datetime
+@pytest_asyncio.fixture(scope="function")
+async def auth_headers(test_user: User, test_tenant: Tenant):
+    """Create auth headers with valid JWT token."""
+    import jwt
+    from datetime import datetime, timedelta
+    from app.core.settings import settings
     
-    confidence_log = ConfidenceLog(
-        id=uuid4(),
-        tenant_id=test_tenant.id,
-        group_id=test_group.id,
-        bot_id=test_bot.id,
-        query_text="What is the refund policy for damaged items?",
-        generated_response="We offer full refunds for damaged items within 30 days.",
-        overall_confidence=0.35,
-        routing_decision=RoutingDecision.HITL,
-        hitl_resolved=False,
-        created_at=datetime.utcnow(),
-    )
-    db_session.add(confidence_log)
-    await db_session.commit()
-    await db_session.refresh(confidence_log)
-    return confidence_log
-
-
-# Alias db_session as db for compatibility
-@pytest_asyncio.fixture
-async def db(db_session: AsyncSession):
-    """Alias for db_session to support both naming conventions."""
-    return db_session
+    JWT_ALGORITHM = "HS256"
+    
+    token_payload = {
+        "sub": str(test_user.id),
+        "tenant_id": str(test_tenant.id),
+        "email": test_user.email,
+        "role": test_user.role,
+        "exp": datetime.utcnow() + timedelta(hours=24)
+    }
+    token = jwt.encode(token_payload, settings.JWT_SECRET, algorithm=JWT_ALGORITHM)
+    
+    return {
+        "Authorization": f"Bearer {token}"
+    }

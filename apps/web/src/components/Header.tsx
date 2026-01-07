@@ -110,12 +110,6 @@ export function Header({ className }: HeaderProps) {
         setUserMenuOpen(false);
     };
 
-    const tabs = [
-        { href: "/inbox", label: "HITL Dashboard" },
-        { href: "/dashboard", label: "Chat Widget" },
-        { href: "/analytics", label: "Analytics" },
-    ];
-
     return (
         <header
             className={cn(
@@ -139,28 +133,8 @@ export function Header({ className }: HeaderProps) {
                     </span>
                 </div>
 
-                {/* Tabs + User */}
+                {/* User */}
                 <div className="flex items-center gap-4">
-                    <div className="hidden md:flex items-center gap-1">
-                        {tabs.map((tab) => {
-                            const active = pathname === tab.href;
-                            return (
-                                <Link
-                                    key={tab.href}
-                                    href={tab.href}
-                                    className={cn(
-                                        "px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                                        active
-                                            ? "bg-sky-50 text-sky-700"
-                                            : "text-slate-600 hover:bg-slate-50"
-                                    )}
-                                >
-                                    {tab.label}
-                                </Link>
-                            );
-                        })}
-                    </div>
-
                     <div className="relative">
                         <Button
                             variant="ghost"
