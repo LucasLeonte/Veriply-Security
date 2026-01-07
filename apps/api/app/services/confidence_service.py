@@ -255,9 +255,12 @@ class ConfidenceCalculatorService:
             
         Returns:
             0.0 if bot indicates it doesn't know, 1.0 otherwise
+            None is returned (as 1.0) if no ai_draft is provided to skip this check
         """
-        if not ai_draft:
-            return 0.0
+        # If no ai_draft provided, skip the answer content check
+        # This allows confidence to be calculated from retrieval metrics alone
+        if ai_draft is None or ai_draft == "":
+            return 1.0
         
         draft_lower = ai_draft.lower()
         
