@@ -311,7 +311,7 @@ development_status:
 
     7-2-verified-kb-priority:
         status: review
-        assigned_to: Dario
+        assigned_to: Kainy
         blocked_by: null
 
     7-3-manual-qa-entry:
