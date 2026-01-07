@@ -1,0 +1,162 @@
+import os
+import httpx
+from urllib.parse import urlencode
+
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.compose",
+    "https://www.googleapis.com/auth/gmail.modify"
+]
+
+
+def get_authorization_url(client_id: str, redirect_uri: str, state: str) -> str:
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "state": state,
+        "prompt": "consent"  # Force consent to ensure we get a refresh token
+    }
+    return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
+
+async def exchange_code_for_token(client_id: str, client_secret: str, redirect_uri: str, code: str) -> dict:
+    async with httpx.AsyncClient() as client:
+        data = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }
+        response = await client.post(GOOGLE_TOKEN_URL, data=data)
+        response.raise_for_status()
+        return response.json()
+
+
+async def list_threads(
+    client_id: str,
+    client_secret: str,
+    refresh_token: str,
+    query: str = "label:INBOX",
+    max_results: int = 20
+) -> dict:
+    """List email threads matching the query."""
+    # First, get a fresh access token
+    token_data = await refresh_access_token(client_id, client_secret, refresh_token)
+    access_token = token_data["access_token"]
+
+    async with httpx.AsyncClient() as client:
+        # List threads
+        params = {
+            "q": query,
+            "maxResults": max_results,
+            "includeSpamTrash": "false"
+        }
+        headers = {"Authorization": f"Bearer {access_token}"}
+        
+        response = await client.get(
+            "https://gmail.googleapis.com/gmail/v1/users/me/threads",
+            params=params,
+            headers=headers
+        )
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            # Include the response body in the error for debugging
+            print(f"Gmail API Error: {e.response.text}")
+            raise Exception(f"Gmail API Error: {e.response.text}") from e
+            
+        data = response.json()
+        threads = data.get("threads", [])
+        
+        results = []
+        for thread in threads:
+            # Fetch details for each thread (lite version) to get snippet and dates
+            thread_detail = await get_thread_details(client, access_token, thread["id"])
+            if thread_detail:
+                results.append(thread_detail)
+                
+        return results
+
+
+async def get_thread_details(client: httpx.AsyncClient, access_token: str, thread_id: str) -> dict:
+    """Fetch basic details of a thread (snippet, date, subject)."""
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        response = await client.get(
+            f"https://gmail.googleapis.com/gmail/v1/users/me/threads/{thread_id}",
+            headers=headers
+        )
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            print(f"Gmail Thread Detail Error: {e.response.text}")
+            return None
+            
+        data = response.json()
+        
+        # Extract useful info from the last message in thread
+        messages = data.get("messages", [])
+        if not messages:
+            return None
+            
+        last_msg = messages[-1]
+        payload = last_msg.get("payload", {})
+        headers_list = payload.get("headers", [])
+        
+        subject = next((h["value"] for h in headers_list if h["name"] == "Subject"), "(No Subject)")
+        from_header = next((h["value"] for h in headers_list if h["name"] == "From"), "Unknown")
+        to_header = next((h["value"] for h in headers_list if h["name"] == "To"), "")
+        date = next((h["value"] for h in headers_list if h["name"] == "Date"), "")
+        
+        return {
+            "id": thread_id,
+            "snippet": last_msg.get("snippet", ""),
+            "subject": subject,
+            "from": from_header,
+            "to": to_header,
+            "date": date,
+            "messages": messages # Return all messages for full context if needed later
+        }
+    except Exception as e:
+        print(f"Error fetching thread {thread_id}: {e}")
+        return None
+
+
+async def get_message_details(
+    client_id: str,
+    client_secret: str,
+    refresh_token: str,
+    message_id: str
+) -> dict:
+    """Fetch full content of a specific message."""
+    token_data = await refresh_access_token(client_id, client_secret, refresh_token)
+    access_token = token_data["access_token"]
+    
+    async with httpx.AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = await client.get(
+            f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}",
+            headers=headers
+        )
+        response.raise_for_status()
+        return response.json()
+
+
+async def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict:
+    """Refresh the access token using the refresh token."""
+    async with httpx.AsyncClient() as client:
+        data = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+        }
+        response = await client.post(GOOGLE_TOKEN_URL, data=data)
+        response.raise_for_status()
+        return response.json()

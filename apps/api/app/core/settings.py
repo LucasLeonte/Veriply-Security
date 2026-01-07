@@ -153,9 +153,20 @@ class Settings(BaseSettings):
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
-    EMAIL_FROM: Optional[str] = None
-    EMAIL_DISPLAY_NAME: Optional[str] = None  # Display name like "Veriply Team"
-    REPLY_TO: Optional[str] = None  # Optional reply-to address
+
+    # ========================================================================
+    # EMAIL INTEGRATION CONFIGURATION
+    # ========================================================================
+    
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_OAUTH_REDIRECT: Optional[str] = None
+    
+    OUTLOOK_CLIENT_ID: Optional[str] = None
+    OUTLOOK_CLIENT_SECRET: Optional[str] = None
+    OUTLOOK_OAUTH_REDIRECT: Optional[str] = None
+    
+    EMAIL_TOKEN_ENCRYPTION_KEY: Optional[str] = None
     
     # ========================================================================
     # MODERATION NOTIFICATION CONFIGURATION

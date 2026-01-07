@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Ensure this route is always dynamic and never cached
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
     try {
         // Get the API base URL from environment or use default
@@ -17,15 +21,29 @@ export async function GET(request: NextRequest) {
             headers.Authorization = authHeader;
         }
         
-        // Get query parameters from request URL
+        // Get query parameters from request URL and forward them to backend
         const { searchParams } = new URL(request.url);
-        const sortBy = searchParams.get('sort_by') || 'oldest';
-        
-        // Call the backend HITL endpoint with sort parameter
-        const response = await fetch(`${apiBaseUrl}/api/v1/hitl/queue?sort_by=${sortBy}`, {
-            method: "GET",
-            headers,
-        });
+        const sortBy = searchParams.get("sort_by") || "oldest";
+        const botId = searchParams.get("bot_id");
+        const dateFrom = searchParams.get("date_from");
+        const dateTo = searchParams.get("date_to");
+        const statusFilter = searchParams.get("status_filter");
+
+        const backendParams = new URLSearchParams({ sort_by: sortBy });
+        if (botId) backendParams.set("bot_id", botId);
+        if (dateFrom) backendParams.set("date_from", dateFrom);
+        if (dateTo) backendParams.set("date_to", dateTo);
+        if (statusFilter) backendParams.set("status_filter", statusFilter);
+
+        // Call the backend HITL endpoint with all params and disable caching
+        const response = await fetch(
+            `${apiBaseUrl}/api/v1/hitl/queue?${backendParams.toString()}`,
+            {
+                method: "GET",
+                headers,
+                cache: "no-store",
+            }
+        );
 
         if (!response.ok) {
             console.error(
@@ -41,32 +59,56 @@ export async function GET(request: NextRequest) {
                     chat: 0,
                     email: 0,
                 },
+            }, {
+                headers: {
+                    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
             });
         }
 
         const data = await response.json();
 
-        return NextResponse.json({
-            items: data.items || [],
-            stats: data.stats || {
-                total: 0,
-                pending: 0,
-                chat: 0,
-                email: 0,
+        return NextResponse.json(
+            {
+                items: data.items || [],
+                stats: data.stats || {
+                    total: 0,
+                    pending: 0,
+                    chat: 0,
+                    email: 0,
+                },
             },
-        });
+            {
+                headers: {
+                    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
+            }
+        );
     } catch (error) {
         console.error("Error fetching HITL queue:", error);
         
         // Return empty queue on error instead of 500
-        return NextResponse.json({
-            items: [],
-            stats: {
-                total: 0,
-                pending: 0,
-                chat: 0,
-                email: 0,
+        return NextResponse.json(
+            {
+                items: [],
+                stats: {
+                    total: 0,
+                    pending: 0,
+                    chat: 0,
+                    email: 0,
+                },
             },
-        });
+            {
+                headers: {
+                    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+                    "Pragma": "no-cache",
+                    "Expires": "0",
+                },
+            }
+        );
     }
 }
