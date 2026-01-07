@@ -104,7 +104,8 @@ export const groupsApi = {
 
     async listMembers(groupId: string): Promise<GroupMember[]> {
         const response = await fetchWithAuth(
-            `${GROUPS_ENDPOINT}/${groupId}/members`
+            `${GROUPS_ENDPOINT}/${groupId}/members`,
+            { cache: "no-store" }
         );
         return handleResponse<GroupMember[]>(response);
     },

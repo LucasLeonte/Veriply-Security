@@ -3,6 +3,10 @@
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components";
 import { getAccessToken, clearAccessToken } from "@/lib/auth";
+import { useGroup } from "@/contexts/GroupContext";
+import { groupsApi } from "@/lib/api/groups";
+import { Group, GroupMember, GroupRole } from "@/types/group";
+import { Plus, Trash2, Mail, Users, Crown, Shield } from "lucide-react";
 
 interface TeamMember {
     id: string;
@@ -14,6 +18,7 @@ interface TeamMember {
 }
 
 export default function SettingsPage() {
+    // Org/team state
     const [members, setMembers] = useState<TeamMember[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -27,9 +32,30 @@ export default function SettingsPage() {
     const [inviteLoading, setInviteLoading] = useState(false);
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
+    // Group state
+    const { groups, currentGroup, setCurrentGroup, refreshGroups } = useGroup();
+    const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
+    const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
+    const [showGroupCreateModal, setShowGroupCreateModal] = useState(false);
+    const [showGroupInviteModal, setShowGroupInviteModal] = useState(false);
+    const [newGroupName, setNewGroupName] = useState("");
+    const [newGroupDescription, setNewGroupDescription] = useState("");
+    const [groupInviteEmail, setGroupInviteEmail] = useState("");
+    const [groupInviteRole, setGroupInviteRole] = useState<GroupRole>("viewer");
+
     useEffect(() => {
         fetchInitialData();
     }, []);
+
+    // Load group members when selected group changes
+    useEffect(() => {
+        if (currentGroup) {
+            setGroupMembers([]);
+            loadGroupMembers(currentGroup.id);
+        } else {
+            setGroupMembers([]);
+        }
+    }, [currentGroup]);
 
     const fetchInitialData = async () => {
         try {
@@ -125,6 +151,105 @@ export default function SettingsPage() {
 
         // Managers and below cannot invite
         return [];
+    };
+
+    const loadGroupMembers = async (groupId: string) => {
+        setLoadingGroupMembers(true);
+        try {
+            const result = await groupsApi.listMembers(groupId);
+            setGroupMembers(result);
+        } catch (err) {
+            console.error("Failed to load group members:", err);
+        } finally {
+            setLoadingGroupMembers(false);
+        }
+    };
+
+    const handleCreateGroup = async () => {
+        if (!newGroupName.trim()) return;
+
+        const token = typeof window !== "undefined" ? getAccessToken() : null;
+        if (!token) {
+            alert("You must be logged in to create a group. Please sign in again.");
+            window.location.href = "/login";
+            return;
+        }
+
+        try {
+            const newGroup = await groupsApi.createGroup({
+                name: newGroupName,
+                description: newGroupDescription || undefined,
+            });
+            await refreshGroups();
+            setGroupMembers([]);
+            setCurrentGroup(newGroup);
+            await loadGroupMembers(newGroup.id);
+            setShowGroupCreateModal(false);
+            setNewGroupName("");
+            setNewGroupDescription("");
+        } catch (err) {
+            console.error("Failed to create group:", err);
+            const message = err instanceof Error ? err.message : "Failed to create group";
+            alert(message);
+        }
+    };
+
+    const handleInviteGroupMember = async () => {
+        if (!currentGroup || !groupInviteEmail.trim()) return;
+
+        try {
+            await groupsApi.inviteMember(currentGroup.id, {
+                email: groupInviteEmail,
+                role: groupInviteRole,
+            });
+            await loadGroupMembers(currentGroup.id);
+            setShowGroupInviteModal(false);
+            setGroupInviteEmail("");
+            setGroupInviteRole("viewer");
+        } catch (err) {
+            console.error("Failed to invite member:", err);
+            alert("Failed to invite member");
+        }
+    };
+
+    const handleRemoveGroupMember = async (userId: string) => {
+        if (!currentGroup) return;
+        if (!confirm("Are you sure you want to remove this member?")) return;
+
+        try {
+            await groupsApi.removeMember(currentGroup.id, userId);
+            await loadGroupMembers(currentGroup.id);
+        } catch (err) {
+            console.error("Failed to remove member:", err);
+            alert("Failed to remove member");
+        }
+    };
+
+    const handleUpdateGroupRole = async (userId: string, newRole: GroupRole) => {
+        if (!currentGroup) return;
+
+        try {
+            await groupsApi.updateMemberRole(currentGroup.id, userId, newRole);
+            await loadGroupMembers(currentGroup.id);
+        } catch (err) {
+            console.error("Failed to update role:", err);
+            alert("Failed to update role");
+        }
+    };
+
+    const getGroupRoleIcon = (role: GroupRole) => {
+        switch (role) {
+            case "owner":
+                return <Crown className="h-4 w-4 text-amber-600" />;
+            case "admin":
+                return <Shield className="h-4 w-4 text-purple-600" />;
+            case "manager":
+                return <Shield className="h-4 w-4 text-blue-600" />;
+            case "agent":
+                return <Users className="h-4 w-4 text-green-600" />;
+            case "viewer":
+                return <Users className="h-4 w-4 text-slate-600" />;
+        }
     };
 
     const handleRemoveMember = async (memberId: string) => {
@@ -319,6 +444,11 @@ export default function SettingsPage() {
     const ownerCount = members.filter(
         (m) => m.role === "owner" && m.is_active === "active"
     ).length;
+
+    const closeGroupModals = () => {
+        setShowGroupCreateModal(false);
+        setShowGroupInviteModal(false);
+    };
 
     if (loading) {
         return (
@@ -523,6 +653,131 @@ export default function SettingsPage() {
                     </table>
                 </div>
 
+                {/* Groups Management */}
+                <div className="mt-10 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-2xl font-semibold text-slate-900">
+                            Groups
+                        </h2>
+                        <div className="flex gap-2">
+                            {currentGroup && (
+                                <button
+                                    onClick={() => setShowGroupInviteModal(true)}
+                                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                                >
+                                    <Mail className="h-4 w-4 inline-block mr-2" />
+                                    Invite to Group
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setShowGroupCreateModal(true)}
+                                className="px-3 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition text-sm"
+                            >
+                                <Plus className="h-4 w-4 inline-block mr-2" />
+                                Create Group
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg border border-slate-200 divide-y">
+                        {groups.length === 0 ? (
+                            <div className="p-4 text-slate-600">No groups yet</div>
+                        ) : (
+                            groups.map((group: Group) => (
+                                <div
+                                    key={group.id}
+                                    className="p-4 flex items-center justify-between hover:bg-slate-50"
+                                >
+                                    <div>
+                                        <p className="font-medium text-slate-900">{group.name}</p>
+                                        {group.description && (
+                                            <p className="text-sm text-slate-600">{group.description}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {currentGroup?.id === group.id && (
+                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                                Current
+                                            </span>
+                                        )}
+                                        <button
+                                            onClick={() => setCurrentGroup(group)}
+                                            className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
+                                        >
+                                            Select
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {currentGroup && (
+                        <div className="bg-white rounded-lg border border-slate-200">
+                            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+                                <h3 className="text-lg font-semibold text-slate-900">
+                                    Members of {currentGroup.name}
+                                </h3>
+                                <button
+                                    onClick={() => setShowGroupInviteModal(true)}
+                                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                                >
+                                    <Mail className="h-4 w-4 inline-block mr-2" />
+                                    Invite
+                                </button>
+                            </div>
+                            <div className="divide-y">
+                                {loadingGroupMembers ? (
+                                    <div className="p-4 text-slate-600">Loading members...</div>
+                                ) : groupMembers.length === 0 ? (
+                                    <div className="p-4 text-slate-600">No members yet</div>
+                                ) : (
+                                    groupMembers.map((member) => (
+                                        <div
+                                            key={member.user_id}
+                                            className="p-4 flex items-center justify-between"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {getGroupRoleIcon(member.role)}
+                                                <div>
+                                                    <p className="font-medium text-slate-900">User {member.user_id}</p>
+                                                    <p className="text-sm text-slate-600 capitalize">
+                                                        {member.role.replace("_", " ")}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <select
+                                                    value={member.role}
+                                                    onChange={(e) =>
+                                                        handleUpdateGroupRole(
+                                                            member.user_id,
+                                                            e.target.value as GroupRole
+                                                        )
+                                                    }
+                                                    className="text-sm border border-slate-300 rounded px-2 py-1"
+                                                >
+                                                    <option value="viewer">Viewer</option>
+                                                    <option value="agent">Agent</option>
+                                                    <option value="manager">Manager</option>
+                                                    <option value="admin">Admin</option>
+                                                    <option value="owner">Owner</option>
+                                                </select>
+                                                <button
+                                                    onClick={() => handleRemoveGroupMember(member.user_id)}
+                                                    className="p-2 text-red-600 hover:bg-red-50 rounded"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {members.length > 0 && (
                     <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800 text-sm">
                         <p>
@@ -606,6 +861,97 @@ export default function SettingsPage() {
                                     }}
                                     disabled={inviteLoading}
                                     className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition font-medium disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Group Create Modal */}
+                {showGroupCreateModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                            <h2 className="text-xl font-semibold mb-4">Create New Group</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Name</label>
+                                    <input
+                                        type="text"
+                                        value={newGroupName}
+                                        onChange={(e) => setNewGroupName(e.target.value)}
+                                        className="w-full border border-slate-300 rounded px-3 py-2"
+                                        placeholder="Enter group name"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Description (optional)</label>
+                                    <textarea
+                                        value={newGroupDescription}
+                                        onChange={(e) => setNewGroupDescription(e.target.value)}
+                                        className="w-full border border-slate-300 rounded px-3 py-2"
+                                        placeholder="Enter description"
+                                        rows={3}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button onClick={handleCreateGroup} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                    Create
+                                </button>
+                                <button
+                                    onClick={closeGroupModals}
+                                    className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Group Invite Modal */}
+                {showGroupInviteModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-md">
+                            <h2 className="text-xl font-semibold mb-4">Invite Group Member</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Email</label>
+                                    <input
+                                        type="email"
+                                        value={groupInviteEmail}
+                                        onChange={(e) => setGroupInviteEmail(e.target.value)}
+                                        className="w-full border border-slate-300 rounded px-3 py-2"
+                                        placeholder="user@example.com"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Role</label>
+                                    <select
+                                        value={groupInviteRole}
+                                        onChange={(e) => setGroupInviteRole(e.target.value as GroupRole)}
+                                        className="w-full border border-slate-300 rounded px-3 py-2"
+                                    >
+                                        <option value="viewer">Viewer</option>
+                                        <option value="agent">Agent</option>
+                                        <option value="manager">Manager</option>
+                                        <option value="admin">Admin</option>
+                                        <option value="owner">Owner</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 mt-6">
+                                <button
+                                    onClick={handleInviteGroupMember}
+                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                >
+                                    Send Invite
+                                </button>
+                                <button
+                                    onClick={closeGroupModals}
+                                    className="flex-1 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition"
                                 >
                                     Cancel
                                 </button>

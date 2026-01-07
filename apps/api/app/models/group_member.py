@@ -5,20 +5,23 @@ from .base import Base
 
 
 class GroupRole(str, enum.Enum):
-    """Role enum for group membership with RBAC levels."""
-    OWNER = "owner"                   # Group creator with full ownership rights
-    GROUP_ADMIN = "group_admin"      # Full control: create/delete bots, manage members, configure KB
-    MANAGER = "manager"               # Manage bots: create/update/delete bots, approve uploads
-    OPERATOR = "operator"             # Submit content: upload documents, view results
+    """Role enum for group membership with RBAC levels - unified with organization roles."""
+    OWNER = "owner"          # Highest privilege, can do everything
+    ADMIN = "admin"          # Can manage team members and settings
+    MANAGER = "manager"      # Can manage content and operations
+    AGENT = "agent"          # Can work with content
+    VIEWER = "viewer"        # Read-only access
 
 
 class GroupMember(Base):
     """Group membership model tracking users and their roles within groups.
     
-    Implements RBAC for groups with three tiers:
-    - GROUP_ADMIN: full control over group, bots, and members
-    - MANAGER: can create/manage bots, approve document uploads
-    - OPERATOR: can upload documents and view results
+    Implements RBAC for groups with five tiers (unified with organization roles):
+    - OWNER: highest privilege, can do everything
+    - ADMIN: can manage team members and settings
+    - MANAGER: can manage content and operations
+    - AGENT: can work with content
+    - VIEWER: read-only access
     
     Fields:
       - id: UUID primary key
@@ -34,7 +37,7 @@ class GroupMember(Base):
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    role = Column(SQLEnum(GroupRole, values_callable=lambda x: [e.value for e in x]), nullable=False)
+    role = Column(SQLEnum(GroupRole, values_callable=lambda obj: [e.value for e in obj]), nullable=False)
     invited_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     invited_by_id = Column(Uuid, ForeignKey("users.id"), nullable=True)
 
