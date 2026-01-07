@@ -1,6 +1,7 @@
-from sqlalchemy import Column, String, Uuid, ForeignKey, DateTime
+from sqlalchemy import Column, String, Uuid, ForeignKey, DateTime, Boolean
 from datetime import datetime
 from .base import Base
+
 
 class User(Base):
     __tablename__ = "users"
@@ -14,9 +15,14 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     notification_frequency = Column(String, default="weekly")  # daily, weekly, never
     last_active = Column(DateTime, nullable=True)
-    is_active = Column(String, default="active")  # active, inactive
+    is_active = Column(Boolean, default=True)
     # Password reset fields
     password_reset_token = Column(String, nullable=True)
     password_reset_expires = Column(DateTime, nullable=True)
+    # Tenant invitation fields (for cross-tenant transfer on acceptance)
+    tenant_invite_token = Column(String, nullable=True)
+    tenant_invite_expires = Column(DateTime, nullable=True)
+    pending_tenant_id = Column(Uuid, nullable=True)
+    pending_role = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
