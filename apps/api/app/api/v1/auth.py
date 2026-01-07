@@ -14,6 +14,9 @@ from datetime import datetime, timedelta
 from uuid import UUID
 import secrets
 from pydantic import BaseModel
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 security = HTTPBearer()
@@ -372,7 +375,15 @@ async def accept_group_invite(req: AcceptTeamInviteRequest, db: AsyncSession = D
             invited_by_id=invited_by_id,
         )
         await db.commit()
+        logger.info(
+            f"User {user_id} accepted group invite to group {group_id} with role {role.value}"
+        )
         return {"message": "Successfully joined the group."}
     except ValueError as e:
         await db.rollback()
+        logger.error(f"Error adding member to group: {str(e)}")
         raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        await db.rollback()
+        logger.exception(f"Unexpected error in accept_group_invite: {e}")
+        raise HTTPException(status_code=500, detail="Failed to accept group invite")

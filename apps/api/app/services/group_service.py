@@ -98,13 +98,20 @@ class GroupService:
     async def list_groups_for_user(
         db: AsyncSession, user_id: UUID, tenant_id: UUID
     ) -> list[Group]:
-        """List all groups the user is a member of."""
+        """List all groups the user is a member of, including cross-tenant groups.
+        
+        Returns groups from:
+        1. The user's own tenant where they are a member
+        2. Groups in other tenants where they are invited/added as a member
+        
+        This allows users invited to groups in other tenants to see those groups
+        without giving them access to all resources in that tenant.
+        """
         stmt = (
             select(Group)
             .join(GroupMember, Group.id == GroupMember.group_id)
             .where(
-                (Group.tenant_id == tenant_id)
-                & (GroupMember.user_id == user_id)
+                GroupMember.user_id == user_id
             )
             .order_by(Group.created_at.desc())
         )
