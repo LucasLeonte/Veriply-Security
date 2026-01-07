@@ -341,6 +341,8 @@ async def chat_query(
                 "confidence_threshold": threshold,
                 "ai_draft": ai_draft,
                 "citations": confidence_citations,
+                "session_id": request.session_id,  # For sending approved answers back to chat
+                "message_id": request.message_id,
             },
         )
 

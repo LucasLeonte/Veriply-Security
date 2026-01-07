@@ -6,6 +6,7 @@ from .base import Base
 
 class GroupRole(str, enum.Enum):
     """Role enum for group membership with RBAC levels."""
+    OWNER = "owner"                   # Group creator with full ownership rights
     GROUP_ADMIN = "group_admin"      # Full control: create/delete bots, manage members, configure KB
     MANAGER = "manager"               # Manage bots: create/update/delete bots, approve uploads
     OPERATOR = "operator"             # Submit content: upload documents, view results
@@ -33,7 +34,7 @@ class GroupMember(Base):
     id = Column(Uuid, primary_key=True, default=lambda: __import__('uuid').uuid4())
     group_id = Column(Uuid, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    role = Column(SQLEnum(GroupRole), nullable=False)
+    role = Column(SQLEnum(GroupRole, values_callable=lambda x: [e.value for e in x]), nullable=False)
     invited_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     invited_by_id = Column(Uuid, ForeignKey("users.id"), nullable=True)
 

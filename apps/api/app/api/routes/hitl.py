@@ -702,8 +702,30 @@ async def approve_queue_item(
                         
                         kb_doc_id = str(doc.id)
                         
+                        # For HITL-approved Q&A, create chunk directly with the existing embedding
+                        # This bypasses async processing which may fail
+                        from app.models.chunk import Chunk
+                        chunk = Chunk(
+                            document_id=doc.id,
+                            tenant_id=current_tenant,
+                            bot_id=bot.group_id,
+                            chunk_index=0,
+                            content=doc_content,
+                            page_number=None,
+                            vector=question_embedding,  # Reuse the embedding from VerifiedQA
+                            metadata_json={"source": "hitl_approval", "verified_qa_id": str(verified_qa.id)},
+                            created_at=datetime.utcnow(),
+                            updated_at=datetime.utcnow(),
+                        )
+                        db.add(chunk)
+                        
+                        # Mark document as ready immediately (skip async processing)
+                        doc.status = "ready"
+                        doc.updated_at = datetime.utcnow()
+                        await db.flush()
+                        
                         logger.info(
-                            f"Created knowledge base document {doc.id} from HITL approval "
+                            f"Created knowledge base document {doc.id} with chunk from HITL approval "
                             f"(item={item_id}, verified_qa={verified_qa.id})"
                         )
                         
@@ -742,27 +764,12 @@ async def approve_queue_item(
                 f"bot_id={bool(item.bot_id)}"
             )
 
-        # Commit transaction (HITL approval + VerifiedQA + Document if created)
+        # Commit transaction (HITL approval + VerifiedQA + Document + Chunk if created)
         try:
             logger.debug(f"Committing approval for item {item_id}")
             await db.commit()
             logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
-            
-            # After commit, enqueue document processing if document was created
-            if kb_doc_id:
-                try:
-                    from app.tasks import enqueue_document_processing
-                    if hasattr(enqueue_document_processing, '__call__'):
-                        import inspect
-                        if inspect.iscoroutinefunction(enqueue_document_processing):
-                            await enqueue_document_processing(kb_doc_id)
-                        else:
-                            enqueue_document_processing(kb_doc_id)
-                        logger.info(f"Enqueued processing for document {kb_doc_id}")
-                except ImportError:
-                    logger.warning("Document processing not available - document created but not queued")
-                except Exception as proc_err:
-                    logger.warning(f"Failed to enqueue document processing: {proc_err}")
+            # Document is already set to "ready" with chunk created inline - no async processing needed
         except Exception as e:
             logger.error(f"Transaction failed during approval of {item_id}: {e}", exc_info=True)
             await db.rollback()
