@@ -34,7 +34,7 @@ export default function SettingsPage() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
     // Group state
-    const { groups, currentGroup, setCurrentGroup, refreshGroups } = useGroup();
+    const { currentGroup, setCurrentGroup, refreshGroups } = useGroup();
     const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
     const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
     const [showGroupCreateModal, setShowGroupCreateModal] = useState(false);
@@ -655,16 +655,28 @@ export default function SettingsPage() {
                                     groupMembers.map((member) => (
                                         <div
                                             key={member.user_id}
-                                            className="p-4 flex items-center justify-between"
+                                            className={`p-4 flex items-center justify-between ${
+                                                member.user_id === currentUserId
+                                                    ? "bg-sky-50 border-l-4 border-sky-500"
+                                                    : ""
+                                            }`}
                                         >
                                             <div className="flex items-center gap-3">
                                                 {getGroupRoleIcon(member.role)}
                                                 <div>
-                                                    <p className="font-medium text-slate-900">
-                                                        {member.name ||
-                                                            member.email ||
-                                                            `User ${member.user_id}`}
-                                                    </p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium text-slate-900">
+                                                            {member.name ||
+                                                                member.email ||
+                                                                `User ${member.user_id}`}
+                                                        </p>
+                                                        {member.user_id ===
+                                                            currentUserId && (
+                                                            <span className="text-xs font-semibold px-2 py-1 bg-sky-200 text-sky-800 rounded">
+                                                                You
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <p className="text-sm text-slate-600 capitalize">
                                                         {member.role.replace(
                                                             "_",

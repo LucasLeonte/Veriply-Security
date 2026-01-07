@@ -96,7 +96,7 @@ class GroupService:
 
     @staticmethod
     async def list_groups_for_user(
-        db: AsyncSession, user_id: UUID, tenant_id: UUID
+        db: AsyncSession, user_id: UUID
     ) -> list[Group]:
         """List all groups the user is a member of, including cross-tenant groups.
         

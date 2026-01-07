@@ -339,3 +339,60 @@ class EmailService:
         except Exception as e:
             logger.error(f"Failed to send group invite email to {email}: {str(e)}")
             return False
+    @staticmethod
+    async def send_cross_tenant_notification_email(email: str) -> bool:
+        """
+        Send notification email for cross-tenant group membership.
+        
+        This is for users who already exist in the system and are being added to a group
+        in another tenant. No invitation token is used since the user already has access
+        to the platform.
+
+        Args:
+            email: Email address of the user being added
+
+        Returns:
+            True if email sent successfully, False otherwise
+        """
+        try:
+            subject = "You've been added to a group on Veriply"
+            html_content = f"""
+            <html>
+                <body style=\"font-family: Arial, sans-serif; line-height: 1.6; color: #333;\">
+                    <div style=\"max-width: 600px; margin: 0 auto; padding: 20px;\">
+                        <h2>Group Access Added</h2>
+                        <p>You've been added as a member of a group on Veriply by another team.</p>
+                        <p>You can now access this group through your account. Visit the application to view your new group membership.</p>
+
+                        <div style=\"margin: 30px 0;\">
+                            <a href=\"{settings.FRONTEND_URL}\" style=\"background-color: #0ea5e9; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block;\">
+                                Go to Veriply
+                            </a>
+                        </div>
+
+                        <p style=\"font-size: 12px; color: #999; margin-top: 30px;\">
+                            If you did not expect this email or have questions, please contact your administrator.
+                        </p>
+                    </div>
+                </body>
+            </html>
+            """
+
+            text_content = f"""
+            You've been added as a member of a group on Veriply.
+
+            Visit the application to view your new group membership:
+            {settings.FRONTEND_URL}
+
+            If you did not expect this email or have questions, please contact your administrator.
+            """
+
+            return await EmailService._send_email(
+                to_email=email,
+                subject=subject,
+                html_content=html_content,
+                text_content=text_content,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send cross-tenant notification email to {email}: {str(e)}")
+            return False

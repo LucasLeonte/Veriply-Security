@@ -393,7 +393,7 @@ async def invite_team_member(
     
     # Send notification email (not an invite token, just notification)
     try:
-        await EmailService.send_team_invite_email(email, None)  # TODO: Update email template for cross-tenant
+        await EmailService.send_cross_tenant_notification_email(email)
     except Exception:
         pass
     

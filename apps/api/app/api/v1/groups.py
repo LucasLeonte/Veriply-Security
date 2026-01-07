@@ -168,7 +168,6 @@ async def list_groups(
         groups = await GroupService.list_groups_for_user(
             db=session,
             user_id=user_id,
-            tenant_id=tenant_id,
         )
         logger.info(f"Successfully retrieved {len(groups)} groups for user")
         return groups
