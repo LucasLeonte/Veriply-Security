@@ -242,19 +242,23 @@ export function useHITLQueue(
                 }
             };
 
-            ws.onerror = (event) => {
+            ws.onerror = (event: Event) => {
                 clearTimeout(connectionTimeout);
                 // Browser provides limited error information for security reasons
                 const readyStateText =
                     ["CONNECTING", "OPEN", "CLOSING", "CLOSED"][
                         ws.readyState
                     ] || "UNKNOWN";
-                console.error("WebSocket connection error:", {
+                const errorDetails = {
                     readyState: ws.readyState,
                     readyStateText,
                     url: wsUrl.replace(/token=[^&]+/, "token=***"), // Hide token in logs
                     timestamp: new Date().toISOString(),
-                });
+                };
+                console.error(
+                    "WebSocket connection error: " +
+                        JSON.stringify(errorDetails, null, 2)
+                );
 
                 // If error occurs during connection (readyState 0), start polling immediately
                 if (

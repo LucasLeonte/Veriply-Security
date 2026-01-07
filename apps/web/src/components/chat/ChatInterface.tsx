@@ -243,11 +243,6 @@ export default function ChatInterface({
                                     onClick={() => {
                                         resumeSession(s.id);
                                     }}
-                                    className={`w-full text-left p-3 transition-colors group ${
-                                        selectedSessionId === s.id
-                                            ? "bg-sky-50"
-                                            : "hover:bg-slate-50"
-                                    }`}
                                 >
                                     <div className="flex items-center justify-between w-full">
                                         <div className="flex-1 min-w-0 pr-2">

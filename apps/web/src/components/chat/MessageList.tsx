@@ -10,6 +10,7 @@ import ContextSummary from "./ContextSummary";
 import TrustBadge from "./TrustBadge";
 import PendingVerification from "./PendingVerification";
 import FeedbackBar, { FeedbackSnapshot } from "../FeedbackBar";
+import { sendToReviewQueue } from "@/lib/api/chat";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -103,14 +104,14 @@ export default function MessageList({
                         message.confidence,
                         message.citations,
                         sessionId
-                    ).then((result) => {
+                    ).then((result: { success: boolean; message?: string }) => {
                         // Mark as sent even if backend reports logical failure,
                         // to avoid hammering the endpoint on every render
                         if (!result?.success) {
                             console.warn("Review queue send reported failure:", result?.message);
                         }
                         setSentToReview(prev => new Set(prev).add(message.id));
-                    }).catch(err => {
+                    }).catch((err: Error) => {
                         console.error("Failed to send to review queue:", err);
                         // Prevent infinite retry loops on hard failures
                         setSentToReview(prev => new Set(prev).add(message.id));

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.bot import Bot
+from app.models.confidence_log import RoutingDecision
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
 from app.schemas.widget import WidgetConfigResponse
 from app.models import WidgetConfig
@@ -347,7 +348,7 @@ async def chat_query(
         confidence_value = float(confidence_result.overall_score)
 
         # Routing decision: send a wait message for HITL, otherwise stream draft
-        if confidence_result.routing_decision.value == "hitl":
+        if confidence_result.routing_decision == RoutingDecision.hitl:
             response = StreamingResponse(
                 _stream_hitl_wait_response(confidence_value),
                 media_type="text/event-stream",
