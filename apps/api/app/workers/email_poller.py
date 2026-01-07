@@ -8,7 +8,7 @@ Future: replace with APScheduler or Celery Beat.
 """
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -25,7 +25,7 @@ from app.integrations import gmail
 logger = logging.getLogger(__name__)
 
 
-async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = None):
+async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = None, interval_seconds: int = 300):
     """Poll new emails for all active integrations, scoped by tenant if provided.
     This is a placeholder that demonstrates the flow and dedup strategy planning.
     """
@@ -36,7 +36,15 @@ async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = Non
     res = await db_session.execute(q)
     integrations = res.scalars().all()
 
+    now = datetime.utcnow()
     for integ in integrations:
+        # Skip if paused
+        if getattr(integ, "is_paused", False):
+            continue
+
+        # Respect next_poll_at if set in the future
+        if getattr(integ, "next_poll_at", None) and integ.next_poll_at and integ.next_poll_at > now:
+            continue
         # Load active rules ordered by priority
         res2 = await db_session.execute(
             select(EmailMonitoringRule)
@@ -55,10 +63,16 @@ async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = Non
             integ.provider,
             integ.id,
             len(rules),
-            datetime.utcnow().isoformat(),
+            now.isoformat(),
         )
         if integ.provider != "gmail":
             continue  # Skip non-gmail for now
+
+        # mark last poll attempt
+        try:
+            integ.last_poll_at = now
+        except Exception:
+            pass
 
         # Resolve OAuth creds: tenant-specific, else global, else settings
         client_id, client_secret = await _resolve_oauth_credentials(db_session, integ.tenant_id, "gmail")
@@ -89,8 +103,17 @@ async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = Non
                 query=query,
                 max_results=25,
             )
-        except Exception:
+        except Exception as e:
             logger.exception("[EmailPoller] Gmail list_threads failed for integration %s", integ.id)
+            # record error telemetry
+            try:
+                integ.last_error_at = datetime.utcnow()
+                integ.error_count = (integ.error_count or 0) + 1
+                integ.last_error_message = str(e)[:500]
+                integ.next_poll_at = datetime.utcnow() + timedelta(seconds=interval_seconds)
+                await db_session.commit()
+            except Exception:
+                await db_session.rollback()
             continue
 
         # Convert rules to dicts for matcher
@@ -141,9 +164,14 @@ async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = Non
             )
             db_session.add(record)
 
-        # Update last sync time
+        # Update telemetry for successful poll
         try:
-            integ.last_sync_time = datetime.utcnow()
+            now2 = datetime.utcnow()
+            integ.last_sync_time = now2
+            integ.last_success_at = now2
+            integ.error_count = 0
+            integ.last_error_message = None
+            integ.next_poll_at = now2 + timedelta(seconds=interval_seconds)
             await db_session.commit()
         except Exception:
             await db_session.rollback()
@@ -186,7 +214,7 @@ async def run_periodic(db_session_factory, interval_seconds: int = 300):
     while True:
         try:
             async with db_session_factory() as session:
-                await poll_once(session)
+                await poll_once(session, interval_seconds=interval_seconds)
         except Exception:
             logger.exception("[EmailPoller] Poll loop failed")
         await asyncio.sleep(interval_seconds)

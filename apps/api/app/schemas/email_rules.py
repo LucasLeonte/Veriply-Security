@@ -66,3 +66,21 @@ class EmailSampleResult(BaseModel):
     matched: bool
     rule_id: Optional[UUID] = None
     explanation: str
+
+
+# Monitoring telemetry schemas (Story 6.3 Tasks 6-7)
+class MonitoringStatusResponse(BaseModel):
+    integration_id: UUID
+    is_paused: bool
+    last_poll_at: Optional[datetime] = None
+    last_success_at: Optional[datetime] = None
+    last_error_at: Optional[datetime] = None
+    last_error_message: Optional[str] = None
+    next_poll_at: Optional[datetime] = None
+    error_count: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MonitoringPauseRequest(BaseModel):
+    is_paused: bool

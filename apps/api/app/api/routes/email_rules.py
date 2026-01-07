@@ -20,6 +20,8 @@ from app.schemas.email_rules import (
     ToggleResponse,
     EmailSampleRequest,
     EmailSampleResult,
+    MonitoringStatusResponse,
+    MonitoringPauseRequest,
 )
 from app.email_automation.matcher import EmailSample, match_email_to_rules
 
@@ -212,3 +214,64 @@ async def test_rule(
     top = "Matched rule {} by priority and conditions.".format(rid)
     explanation = top
     return EmailSampleResult(matched=True, rule_id=rid, explanation=explanation)
+
+
+# Monitoring status endpoints (Story 6.3 Tasks 6-7)
+@router.get("/monitoring/status", response_model=MonitoringStatusResponse)
+async def get_monitoring_status(
+    integration_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    res = await db.execute(
+        select(EmailIntegration).where(
+            and_(EmailIntegration.id == integration_id, EmailIntegration.tenant_id == current_user["tenant_id"])
+        )
+    )
+    integ = res.scalar_one_or_none()
+    if not integ:
+        raise HTTPException(status_code=404, detail="Integration not found")
+
+    return MonitoringStatusResponse(
+        integration_id=integ.id,
+        is_paused=bool(getattr(integ, "is_paused", False)),
+        last_poll_at=getattr(integ, "last_poll_at", None),
+        last_success_at=getattr(integ, "last_success_at", None),
+        last_error_at=getattr(integ, "last_error_at", None),
+        last_error_message=getattr(integ, "last_error_message", None),
+        next_poll_at=getattr(integ, "next_poll_at", None),
+        error_count=int(getattr(integ, "error_count", 0) or 0),
+    )
+
+
+@router.put("/monitoring/pause", response_model=MonitoringStatusResponse)
+async def set_monitoring_pause(
+    integration_id: UUID,
+    payload: MonitoringPauseRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    res = await db.execute(
+        select(EmailIntegration).where(
+            and_(EmailIntegration.id == integration_id, EmailIntegration.tenant_id == current_user["tenant_id"])
+        )
+    )
+    integ = res.scalar_one_or_none()
+    if not integ:
+        raise HTTPException(status_code=404, detail="Integration not found")
+
+    integ.is_paused = bool(payload.is_paused)
+    integ.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(integ)
+
+    return MonitoringStatusResponse(
+        integration_id=integ.id,
+        is_paused=bool(getattr(integ, "is_paused", False)),
+        last_poll_at=getattr(integ, "last_poll_at", None),
+        last_success_at=getattr(integ, "last_success_at", None),
+        last_error_at=getattr(integ, "last_error_at", None),
+        last_error_message=getattr(integ, "last_error_message", None),
+        next_poll_at=getattr(integ, "next_poll_at", None),
+        error_count=int(getattr(integ, "error_count", 0) or 0),
+    )

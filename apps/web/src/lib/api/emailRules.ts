@@ -111,3 +111,42 @@ export async function testEmailRule(token: string, id: string, sample: EmailSamp
   if (!res.ok) throw new Error("Failed to test rule");
   return await res.json();
 }
+
+// Monitoring telemetry API (Story 6.3 Tasks 6-7)
+export type MonitoringStatus = {
+  integration_id: string;
+  is_paused: boolean;
+  last_poll_at?: string | null;
+  last_success_at?: string | null;
+  last_error_at?: string | null;
+  last_error_message?: string | null;
+  next_poll_at?: string | null;
+  error_count: number;
+};
+
+export async function getMonitoringStatus(token: string, integrationId: string): Promise<MonitoringStatus> {
+  const url = new URL(`${API_BASE_URL}/api/v1/email-rules/monitoring/status`);
+  url.searchParams.set("integration_id", integrationId);
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch monitoring status");
+  return await res.json();
+}
+
+export async function setMonitoringPause(token: string, integrationId: string, isPaused: boolean): Promise<MonitoringStatus> {
+  const url = new URL(`${API_BASE_URL}/api/v1/email-rules/monitoring/pause`);
+  url.searchParams.set("integration_id", integrationId);
+  const res = await fetch(url.toString(), {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    credentials: "include",
+    body: JSON.stringify({ is_paused: isPaused }),
+  });
+  if (!res.ok) throw new Error("Failed to update monitoring pause state");
+  return await res.json();
+}
