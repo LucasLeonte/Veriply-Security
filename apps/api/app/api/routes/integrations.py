@@ -494,12 +494,13 @@ async def generate_gmail_reply(
         from app.services.vector_search_service import SearchResult
         
         email_context = SearchResult(
-            id="email-context",
-            document_id=uuid4(),
+            chunk_id="email-context",
+            document_id=str(uuid4()),
             document_name="Current Email",
-            text=payload.original_text,
-            score=1.0,
             section="Body",
+            text=payload.original_text,
+            similarity=1.0,
+            position=0,
             page_number=1
         )
         

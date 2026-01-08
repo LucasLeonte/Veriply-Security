@@ -25,6 +25,7 @@ from .email_integration import EmailIntegration as EmailIntegration
 from .integration_credentials import IntegrationCredentials as IntegrationCredentials
 from .email_monitoring_rule import EmailMonitoringRule as EmailMonitoringRule
 from .email_processing_queue import EmailProcessingQueue as EmailProcessingQueue
+from .email_draft import EmailDraft as EmailDraft
 
 __all__ = [
     "Base",
@@ -54,4 +55,5 @@ __all__ = [
     "IntegrationCredentials",
     "EmailMonitoringRule",
     "EmailProcessingQueue",
+    "EmailDraft",
 ]

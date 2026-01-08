@@ -148,6 +148,33 @@ async def get_message_details(
         return response.json()
 
 
+async def get_message(
+    access_token: str,
+    message_id: str,
+    format: str = "full"
+) -> dict:
+    """Fetch message using an existing access token.
+    
+    Args:
+        access_token: Gmail API access token
+        message_id: Message ID to fetch
+        format: Format for the message (minimal, full, raw)
+    
+    Returns:
+        Message dict from Gmail API
+    """
+    async with httpx.AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        params = {"format": format}
+        response = await client.get(
+            f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message_id}",
+            headers=headers,
+            params=params
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 async def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict:
     """Refresh the access token using the refresh token."""
     async with httpx.AsyncClient() as client:

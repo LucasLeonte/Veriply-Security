@@ -37,3 +37,39 @@ async def exchange_code_for_token(client_id: str, client_secret: str, redirect_u
         response = await client.post(MICROSOFT_TOKEN_URL, data=data)
         response.raise_for_status()
         return response.json()
+
+async def refresh_access_token(client_id: str, client_secret: str, refresh_token: str) -> dict:
+    """Refresh the access token using the refresh token."""
+    async with httpx.AsyncClient() as client:
+        data = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token",
+            "scope": " ".join(SCOPES),
+        }
+        response = await client.post(MICROSOFT_TOKEN_URL, data=data)
+        response.raise_for_status()
+        return response.json()
+
+async def get_message(
+    access_token: str,
+    message_id: str
+) -> dict:
+    """Fetch message using Microsoft Graph API.
+    
+    Args:
+        access_token: Outlook API access token
+        message_id: Message ID to fetch
+    
+    Returns:
+        Message dict from Microsoft Graph API
+    """
+    async with httpx.AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = await client.get(
+            f"https://graph.microsoft.com/v1.0/me/messages/{message_id}",
+            headers=headers
+        )
+        response.raise_for_status()
+        return response.json()
