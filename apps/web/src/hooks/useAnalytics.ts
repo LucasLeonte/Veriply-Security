@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getAccessToken } from "@/lib/auth";
 
 export interface AnalyticsMetrics {
     totalQueries: number;
@@ -33,21 +34,33 @@ export function useAnalytics() {
                 setIsLoading(true);
                 setError(null);
 
+                const token = getAccessToken();
+                const headers: Record<string, string> = {
+                    "Content-Type": "application/json",
+                };
+
+                if (token) {
+                    headers["authorization"] = `Bearer ${token}`;
+                }
+
                 const response = await fetch(`/api/analytics/metrics`, {
                     method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
+                    headers,
+                    credentials: "include",
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch analytics: ${response.statusText}`);
+                    throw new Error(
+                        `Failed to fetch analytics: ${response.statusText}`
+                    );
                 }
 
                 const data: AnalyticsMetrics = await response.json();
                 setMetrics(data);
             } catch (err) {
-                setError(err instanceof Error ? err : new Error("Unknown error"));
+                setError(
+                    err instanceof Error ? err : new Error("Unknown error")
+                );
                 console.error("Failed to fetch analytics:", err);
             } finally {
                 setIsLoading(false);

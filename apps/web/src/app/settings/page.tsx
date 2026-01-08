@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components";
 import { getAccessToken, clearAccessToken } from "@/lib/auth";
 import { useGroup } from "@/contexts/GroupContext";
@@ -34,7 +34,12 @@ export default function SettingsPage() {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
     // Group state
-    const { currentGroup, setCurrentGroup, refreshGroups } = useGroup();
+    const {
+        currentGroup,
+        setCurrentGroup,
+        refreshGroups,
+        isLoading: groupContextLoading,
+    } = useGroup();
     const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
     const [loadingGroupMembers, setLoadingGroupMembers] = useState(false);
     const [showGroupCreateModal, setShowGroupCreateModal] = useState(false);
@@ -45,8 +50,6 @@ export default function SettingsPage() {
     const [newGroupDescription, setNewGroupDescription] = useState("");
     const [groupInviteEmail, setGroupInviteEmail] = useState("");
     const [groupInviteRole, setGroupInviteRole] = useState<GroupRole>("viewer");
-    const [currentUserGroupRole, setCurrentUserGroupRole] =
-        useState<GroupRole | null>(null);
 
     useEffect(() => {
         fetchInitialData();
@@ -166,16 +169,6 @@ export default function SettingsPage() {
         try {
             const result = await groupsApi.listMembers(groupId);
             setGroupMembers(result);
-
-            // Find the current user's role in this group
-            const currentUserMember = result.find(
-                (m) => m.user_id === currentUserId
-            );
-            if (currentUserMember) {
-                setCurrentUserGroupRole(currentUserMember.role as GroupRole);
-            } else {
-                setCurrentUserGroupRole(null);
-            }
         } catch (err) {
             console.error("Failed to load group members:", err);
         } finally {
@@ -183,18 +176,31 @@ export default function SettingsPage() {
         }
     };
 
+    // Memoize current user's role within the selected group
+    const currentUserGroupRole: GroupRole | null = useMemo(() => {
+        if (!currentGroup || !currentUserId) return null;
+        const currentUserMember = groupMembers.find(
+            (m) => m.user_id === currentUserId
+        );
+        return currentUserMember ? (currentUserMember.role as GroupRole) : null;
+    }, [currentGroup?.id, currentUserId, groupMembers]);
+
+    // Shared helper to get current user's role (uses memoized value)
+    const getCurrentUserRole = (): GroupRole | null => currentUserGroupRole;
+
     // Check if current user can manage a specific member
     const canManageGroupMember = (targetMemberRole: GroupRole): boolean => {
-        if (!currentUserGroupRole) return false;
+        const role = getCurrentUserRole();
+        if (!role) return false;
+        if (role === "owner") return true;
+        return role === "admin" && targetMemberRole !== "owner";
+    };
 
-        // Owner can manage anyone
-        if (currentUserGroupRole === "owner") return true;
-
-        // Admin can manage non-owners
-        if (currentUserGroupRole === "admin" && targetMemberRole !== "owner")
-            return true;
-
-        return false;
+    // Check if current user can edit/delete the group
+    const canEditGroup = (): boolean => {
+        const role = getCurrentUserRole();
+        if (!role) return false;
+        return role === "owner" || role === "admin";
     };
 
     const handleCreateGroup = async () => {
@@ -588,29 +594,31 @@ export default function SettingsPage() {
                                     </p>
                                 )}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => {
-                                        setGroupToRename(currentGroup);
-                                        setNewGroupName(currentGroup.name);
-                                        setNewGroupDescription(
-                                            currentGroup.description || ""
-                                        );
-                                        setShowGroupRenameModal(true);
-                                    }}
-                                    className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
-                                >
-                                    Rename
-                                </button>
-                                <button
-                                    onClick={() =>
-                                        handleDeleteGroup(currentGroup)
-                                    }
-                                    className="px-3 py-1 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
-                                >
-                                    Delete
-                                </button>
-                            </div>
+                            {canEditGroup() && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => {
+                                            setGroupToRename(currentGroup);
+                                            setNewGroupName(currentGroup.name);
+                                            setNewGroupDescription(
+                                                currentGroup.description || ""
+                                            );
+                                            setShowGroupRenameModal(true);
+                                        }}
+                                        className="px-3 py-1 text-sm border border-slate-300 rounded-lg hover:bg-slate-100"
+                                    >
+                                        Rename
+                                    </button>
+                                    <button
+                                        onClick={() =>
+                                            handleDeleteGroup(currentGroup)
+                                        }
+                                        className="px-3 py-1 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <div className="text-slate-600">

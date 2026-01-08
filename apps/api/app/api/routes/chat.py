@@ -314,7 +314,11 @@ async def chat_query(
         
         # If we used a verified Q&A answer, bypass confidence check - it's already human-approved
         if verified_match:
-            # Verified answers should NEVER go to HITL - they're already human-approved
+            # Story 7.2: Verified answers skip LLM and return immediately with provenance
+            logger.info(
+                f"[Story 7.2] Returning verified answer (ID: {verified_match.verified_id}, "
+                f"similarity: {verified_match.similarity:.4f})"
+            )
             confidence_value = 1.0  # Maximum confidence for verified answers
             return StreamingResponse(
                 _stream_precomputed_response(
@@ -322,8 +326,15 @@ async def chat_query(
                     citations=streaming_citations,
                     extra_metadata={
                         "confidence": confidence_value,
-                        "is_verified_answer": True,
-                        "verified_qa_id": verified_match.document_id,
+                        # Story 7.2: AC #2 - Add verified metadata
+                        "verified": True,
+                        "verified_id": str(verified_match.verified_id),
+                        "verified_confidence": verified_match.similarity,
+                        "trust_level": "verified",
+                        "source_type": "verified_kb",
+                        # Include citations from verified entry if available
+                        **({"verified_citations": verified_match.verified_citations}
+                           if verified_match.verified_citations else {}),
                     },
                 ),
                 media_type="text/event-stream",
@@ -364,7 +375,13 @@ async def chat_query(
             _stream_precomputed_response(
                 tokens=draft_tokens,
                 citations=streaming_citations,
-                extra_metadata={"confidence": confidence_value},
+                extra_metadata={
+                    "confidence": confidence_value,
+                    # Story 7.2: Mark as AI-generated from RAG
+                    "verified": False,
+                    "trust_level": "ai_generated",
+                    "source_type": "rag",
+                },
                 response_id=confidence_result.query_id,
             ),
             media_type="text/event-stream",
