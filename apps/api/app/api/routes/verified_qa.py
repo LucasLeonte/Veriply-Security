@@ -68,7 +68,7 @@ async def create_entry(
 
         # Generate embedding for question
         try:
-            question_embedding = await embedding_service.embed(payload.question_text)
+            question_embedding = await embedding_service.embed_query(payload.question_text)
         except Exception as e:
             logger.error(f"Embedding generation failed for question: {e}")
             raise HTTPException(

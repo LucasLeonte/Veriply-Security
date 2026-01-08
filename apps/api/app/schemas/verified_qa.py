@@ -5,7 +5,7 @@ including creation from HITL approvals, updates, and query responses.
 """
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from typing import Optional, List, Any, Union
 from uuid import UUID
 from datetime import datetime
 
@@ -32,7 +32,7 @@ class VerifiedQACreate(BaseModel):
         ...,
         description="Bot ID this Q&A belongs to"
     )
-    source_citations: Optional[dict] = Field(
+    source_citations: Optional[Union[List[Any], dict]] = Field(
         default=None,
         description="Optional source document citations in JSONB format"
     )
@@ -88,7 +88,7 @@ class VerifiedQAResponse(BaseModel):
     
     question_text: str = Field(..., description="The verified question")
     answer_text: str = Field(..., description="The approved answer")
-    source_citations: Optional[dict] = Field(None, description="Source citations")
+    source_citations: Optional[Union[List[Any], dict]] = Field(None, description="Source citations")
     
     approved_by_user_id: Optional[UUID] = Field(None, description="User who approved this")
     approved_at: datetime = Field(..., description="When this was approved")
