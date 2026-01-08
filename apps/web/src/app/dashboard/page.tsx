@@ -16,7 +16,6 @@ import {
     Bot as BotIcon,
     Inbox,
     BookOpen,
-    Mail,
     Settings,
     MessageSquare,
     CheckCircle2,
@@ -148,149 +147,139 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                {/* Analytics overview */}
-                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                    <div className="lg:col-span-2">
-                        <div className="rounded-xl border border-slate-200 bg-white p-5">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="font-semibold text-slate-900">
-                                        Intervention Rate Trend
-                                    </h3>
-                                    <p className="text-sm text-slate-500">
-                                        Last period
-                                    </p>
-                                </div>
-                                <Link
-                                    href="/analytics"
-                                    className="text-sm text-violet-700 hover:underline"
-                                >
-                                    View full analytics
-                                </Link>
-                            </div>
-                            <div className="mt-4 h-40">
-                                {!metrics ||
-                                analyticsLoading ||
-                                !metrics.chartData?.length ? (
-                                    <div className="flex h-full items-center justify-center text-slate-400 text-sm">
-                                        No data
-                                    </div>
-                                ) : (
-                                    <svg
-                                        className="w-full h-full"
-                                        viewBox="0 0 400 160"
-                                        preserveAspectRatio="none"
-                                    >
-                                        {(() => {
-                                            const pts = metrics.chartData;
-                                            const n = pts.length;
-                                            const w = 400;
-                                            const h = 120;
-                                            const padTop = 20;
-                                            const xStep =
-                                                n > 1 ? w / (n - 1) : w;
-                                            const toY = (v: number) =>
-                                                padTop +
-                                                (h -
-                                                    (Math.max(
-                                                        0,
-                                                        Math.min(100, v)
-                                                    ) /
-                                                        100) *
-                                                        h);
-                                            const d = pts
-                                                .map((p, i) => {
-                                                    const x = i * xStep;
-                                                    const y = toY(
-                                                        p.interventionRate
-                                                    );
-                                                    return `${
-                                                        i === 0 ? "M" : "L"
-                                                    } ${x} ${y}`;
-                                                })
-                                                .join(" ");
-                                            return (
-                                                <path
-                                                    d={d}
-                                                    stroke="#7c3aed"
-                                                    strokeWidth="2"
-                                                    fill="none"
-                                                    strokeLinecap="round"
-                                                />
-                                            );
-                                        })()}
-                                    </svg>
-                                )}
-                            </div>
+                {/* KPI row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+                            <MessageSquare className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-slate-500">
+                                Conversations
+                            </p>
+                            <p className="text-2xl font-semibold text-slate-900">
+                                {analyticsLoading
+                                    ? "…"
+                                    : metrics?.totalQueries ?? "—"}
+                            </p>
                         </div>
                     </div>
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
-                                <MessageSquare className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-500">
-                                    Conversations
-                                </p>
-                                <p className="text-2xl font-semibold text-slate-900">
-                                    {analyticsLoading
-                                        ? "…"
-                                        : metrics?.totalQueries ?? "—"}
-                                </p>
-                            </div>
+                    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+                            <CheckCircle2 className="h-5 w-5" />
                         </div>
-                        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-                                <CheckCircle2 className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-500">
-                                    Resolution Rate
-                                </p>
-                                <p className="text-2xl font-semibold text-slate-900">
-                                    {analyticsLoading
-                                        ? "…"
-                                        : formatPercent(
-                                              metrics?.autoResolvedPercent
-                                          )}
-                                </p>
-                            </div>
+                        <div>
+                            <p className="text-sm text-slate-500">
+                                Resolution Rate
+                            </p>
+                            <p className="text-2xl font-semibold text-slate-900">
+                                {analyticsLoading
+                                    ? "…"
+                                    : formatPercent(
+                                          metrics?.autoResolvedPercent
+                                      )}
+                            </p>
                         </div>
-                        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-                                <Clock className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-500">
-                                    Avg. Response
-                                </p>
-                                <p className="text-2xl font-semibold text-slate-900">
-                                    {analyticsLoading
-                                        ? "…"
-                                        : formatDuration(
-                                              metrics?.avgResponseTime
-                                          )}
-                                </p>
-                            </div>
+                    </div>
+                    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                            <Clock className="h-5 w-5" />
                         </div>
-                        <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
-                                <AlertTriangle className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-slate-500">
-                                    Intervention Rate
-                                </p>
-                                <p className="text-2xl font-semibold text-slate-900">
-                                    {analyticsLoading
-                                        ? "…"
-                                        : formatPercent(
-                                              metrics?.hitlInterventionRate
-                                          )}
-                                </p>
-                            </div>
+                        <div>
+                            <p className="text-sm text-slate-500">
+                                Avg. Response
+                            </p>
+                            <p className="text-2xl font-semibold text-slate-900">
+                                {analyticsLoading
+                                    ? "…"
+                                    : formatDuration(metrics?.avgResponseTime)}
+                            </p>
                         </div>
+                    </div>
+                    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
+                            <AlertTriangle className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-slate-500">
+                                Intervention Rate
+                            </p>
+                            <p className="text-2xl font-semibold text-slate-900">
+                                {analyticsLoading
+                                    ? "…"
+                                    : formatPercent(
+                                          metrics?.hitlInterventionRate
+                                      )}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Chart */}
+                <div className="rounded-xl border border-slate-200 bg-white p-5">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="font-semibold text-slate-900">
+                                Intervention Rate Trend
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                                Last period
+                            </p>
+                        </div>
+                        <Link
+                            href="/analytics"
+                            className="text-sm text-violet-700 hover:underline"
+                        >
+                            View full analytics
+                        </Link>
+                    </div>
+                    <div className="mt-4 h-40">
+                        {!metrics ||
+                        analyticsLoading ||
+                        !metrics.chartData?.length ? (
+                            <div className="flex h-full items-center justify-center text-slate-400 text-sm">
+                                No data
+                            </div>
+                        ) : (
+                            <svg
+                                className="w-full h-full"
+                                viewBox="0 0 400 160"
+                                preserveAspectRatio="none"
+                            >
+                                {(() => {
+                                    const pts = metrics.chartData;
+                                    const n = pts.length;
+                                    const w = 400;
+                                    const h = 120;
+                                    const padTop = 20;
+                                    const xStep = n > 1 ? w / (n - 1) : w;
+                                    const toY = (v: number) =>
+                                        padTop +
+                                        (h -
+                                            (Math.max(0, Math.min(100, v)) /
+                                                100) *
+                                                h);
+                                    const d = pts
+                                        .map((p, i) => {
+                                            const x = i * xStep;
+                                            const y = toY(p.interventionRate);
+                                            return `${
+                                                i === 0 ? "M" : "L"
+                                            } ${x} ${y}`;
+                                        })
+                                        .join(" ");
+                                    return (
+                                        <path
+                                            d={d}
+                                            stroke="#7c3aed"
+                                            strokeWidth="2"
+                                            fill="none"
+                                            strokeLinecap="round"
+                                        />
+                                    );
+                                })()}
+                            </svg>
+                        )}
                     </div>
                 </div>
 
@@ -615,67 +604,6 @@ export default function DashboardPage() {
                                         </span>
                                     </li>
                                 ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    {/* Email */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-md bg-indigo-100 text-indigo-700">
-                                    <Mail className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-slate-900">
-                                        Email
-                                    </h3>
-                                    <p className="text-sm text-slate-500">
-                                        Inbox and automations
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-4 flex gap-2">
-                            <Link
-                                href="/dashboard/emails"
-                                className="px-3 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
-                            >
-                                Open Email
-                            </Link>
-                            <Link
-                                href="/dashboard/email-rules"
-                                className="px-3 py-2 text-sm rounded-lg border border-slate-300 hover:bg-slate-50"
-                            >
-                                Rules
-                            </Link>
-                        </div>
-                        {queueItems?.some((q) => q.type === "email") && (
-                            <ul className="mt-4 divide-y divide-slate-100">
-                                {queueItems
-                                    .filter((q) => q.type === "email")
-                                    .slice(0, 2)
-                                    .map((q) => (
-                                        <li
-                                            key={q.id}
-                                            className="py-2 flex items-start gap-3"
-                                        >
-                                            <span className="mt-1 inline-flex items-center justify-center h-6 w-6 rounded-full text-xs bg-indigo-100 text-indigo-700">
-                                                E
-                                            </span>
-                                            <div className="min-w-0 flex-1">
-                                                <p
-                                                    className="text-sm text-slate-900 truncate"
-                                                    title={q.userQuestion}
-                                                >
-                                                    {q.userQuestion}
-                                                </p>
-                                                <p className="text-xs text-slate-500">
-                                                    {timeAgo(q.timestamp)}
-                                                </p>
-                                            </div>
-                                        </li>
-                                    ))}
                             </ul>
                         )}
                     </div>
