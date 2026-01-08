@@ -17,7 +17,6 @@ import {
     Inbox,
     BookOpen,
     Mail,
-    BarChart3,
     Settings,
     MessageSquare,
     CheckCircle2,
@@ -65,6 +64,8 @@ export default function DashboardPage() {
             if (!currentGroup) {
                 setBotsTotal(null);
                 setDocsTotal(null);
+                setBotsPreview([]);
+                setRecentDocs([]);
                 return;
             }
             try {
@@ -81,6 +82,7 @@ export default function DashboardPage() {
                 );
             } catch {
                 setBotsTotal(null);
+                setBotsPreview([]);
             }
             try {
                 const docsRes = await documentsApi.listDocuments(
@@ -92,6 +94,7 @@ export default function DashboardPage() {
                 setRecentDocs((docsRes.documents || []).slice(0, 3));
             } catch {
                 setDocsTotal(null);
+                setRecentDocs([]);
             }
         })();
     }, [currentGroup?.id]);
@@ -182,11 +185,12 @@ export default function DashboardPage() {
                                             const pts = metrics.chartData;
                                             const n = pts.length;
                                             const w = 400;
-                                            const h = 140; // leave 20px top/bottom padding in viewBox
+                                            const h = 120;
+                                            const padTop = 20;
                                             const xStep =
                                                 n > 1 ? w / (n - 1) : w;
                                             const toY = (v: number) =>
-                                                20 +
+                                                padTop +
                                                 (h -
                                                     (Math.max(
                                                         0,
@@ -206,15 +210,13 @@ export default function DashboardPage() {
                                                 })
                                                 .join(" ");
                                             return (
-                                                <>
-                                                    <path
-                                                        d={d}
-                                                        stroke="#7c3aed"
-                                                        strokeWidth="2"
-                                                        fill="none"
-                                                        strokeLinecap="round"
-                                                    />
-                                                </>
+                                                <path
+                                                    d={d}
+                                                    stroke="#7c3aed"
+                                                    strokeWidth="2"
+                                                    fill="none"
+                                                    strokeLinecap="round"
+                                                />
                                             );
                                         })()}
                                     </svg>
@@ -292,6 +294,90 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
+                {/* Analytics details: Rejection Reasons & Knowledge Gaps */}
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white p-5">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-slate-900">
+                                Rejection Reasons
+                            </h3>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                            {!metrics ||
+                            analyticsLoading ||
+                            !metrics.rejectionReasons?.length ? (
+                                <div className="text-sm text-slate-400">
+                                    No data
+                                </div>
+                            ) : (
+                                metrics.rejectionReasons
+                                    .slice(0, 4)
+                                    .map((r) => (
+                                        <div key={r.reason}>
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span
+                                                    className="text-slate-700 truncate pr-2"
+                                                    title={r.reason}
+                                                >
+                                                    {r.reason}
+                                                </span>
+                                                <span className="text-slate-500">
+                                                    {r.count} •{" "}
+                                                    {r.percent.toFixed(1)}%
+                                                </span>
+                                            </div>
+                                            <div className="mt-1 h-2 w-full rounded-full bg-slate-100">
+                                                <div
+                                                    className="h-2 rounded-full bg-rose-500"
+                                                    style={{
+                                                        width: `${Math.max(
+                                                            0,
+                                                            Math.min(
+                                                                100,
+                                                                r.percent
+                                                            )
+                                                        )}%`,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))
+                            )}
+                        </div>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-5">
+                        <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-slate-900">
+                                Top Knowledge Gaps
+                            </h3>
+                        </div>
+                        <ul className="mt-4 divide-y divide-slate-100">
+                            {!metrics ||
+                            analyticsLoading ||
+                            !metrics.knowledgeGaps?.length ? (
+                                <li className="py-1 text-sm text-slate-400">
+                                    No data
+                                </li>
+                            ) : (
+                                metrics.knowledgeGaps.slice(0, 4).map((k) => (
+                                    <li key={k.question} className="py-2">
+                                        <p
+                                            className="text-sm text-slate-900 truncate"
+                                            title={k.question}
+                                        >
+                                            {k.question}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            Asked {k.askCount}×
+                                        </p>
+                                    </li>
+                                ))
+                            )}
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Section previews */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* Bots */}
                     <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
@@ -592,67 +678,6 @@ export default function DashboardPage() {
                                     ))}
                             </ul>
                         )}
-                    </div>
-
-                    {/* Analytics */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-md bg-violet-100 text-violet-700">
-                                    <BarChart3 className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-slate-900">
-                                        Analytics
-                                    </h3>
-                                    <p className="text-sm text-slate-500">
-                                        Performance and quality
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="mt-4">
-                            <Link
-                                href="/analytics"
-                                className="px-3 py-2 text-sm rounded-lg bg-violet-600 text-white hover:bg-violet-700 inline-flex items-center gap-2"
-                            >
-                                View Analytics
-                            </Link>
-                        </div>
-                    </div>
-
-                    {/* Settings */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 rounded-md bg-slate-100 text-slate-700">
-                                <Settings className="h-5 w-5" />
-                            </div>
-                            <div>
-                                <h3 className="font-medium text-slate-900">
-                                    Settings
-                                </h3>
-                                <p className="text-sm text-slate-500">
-                                    {currentGroup ? (
-                                        <span>
-                                            Group:{" "}
-                                            <span className="font-medium text-slate-700">
-                                                {currentGroup.name}
-                                            </span>
-                                        </span>
-                                    ) : (
-                                        "Team and workspace"
-                                    )}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="mt-4">
-                            <Link
-                                href="/settings"
-                                className="px-3 py-2 text-sm rounded-lg border border-slate-300 hover:bg-slate-50"
-                            >
-                                Open Settings
-                            </Link>
-                        </div>
                     </div>
                 </div>
             </div>
