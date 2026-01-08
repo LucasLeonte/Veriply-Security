@@ -249,6 +249,82 @@ class TestPerformanceLatency:
         assert any("LATENCY_BUDGET_EXCEEDED" in record.message for record in caplog.records)
 
 
+class TestVerifiedKBCache:
+    """Tests for optional in-memory cache on the verified KB path."""
+
+    @pytest.mark.asyncio
+    async def test_cache_hit_skips_backend_call(
+        self, vector_search_service, db_session, monkeypatch
+    ):
+        """When cache is enabled, the second identical query should hit cache.
+
+        Verifies that the underlying search_verified_qa is only invoked once
+        for identical inputs within the TTL window.
+        """
+        # Enable cache for the test
+        old_enabled = settings.VERIFIED_KB_CACHE_ENABLED
+        old_ttl = settings.VERIFIED_KB_CACHE_TTL_SECONDS
+        settings.VERIFIED_KB_CACHE_ENABLED = True
+        settings.VERIFIED_KB_CACHE_TTL_SECONDS = 60
+
+        try:
+            # Arrange bot and DB mocks
+            from uuid import uuid4
+            bot_id = uuid4()
+            tenant_id = uuid4()
+            group_id = uuid4()
+
+            mock_bot = Mock()
+            mock_bot.id = bot_id
+            mock_bot.tenant_id = tenant_id
+            mock_bot.group_id = group_id
+            db_session.scalar = AsyncMock(return_value=mock_bot)
+            db_session.execute = AsyncMock()
+
+            # Mock verified_qa search to return a result once
+            verified_id = uuid4()
+            mock_verified_qa = Mock(spec=VerifiedQA)
+            mock_verified_qa.id = verified_id
+            mock_verified_qa.question_text = "What is the SLA?"
+            mock_verified_qa.answer_text = "99.9% uptime"
+            mock_verified_qa.source_citations = {"doc_id": "sla-001"}
+
+            call_count = {"n": 0}
+
+            async def fake_search(*args, **kwargs):
+                call_count["n"] += 1
+                return [(mock_verified_qa, 0.98)]
+
+            with patch("app.services.verified_qa.search_verified_qa", side_effect=fake_search):
+                # First call: populates cache
+                r1, _ = await vector_search_service.search(
+                    db=db_session,
+                    bot_id=bot_id,
+                    tenant_id=tenant_id,
+                    query="What is the SLA?",
+                    k=5,
+                )
+                assert len(r1) == 1 and r1[0].is_verified
+
+                # Second call: same inputs; should be served from cache
+                r2, _ = await vector_search_service.search(
+                    db=db_session,
+                    bot_id=bot_id,
+                    tenant_id=tenant_id,
+                    query="What is the SLA?",
+                    k=5,
+                )
+                assert len(r2) == 1 and r2[0].is_verified
+
+            # Backend function should have been called only once
+            assert call_count["n"] == 1
+
+        finally:
+            # Restore settings
+            settings.VERIFIED_KB_CACHE_ENABLED = old_enabled
+            settings.VERIFIED_KB_CACHE_TTL_SECONDS = old_ttl
+
+
 class TestUIBadgeIntegration:
     """Test AC #2: "Verified" badge is displayed in UI."""
 

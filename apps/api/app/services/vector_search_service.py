@@ -10,7 +10,7 @@ returned immediately WITHOUT invoking LLM generation or document retrieval.
 
 import logging
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 from dataclasses import dataclass
 
@@ -32,6 +32,58 @@ DEFAULT_SIMILARITY_THRESHOLD = 0.5
 # Story 7.2: Configurable threshold for verified KB (default 0.95)
 VERIFIED_KB_SIMILARITY_THRESHOLD = settings.VERIFIED_KB_SIMILARITY_THRESHOLD
 HNSW_EF_SEARCH = 40  # Runtime parameter for HNSW index
+
+
+class _TTLCache:
+    """Simple in-process TTL cache with a max size.
+
+    Note: This is per-process and best-effort only. Suitable as an optional
+    optimization for hot verified questions; correctness does not depend on it.
+    """
+
+    def __init__(self, max_size: int = 100):
+        self._store: dict[str, Tuple[float, object]] = {}
+        self._max_size = max_size
+
+    def get(self, key: str) -> Optional[object]:
+        entry = self._store.get(key)
+        if not entry:
+            return None
+        expires_at, value = entry
+        now = time.time()
+        if now >= expires_at:
+            # Expired
+            self._store.pop(key, None)
+            return None
+        return value
+
+    def set(self, key: str, value: object, ttl_seconds: int) -> None:
+        if ttl_seconds <= 0:
+            return
+        # Simple eviction when exceeding size; remove oldest-ish by arbitrary pop
+        if len(self._store) >= self._max_size:
+            try:
+                self._store.pop(next(iter(self._store)))
+            except StopIteration:
+                pass
+        expires_at = time.time() + ttl_seconds
+        self._store[key] = (expires_at, value)
+
+    def clear(self) -> None:
+        self._store.clear()
+
+
+_verified_kb_cache = _TTLCache(max_size=200)
+
+
+def _make_verified_cache_key(
+    *, tenant_id: UUID, group_id: UUID, bot_id: UUID, query: str, k: int, threshold: float
+) -> str:
+    import hashlib
+
+    qnorm = (query or "").strip().lower()
+    qhash = hashlib.sha1(qnorm.encode("utf-8")).hexdigest()
+    return f"veriq:ten:{tenant_id}:grp:{group_id}:bot:{bot_id}:k:{k}:thr:{threshold:.3f}:q:{qhash}"
 
 
 @dataclass
@@ -137,6 +189,46 @@ class VectorSearchService:
                 f"[Story 7.2] Searching verified KB: tenant={tenant_id}, group={group_id_val}, "
                 f"bot={bot_id}, threshold={VERIFIED_KB_SIMILARITY_THRESHOLD}"
             )
+
+            # Optional cache: return hot verified results quickly
+            cache_enabled = bool(getattr(settings, "VERIFIED_KB_CACHE_ENABLED", False))
+            cache_ttl = int(getattr(settings, "VERIFIED_KB_CACHE_TTL_SECONDS", 0))
+            cache_key = _make_verified_cache_key(
+                tenant_id=tenant_id,
+                group_id=group_id_val,
+                bot_id=bot_id,
+                query=query,
+                k=k,
+                threshold=VERIFIED_KB_SIMILARITY_THRESHOLD,
+            )
+            if cache_enabled:
+                cached_payload = _verified_kb_cache.get(cache_key)
+                if cached_payload:
+                    logger.info("[Story 7.2] VERIFIED_KB_CACHE_HIT: using cached verified results")
+                    # Rehydrate SearchResult objects
+                    for item in cached_payload:
+                        verified_results.append(
+                            SearchResult(
+                                chunk_id=item["chunk_id"],
+                                document_id=item["document_id"],
+                                document_name=item["document_name"],
+                                section=item.get("section"),
+                                text=item["text"],
+                                similarity=item["similarity"],
+                                position=item["position"],
+                                page_number=item.get("page_number"),
+                                is_verified=True,
+                                verified_answer=item.get("verified_answer"),
+                                verified_id=item.get("verified_id"),
+                                verified_citations=item.get("verified_citations"),
+                            )
+                        )
+                    total_latency_ms = int((time.time() - start_time) * 1000)
+                    logger.info(
+                        f"[Story 7.2] SHORT-CIRCUIT (cache): Returning {len(verified_results)} verified "
+                        f"answer(s) (total latency: {total_latency_ms}ms)"
+                    )
+                    return verified_results, total_latency_ms
             
             verified_qa_matches = await search_verified_qa(
                 db=db,
@@ -184,6 +276,29 @@ class VectorSearchService:
                         verified_id=verified_qa.id,
                         verified_citations=verified_qa.source_citations,
                     )
+                )
+
+            # Populate cache for subsequent hot lookups
+            if cache_enabled and verified_results:
+                payload = [
+                    {
+                        "chunk_id": r.chunk_id,
+                        "document_id": r.document_id,
+                        "document_name": r.document_name,
+                        "section": r.section,
+                        "text": r.text,
+                        "similarity": r.similarity,
+                        "position": r.position,
+                        "page_number": r.page_number,
+                        "verified_answer": r.verified_answer,
+                        "verified_id": str(r.verified_id) if r.verified_id else None,
+                        "verified_citations": r.verified_citations,
+                    }
+                    for r in verified_results
+                ]
+                _verified_kb_cache.set(cache_key, payload, ttl_seconds=cache_ttl)
+                logger.debug(
+                    f"[Story 7.2] VERIFIED_KB_CACHE_SET: stored {len(payload)} result(s) for TTL={cache_ttl}s"
                 )
             
             # Story 7.2: SHORT-CIRCUIT LOGIC (AC #2)

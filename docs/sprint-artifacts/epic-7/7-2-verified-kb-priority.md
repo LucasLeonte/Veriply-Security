@@ -56,6 +56,10 @@ so that **users get consistent, human-verified responses**.
   - [x] Performance test: verified lookup stays within latency budget
   - [x] UI test: "Verified" badge renders only when verified flag is true
 
+### Review Follow-ups (AI)
+- [x] [AI-Review][High] Implement optional in-memory cache for verified KB hot questions (scope-aware keys; honor `VERIFIED_KB_CACHE_ENABLED` and `VERIFIED_KB_CACHE_TTL_SECONDS`).
+- [ ] [AI-Review][Med] Add integration performance test ensuring verified lookup path stays <50ms under realistic load (pgvector + test DB fixtures).
+
 ## Dev Notes
 
 ### Architecture Context
@@ -182,3 +186,70 @@ Claude Sonnet 4.5 (via GitHub Copilot, January 7, 2026)
 - MODIFIED: (files changed)
 - DELETED: (files removed)
 -->
+
+---
+
+## Senior Developer Review (AI)
+
+Reviewer: Dario
+Date: 2026-01-08
+Outcome: Changes Requested — integration perf test needed
+
+### Summary
+- Verified KB priority is implemented end-to-end: search-first, short-circuit on match, provenance in API, and UI badge. ACs #1–#3 have solid evidence. AC #4 has latency metrics and unit smoke tests, but integration validation remains. Cache implementation now complete with TTL, scope-aware keys, and unit test coverage.
+
+### Key Findings
+
+- Medium: AC #4 only partially validated (latency budget logging and unit smoke tests present; no integration perf validation).
+  - Evidence: Budget logging at [apps/api/app/services/vector_search_service.py#L160](apps/api/app/services/vector_search_service.py#L160) and [apps/api/app/services/vector_search_service.py#L166](apps/api/app/services/vector_search_service.py#L166); smoke test present at [apps/api/tests/test_verified_kb_priority.py#L217](apps/api/tests/test_verified_kb_priority.py#L217).
+
+### Acceptance Criteria Coverage
+
+| AC # | Description | Status | Evidence |
+| --- | --- | --- | --- |
+| 1 | Verified KB searched FIRST | Implemented | Verified-first step at [apps/api/app/services/vector_search_service.py#L128](apps/api/app/services/vector_search_service.py#L128) |
+| 2 | Short-circuit on ≥95% match; badge; no LLM | Implemented | Short-circuit at [apps/api/app/services/vector_search_service.py#L189-L196](apps/api/app/services/vector_search_service.py#L189-L196); API metadata at [apps/api/app/api/routes/chat.py#L247](apps/api/app/api/routes/chat.py#L247) and [apps/api/app/api/routes/chat.py#L330-L343](apps/api/app/api/routes/chat.py#L330-L343) |
+| 3 | No verified match → standard RAG continues | Implemented | Fallback path and return at [apps/api/app/services/vector_search_service.py#L356](apps/api/app/services/vector_search_service.py#L356) |
+| 4 | Verified KB search adds <50ms latency | Partial | Budget logs at [apps/api/app/services/vector_search_service.py#L160](apps/api/app/services/vector_search_service.py#L160) and [apps/api/app/services/vector_search_service.py#L166](apps/api/app/services/vector_search_service.py#L166); unit smoke test at [apps/api/tests/test_verified_kb_priority.py#L217](apps/api/tests/test_verified_kb_priority.py#L217); integration validation pending |
+
+Summary: 3 of 4 acceptance criteria fully implemented.
+
+### Task Completion Validation
+
+| Task | Marked As | Verified As | Evidence |
+| --- | --- | --- | --- |
+| Task 1: Two-Stage Retrieval Pipeline | Completed | Verified Complete | Verified-first search and short-circuit: [apps/api/app/services/vector_search_service.py#L128](apps/api/app/services/vector_search_service.py#L128), [apps/api/app/services/vector_search_service.py#L189-L196](apps/api/app/services/vector_search_service.py#L189-L196) |
+| Task 2: Similarity & Thresholding | Completed | Verified Complete | Threshold default/config: [apps/api/app/core/settings.py#L221-L233](apps/api/app/core/settings.py#L221-L233); test default 0.95: [apps/api/tests/test_verified_kb_priority.py#L132](apps/api/tests/test_verified_kb_priority.py#L132); safety checks in embedding: [apps/api/app/services/embedding_service.py#L98-L126](apps/api/app/services/embedding_service.py#L98-L126), [apps/api/app/services/embedding_service.py#L228-L258](apps/api/app/services/embedding_service.py#L228-L258) |
+| Task 3: Response & UI Signal | Completed | Verified Complete | API metadata and trust signal: [apps/api/app/api/routes/chat.py#L330-L343](apps/api/app/api/routes/chat.py#L330-L343); UI badge test: [apps/web/src/components/chat/TrustBadge.test.tsx#L12-L24](apps/web/src/components/chat/TrustBadge.test.tsx#L12-L24) |
+| Task 4: Performance & Caching | Completed | Verified Complete | Latency metrics: [apps/api/app/services/vector_search_service.py#L160-L166](apps/api/app/services/vector_search_service.py#L160-L166); cache implementation: [apps/api/app/services/vector_search_service.py#L35-L85](apps/api/app/services/vector_search_service.py#L35-L85), [apps/api/app/services/vector_search_service.py#L148-L172](apps/api/app/services/vector_search_service.py#L148-L172); cache test: [apps/api/tests/test_verified_kb_priority.py#L258-L325](apps/api/tests/test_verified_kb_priority.py#L258-L325) |
+| Task 5: Testing | Completed | Verified Complete (unit/integration harness) | Coverage for thresholding, short-circuit, fallback, latency logs: [apps/api/tests/test_verified_kb_priority.py#L31-L110](apps/api/tests/test_verified_kb_priority.py#L31-L110), [apps/api/tests/test_verified_kb_priority.py#L200-L250](apps/api/tests/test_verified_kb_priority.py#L200-L250) |
+
+Summary: 5 of 5 tasks verified complete.
+
+### Test Coverage and Gaps
+- Unit tests: threshold, short-circuit, fallback, latency log warnings — present.
+- Integration perf tests (<50ms) not present; test DB/pgvector fixture required.
+
+### Architectural Alignment
+- Aligns with separation of stages and RLS isolation.
+- Provenance fields present in `SearchResult` and API metadata.
+
+### Security Notes
+- No PII logged in candidate metrics; continue to monitor logging.
+
+### Best-Practices and References
+- Threshold managed via settings with sane default (0.95); provenance in responses; trust signals in UI.
+
+### Action Items
+
+**Code Changes Required:**
+- [ ] [Med] Add integration performance test ensuring verified lookup path stays <50ms under realistic load [file: apps/api/tests/test_verified_kb_priority.py]
+
+**Advisory Notes:**
+- Note: Consider OpenTelemetry spans to differentiate `verified_path` vs `rag_path`.
+
+---
+
+### Change Log
+- 2026-01-08: Senior Developer Review notes appended; outcome Blocked pending cache implementation and perf validation.
+- 2026-01-08: Cache implementation completed with TTL, scope-aware keys, and unit test; review outcome updated to Changes Requested (integration perf test remains).
