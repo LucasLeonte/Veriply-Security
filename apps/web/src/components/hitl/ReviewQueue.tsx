@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useGroup } from "@/contexts/GroupContext";
 import {
     Clock,
     MessageCircle,
@@ -496,6 +497,7 @@ export function ReviewQueue({
     sortBy = "oldest",
     onSortChange,
 }: ReviewQueueProps) {
+    const { currentGroup } = useGroup();
     const [selectedId, setSelectedId] = useState<string | null>(
         items.length > 0 ? items[0].id : null
     );
@@ -532,13 +534,17 @@ export function ReviewQueue({
     const selectedItem =
         selectedIndex >= 0 ? filteredItems[selectedIndex] : null;
 
-    // Fetch available bots on mount
+    // Fetch available bots on mount (group-scoped)
     useEffect(() => {
         const fetchBots = async () => {
             try {
                 setBotsLoading(true);
                 const token = await getAccessToken();
-                const response = await fetch("/api/hitl/bots", {
+                // Include group_id to scope bots to current group
+                const botsUrl = currentGroup?.id
+                    ? `/api/hitl/bots?group_id=${currentGroup.id}`
+                    : "/api/hitl/bots";
+                const response = await fetch(botsUrl, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
 
@@ -611,7 +617,7 @@ export function ReviewQueue({
             }
         };
         fetchBots();
-    }, [items]);
+    }, [items, currentGroup?.id]);
 
     // AC 5.5: Keyboard shortcuts
     useKeyboardShortcuts({

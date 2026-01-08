@@ -39,7 +39,7 @@ export default function DashboardPage() {
         stats: queueStats,
         isLoading: queueLoading,
         items: queueItems,
-    } = useHITLQueue("oldest");
+    } = useHITLQueue("oldest", { groupId: currentGroup?.id });
     const { metrics, isLoading: analyticsLoading } = useAnalytics(
         currentGroup?.id
     );

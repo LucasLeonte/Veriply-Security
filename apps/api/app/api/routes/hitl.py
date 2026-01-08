@@ -125,11 +125,15 @@ async def get_bots_for_filter(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     current_tenant: UUID = Depends(get_current_tenant),
+    group_id: Optional[UUID] = Query(None, description="Filter to bots in specific group (group-scoped)"),
 ) -> BotFilterOptionsResponse:
     """
     Get list of bots for filter dropdown (AC 5.5).
     
-    Returns all bots accessible to the current user across all their groups.
+    If group_id is provided, returns only bots from that group.
+    Otherwise, returns all bots accessible to the current user across all their groups.
+    
+    Security: Only returns bots from groups the user has access to.
     """
     try:
         # SECURITY: Set RLS context for tenant isolation
@@ -137,15 +141,41 @@ async def get_bots_for_filter(
 
         from app.models import GroupMember
         
-        # Get all bots from groups the user has access to
-        query_stmt = select(Bot).join(
-            GroupMember, Bot.group_id == GroupMember.group_id
-        ).where(
-            and_(
-                GroupMember.user_id == current_user.id,
-                Bot.tenant_id == current_tenant,
+        # If group_id is specified, verify user has access to that group
+        if group_id:
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
             )
-        ).distinct().order_by(Bot.name)
+            if not membership_result.scalars().first():
+                # User doesn't have access to this group - return empty results
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to filter bots "
+                    f"by group {group_id} without membership"
+                )
+                return BotFilterOptionsResponse(bots=[])
+            
+            # Get bots from specific group
+            query_stmt = select(Bot).where(
+                and_(
+                    Bot.group_id == group_id,
+                    Bot.tenant_id == current_tenant,
+                )
+            ).order_by(Bot.name)
+        else:
+            # Get all bots from groups the user has access to
+            query_stmt = select(Bot).join(
+                GroupMember, Bot.group_id == GroupMember.group_id
+            ).where(
+                and_(
+                    GroupMember.user_id == current_user.id,
+                    Bot.tenant_id == current_tenant,
+                )
+            ).distinct().order_by(Bot.name)
         
         result = await db.execute(query_stmt)
         bots = result.scalars().all()
@@ -172,6 +202,7 @@ async def get_review_queue(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
     sort_by: str = Query("oldest", regex="^(oldest|newest|lowest_confidence|highest_confidence)$"),
+    group_id: Optional[UUID] = Query(None, description="Filter to specific group (group-scoped review queue)"),
     bot_id: Optional[UUID] = Query(None, description="Filter by specific bot ID"),
     date_from: Optional[datetime] = Query(None, description="Filter items created on or after this date"),
     date_to: Optional[datetime] = Query(None, description="Filter items created on or before this date"),
@@ -181,7 +212,9 @@ async def get_review_queue(
     Get pending HITL review items for the current tenant.
     
     Returns questions with confidence scores below bot thresholds that need
-    human review. Items are filtered by tenant and by groups the user has access to.
+    human review. Items are filtered by tenant, user's group memberships, and
+    optionally by a specific group_id to scope to that group only.
+    
     Items are sorted by creation date (oldest first by default) or confidence.
     
     Sorting options:
@@ -190,10 +223,14 @@ async def get_review_queue(
     - lowest_confidence: lowest confidence scores first
     - highest_confidence: highest confidence scores first
     
-    Filtering options (AC 5.5):
+    Filtering options (AC 5.5 + group-scoping):
+    - group_id: Filter to items from specific group (enforces group-scoped queue)
     - bot_id: Filter by specific bot UUID
     - date_from/date_to: Filter by date range
     - status_filter: Filter by status (pending, in-progress)
+    
+    Security: Only returns items from groups the user has access to.
+    If group_id is specified, verifies user has GroupMember access before filtering.
     """
     try:
         # Get user's group memberships to filter by accessible groups
@@ -222,6 +259,27 @@ async def get_review_queue(
         ).options(joinedload(ConfidenceLog.bot))
 
         # Apply filters (AC 5.5)
+        if group_id:
+            # SECURITY: Verify user has access to the specified group
+            from app.models.group_member import GroupMember
+            membership_result = await db.execute(
+                select(GroupMember).where(
+                    and_(
+                        GroupMember.group_id == group_id,
+                        GroupMember.user_id == current_user.id,
+                    )
+                )
+            )
+            if not membership_result.scalars().first():
+                # User doesn't have access to this group - return empty results
+                logger.warning(
+                    f"Access denied: User {current_user.id} attempted to filter HITL queue "
+                    f"by group {group_id} without membership"
+                )
+                return ReviewQueueResponse(items=[], stats=ReviewQueueStatsResponse(total=0, pending=0, chat=0, email=0))
+            # Filter to specific group
+            query_stmt = query_stmt.where(ConfidenceLog.group_id == group_id)
+        
         if bot_id:
             query_stmt = query_stmt.where(ConfidenceLog.bot_id == bot_id)
         

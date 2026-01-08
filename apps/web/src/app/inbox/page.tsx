@@ -5,16 +5,19 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components";
 import { ReviewQueue } from "@/components/hitl/ReviewQueue";
 import { useHITLQueue, HITLQueueFilters } from "@/hooks/useHITLQueue";
+import { useGroup } from "@/contexts/GroupContext";
 
 export default function InboxPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { currentGroup } = useGroup();
 
     // Initialize state from URL params (AC 5.5: persistent filter state)
     const [sortBy, setSortBy] = useState<string>(
         searchParams.get("sort") || "oldest"
     );
     const [filters, setFilters] = useState<HITLQueueFilters>({
+        groupId: currentGroup?.id || undefined,
         botId: searchParams.get("bot") || undefined,
         dateFrom: searchParams.get("from") || undefined,
         dateTo: searchParams.get("to") || undefined,
@@ -25,6 +28,14 @@ export default function InboxPage() {
 
     const { items, stats, isLoading, error, approveItem, rejectItem } =
         useHITLQueue(sortBy, filters);
+
+    // Update group filter when currentGroup changes (ensures group-scoped queue)
+    useEffect(() => {
+        setFilters((prev) => ({
+            ...prev,
+            groupId: currentGroup?.id || undefined,
+        }));
+    }, [currentGroup?.id]);
 
     // Update URL when filters or sort change (AC 5.5)
     useEffect(() => {
@@ -78,8 +89,6 @@ export default function InboxPage() {
                 onReject={rejectItem}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
-                filters={filters}
-                onFiltersChange={setFilters}
             />
         </DashboardLayout>
     );
