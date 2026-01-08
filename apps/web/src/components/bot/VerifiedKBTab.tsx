@@ -23,10 +23,10 @@ interface VerifiedQA {
 }
 
 interface VerifiedKBTabProps {
-  botId: string;
+  groupId: string;
 }
 
-export default function VerifiedKBTab({ botId }: VerifiedKBTabProps) {
+export default function VerifiedKBTab({ groupId }: VerifiedKBTabProps) {
   const { toast } = useToast();
 
   const [entries, setEntries] = useState<VerifiedQA[]>([]);
@@ -44,7 +44,7 @@ export default function VerifiedKBTab({ botId }: VerifiedKBTabProps) {
 
   // Fetch verified QA entries
   const fetchEntries = useCallback(async () => {
-    if (!botId || !isMounted) {
+    if (!groupId || !isMounted) {
       setLoading(false);
       return;
     }
@@ -59,7 +59,7 @@ export default function VerifiedKBTab({ botId }: VerifiedKBTabProps) {
         return;
       }
 
-      const url = `${API_BASE_URL}/api/v1/verified-qa?bot_id=${botId}&skip=${skip}&limit=${limit}`;
+      const url = `${API_BASE_URL}/api/v1/verified-qa?group_id=${groupId}&skip=${skip}&limit=${limit}`;
       console.log("Fetching from:", url);
       
       const response = await fetch(url, {
@@ -90,13 +90,13 @@ export default function VerifiedKBTab({ botId }: VerifiedKBTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [botId, isMounted, skip, limit, toast]);
+  }, [groupId, isMounted, skip, limit, toast]);
 
   useEffect(() => {
-    if (isMounted && botId) {
+    if (isMounted && groupId) {
       fetchEntries();
     }
-  }, [isMounted, botId, fetchEntries]);
+  }, [isMounted, groupId, fetchEntries]);
 
   const handleAddEntrySuccess = () => {
     setShowAddDialog(false);
@@ -126,7 +126,7 @@ export default function VerifiedKBTab({ botId }: VerifiedKBTabProps) {
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-800">
         <p className="font-medium mb-1">Verified Knowledge Base</p>
         <p className="text-emerald-700">
-          Manually add and manage verified Q&A pairs for your bot to use in responses.
+          Manually add and manage verified Q&A pairs. These entries are shared across all bots in this group.
         </p>
       </div>
 
@@ -135,7 +135,7 @@ export default function VerifiedKBTab({ botId }: VerifiedKBTabProps) {
         <div>
           <h2 className="text-xl font-bold text-slate-900">Q&A Entries</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Add or import verified Q&A pairs
+            Add or import verified Q&A pairs (shared across all bots in this group)
           </p>
         </div>
         <div className="flex gap-3">
@@ -160,14 +160,14 @@ export default function VerifiedKBTab({ botId }: VerifiedKBTabProps) {
       <AddEntryDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
-        botId={botId}
+        groupId={groupId}
         onSuccess={handleAddEntrySuccess}
       />
 
       <CSVImportDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
-        botId={botId}
+        groupId={groupId}
         onSuccess={handleImportSuccess}
       />
 

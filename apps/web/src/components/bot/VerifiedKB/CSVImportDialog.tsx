@@ -11,14 +11,14 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 interface CSVImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  botId: string;
+  groupId: string;
   onSuccess: (summary: any) => void;
 }
 
 export default function CSVImportDialog({
   open,
   onOpenChange,
-  botId,
+  groupId,
   onSuccess,
 }: CSVImportDialogProps) {
   const { toast } = useToast();
@@ -79,7 +79,7 @@ export default function CSVImportDialog({
       const formData = new FormData();
       formData.append("file", selectedFile);
 
-      const url = `${API_BASE_URL}/api/v1/verified-qa/bulk-import?bot_id=${botId}`;
+      const url = `${API_BASE_URL}/api/v1/verified-qa/bulk-import?group_id=${groupId}`;
       console.log("Importing CSV from URL:", url);
       
       const response = await fetch(url, {

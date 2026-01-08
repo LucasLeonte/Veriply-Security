@@ -250,8 +250,8 @@ export default function BotSettingsPage() {
                         </div>
                     )}
 
-                    {activeTab === "verified-kb" && (
-                        <VerifiedKBTab botId={botId} />
+                    {activeTab === "verified-kb" && currentGroup && (
+                        <VerifiedKBTab groupId={currentGroup.id} />
                     )}
                 </div>
             </div>

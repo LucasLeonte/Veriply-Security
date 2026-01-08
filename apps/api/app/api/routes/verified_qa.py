@@ -20,6 +20,7 @@ from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.models.verified_qa import VerifiedQA
 from app.models.bot import Bot
+from app.models.group import Group
 from app.schemas.verified_qa import VerifiedQACreate, VerifiedQAResponse
 from app.services.verified_qa import (
     create_verified_qa,
@@ -46,24 +47,24 @@ async def create_entry(
 ):
     """Create a new verified Q&A entry manually.
     
-    **Access Control:** Current user must have permission to manage this bot
-    **Scoping:** Entry is automatically scoped to tenant_id and bot's group_id
+    **Access Control:** Current user must have permission to access this group
+    **Scoping:** Entry is scoped to tenant_id and group_id (shared across all bots in the group)
     """
     try:
-        # Verify bot belongs to tenant and get group_id
-        bot_stmt = select(Bot).where(
+        # Verify group belongs to tenant
+        group_stmt = select(Group).where(
             and_(
-                Bot.id == payload.bot_id,
-                Bot.tenant_id == tenant_id,
+                Group.id == payload.group_id,
+                Group.tenant_id == tenant_id,
             )
         )
-        bot_result = await db.execute(bot_stmt)
-        bot = bot_result.scalar_one_or_none()
+        group_result = await db.execute(group_stmt)
+        group = group_result.scalar_one_or_none()
 
-        if not bot:
+        if not group:
             raise HTTPException(
                 status_code=403,
-                detail=f"Bot {payload.bot_id} not found or does not belong to your tenant",
+                detail=f"Group {payload.group_id} not found or does not belong to your tenant",
             )
 
         # Generate embedding for question
@@ -76,10 +77,10 @@ async def create_entry(
                 detail="Failed to generate embedding for question",
             )
 
-        # Check for duplicate questions in the same bot scope (case-insensitive)
+        # Check for duplicate questions in the same group scope (case-insensitive)
         dup_stmt = select(VerifiedQA).where(
             and_(
-                VerifiedQA.bot_id == payload.bot_id,
+                VerifiedQA.group_id == payload.group_id,
                 VerifiedQA.question_text.ilike(payload.question_text.strip()),
             )
         )
@@ -87,15 +88,15 @@ async def create_entry(
         if dup_result.scalar_one_or_none():
             raise HTTPException(
                 status_code=409,
-                detail="A verified Q&A with this question already exists for this bot",
+                detail="A verified Q&A with this question already exists for this group",
             )
 
-        # Create the entry
+        # Create the entry (bot_id is now NULL since it's group-scoped)
         verified_qa = await create_verified_qa(
             db=db,
             tenant_id=tenant_id,
-            group_id=bot.group_id,
-            bot_id=payload.bot_id,
+            group_id=payload.group_id,
+            bot_id=None,  # Group-scoped, not bot-specific
             question_text=payload.question_text,
             question_embedding=question_embedding,
             answer_text=payload.answer_text,
@@ -121,7 +122,7 @@ async def create_entry(
 
 @router.post("/bulk-import", status_code=201)
 async def bulk_import_csv(
-    bot_id: UUID = Query(..., description="Bot ID for scoping"),
+    group_id: UUID = Query(..., description="Group ID for scoping (Q&A is shared across all bots in group)"),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -130,8 +131,9 @@ async def bulk_import_csv(
     """Bulk import Q&A pairs from CSV file.
     
     **CSV Format:** question,answer columns (required); other columns ignored
-    **Access Control:** Current user must have permission to manage this bot
+    **Access Control:** Current user must have permission to access this group
     **Max Size:** 5MB per file, max 1000 rows
+    **Scoping:** Q&A entries are shared across all bots in the group
     
     Returns summary of imported vs skipped entries.
     """
@@ -145,20 +147,20 @@ async def bulk_import_csv(
                 detail=f"File exceeds maximum size of {MAX_IMPORT_SIZE} bytes",
             )
 
-        # Verify bot access
-        bot_stmt = select(Bot).where(
+        # Verify group access
+        group_stmt = select(Group).where(
             and_(
-                Bot.id == bot_id,
-                Bot.tenant_id == tenant_id,
+                Group.id == group_id,
+                Group.tenant_id == tenant_id,
             )
         )
-        bot_result = await db.execute(bot_stmt)
-        bot = bot_result.scalar_one_or_none()
+        group_result = await db.execute(group_stmt)
+        group = group_result.scalar_one_or_none()
 
-        if not bot:
+        if not group:
             raise HTTPException(
                 status_code=403,
-                detail=f"Bot {bot_id} not found or does not belong to your tenant",
+                detail=f"Group {group_id} not found or does not belong to your tenant",
             )
 
         # Parse CSV
@@ -220,10 +222,10 @@ async def bulk_import_csv(
                     })
                     continue
 
-                # Check for duplicates
+                # Check for duplicates in group scope
                 dup_stmt = select(VerifiedQA).where(
                     and_(
-                        VerifiedQA.bot_id == bot_id,
+                        VerifiedQA.group_id == group_id,
                         VerifiedQA.question_text.ilike(question),
                     )
                 )
@@ -237,7 +239,7 @@ async def bulk_import_csv(
 
                 # Generate embedding
                 try:
-                    question_embedding = await embedding_service.embed(question)
+                    question_embedding = await embedding_service.embed_query(question)
                 except Exception as e:
                     logger.error(f"Embedding failed for row {idx}: {e}")
                     skipped_rows.append({
@@ -246,17 +248,17 @@ async def bulk_import_csv(
                     })
                     continue
 
-                # Create entry
+                # Create entry (group-scoped, not bot-specific)
                 verified_qa = await create_verified_qa(
                     db=db,
                     tenant_id=tenant_id,
-                    group_id=bot.group_id,
-                    bot_id=bot_id,
+                    group_id=group_id,
                     question_text=question,
                     question_embedding=question_embedding,
                     answer_text=answer,
                     approved_by_user_id=current_user.id,
                     approved_at=datetime.utcnow(),
+                    bot_id=None,
                     source_citations=None,
                 )
                 imported_count += 1

@@ -10,14 +10,14 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 interface AddEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  botId: string;
+  groupId: string;
   onSuccess: () => void;
 }
 
 export default function AddEntryDialog({
   open,
   onOpenChange,
-  botId,
+  groupId,
   onSuccess,
 }: AddEntryDialogProps) {
   const { toast } = useToast();
@@ -68,7 +68,7 @@ export default function AddEntryDialog({
       const payload = {
         question_text: formData.question_text.trim(),
         answer_text: formData.answer_text.trim(),
-        bot_id: botId,
+        group_id: groupId,
         source_citations: null,
       };
       

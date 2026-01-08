@@ -28,9 +28,9 @@ class VerifiedQACreate(BaseModel):
         min_length=1,
         description="The approved answer text"
     )
-    bot_id: UUID = Field(
+    group_id: UUID = Field(
         ...,
-        description="Bot ID this Q&A belongs to"
+        description="Group ID this Q&A belongs to (shared across all bots in the group)"
     )
     source_citations: Optional[Union[List[Any], dict]] = Field(
         default=None,
@@ -60,7 +60,7 @@ class VerifiedQACreate(BaseModel):
             "example": {
                 "question_text": "What is the return policy for defective products?",
                 "answer_text": "We offer a 30-day return policy for defective products. Please contact support@example.com with your order number and photos of the defect.",
-                "bot_id": "550e8400-e29b-41d4-a716-446655440000",
+                "group_id": "550e8400-e29b-41d4-a716-446655440000",
                 "source_citations": {
                     "documents": [
                         {
@@ -79,12 +79,13 @@ class VerifiedQAResponse(BaseModel):
     """Schema for verified Q&A responses.
     
     Returned from API endpoints when querying or listing verified entries.
+    Q&A entries are group-scoped (shared across all bots in the group).
     """
     
     id: UUID = Field(..., description="Unique identifier")
     tenant_id: UUID = Field(..., description="Tenant ID")
     group_id: UUID = Field(..., description="Group ID")
-    bot_id: UUID = Field(..., description="Bot ID")
+    bot_id: Optional[UUID] = Field(None, description="Bot ID (optional, Q&A is now group-scoped)")
     
     question_text: str = Field(..., description="The verified question")
     answer_text: str = Field(..., description="The approved answer")
@@ -103,7 +104,7 @@ class VerifiedQAResponse(BaseModel):
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
                 "group_id": "660e8400-e29b-41d4-a716-446655440000",
-                "bot_id": "770e8400-e29b-41d4-a716-446655440000",
+                "bot_id": None,
                 "question_text": "What is the return policy for defective products?",
                 "answer_text": "We offer a 30-day return policy for defective products. Contact support@example.com.",
                 "source_citations": {
