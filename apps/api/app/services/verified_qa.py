@@ -163,6 +163,7 @@ async def list_verified_qa(
     # Build base query with RLS filters
     base_conditions = [
         VerifiedQA.tenant_id == tenant_id,
+        VerifiedQA.deleted_at.is_(None),  # Exclude soft-deleted entries
     ]
     
     if group_id:
@@ -274,6 +275,191 @@ async def delete_verified_qa(
     return True
 
 
+async def soft_delete_verified_qa(
+    db: AsyncSession,
+    verified_qa_id: UUID,
+    tenant_id: UUID,
+    group_id: UUID,
+    deleted_by_user_id: UUID,
+) -> bool:
+    """Soft delete a verified Q&A entry (preferred over hard delete for auditability).
+    
+    Sets deleted_at timestamp instead of removing the record. Soft-deleted entries
+    are excluded from retrieval and UI lists but remain in the database for audit trails.
+    
+    Args:
+        db: Async database session
+        verified_qa_id: UUID of entry to soft-delete
+        tenant_id: Tenant UUID for RLS check
+        group_id: Group UUID for RLS check
+        deleted_by_user_id: UUID of user performing the delete
+        
+    Returns:
+        True if entry was soft-deleted, False if not found or not accessible
+    """
+    # Fetch entry with RLS enforcement
+    verified_qa = await get_verified_qa_by_id(db, verified_qa_id, tenant_id, group_id)
+    
+    if not verified_qa:
+        return False
+    
+    # Mark as soft-deleted
+    verified_qa.deleted_at = datetime.utcnow()
+    verified_qa.updated_by_user_id = deleted_by_user_id
+    verified_qa.updated_at = datetime.utcnow()
+    
+    await db.flush()
+    
+    logger.info(f"Soft-deleted verified Q&A {verified_qa_id} by user {deleted_by_user_id}")
+    
+    return True
+
+
+async def list_verified_qa_with_search(
+    db: AsyncSession,
+    tenant_id: UUID,
+    group_id: UUID,
+    search_query: Optional[str] = None,
+    creator_id: Optional[UUID] = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> tuple[List[VerifiedQA], int]:
+    """List verified Q&A entries with advanced search, filtering, and pagination.
+    
+    Supports keyword search across question/answer text, filtering by creator and date range.
+    Automatically excludes soft-deleted entries.
+    
+    Args:
+        db: Async database session
+        tenant_id: Tenant UUID for RLS filtering
+        group_id: Group UUID for group-level scoping
+        search_query: Optional text search across question and answer (ILIKE)
+        creator_id: Optional filter by approved_by_user_id
+        from_date: Optional filter for entries created on/after this date
+        to_date: Optional filter for entries created on/before this date
+        limit: Maximum number of entries to return (default 20, max 100)
+        offset: Pagination offset (default 0)
+        
+    Returns:
+        Tuple of (list of VerifiedQA entries, total count)
+    """
+    # Ensure limit respects max
+    limit = min(limit, 100)
+    
+    # Build base query with RLS and soft-delete filters
+    base_conditions = [
+        VerifiedQA.tenant_id == tenant_id,
+        VerifiedQA.group_id == group_id,
+        VerifiedQA.deleted_at.is_(None),  # Exclude soft-deleted entries
+    ]
+    
+    # Add optional search filter (case-insensitive text search)
+    if search_query and search_query.strip():
+        search_pattern = f"%{search_query.strip()}%"
+        from sqlalchemy import or_
+        base_conditions.append(
+            or_(
+                VerifiedQA.question_text.ilike(search_pattern),
+                VerifiedQA.answer_text.ilike(search_pattern),
+            )
+        )
+    
+    # Add optional creator filter
+    if creator_id:
+        base_conditions.append(VerifiedQA.approved_by_user_id == creator_id)
+    
+    # Add optional date range filters
+    if from_date:
+        base_conditions.append(VerifiedQA.created_at >= from_date)
+    if to_date:
+        base_conditions.append(VerifiedQA.created_at <= to_date)
+    
+    # Count query
+    count_stmt = select(func.count()).select_from(VerifiedQA).where(and_(*base_conditions))
+    count_result = await db.execute(count_stmt)
+    total = count_result.scalar_one()
+    
+    # Data query with pagination and sorting
+    stmt = (
+        select(VerifiedQA)
+        .where(and_(*base_conditions))
+        .order_by(VerifiedQA.created_at.desc(), VerifiedQA.id)
+        .limit(limit)
+        .offset(offset)
+    )
+    
+    result = await db.execute(stmt)
+    items = result.scalars().all()
+    
+    logger.debug(
+        f"Listed {len(items)} verified Q&A entries with search "
+        f"(total={total}, search='{search_query}', creator_id={creator_id}, "
+        f"limit={limit}, offset={offset})"
+    )
+    
+    return list(items), total
+
+
+async def update_verified_qa_with_embedding(
+    db: AsyncSession,
+    verified_qa_id: UUID,
+    tenant_id: UUID,
+    group_id: UUID,
+    updated_by_user_id: UUID,
+    update_data: VerifiedQAUpdate,
+    new_question_embedding: Optional[List[float]] = None,
+) -> Optional[VerifiedQA]:
+    """Update a verified Q&A entry with optional embedding regeneration.
+    
+    Used in Story 7.4 for editing entries. If question text is updated,
+    a new embedding should be passed in to replace the old one.
+    
+    Args:
+        db: Async database session
+        verified_qa_id: UUID of entry to update
+        tenant_id: Tenant UUID for RLS check
+        group_id: Group UUID for RLS check
+        updated_by_user_id: UUID of user performing the update
+        update_data: Pydantic schema with update fields
+        new_question_embedding: Optional new embedding (required if question changes)
+        
+    Returns:
+        Updated VerifiedQA instance if found and updated, None otherwise
+    """
+    # Fetch existing entry with RLS enforcement
+    verified_qa = await get_verified_qa_by_id(db, verified_qa_id, tenant_id, group_id)
+    
+    if not verified_qa:
+        return None
+    
+    # Apply updates
+    update_dict = update_data.model_dump(exclude_unset=True)
+    
+    for field, value in update_dict.items():
+        setattr(verified_qa, field, value)
+    
+    # Update embedding if provided (required when question changes)
+    if new_question_embedding:
+        if len(new_question_embedding) != 768:
+            raise ValueError(f"Embedding must be 768 dimensions (got {len(new_question_embedding)})")
+        verified_qa.question_embedding = new_question_embedding
+    
+    # Track who updated this entry
+    verified_qa.updated_by_user_id = updated_by_user_id
+    verified_qa.updated_at = datetime.utcnow()
+    
+    await db.flush()
+    
+    logger.info(
+        f"Updated verified Q&A {verified_qa_id} by user {updated_by_user_id} "
+        f"with fields: {list(update_dict.keys())}, embedding_updated={bool(new_question_embedding)}"
+    )
+    
+    return verified_qa
+
+
 async def search_verified_qa(
     db: AsyncSession,
     tenant_id: UUID,
@@ -339,6 +525,7 @@ async def search_verified_qa(
                 VerifiedQA.tenant_id == tenant_id,
                 VerifiedQA.group_id == group_id,
                 VerifiedQA.question_embedding.isnot(None),
+                VerifiedQA.deleted_at.is_(None),  # Exclude soft-deleted entries
             )
         )
         .order_by(text("distance"))

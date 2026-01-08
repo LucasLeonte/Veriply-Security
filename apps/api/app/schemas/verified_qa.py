@@ -94,6 +94,9 @@ class VerifiedQAResponse(BaseModel):
     approved_by_user_id: Optional[UUID] = Field(None, description="User who approved this")
     approved_at: datetime = Field(..., description="When this was approved")
     
+    updated_by_user_id: Optional[UUID] = Field(None, description="User who last edited this")
+    deleted_at: Optional[datetime] = Field(None, description="Soft delete timestamp (NULL if active)")
+    
     created_at: datetime = Field(..., description="Record creation time")
     updated_at: datetime = Field(..., description="Last update time")
     
