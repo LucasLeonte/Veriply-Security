@@ -153,7 +153,7 @@ export default function DashboardPage() {
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
                             <MessageSquare className="h-5 w-5" />
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <p className="text-sm text-slate-500">
                                 Conversations
                             </p>
@@ -162,13 +162,16 @@ export default function DashboardPage() {
                                     ? "…"
                                     : metrics?.totalQueries ?? "—"}
                             </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                Total user queries
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
                             <CheckCircle2 className="h-5 w-5" />
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <p className="text-sm text-slate-500">
                                 Resolution Rate
                             </p>
@@ -179,20 +182,8 @@ export default function DashboardPage() {
                                           metrics?.autoResolvedPercent
                                       )}
                             </p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
-                            <Clock className="h-5 w-5" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-slate-500">
-                                Avg. Response
-                            </p>
-                            <p className="text-2xl font-semibold text-slate-900">
-                                {analyticsLoading
-                                    ? "…"
-                                    : formatDuration(metrics?.avgResponseTime)}
+                            <p className="text-xs text-slate-400 mt-1">
+                                Auto-resolved without review
                             </p>
                         </div>
                     </div>
@@ -200,7 +191,7 @@ export default function DashboardPage() {
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100 text-rose-700">
                             <AlertTriangle className="h-5 w-5" />
                         </div>
-                        <div>
+                        <div className="flex-1">
                             <p className="text-sm text-slate-500">
                                 Intervention Rate
                             </p>
@@ -210,6 +201,27 @@ export default function DashboardPage() {
                                     : formatPercent(
                                           metrics?.hitlInterventionRate
                                       )}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                Required human review
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                            <Clock className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-sm text-slate-500">
+                                Avg. Response
+                            </p>
+                            <p className="text-2xl font-semibold text-slate-900">
+                                {analyticsLoading
+                                    ? "…"
+                                    : formatDuration(metrics?.avgResponseTime)}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                Time to generate answer
                             </p>
                         </div>
                     </div>
@@ -223,7 +235,7 @@ export default function DashboardPage() {
                                 Intervention Rate Trend
                             </h3>
                             <p className="text-sm text-slate-500">
-                                Last period
+                                Daily % of queries requiring human review
                             </p>
                         </div>
                         <Link
@@ -233,7 +245,7 @@ export default function DashboardPage() {
                             View full analytics
                         </Link>
                     </div>
-                    <div className="mt-4 h-40">
+                    <div className="mt-4 h-40 relative">
                         {!metrics ||
                         analyticsLoading ||
                         !metrics.chartData?.length ? (
@@ -241,44 +253,95 @@ export default function DashboardPage() {
                                 No data
                             </div>
                         ) : (
-                            <svg
-                                className="w-full h-full"
-                                viewBox="0 0 400 160"
-                                preserveAspectRatio="none"
-                            >
-                                {(() => {
-                                    const pts = metrics.chartData;
-                                    const n = pts.length;
-                                    const w = 400;
-                                    const h = 120;
-                                    const padTop = 20;
-                                    const xStep = n > 1 ? w / (n - 1) : w;
-                                    const toY = (v: number) =>
-                                        padTop +
-                                        (h -
-                                            (Math.max(0, Math.min(100, v)) /
-                                                100) *
-                                                h);
-                                    const d = pts
-                                        .map((p, i) => {
-                                            const x = i * xStep;
-                                            const y = toY(p.interventionRate);
-                                            return `${
-                                                i === 0 ? "M" : "L"
-                                            } ${x} ${y}`;
-                                        })
-                                        .join(" ");
-                                    return (
-                                        <path
-                                            d={d}
-                                            stroke="#7c3aed"
-                                            strokeWidth="2"
-                                            fill="none"
-                                            strokeLinecap="round"
-                                        />
-                                    );
-                                })()}
-                            </svg>
+                            <>
+                                {/* Y-axis labels positioned absolutely */}
+                                <div className="absolute left-0 top-[12.5%] -translate-y-1/2 text-xs text-slate-400 font-medium">
+                                    100%
+                                </div>
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium">
+                                    50%
+                                </div>
+                                <div className="absolute left-0 bottom-[12.5%] translate-y-1/2 text-xs text-slate-400 font-medium">
+                                    0%
+                                </div>
+
+                                <svg
+                                    className="w-full h-full"
+                                    viewBox="0 0 400 160"
+                                    preserveAspectRatio="none"
+                                    style={{ marginLeft: "32px" }}
+                                >
+                                    {(() => {
+                                        const pts = metrics.chartData;
+                                        const n = pts.length;
+                                        const w = 390; // Reduced from 400 to add padding
+                                        const h = 120;
+                                        const padTop = 20;
+                                        const padLeft = 5; // Small left padding
+                                        const xStep =
+                                            n > 1
+                                                ? (w - padLeft * 2) / (n - 1)
+                                                : w - padLeft * 2;
+                                        const toY = (v: number) =>
+                                            padTop +
+                                            (h -
+                                                (Math.max(0, Math.min(100, v)) /
+                                                    100) *
+                                                    h);
+                                        const d = pts
+                                            .map((p, i) => {
+                                                const x = padLeft + i * xStep;
+                                                const y = toY(
+                                                    p.interventionRate
+                                                );
+                                                return `${
+                                                    i === 0 ? "M" : "L"
+                                                } ${x} ${y}`;
+                                            })
+                                            .join(" ");
+                                        return (
+                                            <>
+                                                {/* Grid lines */}
+                                                <line
+                                                    x1={0}
+                                                    y1={padTop}
+                                                    x2={400}
+                                                    y2={padTop}
+                                                    stroke="#e2e8f0"
+                                                    strokeWidth="1"
+                                                    strokeDasharray="2,2"
+                                                />
+                                                <line
+                                                    x1={0}
+                                                    y1={padTop + h / 2}
+                                                    x2={400}
+                                                    y2={padTop + h / 2}
+                                                    stroke="#e2e8f0"
+                                                    strokeWidth="1"
+                                                    strokeDasharray="2,2"
+                                                />
+                                                <line
+                                                    x1={0}
+                                                    y1={padTop + h}
+                                                    x2={400}
+                                                    y2={padTop + h}
+                                                    stroke="#e2e8f0"
+                                                    strokeWidth="1"
+                                                    strokeDasharray="2,2"
+                                                />
+                                                {/* Line chart */}
+                                                <path
+                                                    d={d}
+                                                    stroke="#7c3aed"
+                                                    strokeWidth="2"
+                                                    fill="none"
+                                                    strokeLinecap="round"
+                                                />
+                                            </>
+                                        );
+                                    })()}
+                                </svg>
+                            </>
                         )}
                     </div>
                 </div>
@@ -286,10 +349,13 @@ export default function DashboardPage() {
                 {/* Analytics details: Rejection Reasons & Knowledge Gaps */}
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div className="rounded-xl border border-slate-200 bg-white p-5">
-                        <div className="flex items-center justify-between">
+                        <div>
                             <h3 className="font-semibold text-slate-900">
                                 Rejection Reasons
                             </h3>
+                            <p className="text-sm text-slate-500 mt-1">
+                                Why users rejected AI answers
+                            </p>
                         </div>
                         <div className="mt-4 space-y-3">
                             {!metrics ||
@@ -335,10 +401,13 @@ export default function DashboardPage() {
                         </div>
                     </div>
                     <div className="rounded-xl border border-slate-200 bg-white p-5">
-                        <div className="flex items-center justify-between">
+                        <div>
                             <h3 className="font-semibold text-slate-900">
                                 Top Knowledge Gaps
                             </h3>
+                            <p className="text-sm text-slate-500 mt-1">
+                                Questions with low confidence scores
+                            </p>
                         </div>
                         <ul className="mt-4 divide-y divide-slate-100">
                             {!metrics ||
