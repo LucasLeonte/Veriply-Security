@@ -168,7 +168,6 @@ async def list_groups(
         groups = await GroupService.list_groups_for_user(
             db=session,
             user_id=user_id,
-            tenant_id=tenant_id,
         )
         logger.info(f"Successfully retrieved {len(groups)} groups for user")
         return groups
@@ -287,7 +286,11 @@ async def delete_group(
 
 
 # Group Membership Management
-@router.post("/{group_id}/members", response_model=GroupMemberInviteResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/{group_id}/members",
+    response_model=GroupMemberInviteResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def invite_member(
     group_id: UUID,
     invite: GroupMemberInvite,
@@ -307,23 +310,41 @@ async def invite_member(
                 & (GroupMember.user_id == UUID(current_user["sub"]))
             )
         )
-        if not member or member.role not in [GroupRole.OWNER, GroupRole.ADMIN]:
+        if not member or member.role not in [GroupRole.OWNER.value, GroupRole.ADMIN.value]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owners and admins can invite members",
             )
 
-        # Find user by email
-        user = await session.scalar(
-            select(User).where(
-                (User.email == invite.email) 
-                & (User.tenant_id == UUID(current_user["tenant_id"]))
-            )
-        )
+        # Find user by email (cross-organization support)
+        # Users from different organizations can be invited to groups
+        user = await session.scalar(select(User).where(User.email == invite.email))
         if not user:
             raise HTTPException(
                 status_code=404,
-                detail="User not found in your tenant. Invite them to your organization first.",
+                detail="User not found. Invitations are limited to existing users.",
+            )
+
+        # Normalize role to enum for storage/validation
+        try:
+            GroupRole(invite.role)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid role. Must be one of: owner, admin, manager, agent, viewer",
+            )
+
+        # Do not add the user yet; membership is created when they accept the invite link
+        # Prevent inviting users who are already members
+        existing_member = await session.scalar(
+            select(GroupMember).where(
+                (GroupMember.group_id == group_id) & (GroupMember.user_id == user.id)
+            )
+        )
+        if existing_member:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User is already a member of this group.",
             )
 
         # Generate signed invite token containing group_id, user_id, role, and invited_by_id
@@ -340,15 +361,48 @@ async def invite_member(
             algorithm=settings.JWT_ALGORITHM,
         )
 
-        # Send invite email
+        # Send invite email (required)
         try:
-            await EmailService.send_group_invite_email(
+            email_sent = await EmailService.send_group_invite_email(
                 email=invite.email,
                 invite_token=invite_token,
                 group_id=str(group_id),
             )
+            if not email_sent:
+                logger.error(
+                    "Group invite email did not send (EmailService returned False)",
+                    extra={
+                        "smtp_host": settings.SMTP_HOST,
+                        "smtp_port": settings.SMTP_PORT,
+                        "smtp_user": settings.SMTP_USER,
+                        "email_from": settings.EMAIL_FROM or settings.SMTP_USER,
+                    },
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=(
+                        "Failed to send invite email. Please check SMTP_HOST/SMTP_PORT/"
+                        "SMTP_USER/SMTP_PASSWORD/EMAIL_FROM configuration and try again."
+                    ),
+                )
+        except HTTPException:
+            # Re-raise HTTP errors we just created
+            raise
         except Exception as e:
-            logger.error(f"Failed to send group invite email: {e}")
+            logger.error(
+                f"Failed to send group invite email: {e}",
+                exc_info=True,
+                extra={
+                    "smtp_host": settings.SMTP_HOST,
+                    "smtp_port": settings.SMTP_PORT,
+                    "smtp_user": settings.SMTP_USER,
+                    "email_from": settings.EMAIL_FROM or settings.SMTP_USER,
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send invite email. Check SMTP credentials and logs for details.",
+            )
 
         # Log to audit trail
         await AuditService.log_member_invited(
@@ -361,7 +415,11 @@ async def invite_member(
         )
 
         await session.commit()
-        return {"message": "Invite sent successfully", "user_id": str(user.id)}
+
+        return {
+            "message": "Invite sent successfully",
+            "user_id": str(user.id),
+        }
 
     except ValueError as e:
         await session.rollback()
@@ -430,6 +488,13 @@ async def update_member_role(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only group owners or admins can change member roles",
+            )
+
+        # Owners cannot change their own role (prevent self-demotion/escalation)
+        if user_id == UUID(current_user["sub"]) and admin_member.role == GroupRole.OWNER.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Owners cannot change their own role",
             )
 
         # Update member role using service

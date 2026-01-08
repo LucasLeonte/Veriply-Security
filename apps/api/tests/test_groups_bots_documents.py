@@ -244,15 +244,32 @@ class TestGroupMembershipRoutes:
             json={"email": "testuser2@example.com", "role": "manager"},
             headers={"Authorization": f"Bearer {auth_token}"},
         )
-        assert invite_resp.status_code == 201
-        assert invite_resp.json()["role"] == "manager"
+        assert invite_resp.status_code == 202
+        assert invite_resp.json()["message"].lower().startswith("invite sent")
 
-        # User 2 should now be able to access group
+        # User 2 should NOT yet have access until they accept via the emailed link
         access_resp = await client.get(
             f"/api/v1/groups/{group_id}",
             headers={"Authorization": f"Bearer {auth_token_2}"},
         )
-        assert access_resp.status_code == 200
+        assert access_resp.status_code == 403
+
+    async def test_invite_nonexistent_user_rejected(self, client: AsyncClient, auth_token: str):
+        """Invites should fail for emails not present in users table."""
+        group_resp = await client.post(
+            "/api/v1/groups",
+            json={"name": "Invite Fail"},
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        group_id = group_resp.json()["id"]
+
+        resp = await client.post(
+            f"/api/v1/groups/{group_id}/members",
+            json={"email": "doesnotexist@example.com", "role": "viewer"},
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 404
+        assert "existing users" in resp.json()["detail"].lower()
 
     async def test_list_members(self, client: AsyncClient, auth_token: str):
         """Test listing group members."""
@@ -284,19 +301,20 @@ class TestGroupMembershipRoutes:
         group_id = group_resp.json()["id"]
 
         # First invite
-        await client.post(
+        first_resp = await client.post(
             f"/api/v1/groups/{group_id}/members",
             json={"email": "testuser2@example.com", "role": "operator"},
             headers={"Authorization": f"Bearer {auth_token}"},
         )
+        assert first_resp.status_code == 202
 
-        # Duplicate invite
+        # Duplicate invite (allowed since membership isn't created until acceptance)
         dup_resp = await client.post(
             f"/api/v1/groups/{group_id}/members",
             json={"email": "testuser2@example.com", "role": "manager"},
             headers={"Authorization": f"Bearer {auth_token}"},
         )
-        assert dup_resp.status_code == 409  # Conflict
+        assert dup_resp.status_code == 202
 
 
 @pytest.mark.asyncio

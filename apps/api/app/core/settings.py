@@ -154,6 +154,12 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
 
+    # Optional email presentation fields
+    EMAIL_FROM: Optional[str] = None
+    EMAIL_DISPLAY_NAME: Optional[str] = None
+    REPLY_TO: Optional[str] = None
+    FRONTEND_URL: str = "http://localhost:3000"
+
     # ========================================================================
     # EMAIL INTEGRATION CONFIGURATION
     # ========================================================================
@@ -184,8 +190,6 @@ class Settings(BaseSettings):
     # Webhook notifications for external integrations (Slack, PagerDuty, etc.)
     MODERATION_WEBHOOK_URL: Optional[str] = None  # Set to webhook URL to enable
     MODERATION_WEBHOOK_SECRET: Optional[str] = None  # Optional secret for webhook auth
-    EMAIL_FROM: Optional[str] = None
-    FRONTEND_URL: str = "http://localhost:3000"
     
     # ========================================================================
     # API SERVER CONFIGURATION
