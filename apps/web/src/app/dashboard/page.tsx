@@ -10,6 +10,8 @@ import { botsApi } from "@/lib/api/bots";
 import { documentsApi } from "@/lib/api/documents";
 import { useHITLQueue } from "@/hooks/useHITLQueue";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import type { Bot } from "@/types/bot";
+import type { Document as KBDocument } from "@/types/document";
 import {
     Bot as BotIcon,
     Inbox,
@@ -29,9 +31,14 @@ export default function DashboardPage() {
 
     // Lightweight stats for cards
     const [botsTotal, setBotsTotal] = useState<number | null>(null);
+    const [botsPreview, setBotsPreview] = useState<Bot[]>([]);
     const [docsTotal, setDocsTotal] = useState<number | null>(null);
-    const { stats: queueStats, isLoading: queueLoading } =
-        useHITLQueue("oldest");
+    const [recentDocs, setRecentDocs] = useState<KBDocument[]>([]);
+    const {
+        stats: queueStats,
+        isLoading: queueLoading,
+        items: queueItems,
+    } = useHITLQueue("oldest");
     const { metrics, isLoading: analyticsLoading } = useAnalytics();
 
     const formatPercent = (v?: number) =>
@@ -61,8 +68,17 @@ export default function DashboardPage() {
                 return;
             }
             try {
-                const botsRes = await botsApi.listBots(currentGroup.id, 1, 0);
+                const botsRes = await botsApi.listBots(currentGroup.id, 3, 0);
                 setBotsTotal(botsRes.total_count ?? botsRes.bots.length);
+                setBotsPreview(
+                    (botsRes.bots || [])
+                        .slice(0, 3)
+                        .sort((a, b) =>
+                            (b.updated_at || "").localeCompare(
+                                a.updated_at || ""
+                            )
+                        )
+                );
             } catch {
                 setBotsTotal(null);
             }
@@ -70,9 +86,10 @@ export default function DashboardPage() {
                 const docsRes = await documentsApi.listDocuments(
                     currentGroup.id,
                     1,
-                    1
+                    3
                 );
                 setDocsTotal(docsRes.total);
+                setRecentDocs((docsRes.documents || []).slice(0, 3));
             } catch {
                 setDocsTotal(null);
             }
@@ -83,6 +100,26 @@ export default function DashboardPage() {
         () => !currentGroup && "Select a group to manage resources",
         [currentGroup]
     );
+
+    const timeAgo = (iso?: string) => {
+        if (!iso) return "";
+        const t = new Date(iso).getTime();
+        if (Number.isNaN(t)) return "";
+        const diff = Math.max(0, Date.now() - t) / 1000;
+        if (diff < 60) return `${Math.floor(diff)}s ago`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+        return `${Math.floor(diff / 86400)}d ago`;
+    };
+
+    const statusBadge = (status?: string) => {
+        const s = (status || "").toLowerCase();
+        if (s === "ready") return "bg-emerald-100 text-emerald-700";
+        if (s === "processing") return "bg-amber-100 text-amber-700";
+        if (s === "uploading") return "bg-sky-100 text-sky-700";
+        if (s === "failed" || s === "error") return "bg-rose-100 text-rose-700";
+        return "bg-slate-100 text-slate-600";
+    };
 
     return (
         <DashboardLayout>
@@ -308,6 +345,35 @@ export default function DashboardPage() {
                                 New Bot
                             </Link>
                         </div>
+                        {!!botsPreview.length && (
+                            <ul className="mt-4 divide-y divide-slate-100">
+                                {botsPreview.map((b) => (
+                                    <li
+                                        key={b.id}
+                                        className="py-2 flex items-center justify-between"
+                                    >
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-slate-900 truncate">
+                                                {b.name}
+                                            </p>
+                                            <p className="text-xs text-slate-500 truncate">
+                                                Updated {timeAgo(b.updated_at)}
+                                                {b.doc_count
+                                                    ? ` • ${b.doc_count} docs`
+                                                    : ""}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={`text-xs px-2 py-1 rounded-full ${statusBadge(
+                                                b.status
+                                            )}`}
+                                        >
+                                            {b.status}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
 
                     {/* Review Queue */}
@@ -345,6 +411,41 @@ export default function DashboardPage() {
                                     : `${queueStats.total ?? 0} total`}
                             </span>
                         </div>
+                        {!!queueItems?.length && (
+                            <ul className="mt-4 divide-y divide-slate-100">
+                                {queueItems.slice(0, 3).map((q) => (
+                                    <li
+                                        key={q.id}
+                                        className="py-2 flex items-start gap-3"
+                                    >
+                                        <span
+                                            className={`mt-1 inline-flex items-center justify-center h-6 w-6 rounded-full text-xs ${
+                                                q.type === "email"
+                                                    ? "bg-indigo-100 text-indigo-700"
+                                                    : "bg-sky-100 text-sky-700"
+                                            }`}
+                                        >
+                                            {q.type === "email" ? "E" : "C"}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <p
+                                                className="text-sm text-slate-900 truncate"
+                                                title={q.userQuestion}
+                                            >
+                                                {q.userQuestion}
+                                            </p>
+                                            <p className="text-xs text-slate-500">
+                                                {timeAgo(q.timestamp)} • conf{" "}
+                                                {Math.round(
+                                                    (q.confidence ?? 0) * 100
+                                                )}
+                                                %
+                                            </p>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
 
                     {/* Knowledge Base */}
@@ -401,6 +502,35 @@ export default function DashboardPage() {
                                 Upload
                             </Link>
                         </div>
+                        {!!recentDocs.length && (
+                            <ul className="mt-4 divide-y divide-slate-100">
+                                {recentDocs.map((d) => (
+                                    <li
+                                        key={d.id}
+                                        className="py-2 flex items-center justify-between"
+                                    >
+                                        <div className="min-w-0">
+                                            <p
+                                                className="text-sm text-slate-900 truncate"
+                                                title={d.title || d.filename}
+                                            >
+                                                {d.title || d.filename}
+                                            </p>
+                                            <p className="text-xs text-slate-500 truncate">
+                                                Updated {timeAgo(d.updated_at)}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={`text-xs px-2 py-1 rounded-full ${statusBadge(
+                                                d.status
+                                            )}`}
+                                        >
+                                            {d.status}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
 
                     {/* Email */}
@@ -434,6 +564,34 @@ export default function DashboardPage() {
                                 Rules
                             </Link>
                         </div>
+                        {queueItems?.some((q) => q.type === "email") && (
+                            <ul className="mt-4 divide-y divide-slate-100">
+                                {queueItems
+                                    .filter((q) => q.type === "email")
+                                    .slice(0, 2)
+                                    .map((q) => (
+                                        <li
+                                            key={q.id}
+                                            className="py-2 flex items-start gap-3"
+                                        >
+                                            <span className="mt-1 inline-flex items-center justify-center h-6 w-6 rounded-full text-xs bg-indigo-100 text-indigo-700">
+                                                E
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <p
+                                                    className="text-sm text-slate-900 truncate"
+                                                    title={q.userQuestion}
+                                                >
+                                                    {q.userQuestion}
+                                                </p>
+                                                <p className="text-xs text-slate-500">
+                                                    {timeAgo(q.timestamp)}
+                                                </p>
+                                            </div>
+                                        </li>
+                                    ))}
+                            </ul>
+                        )}
                     </div>
 
                     {/* Analytics */}
@@ -474,7 +632,16 @@ export default function DashboardPage() {
                                     Settings
                                 </h3>
                                 <p className="text-sm text-slate-500">
-                                    Team and workspace
+                                    {currentGroup ? (
+                                        <span>
+                                            Group:{" "}
+                                            <span className="font-medium text-slate-700">
+                                                {currentGroup.name}
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        "Team and workspace"
+                                    )}
                                 </p>
                             </div>
                         </div>
