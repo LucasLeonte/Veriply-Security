@@ -178,6 +178,9 @@ export default function VerifiedKBTab({ groupId }: VerifiedKBTabProps) {
         skip={skip}
         limit={limit}
         onSkipChange={setSkip}
+        groupId={groupId}
+        onEntryDeleted={fetchEntries}
+        onEntryUpdated={fetchEntries}
       />
     </div>
   );

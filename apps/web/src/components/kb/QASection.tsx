@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight, Plus, Upload, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Upload, RefreshCw, Trash2, Edit2 } from "lucide-react";
 import { getAccessToken } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
 import QAEntryDialog from "./QAEntryDialog";
 import QAImportDialog from "./QAImportDialog";
+import { EditDialog } from "@/components/verified-kb/EditDialog";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -31,9 +32,11 @@ export default function QASection({ groupId }: QASectionProps) {
   const [entries, setEntries] = useState<VerifiedQA[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [skip, setSkip] = useState(0);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<VerifiedQA | null>(null);
   const limit = 10;
 
   const fetchEntries = useCallback(async () => {
@@ -97,6 +100,91 @@ export default function QASection({ groupId }: QASectionProps) {
       description: `Imported ${summary.imported_count} entries. ${summary.skipped_count} skipped.`,
       variant: "success",
     });
+  };
+
+  const handleDelete = async (entryId: string) => {
+    setDeletingId(entryId);
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/verified-qa/${entryId}?group_id=${groupId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete entry: ${response.status}`);
+      }
+
+      toast({
+        title: "Success",
+        description: "Q&A entry deleted successfully",
+        variant: "success",
+      });
+
+      fetchEntries();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete entry",
+        variant: "error",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleEditSave = async (updatedEntry: VerifiedQA) => {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/verified-qa/${updatedEntry.id}?group_id=${groupId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            question_text: updatedEntry.question_text,
+            answer_text: updatedEntry.answer_text,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || `Failed to update entry: ${response.status}`);
+      }
+
+      toast({
+        title: "Success",
+        description: "Q&A entry updated successfully",
+        variant: "success",
+      });
+
+      setEditingEntry(null);
+      fetchEntries();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save entry",
+        variant: "error",
+      });
+      throw error;
+    }
   };
 
   return (
@@ -212,6 +300,29 @@ export default function QASection({ groupId }: QASectionProps) {
                         Updated: {new Date(entry.updated_at).toLocaleString()}
                       </span>
                     </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-4 border-t border-slate-200 mt-4">
+                      <Button
+                        onClick={() => setEditingEntry(entry)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                      >
+                        <Edit2 size={14} />
+                        Edit
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          if (confirm("Are you sure you want to delete this Q&A entry?")) {
+                            handleDelete(entry.id);
+                          }
+                        }}
+                        disabled={deletingId === entry.id}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 disabled:opacity-50"
+                      >
+                        <Trash2 size={14} />
+                        {deletingId === entry.id ? "Deleting..." : "Delete"}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -254,6 +365,13 @@ export default function QASection({ groupId }: QASectionProps) {
         groupId={groupId}
         onSuccess={handleImportSuccess}
       />
+      {editingEntry && (
+        <EditDialog
+          entry={editingEntry}
+          onSave={handleEditSave}
+          onClose={() => setEditingEntry(null)}
+        />
+      )}
     </div>
   );
 }
