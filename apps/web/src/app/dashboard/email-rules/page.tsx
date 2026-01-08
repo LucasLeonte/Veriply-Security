@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { DashboardLayout } from "@/components";
 import { getAccessToken } from "@/lib/auth";
 import { EmailRule, listEmailRules, createEmailRule, updateEmailRule, deleteEmailRule, reorderEmailRules, testEmailRule, getMonitoringStatus, setMonitoringPause, MonitoringStatus } from "@/lib/api/emailRules";
-import { EmailIntegration, listIntegrations } from "@/lib/api/integrations";
+import { EmailIntegration, listIntegrations, setDefaultReplyBot } from "@/lib/api/integrations";
 import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import { useGroup } from "@/contexts/GroupContext";
@@ -23,6 +23,7 @@ export default function EmailRulesPage() {
   const [error, setError] = useState<string | null>(null);
   const [monitoring, setMonitoring] = useState<MonitoringStatus | null>(null);
   const [monitoringError, setMonitoringError] = useState<string | null>(null);
+  const [savingDefaultBot, setSavingDefaultBot] = useState<string | null>(null);
 
   useEffect(() => {
     setToken(getAccessToken());
@@ -84,6 +85,21 @@ export default function EmailRulesPage() {
       setMonitoringError(msg);
     }
   }, [token, selectedIntegrationId]);
+
+  const onSetDefaultBot = useCallback(async (integrationId: string, botId: string | null) => {
+    if (!token) return;
+    try {
+      setSavingDefaultBot(integrationId);
+      await setDefaultReplyBot(token, integrationId, botId);
+      const ints = await listIntegrations(token);
+      setIntegrations(ints.integrations);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to set default bot";
+      setError(msg);
+    } finally {
+      setSavingDefaultBot(null);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (token) {
@@ -165,6 +181,42 @@ export default function EmailRulesPage() {
           onCreate={onCreateRule}
           onIntegrationChange={setSelectedIntegrationId}
         />
+
+        {/* Connected Accounts and Default Reply Bot selector */}
+        <div className="rounded border border-slate-200 p-4 bg-white">
+          <h2 className="text-lg font-semibold mb-3">Connected Accounts</h2>
+          {integrations.length === 0 ? (
+            <p className="text-slate-600 text-sm">No connected accounts. Connect Gmail or Outlook from the Integrations page.</p>
+          ) : (
+            <div className="space-y-3">
+              {integrations.map((intg) => (
+                <div key={intg.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border rounded p-3">
+                  <div className="text-sm">
+                    <div className="font-medium">{intg.provider} — {intg.id}</div>
+                    <div className="text-slate-600">Select a default bot used for replies when no rule-specific bot applies.</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm text-slate-700">Default Bot</label>
+                    <select
+                      className="border rounded px-2 py-1 text-sm"
+                      value={intg.default_reply_bot_id ?? ""}
+                      disabled={savingDefaultBot === intg.id}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        onSetDefaultBot(intg.id, v === "" ? null : v);
+                      }}
+                    >
+                      <option value="">— None —</option>
+                      {bots.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Monitoring status and controls */}
         {selectedIntegrationId && (

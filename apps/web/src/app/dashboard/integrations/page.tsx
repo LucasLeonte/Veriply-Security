@@ -8,6 +8,9 @@ import { DashboardLayout } from "@/components";
 import GmailConnection from "@/components/integrations/GmailConnection";
 import OutlookConnection from "@/components/integrations/OutlookConnection";
 import { EmailIntegration, listIntegrations } from "@/lib/api/integrations";
+import { botsApi } from "@/lib/api/bots";
+import { Bot } from "@/types/bot";
+import { useGroup } from "@/contexts/GroupContext";
 
 export default function IntegrationsPage() {
     const router = useRouter();
@@ -17,6 +20,9 @@ export default function IntegrationsPage() {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [authToken, setAuthToken] = useState<string>("");
+    const [bots, setBots] = useState<Bot[]>([]);
+
+    const { currentGroup } = useGroup();
 
     // Get auth token from localStorage or cookies (client-side only)
     useEffect(() => {
@@ -74,6 +80,19 @@ export default function IntegrationsPage() {
         fetchIntegrations();
     }, [authToken]); // Re-fetch when token is loaded
 
+    // Load bots for current group (used for default reply bot selector)
+    useEffect(() => {
+        (async () => {
+            try {
+                if (!currentGroup) return;
+                const resp = await botsApi.listBots(currentGroup.id, 50, 0);
+                setBots(resp.bots);
+            } catch (e) {
+                // ignore; integrations page can still function without bots
+            }
+        })();
+    }, [currentGroup]);
+
     const gmailIntegration =
         integrations.find((i) => i.provider === "gmail") || null;
     const outlookIntegration =
@@ -129,12 +148,16 @@ export default function IntegrationsPage() {
                         integration={gmailIntegration}
                         onDisconnect={handleGmailDisconnect}
                         token={authToken}
+                        bots={bots}
+                        onUpdated={fetchIntegrations}
                     />
 
                     <OutlookConnection
                         integration={outlookIntegration}
                         onDisconnect={handleOutlookDisconnect}
                         token={authToken}
+                        bots={bots}
+                        onUpdated={fetchIntegrations}
                     />
                 </div>
 

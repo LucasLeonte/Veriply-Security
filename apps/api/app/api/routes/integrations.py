@@ -523,6 +523,12 @@ async def generate_gmail_reply(
                 if rules:
                     first_rule = rules[0]
                     bot_to_use = await db.get(Bot, first_rule.bot_id)
+                
+                # Strategy 3: No rule matched, try default bot for this integration
+                if not bot_to_use and gmail_integration.default_reply_bot_id:
+                    bot_to_use = await db.get(Bot, gmail_integration.default_reply_bot_id)
+                    if bot_to_use and bot_to_use.tenant_id != current_user.tenant_id:
+                        bot_to_use = None
         
         # Prepare context for RAG if we have a bot
         context_chunks = []
@@ -583,11 +589,55 @@ async def list_integrations(
                 "id": str(integration.id),
                 "provider": integration.provider,
                 "status": integration.status,
+                "default_reply_bot_id": str(integration.default_reply_bot_id) if integration.default_reply_bot_id else None,
                 "last_sync_time": integration.last_sync_time.isoformat() if integration.last_sync_time else None,
                 "created_at": integration.created_at.isoformat() if integration.created_at else None,
             }
             for integration in integrations
         ]
+    }
+
+
+@router.put("/{integration_id}/default-reply-bot")
+async def set_default_reply_bot(
+    integration_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Set the default bot for email replies on this integration."""
+    bot_id = payload.get("bot_id")
+    
+    result = await db.execute(
+        select(EmailIntegration).where(
+            and_(
+                EmailIntegration.id == integration_id,
+                EmailIntegration.user_id == current_user.id,
+            )
+        )
+    )
+    integration = result.scalar_one_or_none()
+    
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+    
+    if bot_id:
+        # Verify bot exists and belongs to tenant
+        bot = await db.get(Bot, bot_id)
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        if bot.tenant_id != current_user.tenant_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        integration.default_reply_bot_id = bot_id
+    else:
+        integration.default_reply_bot_id = None
+    
+    await db.commit()
+    await db.refresh(integration)
+    
+    return {
+        "id": str(integration.id),
+        "default_reply_bot_id": str(integration.default_reply_bot_id) if integration.default_reply_bot_id else None,
     }
 
 

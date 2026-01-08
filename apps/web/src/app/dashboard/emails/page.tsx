@@ -6,7 +6,7 @@ import Link from "next/link";
 import { EmailList } from "@/components/emails/EmailList";
 import { getAccessToken } from "@/lib/auth";
 import { EmailRule, listEmailRules, createEmailRule, updateEmailRule, deleteEmailRule, reorderEmailRules, testEmailRule, getMonitoringStatus, setMonitoringPause, MonitoringStatus } from "@/lib/api/emailRules";
-import { EmailIntegration, listIntegrations, disconnectIntegration } from "@/lib/api/integrations";
+import { EmailIntegration, listIntegrations, disconnectIntegration, setDefaultReplyBot } from "@/lib/api/integrations";
 import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import { useGroup } from "@/contexts/GroupContext";
@@ -28,6 +28,7 @@ export default function EmailsPage() {
     const [error, setError] = useState<string | null>(null);
     const [monitoring, setMonitoring] = useState<MonitoringStatus | null>(null);
     const [monitoringError, setMonitoringError] = useState<string | null>(null);
+    const [savingDefaultBot, setSavingDefaultBot] = useState<string | null>(null);
     const { currentGroup } = useGroup();
 
     useEffect(() => {
@@ -91,6 +92,21 @@ export default function EmailsPage() {
             setMonitoringError(msg);
         }
     }, [token, selectedIntegrationId]);
+
+    const onSetDefaultBot = useCallback(async (integrationId: string, botId: string | null) => {
+        if (!token) return;
+        try {
+            setSavingDefaultBot(integrationId);
+            await setDefaultReplyBot(token, integrationId, botId);
+            const ints = await listIntegrations(token);
+            setIntegrations(ints.integrations);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : "Failed to set default bot";
+            setError(msg);
+        } finally {
+            setSavingDefaultBot(null);
+        }
+    }, [token]);
 
     useEffect(() => {
         if (token) {
@@ -318,6 +334,23 @@ export default function EmailsPage() {
                                                     {integration.last_sync_time && (
                                                         <span className="text-xs text-gray-500">• Last sync: {fmt(integration.last_sync_time)}</span>
                                                     )}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <label className="text-sm text-gray-700">Default Bot:</label>
+                                                    <select
+                                                        className="border rounded px-2 py-1 text-sm"
+                                                        value={integration.default_reply_bot_id ?? ""}
+                                                        disabled={savingDefaultBot === integration.id}
+                                                        onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            onSetDefaultBot(integration.id, v === "" ? null : v);
+                                                        }}
+                                                    >
+                                                        <option value="">— None —</option>
+                                                        {bots.map((b) => (
+                                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                                        ))}
+                                                    </select>
                                                 </div>
                                             </div>
                                         </div>

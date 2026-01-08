@@ -6,6 +6,7 @@ export interface EmailIntegration {
     id: string;
     provider: "gmail" | "outlook";
     status: "connected" | "disconnected";
+    default_reply_bot_id?: string | null;
     last_sync_time: string | null;
     created_at: string;
 }
@@ -184,3 +185,31 @@ export async function generateGmailReply(
 
     return response.json();
 }
+
+/**
+ * Set the default reply bot for an email integration
+ */
+export async function setDefaultReplyBot(
+    token: string,
+    integrationId: string,
+    botId: string | null
+): Promise<{ id: string; default_reply_bot_id: string | null }> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/integrations/${integrationId}/default-reply-bot`,
+        {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ bot_id: botId }),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to set default reply bot");
+    }
+
+    return response.json();
+}
+
