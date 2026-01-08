@@ -79,7 +79,7 @@ async def test_get_verified_qa_by_id_service(
     # Retrieve by ID
     retrieved_qa = await get_verified_qa_by_id(
         db=db,
-        id=created_qa.id,
+        verified_qa_id=created_qa.id,
         tenant_id=test_tenant.id,
         group_id=test_group.id
     )
@@ -115,7 +115,7 @@ async def test_get_verified_qa_wrong_tenant_returns_none(
     wrong_tenant_id = uuid4()
     retrieved_qa = await get_verified_qa_by_id(
         db=db,
-        id=created_qa.id,
+        verified_qa_id=created_qa.id,
         tenant_id=wrong_tenant_id,
         group_id=test_group.id
     )
@@ -147,7 +147,7 @@ async def test_list_verified_qa_service(
         )
     
     # List all
-    all_entries = await list_verified_qa(
+    all_entries, total_all = await list_verified_qa(
         db=db,
         tenant_id=test_tenant.id,
         group_id=test_group.id,
@@ -157,9 +157,10 @@ async def test_list_verified_qa_service(
     )
     
     assert len(all_entries) == 5
+    assert total_all == 5
     
     # List with pagination
-    page_1 = await list_verified_qa(
+    page_1, total_page_1 = await list_verified_qa(
         db=db,
         tenant_id=test_tenant.id,
         group_id=test_group.id,
@@ -169,8 +170,9 @@ async def test_list_verified_qa_service(
     )
     
     assert len(page_1) == 2
+    assert total_page_1 == 5
     
-    page_2 = await list_verified_qa(
+    page_2, total_page_2 = await list_verified_qa(
         db=db,
         tenant_id=test_tenant.id,
         group_id=test_group.id,
@@ -230,7 +232,7 @@ async def test_list_verified_qa_filtered_by_bot(
     )
     
     # List filtered by bot_1
-    bot_1_entries = await list_verified_qa(
+    bot_1_entries, total_bot_1 = await list_verified_qa(
         db=db,
         tenant_id=test_tenant.id,
         group_id=test_group.id,
@@ -240,6 +242,7 @@ async def test_list_verified_qa_filtered_by_bot(
     )
     
     assert len(bot_1_entries) == 1
+    assert total_bot_1 == 1
     assert bot_1_entries[0].bot_id == test_bot.id
 
 
@@ -322,7 +325,7 @@ async def test_delete_verified_qa_service(
     # Verify deleted
     deleted_qa = await get_verified_qa_by_id(
         db=db,
-        id=created_qa.id,
+        verified_qa_id=created_qa.id,
         tenant_id=test_tenant.id,
         group_id=test_group.id
     )

@@ -24,12 +24,12 @@ async def create_verified_qa(
     db: AsyncSession,
     tenant_id: UUID,
     group_id: UUID,
-    bot_id: UUID,
     question_text: str,
     question_embedding: List[float],
     answer_text: str,
     approved_by_user_id: UUID,
     approved_at: datetime,
+    bot_id: Optional[UUID] = None,
     source_citations: Optional[dict] = None,
 ) -> VerifiedQA:
     """Create a new verified Q&A entry.
@@ -40,13 +40,13 @@ async def create_verified_qa(
     Args:
         db: Async database session
         tenant_id: Tenant UUID for RLS isolation
-        group_id: Group UUID for group-level scoping
-        bot_id: Bot UUID this Q&A belongs to
+        group_id: Group UUID for group-level scoping (Q&A is shared across all bots in group)
         question_text: The verified question
         question_embedding: 768-dim embedding vector for semantic search
         answer_text: The approved answer
         approved_by_user_id: User who approved this entry
         approved_at: Timestamp of approval
+        bot_id: Optional bot UUID (for backwards compatibility, but entries are now group-scoped)
         source_citations: Optional document citations (JSONB)
         
     Returns:
@@ -64,19 +64,19 @@ async def create_verified_qa(
     if len(question_embedding) != 768:
         raise ValueError(f"Question embedding must be 768 dimensions (got {len(question_embedding)})")
     
-    # Validate bot belongs to this tenant and group
-    bot_stmt = select(Bot).where(
+    # Validate group exists for this tenant (no longer validating bot since entries are group-scoped)
+    from app.models.group import Group
+    group_stmt = select(Group).where(
         and_(
-            Bot.id == bot_id,
-            Bot.tenant_id == tenant_id,
-            Bot.group_id == group_id
+            Group.id == group_id,
+            Group.tenant_id == tenant_id,
         )
     )
-    bot_result = await db.execute(bot_stmt)
-    bot = bot_result.scalar_one_or_none()
+    group_result = await db.execute(group_stmt)
+    group = group_result.scalar_one_or_none()
     
-    if not bot:
-        raise ValueError(f"Bot {bot_id} not found or does not belong to tenant {tenant_id} and group {group_id}")
+    if not group:
+        raise ValueError(f"Group {group_id} not found or does not belong to tenant {tenant_id}")
     
     # Create verified_qa entry
     verified_qa = VerifiedQA(
@@ -106,7 +106,7 @@ async def get_verified_qa_by_id(
     db: AsyncSession,
     verified_qa_id: UUID,
     tenant_id: UUID,
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
 ) -> Optional[VerifiedQA]:
     """Retrieve a verified Q&A entry by ID with RLS enforcement.
     
@@ -114,18 +114,19 @@ async def get_verified_qa_by_id(
         db: Async database session
         verified_qa_id: UUID of the verified Q&A entry
         tenant_id: Tenant UUID for RLS check
-        group_id: Group UUID for RLS check
+        group_id: Optional group UUID for additional scoping
         
     Returns:
         VerifiedQA instance if found and accessible, None otherwise
     """
-    stmt = select(VerifiedQA).where(
-        and_(
-            VerifiedQA.id == verified_qa_id,
-            VerifiedQA.tenant_id == tenant_id,
-            VerifiedQA.group_id == group_id,
-        )
-    )
+    conditions = [
+        VerifiedQA.id == verified_qa_id,
+        VerifiedQA.tenant_id == tenant_id,
+    ]
+    if group_id:
+        conditions.append(VerifiedQA.group_id == group_id)
+    
+    stmt = select(VerifiedQA).where(and_(*conditions))
     
     result = await db.execute(stmt)
     verified_qa = result.scalar_one_or_none()
@@ -141,8 +142,8 @@ async def get_verified_qa_by_id(
 async def list_verified_qa(
     db: AsyncSession,
     tenant_id: UUID,
-    group_id: UUID,
     bot_id: Optional[UUID] = None,
+    group_id: Optional[UUID] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[List[VerifiedQA], int]:
@@ -151,8 +152,8 @@ async def list_verified_qa(
     Args:
         db: Async database session
         tenant_id: Tenant UUID for RLS filtering
-        group_id: Group UUID for group-level scoping
         bot_id: Optional bot ID to filter by specific bot
+        group_id: Optional group UUID for group-level scoping
         limit: Maximum number of entries to return (default 50)
         offset: Pagination offset (default 0)
         
@@ -162,8 +163,10 @@ async def list_verified_qa(
     # Build base query with RLS filters
     base_conditions = [
         VerifiedQA.tenant_id == tenant_id,
-        VerifiedQA.group_id == group_id,
     ]
+    
+    if group_id:
+        base_conditions.append(VerifiedQA.group_id == group_id)
     
     if bot_id:
         base_conditions.append(VerifiedQA.bot_id == bot_id)
@@ -275,7 +278,7 @@ async def search_verified_qa(
     db: AsyncSession,
     tenant_id: UUID,
     group_id: UUID,
-    bot_id: UUID,
+    bot_id: Optional[UUID],
     query_embedding: List[float],
     k: int = 3,
     similarity_threshold: float = 0.7,
@@ -286,11 +289,13 @@ async def search_verified_qa(
     to find human-approved answers that match the query. These results should be
     prioritized over RAG-generated answers from document chunks.
     
+    Q&A entries are now group-scoped (shared across all bots in the group).
+    
     Args:
         db: Async database session
         tenant_id: Tenant UUID for RLS filtering
-        group_id: Group UUID for group-level scoping
-        bot_id: Bot UUID for bot-specific filtering
+        group_id: Group UUID for group-level scoping (primary filter)
+        bot_id: Optional bot UUID (ignored - Q&A is now group-scoped)
         query_embedding: 768-dim embedding vector of the user's query
         k: Maximum number of results to return (default 3)
         similarity_threshold: Minimum cosine similarity score (default 0.7, higher than
@@ -321,6 +326,7 @@ async def search_verified_qa(
     # Perform vector similarity search using pgvector cosine distance
     # Note: cosine_distance returns 0 for identical vectors, 2 for opposite
     # Similarity = 1 - distance
+    # Q&A entries are group-scoped (shared across all bots), so we only filter by group_id
     from sqlalchemy import select, and_
     
     stmt = (
@@ -332,7 +338,6 @@ async def search_verified_qa(
             and_(
                 VerifiedQA.tenant_id == tenant_id,
                 VerifiedQA.group_id == group_id,
-                VerifiedQA.bot_id == bot_id,
                 VerifiedQA.question_embedding.isnot(None),
             )
         )
@@ -353,7 +358,7 @@ async def search_verified_qa(
             break
     
     logger.info(
-        f"Verified Q&A search: bot_id={bot_id}, results={len(results)}, "
+        f"Verified Q&A search: group_id={group_id}, results={len(results)}, "
         f"threshold={similarity_threshold}"
     )
     
