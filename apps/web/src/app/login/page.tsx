@@ -62,6 +62,7 @@ export default function LoginPage() {
                 process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
             const response = await fetch(`${apiUrl}/api/v1/auth/login`, {
                 method: "POST",
+                credentials: "include", // Required for cookies to be set/sent
                 headers: {
                     "Content-Type": "application/json",
                 },
