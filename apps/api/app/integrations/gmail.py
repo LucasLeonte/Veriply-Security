@@ -1,5 +1,7 @@
 import os
 import httpx
+import base64
+from email.mime.text import MIMEText
 from urllib.parse import urlencode
 
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
@@ -185,5 +187,51 @@ async def refresh_access_token(client_id: str, client_secret: str, refresh_token
             "grant_type": "refresh_token",
         }
         response = await client.post(GOOGLE_TOKEN_URL, data=data)
+        response.raise_for_status()
+        return response.json()
+
+
+async def send_reply(
+    access_token: str,
+    thread_id: str,
+    message_id: str,
+    to: str,
+    subject: str,
+    body: str
+) -> dict:
+    """Send a reply to an existing email thread.
+    
+    Args:
+        access_token: Gmail API access token
+        thread_id: Thread ID to reply to
+        message_id: Message ID being replied to
+        to: Recipient email address
+        subject: Subject line (should start with "Re: ")
+        body: Reply body text
+    
+    Returns:
+        Sent message dict from Gmail API
+    """
+    message = MIMEText(body)
+    message['to'] = to
+    message['subject'] = subject if subject.startswith('Re: ') else f'Re: {subject}'
+    
+    # Add headers to make it a reply
+    message['In-Reply-To'] = message_id
+    message['References'] = message_id
+    
+    raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode('utf-8')
+    
+    async with httpx.AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        payload = {
+            "raw": raw_message,
+            "threadId": thread_id
+        }
+        response = await client.post(
+            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+            headers=headers,
+            json=payload
+        )
         response.raise_for_status()
         return response.json()

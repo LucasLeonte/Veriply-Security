@@ -213,3 +213,51 @@ export async function setDefaultReplyBot(
     return response.json();
 }
 
+
+/**
+ * Send a reply email via Gmail
+ */
+export async function sendGmailReply(
+    token: string,
+    threadId: string,
+    messageId: string,
+    to: string,
+    subject: string,
+    body: string
+): Promise<{ message: string; sent_message_id: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/send-reply`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+            thread_id: threadId,
+            message_id: messageId,
+            to,
+            subject,
+            body,
+        }),
+    });
+
+    if (!response.ok) {
+        let errorDetail = "Failed to send reply";
+        try {
+            const errorData = await response.json();
+            if (errorData.detail && Array.isArray(errorData.detail)) {
+                errorDetail = errorData.detail
+                    .map((err: any) => `${err.loc?.join('.')} - ${err.msg}`)
+                    .join("; ");
+            } else if (errorData.detail) {
+                errorDetail = String(errorData.detail);
+            }
+            console.error("API Error Details:", errorDetail);
+        } catch (e) {
+            console.error("Failed to parse error response");
+        }
+        throw new Error(errorDetail);
+    }
+
+    return response.json();
+}
+

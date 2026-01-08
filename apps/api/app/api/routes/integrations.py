@@ -7,10 +7,10 @@ from uuid import uuid4, UUID
 from datetime import datetime
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Request, HTTPException, status
+from fastapi import APIRouter, Depends, Request, HTTPException, status, Body
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, desc
 import httpx
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -27,6 +27,7 @@ import jwt
 from app.integrations import gmail, outlook
 from app.services.document_service import create_document
 from app.services.llm_service import LLMService
+from pydantic import ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,19 @@ class GmailMessageImport(BaseModel):
 class GmailMessageReply(BaseModel):
     message_id: str
     original_text: str  # OR fetch it fresh, but passing it might be easier/faster if frontend already has it
+    subject: Optional[str] = None
+    bot_id: Optional[str] = None
+
+
+class GmailSendReply(BaseModel):
+    thread_id: str
+    message_id: str
+    to: str
+    subject: str
+    body: str
+    
+    model_config = ConfigDict(populate_by_name=True)
+
     bot_id: Optional[UUID] = None  # Bot to use for KB search; if None, generate without KB
     subject: Optional[str] = None  # Email subject for better context
 
@@ -349,13 +363,17 @@ async def list_gmail_messages(
     """List recent emails from Gmail (Inbox or Sent)."""
     # Get credentials
     result = await db.execute(
-        select(EmailIntegration).where(
+        select(EmailIntegration)
+        .where(
             and_(
                 EmailIntegration.user_id == current_user.id,
                 EmailIntegration.provider == "gmail",
                 EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
             )
         )
+        .order_by(desc(EmailIntegration.updated_at))
+        .limit(1)
     )
     integration = result.scalars().first()
     if not integration:
@@ -408,13 +426,17 @@ async def import_gmail_message(
     """Import a specific Gmail message as a Document."""
     # Logic similar to list: get creds, fetch message body, create document
     result = await db.execute(
-        select(EmailIntegration).where(
+        select(EmailIntegration)
+        .where(
             and_(
                 EmailIntegration.user_id == current_user.id,
                 EmailIntegration.provider == "gmail",
                 EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
             )
         )
+        .order_by(desc(EmailIntegration.updated_at))
+        .limit(1)
     )
     integration = result.scalars().first()
     if not integration:
@@ -564,6 +586,75 @@ async def generate_gmail_reply(
         raise
     except Exception as e:
         logger.error(f"Failed to generate reply: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/gmail/send-reply")
+async def send_gmail_reply(
+    payload: GmailSendReply = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a reply email via Gmail API."""
+    try:
+        logger.info(f"Send reply payload: {payload.model_dump()}")
+        
+        # Get the user's most recent active Gmail integration that has a token
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.user_id == current_user.id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalar_one_or_none()
+
+        if not integration:
+            raise HTTPException(status_code=404, detail="Gmail integration not found")
+
+        # Resolve OAuth credentials (supports tenant overrides)
+        redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/gmail/callback"
+        client_id, client_secret, _ = await _get_oauth_credentials(
+            db=db,
+            tenant_id=integration.tenant_id,
+            provider="gmail",
+            redirect_fallback=redirect_default,
+        )
+
+        # Decrypt and refresh token
+        refresh_token = decrypt_token(integration.encrypted_refresh_token)
+        token_data = await gmail.refresh_access_token(
+            client_id,
+            client_secret,
+            refresh_token
+        )
+        access_token = token_data["access_token"]
+        
+        # Send the reply
+        sent_message = await gmail.send_reply(
+            access_token=access_token,
+            thread_id=payload.thread_id,
+            message_id=payload.message_id,
+            to=payload.to,
+            subject=payload.subject,
+            body=payload.body
+        )
+        
+        return {
+            "message": "Reply sent successfully",
+            "sent_message_id": sent_message.get("id")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to send reply: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
