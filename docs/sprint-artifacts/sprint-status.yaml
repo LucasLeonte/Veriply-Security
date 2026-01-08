@@ -274,7 +274,7 @@ development_status:
         assigned_to: Lucas
 
     6-1-gmail-oauth-integration:
-        status: assigned
+        status: done
         assigned_to: Dario
         blocked_by: 3-2-context-only-answer-generation
 
@@ -284,13 +284,13 @@ development_status:
         blocked_by: 3-2-context-only-answer-generation
 
     6-3-email-monitoring-rules:
-        status: in-progress
+        status: done
         assigned_to: Dario
         blocked_by: 6-1-gmail-oauth-integration
 
     6-4-email-draft-generation:
-        status: drafted
-        assigned_to: null
+        status: in-progress
+        assigned_to: Dario
         blocked_by: 6-3-email-monitoring-rules
 
     6-5-writing-style-matching:
@@ -310,9 +310,9 @@ development_status:
         assigned_to: Soulaymane
 
     7-2-verified-kb-priority:
-        status: backlog
-        assigned_to: null
-        blocked_by: 7-1-verified-kb-storage
+        status: review
+        assigned_to: Kainy
+        blocked_by: null
 
     7-3-manual-qa-entry:
         status: backlog

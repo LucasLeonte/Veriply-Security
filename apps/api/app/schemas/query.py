@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
+from uuid import UUID
 
 
 class QueryRequest(BaseModel):
@@ -21,7 +22,10 @@ class QueryRequest(BaseModel):
 
 
 class QueryMetadata(BaseModel):
-    """Metadata about the query execution."""
+    """Metadata about the query execution.
+    
+    Story 7.2: Extended with verified KB provenance fields.
+    """
 
     query: str
     bot_id: str
@@ -33,6 +37,23 @@ class QueryMetadata(BaseModel):
     generation_latency_s: float
     model: str
     search_results: Optional[List[Dict[str, Any]]] = None
+    # Story 7.2: Verified KB metadata
+    verified: bool = Field(
+        default=False,
+        description="True if answer came from Verified KB (Story 7.2)"
+    )
+    verified_id: Optional[UUID] = Field(
+        default=None,
+        description="VerifiedQA entry ID if answer is verified"
+    )
+    verified_confidence: Optional[float] = Field(
+        default=None,
+        description="Similarity score of verified match (0-1)"
+    )
+    verified_citations: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Source citations from verified entry"
+    )
 
 
 class QueryResponse(BaseModel):
