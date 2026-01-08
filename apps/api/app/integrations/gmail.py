@@ -112,10 +112,14 @@ async def get_thread_details(client: httpx.AsyncClient, access_token: str, threa
         payload = last_msg.get("payload", {})
         headers_list = payload.get("headers", [])
         
-        subject = next((h["value"] for h in headers_list if h["name"] == "Subject"), "(No Subject)")
-        from_header = next((h["value"] for h in headers_list if h["name"] == "From"), "Unknown")
-        to_header = next((h["value"] for h in headers_list if h["name"] == "To"), "")
-        date = next((h["value"] for h in headers_list if h["name"] == "Date"), "")
+        subject = next((h["value"] for h in headers_list if h["name"].lower() == "subject"), None)
+        if not subject:
+             print(f"DEBUG: Missing Subject for thread {thread_id}. Available headers: {[h['name'] for h in headers_list]}")
+             subject = "(No Subject)"
+             
+        from_header = next((h["value"] for h in headers_list if h["name"].lower() == "from"), "Unknown")
+        to_header = next((h["value"] for h in headers_list if h["name"].lower() == "to"), "")
+        date = next((h["value"] for h in headers_list if h["name"].lower() == "date"), "")
         
         return {
             "id": thread_id,
