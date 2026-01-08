@@ -196,6 +196,7 @@ class GroupResponse(BaseModel):
     description: Optional[str] = None
     created_by: str | UUID
     created_at: datetime
+    current_user_role: Optional[str] = None  # Role of the current user in this group
 
     model_config = ConfigDict(from_attributes=True)
 

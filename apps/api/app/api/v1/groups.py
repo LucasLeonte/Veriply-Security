@@ -160,7 +160,7 @@ async def list_groups(
     session: AsyncSession = Depends(get_db),
 ):
     """
-    List all groups the user is a member of.
+    List all groups the user is a member of, including their role in each group.
     """
     logger.info(f"LIST GROUPS REQUEST - user_id={current_user.get('sub')}, tenant_id={current_user.get('tenant_id')}")
     try:
@@ -172,8 +172,32 @@ async def list_groups(
             db=session,
             user_id=user_id,
         )
-        logger.info(f"Successfully retrieved {len(groups)} groups for user")
-        return groups
+        
+        # Fetch the user's role for each group
+        group_responses = []
+        for group in groups:
+            # Get the user's membership to determine their role
+            member = await session.scalar(
+                select(GroupMember).where(
+                    (GroupMember.group_id == group.id) &
+                    (GroupMember.user_id == user_id)
+                )
+            )
+            
+            # Convert group to dict and add current_user_role
+            group_dict = {
+                "id": str(group.id),
+                "tenant_id": str(group.tenant_id),
+                "name": group.name,
+                "description": group.description,
+                "created_by": str(group.created_by),
+                "created_at": group.created_at,
+                "current_user_role": member.role.value if member else None
+            }
+            group_responses.append(group_dict)
+        
+        logger.info(f"Successfully retrieved {len(group_responses)} groups for user")
+        return group_responses
     except Exception as e:
         logger.exception(f"Error listing groups: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve groups")
