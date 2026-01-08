@@ -22,7 +22,8 @@ def get_authorization_url(client_id: str, redirect_uri: str, state: str) -> str:
         "scope": " ".join(SCOPES),
         "access_type": "offline",
         "state": state,
-        "prompt": "consent"  # Force consent to ensure we get a refresh token
+        "prompt": "consent",  # Force consent to ensure we get a refresh token
+        "include_granted_scopes": "true" # Incremental auth
     }
     return f"{GOOGLE_AUTH_URL}?{urlencode(params)}"
 

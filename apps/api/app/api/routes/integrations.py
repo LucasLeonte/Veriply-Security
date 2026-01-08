@@ -296,6 +296,7 @@ async def gmail_callback(
     except Exception as e:
         logger.error("Failed to exchange token: %s", e)
         raise HTTPException(status_code=502, detail="Failed to exchange token with Google")
+    
     refresh_token = token_data.get("refresh_token")
     access_token = token_data.get("access_token")
 
@@ -396,6 +397,22 @@ async def list_gmail_messages(
         integration = result.scalars().first()
 
     if not integration:
+        # Last resort: allow paused/inactive but still tokened integration at tenant scope
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
         raise HTTPException(status_code=404, detail="Gmail integration not found")
 
     # Get configured credentials using the helper (supports tenant-specific overrides)
@@ -467,6 +484,21 @@ async def import_gmail_message(
                     EmailIntegration.tenant_id == current_user.tenant_id,
                     EmailIntegration.provider == "gmail",
                     EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
                     EmailIntegration.encrypted_refresh_token.is_not(None),
                 )
             )
@@ -662,6 +694,22 @@ async def send_gmail_reply(
                         EmailIntegration.tenant_id == current_user.tenant_id,
                         EmailIntegration.provider == "gmail",
                         EmailIntegration.is_active == True,
+                        EmailIntegration.encrypted_refresh_token.is_not(None),
+                    )
+                )
+                .order_by(desc(EmailIntegration.updated_at))
+                .limit(1)
+            )
+            integration = result.scalar_one_or_none()
+
+        if not integration:
+            # Last resort: allow paused/inactive but tokened integration at tenant scope
+            result = await db.execute(
+                select(EmailIntegration)
+                .where(
+                    and_(
+                        EmailIntegration.tenant_id == current_user.tenant_id,
+                        EmailIntegration.provider == "gmail",
                         EmailIntegration.encrypted_refresh_token.is_not(None),
                     )
                 )
