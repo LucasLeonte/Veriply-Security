@@ -116,60 +116,75 @@ export function ReplyComposer({
     }
 
     const Content = (
-        <div className={`bg-white rounded-lg w-full ${inline ? '' : 'shadow-xl max-w-2xl p-6 relative'}`}>
+        <div className={`bg-white rounded-xl w-full ${inline ? '' : 'shadow-2xl max-w-2xl p-8 relative ring-1 ring-gray-200'}`}>
             {!inline && (
                 <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                    className="absolute top-6 right-6 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                     ✕
                 </button>
             )}
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">AI Draft Reply</h2>
+
+            <div className="mb-6">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent inline-flex items-center gap-2">
+                    <span>✨</span> Draft AI Reply
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                    Describe how you want to reply, and let AI generate the draft.
+                </p>
+            </div>
 
             {isLoading ? (
-                <div className="flex items-center justify-center h-48">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                    <span className="ml-3 text-gray-500">Generating draft...</span>
+                <div className="flex flex-col items-center justify-center h-64 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mb-4"></div>
+                    <span className="text-gray-600 font-medium animate-pulse">Generating your draft...</span>
                 </div>
             ) : error ? (
-                <div className="bg-red-50 text-red-600 p-4 rounded-md">
-                    {error}
+                <div className="bg-red-50 text-red-600 p-6 rounded-xl border border-red-100 flex items-center justify-between">
+                    <span>{error}</span>
                     <button
                         onClick={generateReply}
-                        className="ml-4 underline hover:text-red-800"
+                        className="font-medium underline hover:text-red-800"
                     >
-                        Retry
+                        Try Again
                     </button>
                 </div>
             ) : (
-                <div className="space-y-4">
-                    <textarea
-                        className="w-full h-64 p-4 border border-gray-200 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-800"
-                        value={reply}
-                        onChange={(e) => setReply(e.target.value)}
-                        disabled={isSending}
-                    />
-                    <div className="flex justify-end space-x-3">
+                <div className="space-y-6">
+                    <div className="relative">
+                        <textarea
+                            className="w-full h-64 p-6 bg-gray-50 border-0 rounded-xl focus:ring-2 focus:ring-indigo-100 text-gray-800 placeholder:text-gray-400 resize-none text-base leading-relaxed selection:bg-indigo-100"
+                            value={reply}
+                            onChange={(e) => setReply(e.target.value)}
+                            disabled={isSending}
+                            placeholder="Type your reply here..."
+                        />
+                        <div className="absolute bottom-4 right-4 text-xs text-gray-400">
+                            AI Generated
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end items-center gap-3 pt-2">
                         {!inline && (
                             <button
                                 onClick={onClose}
-                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md"
+                                className="px-5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors"
                                 disabled={isSending}
                             >
-                                Close
+                                Cancel
                             </button>
                         )}
                         <button
                             onClick={copyToClipboard}
-                            className="px-4 py-2 border border-indigo-600 text-indigo-600 rounded-md hover:bg-indigo-50"
+                            className="px-5 py-2.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition-colors flex items-center gap-2"
                             disabled={isSending}
                         >
-                            Copy to Clipboard
+                            📋 Copy
                         </button>
                         <button
                             onClick={sendReply}
-                            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-lg font-medium hover:shadow-lg hover:to-indigo-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
                             disabled={isSending || !reply.trim()}
                         >
                             {isSending ? (
@@ -178,7 +193,9 @@ export function ReplyComposer({
                                     Sending...
                                 </>
                             ) : (
-                                "Send Reply"
+                                <>
+                                    🚀 Send Reply
+                                </>
                             )}
                         </button>
                     </div>

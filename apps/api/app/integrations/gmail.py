@@ -154,29 +154,65 @@ async def get_message_details(
             headers=headers
         )
         response.raise_for_status()
+        return _parse_message_data(data)
+
+async def get_thread_with_messages(
+    client_id: str,
+    client_secret: str,
+    refresh_token: str,
+    thread_id: str
+) -> dict:
+    """Fetch full thread with all messages parsed."""
+    token_data = await refresh_access_token(client_id, client_secret, refresh_token)
+    access_token = token_data["access_token"]
+    
+    async with httpx.AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        response = await client.get(
+            f"https://gmail.googleapis.com/gmail/v1/users/me/threads/{thread_id}",
+            params={"format": "full"},
+            headers=headers
+        )
+        response.raise_for_status()
         data = response.json()
         
-        payload = data.get("payload", {})
-        headers_list = payload.get("headers", [])
+        messages = [_parse_message_data(msg) for msg in data.get("messages", [])]
         
-        subject = next((h["value"] for h in headers_list if h["name"].lower() == "subject"), "(No Subject)")
-        from_header = next((h["value"] for h in headers_list if h["name"].lower() == "from"), "Unknown")
-        to_header = next((h["value"] for h in headers_list if h["name"].lower() == "to"), "")
-        date = next((h["value"] for h in headers_list if h["name"].lower() == "date"), "")
-        
-        # Parse body
-        body = _extract_body(payload)
-        
+        # Determine subject from the first message (or any message)
+        subject = "(No Subject)"
+        if messages:
+            subject = messages[0]["subject"]
+            
         return {
             "id": data.get("id"),
-            "threadId": data.get("threadId"),
-            "snippet": data.get("snippet", ""),
-            "subject": subject,
-            "from": from_header,
-            "to": to_header,
-            "date": date,
-            "body": body
+            "historyId": data.get("historyId"),
+            "messages": messages,
+            "subject": subject
         }
+
+def _parse_message_data(data: dict) -> dict:
+    """Parse a single Gmail message resource."""
+    payload = data.get("payload", {})
+    headers_list = payload.get("headers", [])
+    
+    subject = next((h["value"] for h in headers_list if h["name"].lower() == "subject"), "(No Subject)")
+    from_header = next((h["value"] for h in headers_list if h["name"].lower() == "from"), "Unknown")
+    to_header = next((h["value"] for h in headers_list if h["name"].lower() == "to"), "")
+    date = next((h["value"] for h in headers_list if h["name"].lower() == "date"), "")
+    
+    # Parse body
+    body = _extract_body(payload)
+    
+    return {
+        "id": data.get("id"),
+        "threadId": data.get("threadId"),
+        "snippet": data.get("snippet", ""),
+        "subject": subject,
+        "from": from_header,
+        "to": to_header,
+        "date": date,
+        "body": body
+    }
 
 def _extract_body(payload: dict) -> str:
     """Recursively extract HTML or plain text body from Gmail payload."""

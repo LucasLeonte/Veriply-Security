@@ -533,13 +533,26 @@ async def get_gmail_message(
 
     # 4. Fetch message
     try:
-        message = await gmail.get_message_details(
+        # Fetch full thread details (which allows showing conversation history)
+        # We use message_id as thread_id hint because normally get_gmail_message is called from a list context
+        # But actually `message_id` from list_threads IS the thread_id effectively (or we can get threadId from message detail).
+        # To be safe: we first fetch the message to get its threadId, OR we just assume the frontend is passing a valid ID for usage.
+        
+        # NOTE: The frontend might be passing a message ID. Let's first get the message to find the thread ID, 
+        # OR we can assume `list_gmail_messages` returned thread IDs as `id`.
+        # Taking a look at `list_gmail_messages`: it returns `id` which is `thread['id']`.
+        # So `message_id` passed here is actually `thread_id`.
+        
+        # Let's verify if `message_id` is a thread ID using `gmail.get_thread_with_messages`.
+        # If it fails, maybe it is a collection of messages.
+        
+        thread = await gmail.get_thread_with_messages(
             client_id=client_id,
             client_secret=client_secret,
             refresh_token=refresh_token,
-            message_id=message_id
+            thread_id=message_id 
         )
-        return message
+        return thread
     except Exception as e:
         logger.error(f"Failed to fetch message {message_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
