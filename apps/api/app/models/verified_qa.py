@@ -33,6 +33,8 @@ class VerifiedQA(Base):
         source_citations: JSONB with document references/citations
         approved_by_user_id: User who approved this entry (FK to users)
         approved_at: Timestamp of approval
+        updated_by_user_id: User who last edited this entry (FK to users)
+        deleted_at: Soft delete timestamp (NULL if not deleted)
         created_at: Record creation timestamp
         updated_at: Last update timestamp
     """
@@ -57,6 +59,12 @@ class VerifiedQA(Base):
     approved_by_user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     approved_at = Column(DateTime(timezone=True), nullable=False)
     
+    # Edit tracking
+    updated_by_user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    
+    # Soft delete
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    
     # Timestamps
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
@@ -68,6 +76,7 @@ class VerifiedQA(Base):
     group = relationship("Group", foreign_keys=[group_id], lazy="select")
     tenant = relationship("Tenant", foreign_keys=[tenant_id], lazy="select")
     approved_by = relationship("User", foreign_keys=[approved_by_user_id], lazy="select")
+    updated_by = relationship("User", foreign_keys=[updated_by_user_id], lazy="select")
     
     # Table args: indexes, constraints, RLS
     __table_args__ = (
@@ -80,7 +89,11 @@ class VerifiedQA(Base):
         Index("idx_verified_qa_group_id", "group_id"),
         Index("idx_verified_qa_bot_id", "bot_id"),  # Kept for backwards compatibility
         Index("idx_verified_qa_approved_by", "approved_by_user_id"),
+        Index("idx_verified_qa_updated_by", "updated_by_user_id"),
         Index("idx_verified_qa_approved_at", "approved_at"),
+        Index("idx_verified_qa_created_at", "created_at"),
+        Index("idx_verified_qa_updated_at", "updated_at"),
+        Index("idx_verified_qa_deleted_at", "deleted_at"),
         
         # Question text length constraint
         CheckConstraint("length(question_text) <= 2000", name="ck_verified_qa_question_length"),
