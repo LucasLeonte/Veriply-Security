@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Trash2, Edit2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { getAccessToken } from "@/lib/auth";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 interface VerifiedQA {
   id: string;
@@ -21,6 +25,9 @@ interface VerifiedQAListProps {
   skip: number;
   limit: number;
   onSkipChange: (skip: number) => void;
+  groupId: string;
+  onEntryDeleted?: () => void;
+  onEntryUpdated?: () => void;
 }
 
 export default function VerifiedQAList({
@@ -29,8 +36,53 @@ export default function VerifiedQAList({
   skip,
   limit,
   onSkipChange,
+  groupId,
+  onEntryDeleted,
+  onEntryUpdated,
 }: VerifiedQAListProps) {
+  const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (entryId: string) => {
+    setDeletingId(entryId);
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/verified-qa/${entryId}?group_id=${groupId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete entry: ${response.status}`);
+      }
+
+      toast({
+        title: "Success",
+        description: "Q&A entry deleted successfully",
+        variant: "success",
+      });
+
+      onEntryDeleted?.();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete entry",
+        variant: "error",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -112,6 +164,36 @@ export default function VerifiedQAList({
                   <span>
                     Updated: {new Date(entry.updated_at).toLocaleString()}
                   </span>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4 border-t border-slate-200 mt-4">
+                  <Button
+                    onClick={() => {
+                      // TODO: Implement edit dialog
+                      toast({
+                        title: "Coming soon",
+                        description: "Edit functionality will be available soon",
+                        variant: "info",
+                      });
+                    }}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                  >
+                    <Edit2 size={14} />
+                    Edit
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (confirm("Are you sure you want to delete this Q&A entry?")) {
+                        handleDelete(entry.id);
+                      }
+                    }}
+                    disabled={deletingId === entry.id}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 disabled:opacity-50"
+                  >
+                    <Trash2 size={14} />
+                    {deletingId === entry.id ? "Deleting..." : "Delete"}
+                  </Button>
                 </div>
               </div>
             )}
