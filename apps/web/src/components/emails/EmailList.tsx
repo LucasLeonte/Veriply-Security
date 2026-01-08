@@ -140,7 +140,8 @@ export function EmailList({ token, folder }: EmailListProps) {
                     onClose={() => setActiveReplyMessage(null)}
                     token={token}
                     messageId={activeReplyMessage.id}
-                    originalText={activeReplyMessage.snippet} // Ideally full body, but using snippet for MVP speed
+                    originalText={activeReplyMessage.snippet}
+                    subject={activeReplyMessage.subject}
                 />
             )}
         </div>

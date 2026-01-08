@@ -9,6 +9,8 @@ interface ReplyComposerProps {
     token: string;
     messageId: string;
     originalText: string;
+    subject?: string;
+    botId?: string;
 }
 
 export function ReplyComposer({
@@ -17,6 +19,8 @@ export function ReplyComposer({
     token,
     messageId,
     originalText,
+    subject,
+    botId,
 }: ReplyComposerProps) {
     const [reply, setReply] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
@@ -32,7 +36,10 @@ export function ReplyComposer({
         setIsLoading(true);
         setError(null);
         try {
-            const result = await generateGmailReply(token, messageId, originalText);
+            const result = await generateGmailReply(token, messageId, originalText, {
+                subject,
+                botId,
+            });
             setReply(result.reply);
         } catch (e) {
             setError("Failed to generate reply. Please try again.");

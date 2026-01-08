@@ -162,15 +162,20 @@ export async function importGmailMessage(
 export async function generateGmailReply(
     token: string,
     messageId: string,
-    originalText: string
+    originalText: string,
+    options?: { botId?: string; subject?: string }
 ): Promise<GenerateReplyResponse> {
+    const body: any = { message_id: messageId, original_text: originalText };
+    if (options?.botId) body.bot_id = options.botId;
+    if (options?.subject) body.subject = options.subject;
+
     const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/generate-reply`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ message_id: messageId, original_text: originalText }),
+        body: JSON.stringify(body),
     });
 
     if (!response.ok) {

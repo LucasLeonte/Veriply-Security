@@ -19,6 +19,7 @@ from app.core.settings import settings
 from app.models.email_integration import EmailIntegration
 from app.models.integration_credentials import IntegrationCredentials
 from app.models.user import User
+from app.models.bot import Bot
 from app.api.v1.auth import get_current_user, get_current_tenant, get_jwt_secret, JWT_ALGORITHM
 from app.utils.encryption import encrypt_token, decrypt_token
 from pydantic import BaseModel, Field
@@ -47,6 +48,8 @@ class GmailMessageImport(BaseModel):
 class GmailMessageReply(BaseModel):
     message_id: str
     original_text: str  # OR fetch it fresh, but passing it might be easier/faster if frontend already has it
+    bot_id: Optional[UUID] = None  # Bot to use for KB search; if None, generate without KB
+    subject: Optional[str] = None  # Email subject for better context
 
 
 async def _get_oauth_credentials(
@@ -466,52 +469,93 @@ async def import_gmail_message(
 async def generate_gmail_reply(
     payload: GmailMessageReply,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Generate a draft reply using LLM."""
+    """Generate a draft reply using LLM with optional KB context.
+    
+    If bot_id is provided, uses that bot's knowledge base.
+    If no bot_id, tries to find a matching monitoring rule and use its bot.
+    If still no bot, generates a generic professional reply.
+    """
     try:
         llm = LLMService()
+        bot_to_use = None
         
-        # Simple context-less generation for now, or we could RAG it if we wanted
-        # But user just wants a reply to THIS email.
+        # Strategy 1: User explicitly provided bot_id
+        if payload.bot_id:
+            bot_to_use = await db.get(Bot, payload.bot_id)
+            if not bot_to_use:
+                raise HTTPException(status_code=404, detail="Bot not found")
+            if bot_to_use.tenant_id != current_user.tenant_id:
+                raise HTTPException(status_code=403, detail="Unauthorized")
+        else:
+            # Strategy 2: Try to find matching monitoring rule
+            # Look up the email integration from the message (if available through message metadata)
+            # For now, find the active Gmail integration for this user
+            from app.models.email_monitoring_rule import EmailMonitoringRule
+            
+            result = await db.execute(
+                select(EmailIntegration).where(
+                    and_(
+                        EmailIntegration.user_id == current_user.id,
+                        EmailIntegration.provider == "gmail",
+                        EmailIntegration.is_active == True
+                    )
+                )
+            )
+            gmail_integration = result.scalar_one_or_none()
+            
+            if gmail_integration:
+                # Try to match this email against the user's rules
+                rules_result = await db.execute(
+                    select(EmailMonitoringRule).where(
+                        and_(
+                            EmailMonitoringRule.tenant_id == current_user.tenant_id,
+                            EmailMonitoringRule.integration_id == gmail_integration.id,
+                            EmailMonitoringRule.is_active == True
+                        )
+                    ).order_by(EmailMonitoringRule.priority.asc())
+                )
+                rules = rules_result.scalars().all()
+                
+                # Simple matching: first active rule wins
+                # (In production, you'd use proper email matching logic)
+                if rules:
+                    first_rule = rules[0]
+                    bot_to_use = await db.get(Bot, first_rule.bot_id)
         
-        prompt = f"""
-        You are a helpful professional assistant. Please draft a polite, professional, and concise reply to the following email:
+        # Prepare context for RAG if we have a bot
+        context_chunks = []
+        if bot_to_use:
+            from app.services.vector_search_service import VectorSearchService
+            from app.services.embedding_service import EmbeddingService
+            
+            embedding_service = EmbeddingService()
+            vector_search = VectorSearchService(embedding_service)
+            
+            search_query = f"{payload.subject or ''} {payload.original_text}".strip()
+            
+            search_results, _ = await vector_search.search(
+                db=db,
+                bot_id=bot_to_use.id,
+                tenant_id=current_user.tenant_id,
+                query=search_query,
+                k=5,
+                similarity_threshold=0.3,
+            )
+            
+            context_chunks = search_results
         
-        Original Email:
-        "{payload.original_text}"
-        
-        Draft Reply:
-        """
+        query = f"Subject: {payload.subject or 'No subject'}\n\nEmail:\n{payload.original_text}"
         
         response_text = ""
-        # Create a dummy context chunk list if needed by generate_answer method signature
-        # But wait, generate_answer enforces "Context-only". 
-        # We might need a "Direct generation" method or hack the prompt.
-        # Actually LLMService is strictly RAG. 
-        # Let's use a lower-level call or bypass the strict prompt for this specific feature if possible.
-        # Or, we create a temporary "Context" which IS the email itself!
-        
-        from app.services.vector_search_service import SearchResult
-        
-        email_context = SearchResult(
-            chunk_id="email-context",
-            document_id=str(uuid4()),
-            document_name="Current Email",
-            section="Body",
-            text=payload.original_text,
-            similarity=1.0,
-            position=0,
-            page_number=1
-        )
-        
-        query = "Draft a reply to this email."
-        
-        # Collect stream
-        async for token in llm.generate_answer(query, [email_context]):
+        async for token in llm.generate_answer(query, context_chunks):
             response_text += token
             
         return {"reply": response_text}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to generate reply: {e}")
         raise HTTPException(status_code=500, detail=str(e))
