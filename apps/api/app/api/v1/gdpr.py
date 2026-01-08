@@ -222,48 +222,15 @@ async def delete_user_account(
     try:
         # Set RLS context
         await set_tenant_context(db, current_user.tenant_id)
-        
+
         user_id = current_user.id
         tenant_id = current_user.tenant_id
-        
+
         logger.info(f"GDPR deletion requested for user {user_id} ({current_user.email})")
-        
-        # 1. Delete email integrations
-        await db.execute(
-            delete(EmailIntegration).where(EmailIntegration.user_id == user_id)
-        )
-        logger.info(f"Deleted email integrations for user {user_id}")
-        
-        # 2. Delete group memberships
-        await db.execute(
-            delete(GroupMember).where(GroupMember.user_id == user_id)
-        )
-        logger.info(f"Deleted group memberships for user {user_id}")
-        
-        # 3. Anonymize HITL resolutions (don't delete, preserve knowledge base)
-        await db.execute(
-            select(ConfidenceLog)
-            .where(ConfidenceLog.resolved_by == user_id)
-        )
-        # Update resolved_by to NULL to anonymize
-        from sqlalchemy import update
-        await db.execute(
-            update(ConfidenceLog)
-            .where(ConfidenceLog.resolved_by == user_id)
-            .values(resolved_by=None)
-        )
-        logger.info(f"Anonymized HITL resolutions for user {user_id}")
-        
-        # 4. Delete audit logs (optional - could be kept for compliance)
-        await db.execute(
-            delete(AuditLog).where(AuditLog.actor_id == user_id)
-        )
-        logger.info(f"Deleted audit logs for user {user_id}")
-        
-        # 5. Transfer ownership of bots to first tenant admin
-        # Find a tenant admin to transfer ownership
+
+        # Require another owner/admin in the tenant before allowing deletion
         from app.models import Group
-        result = await db.execute(
+        admin_result = await db.execute(
             select(GroupMember.user_id)
             .join(Group, GroupMember.group_id == Group.id)
             .where(
@@ -273,41 +240,74 @@ async def delete_user_account(
             )
             .limit(1)
         )
-        new_owner_id = result.scalar_one_or_none()
-        
-        if new_owner_id:
-            from sqlalchemy import update
-            await db.execute(
-                update(Bot)
-                .where(Bot.creator_id == user_id)
-                .values(creator_id=new_owner_id)
+        replacement_admin_id = admin_result.scalar_one_or_none()
+
+        if not replacement_admin_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Account deletion requires another tenant owner/admin. "
+                    "Please promote another user to owner/admin before deleting your account."
+                ),
             )
-            logger.info(f"Transferred bot ownership from {user_id} to {new_owner_id}")
-        else:
-            logger.warning(f"No admin found to transfer bots for user {user_id}")
-        
-        # Similarly transfer document ownership
-        if new_owner_id:
-            await db.execute(
-                update(Document)
-                .where(Document.uploader_id == user_id)
-                .values(uploader_id=new_owner_id)
-            )
-            logger.info(f"Transferred document ownership from {user_id} to {new_owner_id}")
-        
-        # 6. Finally, delete the user account
+
+        # 1. Delete email integrations
         await db.execute(
-            delete(User).where(User.id == user_id)
+            delete(EmailIntegration).where(EmailIntegration.user_id == user_id)
         )
+        logger.info(f"Deleted email integrations for user {user_id}")
+
+        # 2. Delete group memberships
+        await db.execute(
+            delete(GroupMember).where(GroupMember.user_id == user_id)
+        )
+        logger.info(f"Deleted group memberships for user {user_id}")
+
+        # 3. Anonymize HITL resolutions (preserve content, remove identity)
+        from sqlalchemy import update
+        await db.execute(
+            update(ConfidenceLog)
+            .where(ConfidenceLog.resolved_by == user_id)
+            .values(resolved_by=None)
+        )
+        logger.info(f"Anonymized HITL resolutions for user {user_id}")
+
+        # 4. Delete audit logs
+        await db.execute(
+            delete(AuditLog).where(AuditLog.actor_id == user_id)
+        )
+        logger.info(f"Deleted audit logs for user {user_id}")
+
+        # 5. Delete user-owned bots and documents instead of transferring ownership
+        await db.execute(delete(Bot).where(Bot.creator_id == user_id))
+        logger.info(f"Deleted bots for user {user_id}")
+
+        # Delete documents and related chunks/embeddings owned by the user
+        doc_ids_result = await db.execute(
+            select(Document.id).where(Document.uploader_id == user_id)
+        )
+        doc_ids = [row[0] for row in doc_ids_result.all()]
+        if doc_ids:
+            await db.execute(delete(Embedding).where(Embedding.document_id.in_(doc_ids)))
+            await db.execute(delete(Chunk).where(Chunk.document_id.in_(doc_ids)))
+            await db.execute(delete(Document).where(Document.id.in_(doc_ids)))
+            logger.info(f"Deleted documents (and chunks/embeddings) for user {user_id}")
+
+        # 6. Delete the user account
+        await db.execute(delete(User).where(User.id == user_id))
         logger.info(f"Deleted user account {user_id}")
-        
+
         await db.commit()
-        
+
         return {
             "message": "Account successfully deleted",
             "deleted_at": datetime.utcnow().isoformat(),
         }
-        
+
+    except HTTPException:
+        # Pass through expected validation errors
+        await db.rollback()
+        raise
     except Exception as e:
         await db.rollback()
         logger.exception(f"Error deleting user account {current_user.id}: {e}")

@@ -20,6 +20,7 @@ from app.core.auth import get_current_user
 from app.core.settings import settings
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
+from uuid import UUID
 from pathlib import Path
 
 router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
