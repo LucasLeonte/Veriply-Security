@@ -118,6 +118,8 @@ async def get_thread_details(client: httpx.AsyncClient, access_token: str, threa
         
         return {
             "id": thread_id,
+            "thread_id": thread_id,
+            "last_message_id": last_msg.get("id", thread_id),
             "snippet": last_msg.get("snippet", ""),
             "subject": subject,
             "from": from_header,

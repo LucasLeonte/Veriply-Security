@@ -16,8 +16,9 @@ export interface ListIntegrationsResponse {
 }
 
 export interface GmailMessage {
-    id: string;
-    threadId: string;
+    id: string;              // thread id from Gmail
+    threadId: string;        // camelCase thread id for UI convenience
+    lastMessageId: string;   // most recent message id within the thread
     snippet: string;
     subject: string;
     from: string;
@@ -119,11 +120,13 @@ export async function listGmailMessages(
     });
 
     if (!response.ok) {
-        let errorMessage = "Failed to fetch messages";
+        let errorMessage = "Failed to fetch Gmail messages";
         try {
             const errorData = await response.json();
             if (errorData.detail) {
-                errorMessage = errorData.detail;
+                errorMessage = Array.isArray(errorData.detail)
+                    ? errorData.detail.map((d: any) => (d.msg ? d.msg : String(d))).join("; ")
+                    : String(errorData.detail);
             }
         } catch (e) {
             // ignore JSON parse error
@@ -131,7 +134,19 @@ export async function listGmailMessages(
         throw new Error(errorMessage);
     }
 
-    return response.json();
+    const data = await response.json();
+    const messages = (data.messages || []).map((m: any) => ({
+        id: m.id,
+        threadId: m.thread_id || m.threadId || m.id,
+        lastMessageId: m.last_message_id || m.lastMessageId || m.id,
+        snippet: m.snippet,
+        subject: m.subject,
+        from: m.from,
+        to: m.to,
+        date: m.date,
+    }));
+
+    return { messages };
 }
 
 /**

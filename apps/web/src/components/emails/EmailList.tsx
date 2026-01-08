@@ -139,8 +139,8 @@ export function EmailList({ token, folder }: EmailListProps) {
                     isOpen={!!activeReplyMessage}
                     onClose={() => setActiveReplyMessage(null)}
                     token={token}
-                    messageId={activeReplyMessage.id}
-                    threadId={activeReplyMessage.threadId}
+                    messageId={activeReplyMessage.lastMessageId || activeReplyMessage.id}
+                    threadId={activeReplyMessage.threadId || activeReplyMessage.id}
                     originalText={activeReplyMessage.snippet}
                     to={activeReplyMessage.from}
                     subject={activeReplyMessage.subject}

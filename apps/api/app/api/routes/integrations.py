@@ -361,7 +361,8 @@ async def list_gmail_messages(
     current_user: User = Depends(get_current_user),
 ):
     """List recent emails from Gmail (Inbox or Sent)."""
-    # Get credentials
+    # Get credentials. Prefer user's active Gmail integration; if none, fall back to
+    # the tenant's most recent active Gmail integration with a token.
     result = await db.execute(
         select(EmailIntegration)
         .where(
@@ -376,6 +377,24 @@ async def list_gmail_messages(
         .limit(1)
     )
     integration = result.scalars().first()
+
+    if not integration:
+        # Tenant-level fallback (integration might be owned by another user)
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
     if not integration:
         raise HTTPException(status_code=404, detail="Gmail integration not found")
 
@@ -439,6 +458,23 @@ async def import_gmail_message(
         .limit(1)
     )
     integration = result.scalars().first()
+
+    if not integration:
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
     if not integration:
         raise HTTPException(status_code=404, detail="Gmail integration not found")
 
@@ -599,7 +635,9 @@ async def send_gmail_reply(
     try:
         logger.info(f"Send reply payload: {payload.model_dump()}")
         
-        # Get the user's most recent active Gmail integration that has a token
+        # Get the user's most recent active Gmail integration that has a token.
+        # If none exists (e.g., integration stored under another user in the tenant),
+        # fall back to the tenant's most recent active Gmail integration with a token.
         result = await db.execute(
             select(EmailIntegration)
             .where(
@@ -614,6 +652,23 @@ async def send_gmail_reply(
             .limit(1)
         )
         integration = result.scalar_one_or_none()
+
+        if not integration:
+            # Fallback: use the tenant-level most recent active Gmail integration with a token
+            result = await db.execute(
+                select(EmailIntegration)
+                .where(
+                    and_(
+                        EmailIntegration.tenant_id == current_user.tenant_id,
+                        EmailIntegration.provider == "gmail",
+                        EmailIntegration.is_active == True,
+                        EmailIntegration.encrypted_refresh_token.is_not(None),
+                    )
+                )
+                .order_by(desc(EmailIntegration.updated_at))
+                .limit(1)
+            )
+            integration = result.scalar_one_or_none()
 
         if not integration:
             raise HTTPException(status_code=404, detail="Gmail integration not found")
