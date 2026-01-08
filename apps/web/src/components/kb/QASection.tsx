@@ -7,6 +7,7 @@ import { getAccessToken } from "@/lib/auth";
 import { useToast } from "@/components/ui/toast";
 import QAEntryDialog from "./QAEntryDialog";
 import QAImportDialog from "./QAImportDialog";
+import { EditDialog } from "@/components/verified-kb/EditDialog";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -35,6 +36,7 @@ export default function QASection({ groupId }: QASectionProps) {
   const [skip, setSkip] = useState(0);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<VerifiedQA | null>(null);
   const limit = 10;
 
   const fetchEntries = useCallback(async () => {
@@ -137,6 +139,51 @@ export default function QASection({ groupId }: QASectionProps) {
       });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleEditSave = async (updatedEntry: VerifiedQA) => {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No authentication token found");
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/verified-qa/${updatedEntry.id}?group_id=${groupId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            question_text: updatedEntry.question_text,
+            answer_text: updatedEntry.answer_text,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || `Failed to update entry: ${response.status}`);
+      }
+
+      toast({
+        title: "Success",
+        description: "Q&A entry updated successfully",
+        variant: "success",
+      });
+
+      setEditingEntry(null);
+      fetchEntries();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save entry",
+        variant: "error",
+      });
+      throw error;
     }
   };
 
@@ -257,14 +304,7 @@ export default function QASection({ groupId }: QASectionProps) {
                     {/* Action Buttons */}
                     <div className="flex gap-2 pt-4 border-t border-slate-200 mt-4">
                       <Button
-                        onClick={() => {
-                          // TODO: Implement edit dialog
-                          toast({
-                            title: "Coming soon",
-                            description: "Edit functionality will be available soon",
-                            variant: "info",
-                          });
-                        }}
+                        onClick={() => setEditingEntry(entry)}
                         className="flex items-center gap-2 px-3 py-1.5 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
                       >
                         <Edit2 size={14} />
@@ -325,6 +365,13 @@ export default function QASection({ groupId }: QASectionProps) {
         groupId={groupId}
         onSuccess={handleImportSuccess}
       />
+      {editingEntry && (
+        <EditDialog
+          entry={editingEntry}
+          onSave={handleEditSave}
+          onClose={() => setEditingEntry(null)}
+        />
+      )}
     </div>
   );
 }
