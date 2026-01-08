@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useGroup } from "@/contexts/GroupContext";
 import { useRouter } from "next/navigation";
 import {
@@ -9,11 +10,40 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Users, Plus } from "lucide-react";
+import { Users, Plus, UserCheck, Share2 } from "lucide-react";
+import { getAccessToken } from "@/lib/auth";
 
 export function GroupSwitcher() {
     const { currentGroup, groups, isLoading, setCurrentGroup } = useGroup();
     const router = useRouter();
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchCurrentUser = async () => {
+            try {
+                const token = getAccessToken();
+                if (!token) return;
+
+                const apiUrl =
+                    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+                const response = await fetch(`${apiUrl}/api/v1/profile/me`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+
+                if (response.ok) {
+                    const profile = await response.json();
+                    setCurrentUserId(profile.id);
+                }
+            } catch (err) {
+                // Silently fail - this is non-critical for display
+            }
+        };
+
+        fetchCurrentUser();
+    }, []);
 
     if (isLoading) {
         return (
@@ -61,11 +91,26 @@ export function GroupSwitcher() {
                 </div>
             </SelectTrigger>
             <SelectContent className="bg-white">
-                {groups.map((group) => (
-                    <SelectItem key={group.id} value={group.id}>
-                        {group.name}
-                    </SelectItem>
-                ))}
+                {groups.map((group) => {
+                    const isOwnedByUser = group.created_by === currentUserId;
+                    return (
+                        <SelectItem key={group.id} value={group.id}>
+                            <div className="flex items-center gap-2">
+                                {isOwnedByUser ? (
+                                    <UserCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                                ) : (
+                                    <Share2 className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                                )}
+                                <span>{group.name}</span>
+                                {!isOwnedByUser && (
+                                    <span className="text-xs text-slate-500 ml-2">
+                                        (invited)
+                                    </span>
+                                )}
+                            </div>
+                        </SelectItem>
+                    );
+                })}
                 <div className="my-2 border-t border-slate-200" />
                 <SelectItem value="create-new">
                     <span className="text-sky-600 font-medium flex items-center gap-2">

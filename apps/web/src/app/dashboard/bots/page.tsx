@@ -138,7 +138,7 @@ export default function BotsPage() {
                         Bots
                     </h1>
                     <p className="text-gray-600">
-                        Manage your organization&apos;s bots and knowledge bases
+                        Manage your group&apos;s bots and knowledge bases
                     </p>
                 </div>
 

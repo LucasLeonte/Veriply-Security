@@ -4,6 +4,7 @@ import {
     CreateGroupInput,
     UpdateGroupInput,
     InviteMemberInput,
+    GroupMemberInviteResponse,
 } from "@/types/group";
 import { getAccessToken } from "@/lib/auth";
 
@@ -91,7 +92,7 @@ export const groupsApi = {
     async inviteMember(
         groupId: string,
         data: InviteMemberInput
-    ): Promise<GroupMember> {
+    ): Promise<GroupMemberInviteResponse> {
         const response = await fetchWithAuth(
             `${GROUPS_ENDPOINT}/${groupId}/members`,
             {
@@ -99,7 +100,7 @@ export const groupsApi = {
                 body: JSON.stringify(data),
             }
         );
-        return handleResponse<GroupMember>(response);
+        return handleResponse<GroupMemberInviteResponse>(response);
     },
 
     async listMembers(groupId: string): Promise<GroupMember[]> {
