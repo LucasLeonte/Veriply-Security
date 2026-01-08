@@ -36,13 +36,14 @@ async def set_tenant_context(session: AsyncSession, tenant_id: UUID, group_id: U
     Without this, RLS policies are bypassed and users can access all data.
     """
     try:
+        # Use set_config with parameters (SET LOCAL + bind params is not supported by asyncpg)
         await session.execute(
-            text("SET LOCAL app.current_tenant_id = :tenant_id"),
+            text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
             {"tenant_id": str(tenant_id)}
         )
         if group_id:
             await session.execute(
-                text("SET LOCAL app.current_group_id = :group_id"),
+                text("SELECT set_config('app.current_group_id', :group_id, true)"),
                 {"group_id": str(group_id)}
             )
         logger.debug(f"RLS context set: tenant_id={tenant_id}, group_id={group_id}")

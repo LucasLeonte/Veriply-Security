@@ -15,7 +15,7 @@ from app.services.profile_service import (
     change_team_member_role,
     invite_team_member
 )
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.core.auth import get_current_user
 from app.core.settings import settings
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +32,9 @@ async def get_current_user_profile(
 ):
     """Get current logged-in user's profile."""
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, uuid.UUID(current_user['tenant_id']))
+
         if not current_user or "sub" not in current_user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

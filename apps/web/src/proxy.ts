@@ -23,25 +23,17 @@ const publicRoutes = [
     "/reset-password",
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Get auth token from cookies
     const token = request.cookies.get("access_token")?.value;
 
-    // NOTE: Middleware protection is currently disabled because:
-    // 1. Frontend and backend run on different ports (localhost:3000 vs 127.0.0.1:8000)
-    // 2. Cross-origin cookies require additional configuration
-    // 3. Client-side auth (localStorage) already provides protection on each page
-    //
-    // To enable server-side protection:
-    // - Deploy frontend and backend on same domain, or
-    // - Configure reverse proxy to handle both on same origin
-
-    // For now, allow all requests through and let client-side handle auth
+    // NOTE: Proxy protection currently disabled because frontend/backed run on different origins.
+    // Client-side auth remains active. Enable server-side redirects after same-origin deployment.
     return NextResponse.next();
 
-    /* Server-side auth protection (disabled - enable when using same-origin deployment)
+    /* Server-side auth protection (enable when on same origin)
     const isProtectedRoute = protectedRoutes.some((route) =>
         pathname.startsWith(route)
     );
@@ -63,17 +55,8 @@ export function middleware(request: NextRequest) {
     */
 }
 
-// Configure which routes use this middleware
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - public files (public folder)
-         */
         "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ],
 };

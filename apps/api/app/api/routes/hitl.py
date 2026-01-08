@@ -20,7 +20,7 @@ import redis.asyncio as redis
 from sqlalchemy.orm import joinedload
 import redis.asyncio as aioredis
 
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.core.settings import settings
 from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
@@ -132,6 +132,9 @@ async def get_bots_for_filter(
     Returns all bots accessible to the current user across all their groups.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, current_user.tenant_id)
+
         from app.models import GroupMember
         
         # Get all bots from groups the user has access to
@@ -862,6 +865,9 @@ async def reject_queue_item(
     Publishes event to Redis for real-time updates.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, current_user.tenant_id)
+
         item_uuid = UUID(item_id)
         
         logger.debug(f"Rejecting HITL item {item_id} by user {current_user.id}")

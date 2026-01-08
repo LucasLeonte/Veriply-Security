@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.models.bot import Bot
 from app.models.confidence_log import RoutingDecision
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo

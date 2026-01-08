@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 from app.models import GroupMember, GroupRole, User, Tenant
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.core.settings import settings
 from app.services.email_service import EmailService
 from app.api.v1.schemas import (
@@ -126,6 +126,9 @@ async def get_group(
     User must be a member of the group.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Get group with RLS isolation
         group = await GroupService.get_group(
             db=session,
@@ -189,6 +192,9 @@ async def update_group(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner/admin
         member = await session.scalar(
             select(GroupMember).where(
@@ -242,6 +248,9 @@ async def delete_group(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group exists and user is owner/admin
         member = await session.scalar(
             select(GroupMember).where(
@@ -303,6 +312,9 @@ async def invite_member(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner or admin
         member = await session.scalar(
             select(GroupMember).where(
@@ -442,6 +454,9 @@ async def list_group_members(
     User must be a member of the group.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify membership
         member = await session.scalar(
             select(GroupMember).where(
@@ -477,6 +492,9 @@ async def update_member_role(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner/admin
         admin_member = await session.scalar(
             select(GroupMember).where(
@@ -542,6 +560,9 @@ async def remove_member(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner/admin
         admin_member = await session.scalar(
             select(GroupMember).where(

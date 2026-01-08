@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from collections import defaultdict
 
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.models import (
     Feedback,
     FeedbackType,
@@ -33,6 +33,9 @@ async def get_analytics_metrics(
 ):
     """Get analytics metrics for the authenticated user's bots."""
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, UUID(current_user['tenant_id']))
+
         # Get user's tenant_id from current_user
         tenant_id = current_user.get("tenant_id")
         if not tenant_id:

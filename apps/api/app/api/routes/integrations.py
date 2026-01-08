@@ -14,7 +14,7 @@ from sqlalchemy import select, and_, desc
 import httpx
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.core.settings import settings
 from app.models.email_integration import EmailIntegration
 from app.models.integration_credentials import IntegrationCredentials
@@ -585,6 +585,9 @@ async def generate_gmail_reply(
     If still no bot, generates a generic professional reply.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, current_user.tenant_id)
+
         llm = LLMService()
         bot_to_use = None
         
@@ -682,6 +685,9 @@ async def send_gmail_reply(
 ):
     """Send a reply email via Gmail API."""
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, current_user.tenant_id)
+
         logger.info(f"Send reply payload: {payload.model_dump()}")
         
         # SECURITY FIX: Only allow user to access THEIR OWN Gmail integration

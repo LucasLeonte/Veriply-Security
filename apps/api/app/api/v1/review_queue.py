@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from app.models.bot import Bot
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 
 logger = logging.getLogger(__name__)
 
