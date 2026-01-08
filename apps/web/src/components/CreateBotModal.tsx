@@ -70,6 +70,11 @@ export function CreateBotModal({
             return;
         }
 
+        if (!currentGroup) {
+            setGeneralError("No group selected. Please select a group first.");
+            return;
+        }
+
         try {
             const bot = await mutate({
                 group_id: currentGroup.id,
@@ -100,8 +105,7 @@ export function CreateBotModal({
                 <DialogHeader>
                     <DialogTitle>Create New Bot</DialogTitle>
                     <DialogDescription>
-                        Set up a new bot with custom settings for your
-                        organization.
+                        Set up a new bot with custom settings for your group.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -131,8 +135,9 @@ export function CreateBotModal({
                                 validateName(e.target.value);
                             }}
                             placeholder="e.g., HR Bot, Sales Bot"
-                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${nameError ? "border-red-500" : "border-gray-300"
-                                }`}
+                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                nameError ? "border-red-500" : "border-gray-300"
+                            }`}
                             disabled={isPending}
                         />
                         {nameError && (
@@ -141,7 +146,7 @@ export function CreateBotModal({
                             </p>
                         )}
                         <p className="mt-1 text-xs text-gray-500">
-                            2-50 characters, unique in your organization
+                            2-50 characters, unique in your group
                         </p>
                     </div>
 
@@ -161,10 +166,11 @@ export function CreateBotModal({
                                 validateDescription(e.target.value);
                             }}
                             placeholder="Describe what this bot does..."
-                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${descriptionError
+                            className={`mt-1 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                                descriptionError
                                     ? "border-red-500"
                                     : "border-gray-300"
-                                }`}
+                            }`}
                             rows={3}
                             disabled={isPending}
                         />
@@ -202,7 +208,7 @@ export function CreateBotModal({
                         />
                         <p className="mt-1 text-xs text-gray-500">
                             Responses below this threshold will be reviewed by
-                            your team
+                            your group
                         </p>
                     </div>
 

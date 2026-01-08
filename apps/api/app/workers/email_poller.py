@@ -79,8 +79,11 @@ async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = Non
 
         try:
             refresh_token = decrypt_token(integ.encrypted_refresh_token)
-        except Exception:
-            logger.exception("[EmailPoller] Failed to decrypt refresh token for %s", integ.id)
+        except Exception as e:
+            logger.error("[EmailPoller] Failed to decrypt refresh token for %s: %s. Clearing token.", integ.id, str(e))
+            # Clear corrupted token so user can re-authorize
+            integ.encrypted_refresh_token = None
+            await db_session.commit()
             continue
 
         # Build Gmail query from rule folders/labels
