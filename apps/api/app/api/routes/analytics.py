@@ -7,6 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+from collections import defaultdict
 
 from app.core.auth import get_current_user
 from app.core.database import get_db
@@ -72,39 +73,59 @@ async def get_analytics_metrics(
         )
         feedback_data = feedback_data.scalars().all()
 
-        # Calculate metrics
+        # Calculate metrics in a single pass
         total_queries = len(confidence_logs)
 
-        # Auto-resolved = queries that went to auto_send
-        auto_resolved = sum(
-            1 for log in confidence_logs 
-            if log.routing_decision == RoutingDecision.auto_send
-        )
-        auto_resolved_percent = (
-            int((auto_resolved / total_queries * 100) if total_queries > 0 else 0)
-        )
+        auto_resolved = 0
+        hitl_count = 0
+        response_time_sum_ms = 0.0
+        response_time_count = 0
 
-        # HITL intervention rate
-        hitl_count = sum(
-            1 for log in confidence_logs 
-            if log.routing_decision == RoutingDecision.hitl
-        )
-        hitl_intervention_rate = (
-            int((hitl_count / total_queries * 100) if total_queries > 0 else 0)
-        )
+        # For chart aggregation (7-day window max)
+        chart_data = []
+        num_chart_days = min(period, 7)
+        chart_start_date = (end_date - timedelta(days=num_chart_days - 1)).date() if num_chart_days > 0 else None
+        daily_stats = defaultdict(lambda: {"total": 0, "hitl": 0}) if num_chart_days > 0 else None
 
-        # Average response time from confidence log metadata (ms -> seconds)
-        response_times_ms = []
+        # For knowledge gaps
+        gap_counts: dict[str, int] = {}
+
         for log in confidence_logs:
+            # Auto/HITL counts
+            if log.routing_decision == RoutingDecision.auto_send:
+                auto_resolved += 1
+            elif log.routing_decision == RoutingDecision.hitl:
+                hitl_count += 1
+
+            # Response time (ms)
             metadata = getattr(log, "metadata_json", None) or {}
             if isinstance(metadata, dict) and "response_time_ms" in metadata:
                 try:
-                    response_times_ms.append(float(metadata["response_time_ms"]))
+                    response_time_sum_ms += float(metadata["response_time_ms"])
+                    response_time_count += 1
                 except (TypeError, ValueError):
-                    continue
-        avg_response_time = round(
-            sum(response_times_ms) / len(response_times_ms) / 1000, 2
-        ) if response_times_ms else 0.0
+                    pass
+
+            # Chart per-day stats
+            if num_chart_days > 0 and daily_stats is not None and chart_start_date is not None:
+                log_date = log.created_at.date()
+                if log_date >= chart_start_date:
+                    daily_stats[log_date]["total"] += 1
+                    if log.routing_decision == RoutingDecision.hitl:
+                        daily_stats[log_date]["hitl"] += 1
+
+            # Knowledge gaps (low confidence)
+            try:
+                if (log.overall_confidence is not None) and (float(log.overall_confidence) < 0.5):
+                    if log.query_text:
+                        gap_counts[log.query_text] = gap_counts.get(log.query_text, 0) + 1
+            except (TypeError, ValueError):
+                # If overall_confidence is not numeric, skip
+                pass
+
+        auto_resolved_percent = int((auto_resolved / total_queries * 100) if total_queries > 0 else 0)
+        hitl_intervention_rate = int((hitl_count / total_queries * 100) if total_queries > 0 else 0)
+        avg_response_time = round((response_time_sum_ms / response_time_count) / 1000, 2) if response_time_count > 0 else 0.0
 
         # Trust score based on feedback
         negative_feedback = sum(
@@ -136,38 +157,19 @@ async def get_analytics_metrics(
         # Sort by count descending
         rejection_reasons.sort(key=lambda x: x["count"], reverse=True)
 
-        # Generate chart data for HITL intervention rate over time
-        chart_data = []
-        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        for i in range(min(7, period)):
-            day_start = end_date - timedelta(days=6 - i)
-            day_end = day_start + timedelta(days=1)
-            day_logs = [
-                log for log in confidence_logs
-                if day_start <= log.created_at <= day_end
-            ]
-            day_hitl = sum(
-                1 for log in day_logs 
-                if log.routing_decision == RoutingDecision.hitl
-            )
-            rate = int((day_hitl / len(day_logs) * 100) if day_logs else 0)
-            chart_data.append({
-                "period": days[i % 7],
-                "interventionRate": rate,
-            })
+        # Finalize chart series from aggregated daily_stats
+        if num_chart_days > 0 and daily_stats is not None:
+            for i in range(num_chart_days):
+                day = (end_date - timedelta(days=num_chart_days - 1 - i)).date()
+                stats = daily_stats[day]
+                rate = int((stats["hitl"] / stats["total"] * 100) if stats["total"] > 0 else 0)
+                chart_data.append({
+                    "period": day.strftime("%a"),
+                    "interventionRate": rate,
+                })
 
-        # Knowledge gaps (unanswered questions) - from low confidence queries
+        # Knowledge gaps (unanswered questions) - top N from aggregated gap_counts
         knowledge_gaps = []
-        low_confidence_logs = [
-            log for log in confidence_logs
-            if log.overall_confidence < 0.5
-        ]
-        # Group by query text and count
-        gap_counts = {}
-        for log in low_confidence_logs:
-            if log.query_text:
-                gap_counts[log.query_text] = gap_counts.get(log.query_text, 0) + 1
-
         for question, count in sorted(gap_counts.items(), key=lambda x: x[1], reverse=True)[:5]:
             knowledge_gaps.append({
                 "question": question,
