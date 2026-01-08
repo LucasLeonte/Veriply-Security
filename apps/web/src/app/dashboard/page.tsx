@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components";
+import { DashboardPreviewCard } from "@/components/DashboardPreviewCard";
 import { getAccessToken } from "@/lib/auth";
 import { useGroup } from "@/contexts/GroupContext";
 import { botsApi } from "@/lib/api/bots";
@@ -438,244 +439,159 @@ export default function DashboardPage() {
                 {/* Section previews */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {/* Bots */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-md bg-sky-100 text-sky-700">
-                                    <BotIcon className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-slate-900">
-                                        Bots
-                                    </h3>
-                                    <p className="text-sm text-slate-500">
-                                        Build and manage assistants
+                    <DashboardPreviewCard
+                        icon={BotIcon}
+                        iconBgColor="bg-sky-100"
+                        iconTextColor="text-sky-700"
+                        title="Bots"
+                        description="Build and manage assistants"
+                        totalCount={
+                            botsTotal === null ? "—" : `${botsTotal} total`
+                        }
+                        actions={[
+                            {
+                                href: currentGroup ? "/dashboard/bots" : "#",
+                                label: "Open Bots",
+                                variant: "primary",
+                                disabled: !currentGroup,
+                                disabledHint: disabledHint || "",
+                            },
+                            {
+                                href: currentGroup
+                                    ? "/dashboard/bots?create=1"
+                                    : "#",
+                                label: "New Bot",
+                                variant: "secondary",
+                                disabled: !currentGroup,
+                                disabledHint: disabledHint || "",
+                            },
+                        ]}
+                        items={botsPreview}
+                        renderItem={(b: Bot) => (
+                            <div className="py-2 flex items-center justify-between">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-slate-900 truncate">
+                                        {b.name}
+                                    </p>
+                                    <p className="text-xs text-slate-500 truncate">
+                                        Updated {timeAgo(b.updated_at)}
+                                        {b.doc_count
+                                            ? ` • ${b.doc_count} docs`
+                                            : ""}
                                     </p>
                                 </div>
+                                <span
+                                    className={`text-xs px-2 py-1 rounded-full ${statusBadge(
+                                        b.status
+                                    )}`}
+                                >
+                                    {b.status}
+                                </span>
                             </div>
-                            <span className="text-sm text-slate-500">
-                                {botsTotal === null
-                                    ? "—"
-                                    : `${botsTotal} total`}
-                            </span>
-                        </div>
-                        <div className="mt-4 flex gap-2">
-                            <Link
-                                href={currentGroup ? "/dashboard/bots" : "#"}
-                                aria-disabled={!currentGroup}
-                                className={`px-3 py-2 text-sm rounded-lg ${
-                                    currentGroup
-                                        ? "bg-sky-600 text-white hover:bg-sky-700"
-                                        : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                }`}
-                                title={disabledHint || undefined}
-                            >
-                                Open Bots
-                            </Link>
-                            <Link
-                                href={
-                                    currentGroup
-                                        ? "/dashboard/bots?create=1"
-                                        : "#"
-                                }
-                                aria-disabled={!currentGroup}
-                                className={`px-3 py-2 text-sm rounded-lg border ${
-                                    currentGroup
-                                        ? "border-slate-300 hover:bg-slate-50"
-                                        : "border-slate-200 text-slate-400 cursor-not-allowed"
-                                }`}
-                                title={disabledHint || undefined}
-                            >
-                                New Bot
-                            </Link>
-                        </div>
-                        {!!botsPreview.length && (
-                            <ul className="mt-4 divide-y divide-slate-100">
-                                {botsPreview.map((b) => (
-                                    <li
-                                        key={b.id}
-                                        className="py-2 flex items-center justify-between"
-                                    >
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-medium text-slate-900 truncate">
-                                                {b.name}
-                                            </p>
-                                            <p className="text-xs text-slate-500 truncate">
-                                                Updated {timeAgo(b.updated_at)}
-                                                {b.doc_count
-                                                    ? ` • ${b.doc_count} docs`
-                                                    : ""}
-                                            </p>
-                                        </div>
-                                        <span
-                                            className={`text-xs px-2 py-1 rounded-full ${statusBadge(
-                                                b.status
-                                            )}`}
-                                        >
-                                            {b.status}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
                         )}
-                    </div>
+                    />
 
                     {/* Review Queue */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-md bg-rose-100 text-rose-700">
-                                    <Inbox className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-slate-900">
-                                        Review Queue
-                                    </h3>
-                                    <p className="text-sm text-slate-500">
-                                        Low-confidence answers to triage
+                    <DashboardPreviewCard
+                        icon={Inbox}
+                        iconBgColor="bg-rose-100"
+                        iconTextColor="text-rose-700"
+                        title="Review Queue"
+                        description="Low-confidence answers to triage"
+                        totalCount={
+                            queueLoading
+                                ? "…"
+                                : `${queueStats.pending ?? 0} pending`
+                        }
+                        actions={[
+                            {
+                                href: "/inbox",
+                                label: "Open Queue",
+                                variant: "primary",
+                            },
+                        ]}
+                        items={(queueItems?.slice(0, 3) ?? []) as any[]}
+                        renderItem={(q: any) => (
+                            <div className="py-2 flex items-start gap-3">
+                                <span
+                                    className={`mt-1 inline-flex items-center justify-center h-6 w-6 rounded-full text-xs ${
+                                        q.type === "email"
+                                            ? "bg-indigo-100 text-indigo-700"
+                                            : "bg-sky-100 text-sky-700"
+                                    }`}
+                                >
+                                    {q.type === "email" ? "E" : "C"}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <p
+                                        className="text-sm text-slate-900 truncate"
+                                        title={q.userQuestion}
+                                    >
+                                        {q.userQuestion}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                        {timeAgo(q.timestamp)} • conf{" "}
+                                        {Math.round((q.confidence ?? 0) * 100)}%
                                     </p>
                                 </div>
                             </div>
-                            <span className="text-sm text-slate-500">
-                                {queueLoading
-                                    ? "…"
-                                    : `${queueStats.pending ?? 0} pending`}
-                            </span>
-                        </div>
-                        <div className="mt-4 flex gap-2">
-                            <Link
-                                href="/inbox"
-                                className="px-3 py-2 text-sm rounded-lg bg-rose-600 text-white hover:bg-rose-700"
-                            >
-                                Open Queue
-                            </Link>
-                            <span className="self-center text-xs text-slate-500">
-                                {queueLoading
-                                    ? ""
-                                    : `${queueStats.total ?? 0} total`}
-                            </span>
-                        </div>
-                        {!!queueItems?.length && (
-                            <ul className="mt-4 divide-y divide-slate-100">
-                                {queueItems.slice(0, 3).map((q) => (
-                                    <li
-                                        key={q.id}
-                                        className="py-2 flex items-start gap-3"
-                                    >
-                                        <span
-                                            className={`mt-1 inline-flex items-center justify-center h-6 w-6 rounded-full text-xs ${
-                                                q.type === "email"
-                                                    ? "bg-indigo-100 text-indigo-700"
-                                                    : "bg-sky-100 text-sky-700"
-                                            }`}
-                                        >
-                                            {q.type === "email" ? "E" : "C"}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <p
-                                                className="text-sm text-slate-900 truncate"
-                                                title={q.userQuestion}
-                                            >
-                                                {q.userQuestion}
-                                            </p>
-                                            <p className="text-xs text-slate-500">
-                                                {timeAgo(q.timestamp)} • conf{" "}
-                                                {Math.round(
-                                                    (q.confidence ?? 0) * 100
-                                                )}
-                                                %
-                                            </p>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
                         )}
-                    </div>
+                    />
 
                     {/* Knowledge Base */}
-                    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-md bg-emerald-100 text-emerald-700">
-                                    <BookOpen className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <h3 className="font-medium text-slate-900">
-                                        Knowledge Base
-                                    </h3>
-                                    <p className="text-sm text-slate-500">
-                                        Documents and sources
+                    <DashboardPreviewCard
+                        icon={BookOpen}
+                        iconBgColor="bg-emerald-100"
+                        iconTextColor="text-emerald-700"
+                        title="Knowledge Base"
+                        description="Documents and sources"
+                        totalCount={
+                            docsTotal === null ? "—" : `${docsTotal} docs`
+                        }
+                        actions={[
+                            {
+                                href: currentGroup
+                                    ? "/dashboard/knowledge-base"
+                                    : "#",
+                                label: "Open KB",
+                                variant: "primary",
+                                disabled: !currentGroup,
+                                disabledHint: disabledHint || "",
+                            },
+                            {
+                                href: currentGroup
+                                    ? "/dashboard/knowledge-base?upload=1"
+                                    : "#",
+                                label: "Upload",
+                                variant: "secondary",
+                                disabled: !currentGroup,
+                                disabledHint: disabledHint || "",
+                            },
+                        ]}
+                        items={recentDocs}
+                        renderItem={(d: KBDocument) => (
+                            <div className="py-2 flex items-center justify-between">
+                                <div className="min-w-0">
+                                    <p
+                                        className="text-sm text-slate-900 truncate"
+                                        title={d.title || d.filename}
+                                    >
+                                        {d.title || d.filename}
+                                    </p>
+                                    <p className="text-xs text-slate-500 truncate">
+                                        Updated {timeAgo(d.updated_at)}
                                     </p>
                                 </div>
+                                <span
+                                    className={`text-xs px-2 py-1 rounded-full ${statusBadge(
+                                        d.status
+                                    )}`}
+                                >
+                                    {d.status}
+                                </span>
                             </div>
-                            <span className="text-sm text-slate-500">
-                                {docsTotal === null ? "—" : `${docsTotal} docs`}
-                            </span>
-                        </div>
-                        <div className="mt-4 flex gap-2">
-                            <Link
-                                href={
-                                    currentGroup
-                                        ? "/dashboard/knowledge-base"
-                                        : "#"
-                                }
-                                aria-disabled={!currentGroup}
-                                className={`px-3 py-2 text-sm rounded-lg ${
-                                    currentGroup
-                                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                                        : "bg-slate-100 text-slate-400 cursor-not-allowed"
-                                }`}
-                                title={disabledHint || undefined}
-                            >
-                                Open KB
-                            </Link>
-                            <Link
-                                href={
-                                    currentGroup
-                                        ? "/dashboard/knowledge-base?upload=1"
-                                        : "#"
-                                }
-                                aria-disabled={!currentGroup}
-                                className={`px-3 py-2 text-sm rounded-lg border ${
-                                    currentGroup
-                                        ? "border-slate-300 hover:bg-slate-50"
-                                        : "border-slate-200 text-slate-400 cursor-not-allowed"
-                                }`}
-                                title={disabledHint || undefined}
-                            >
-                                Upload
-                            </Link>
-                        </div>
-                        {!!recentDocs.length && (
-                            <ul className="mt-4 divide-y divide-slate-100">
-                                {recentDocs.map((d) => (
-                                    <li
-                                        key={d.id}
-                                        className="py-2 flex items-center justify-between"
-                                    >
-                                        <div className="min-w-0">
-                                            <p
-                                                className="text-sm text-slate-900 truncate"
-                                                title={d.title || d.filename}
-                                            >
-                                                {d.title || d.filename}
-                                            </p>
-                                            <p className="text-xs text-slate-500 truncate">
-                                                Updated {timeAgo(d.updated_at)}
-                                            </p>
-                                        </div>
-                                        <span
-                                            className={`text-xs px-2 py-1 rounded-full ${statusBadge(
-                                                d.status
-                                            )}`}
-                                        >
-                                            {d.status}
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
                         )}
-                    </div>
+                    />
                 </div>
             </div>
         </DashboardLayout>
