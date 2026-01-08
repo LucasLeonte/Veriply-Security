@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { DashboardLayout } from "@/components";
 import { getAccessToken, clearAccessToken } from "@/lib/auth";
 import { useGroup } from "@/contexts/GroupContext";
@@ -176,46 +176,31 @@ export default function SettingsPage() {
         }
     };
 
-    // Check if current user can manage a specific member
-    const canManageGroupMember = (targetMemberRole: GroupRole): boolean => {
-        if (!currentGroup || !currentUserId) return false;
-
-        // Find current user in the members list
+    // Memoize current user's role within the selected group
+    const currentUserGroupRole: GroupRole | null = useMemo(() => {
+        if (!currentGroup || !currentUserId) return null;
         const currentUserMember = groupMembers.find(
             (m) => m.user_id === currentUserId
         );
-        if (!currentUserMember) return false;
+        return currentUserMember ? (currentUserMember.role as GroupRole) : null;
+    }, [currentGroup?.id, currentUserId, groupMembers]);
 
-        const role = currentUserMember.role as GroupRole;
+    // Shared helper to get current user's role (uses memoized value)
+    const getCurrentUserRole = (): GroupRole | null => currentUserGroupRole;
 
-        // Owner can manage anyone
+    // Check if current user can manage a specific member
+    const canManageGroupMember = (targetMemberRole: GroupRole): boolean => {
+        const role = getCurrentUserRole();
+        if (!role) return false;
         if (role === "owner") return true;
-
-        // Admin can manage non-owners
-        if (role === "admin" && targetMemberRole !== "owner") return true;
-
-        return false;
+        return role === "admin" && targetMemberRole !== "owner";
     };
 
     // Check if current user can edit/delete the group
     const canEditGroup = (): boolean => {
-        if (!currentGroup || !currentUserId) return false;
-
-        // Find current user in the members list
-        const currentUserMember = groupMembers.find(
-            (m) => m.user_id === currentUserId
-        );
-        if (!currentUserMember) return false;
-
-        const role = currentUserMember.role as GroupRole;
-
-        // Owner can edit/delete the group
-        if (role === "owner") return true;
-
-        // Admin can edit/delete the group
-        if (role === "admin") return true;
-
-        return false;
+        const role = getCurrentUserRole();
+        if (!role) return false;
+        return role === "owner" || role === "admin";
     };
 
     const handleCreateGroup = async () => {
