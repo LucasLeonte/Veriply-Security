@@ -81,7 +81,7 @@ development_status:
     4-5-embeddable-widget-generation: in-progress
     4-6-widget-security-responsiveness: drafted
     7-1-verified-kb-storage: done
-    7-3-manual-qa-entry: in-progress
+    7-3-manual-qa-entry: review
 ready_status:
     # Mark stories ready after context is generated
     1-5-secrets-management-and-configuration: ready

@@ -45,7 +45,7 @@ class VerifiedQA(Base):
     # Multi-tenant scoping
     tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
     group_id = Column(PGUUID(as_uuid=True), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
-    bot_id = Column(PGUUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE"), nullable=False)
+    bot_id = Column(PGUUID(as_uuid=True), ForeignKey("bots.id", ondelete="CASCADE"), nullable=True)  # Now optional - Q&A is group-scoped
     
     # Q&A content
     question_text = Column(Text, nullable=False)
@@ -71,14 +71,14 @@ class VerifiedQA(Base):
     
     # Table args: indexes, constraints, RLS
     __table_args__ = (
-        # Composite indexes for scoped queries
-        Index("idx_verified_qa_scope", "tenant_id", "group_id", "bot_id"),
+        # Composite indexes for scoped queries (group-level scoping is now primary)
+        Index("idx_verified_qa_scope", "tenant_id", "group_id"),
         Index("idx_verified_qa_tenant_group", "tenant_id", "group_id"),
         
         # Individual foreign key indexes
         Index("idx_verified_qa_tenant_id", "tenant_id"),
         Index("idx_verified_qa_group_id", "group_id"),
-        Index("idx_verified_qa_bot_id", "bot_id"),
+        Index("idx_verified_qa_bot_id", "bot_id"),  # Kept for backwards compatibility
         Index("idx_verified_qa_approved_by", "approved_by_user_id"),
         Index("idx_verified_qa_approved_at", "approved_at"),
         
