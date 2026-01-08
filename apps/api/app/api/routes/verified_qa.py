@@ -304,7 +304,7 @@ async def get_entry(
     try:
         verified_qa = await get_verified_qa_by_id(
             db=db,
-            entry_id=entry_id,
+            verified_qa_id=entry_id,
             tenant_id=tenant_id,
         )
 
@@ -339,16 +339,18 @@ async def list_entries(
     """List verified Q&A entries.
     
     **Access Control:** RLS enforced - returns only entries from current tenant
+    **Filtering:** Can filter by bot_id and/or group_id
     **Pagination:** Default 10 items, max 100 per request
     """
     try:
-        entries = await list_verified_qa(
+        # Query parameter bot_id/group_id filters by specific scope
+        entries, total = await list_verified_qa(
             db=db,
             tenant_id=tenant_id,
             bot_id=bot_id,
             group_id=group_id,
-            skip=skip,
             limit=limit,
+            offset=skip,
         )
 
         return [VerifiedQAResponse.from_orm(entry) for entry in entries]

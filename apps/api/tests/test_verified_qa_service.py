@@ -189,7 +189,7 @@ class TestGetVerifiedQA:
         # Retrieve entry
         qa = await get_verified_qa_by_id(
             db=db,
-            entry_id=created_qa.id,
+            verified_qa_id=created_qa.id,
             tenant_id=test_tenant.id,
         )
 
@@ -203,7 +203,7 @@ class TestGetVerifiedQA:
         """Return None when entry doesn't exist."""
         qa = await get_verified_qa_by_id(
             db=db,
-            entry_id=uuid4(),
+            verified_qa_id=uuid4(),
             tenant_id=test_tenant.id,
         )
 
@@ -235,14 +235,15 @@ class TestListVerifiedQA:
         await db.commit()
 
         # List entries
-        entries = await list_verified_qa(
+        entries, total = await list_verified_qa(
             db=db,
             tenant_id=test_tenant.id,
-            skip=0,
+            offset=0,
             limit=10,
         )
 
         assert len(entries) == 3
+        assert total == 3
 
     async def test_list_entries_pagination(
         self, db: AsyncSession, test_user: User, test_bot: Bot, test_tenant, test_group
@@ -266,19 +267,20 @@ class TestListVerifiedQA:
         await db.commit()
 
         # First page
-        page1 = await list_verified_qa(
+        page1, total1 = await list_verified_qa(
             db=db,
             tenant_id=test_tenant.id,
-            skip=0,
+            offset=0,
             limit=10,
         )
         assert len(page1) == 10
+        assert total1 >= 10
 
         # Second page
-        page2 = await list_verified_qa(
+        page2, total2 = await list_verified_qa(
             db=db,
             tenant_id=test_tenant.id,
-            skip=10,
+            offset=10,
             limit=10,
         )
         assert len(page2) == 5
@@ -305,15 +307,16 @@ class TestListVerifiedQA:
         await db.commit()
 
         # List with bot filter
-        entries = await list_verified_qa(
+        entries, total = await list_verified_qa(
             db=db,
             tenant_id=test_tenant.id,
             bot_id=test_bot.id,
-            skip=0,
+            offset=0,
             limit=10,
         )
 
         assert len(entries) == 3
+        assert total == 3
         assert all(e.bot_id == test_bot.id for e in entries)
 
     async def test_list_entries_filter_by_group(
@@ -338,15 +341,16 @@ class TestListVerifiedQA:
         await db.commit()
 
         # List with group filter
-        entries = await list_verified_qa(
+        entries, total = await list_verified_qa(
             db=db,
             tenant_id=test_tenant.id,
             group_id=test_group.id,
-            skip=0,
+            offset=0,
             limit=10,
         )
 
         assert len(entries) == 3
+        assert total == 3
         assert all(e.group_id == test_group.id for e in entries)
 
     async def test_list_entries_enforces_tenant_isolation(
@@ -370,11 +374,12 @@ class TestListVerifiedQA:
         await db.commit()
 
         # List with different tenant
-        entries = await list_verified_qa(
+        entries, total = await list_verified_qa(
             db=db,
             tenant_id=uuid4(),  # Different tenant
-            skip=0,
+            offset=0,
             limit=10,
         )
 
         assert len(entries) == 0
+        assert total == 0

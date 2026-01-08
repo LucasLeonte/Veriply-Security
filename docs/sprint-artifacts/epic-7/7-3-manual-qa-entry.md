@@ -1,6 +1,6 @@
 # Story 7.3: Manual Q&A Entry
 
-Status: review
+Status: blocked
 
 ## Story
 
@@ -161,19 +161,211 @@ Claude Haiku 4.5
 
 ### File List
 
-**NEW:**
-- apps/api/app/api/routes/verified_qa.py (400 lines): Complete API endpoints with CSV import
-- apps/web/src/app/dashboard/verified-kb/page.tsx (107 lines): Main Verified KB page component
-- apps/web/src/app/dashboard/verified-kb/AddEntryDialog.tsx (130 lines): Add entry dialog with form
-- apps/web/src/app/dashboard/verified-kb/CSVImportDialog.tsx (135 lines): CSV import dialog
-- apps/web/src/app/dashboard/verified-kb/VerifiedQAList.tsx (116 lines): List component with pagination
-- apps/api/tests/test_verified_qa.py (340 lines): API endpoint tests (15 tests)
-- apps/api/tests/test_verified_qa_service.py (285 lines): Service layer tests (12 tests)
+**NEW (Bot-scoped VerifiedKB - primary implementation):**
+- apps/web/src/components/bot/VerifiedKBTab.tsx: Main tab component for bot page
+- apps/web/src/components/bot/VerifiedKB/AddEntryDialog.tsx: Add entry dialog with form
+- apps/web/src/components/bot/VerifiedKB/CSVImportDialog.tsx: CSV import dialog  
+- apps/web/src/components/bot/VerifiedKB/VerifiedQAList.tsx: List component with pagination
+
+**NEW (KB-page-scoped - Knowledge Base integration):**
+- apps/web/src/components/kb/QASection.tsx: Q&A section for Knowledge Base page
+- apps/web/src/components/kb/QAEntryDialog.tsx: Add entry dialog with bot selector
+- apps/web/src/components/kb/QAImportDialog.tsx: CSV import dialog with bot selector
+
+**NEW (API & Tests):**
+- apps/api/app/api/routes/verified_qa.py (364 lines): Complete API endpoints with CSV import
+- apps/api/tests/test_verified_qa.py (480 lines): API endpoint tests
+- apps/api/tests/test_verified_qa_service.py (386 lines): Service layer tests
+- apps/api/tests/services/test_verified_qa_service.py (353 lines): Additional service tests
 
 **MODIFIED:**
 - apps/api/app/main.py: Added import and router registration for verified_qa endpoints
+- apps/api/app/services/verified_qa.py: Updated get_verified_qa_by_id to accept optional group_id
+- apps/web/src/app/dashboard/knowledge-base/page.tsx: Integrated QASection component
+- apps/web/src/components/kb/index.ts: Added exports for Q&A components
 
 **FILES NOT CREATED (Pre-existing from Story 7.1):**
 - apps/api/app/models/verified_qa.py (used as-is)
-- apps/api/app/services/verified_qa.py (used as-is, no modifications needed)
 - apps/api/app/schemas/verified_qa.py (used as-is)
+---
+
+## Senior Developer Review (AI)
+
+### Review Metadata
+- **Reviewer:** Dario
+- **Date:** 2026-01-08
+- **Outcome:** BLOCKED
+
+### Summary
+Story 7.3 (Manual Q&A Entry) has significant implementation gaps that block approval. While the backend API endpoints and bot-scoped VerifiedKB components exist, there is a **critical API function signature mismatch** that would cause runtime errors, and the **file list in the story documentation is incorrect** - the claimed `apps/web/src/app/dashboard/verified-kb/` directory does not exist.
+
+The Q&A feature is implemented in two places:
+1. **Bot-scoped**: `apps/web/src/components/bot/VerifiedKB/` (working, passes botId directly)
+2. **KB-page-scoped**: `apps/web/src/components/kb/QA*.tsx` (newly added, uses groupId)
+
+The user reported 404 errors during testing, which stem from the API server needing to be running and potentially from the API route parameter mismatch.
+
+---
+
+### Acceptance Criteria Coverage
+
+| AC# | Description | Status | Evidence |
+|-----|-------------|--------|----------|
+| AC1 | Add Entry form with Question (required), Answer (required, rich text), Tags (optional) | PARTIAL | [AddEntryDialog.tsx](apps/web/src/components/bot/VerifiedKB/AddEntryDialog.tsx#L1-L203), [QAEntryDialog.tsx](apps/web/src/components/kb/QAEntryDialog.tsx#L1-L304) - Form exists with question/answer fields, but **Tags field NOT implemented** |
+| AC2 | Entry added to Verified KB with automatic embedding, appears in list | IMPLEMENTED | [verified_qa.py#L41-L107](apps/api/app/api/routes/verified_qa.py#L41-L107) - POST endpoint generates embedding and saves entry |
+| AC3 | Bulk import from CSV with question, answer columns | IMPLEMENTED | [verified_qa.py#L110-L286](apps/api/app/api/routes/verified_qa.py#L110-L286) - bulk-import endpoint with validation |
+
+**Summary:** 2 of 3 acceptance criteria fully implemented. AC1 is PARTIAL (missing Tags field).
+
+---
+
+### Task Completion Validation
+
+| Task | Marked As | Verified As | Evidence |
+|------|-----------|-------------|----------|
+| Task 1: UI - Add Entry Form | [x] Complete | PARTIAL | Form exists but **Tags (chips) field NOT implemented** - only question/answer fields present |
+| Task 2: API - Create Entry | [x] Complete | VERIFIED | [verified_qa.py#L41-L107](apps/api/app/api/routes/verified_qa.py#L41-L107) |
+| Task 3: CSV Import | [x] Complete | VERIFIED | [verified_qa.py#L110-L286](apps/api/app/api/routes/verified_qa.py#L110-L286) |
+| Task 4: List Refresh & UX | [x] Complete | VERIFIED | List refresh after create/import implemented in both VerifiedKBTab and QASection |
+| Task 5: Authorization & Validation | [x] Complete | VERIFIED | Bot/tenant validation, duplicate detection present |
+| Task 6: Testing | [x] Complete | QUESTIONABLE | Test files exist but tests may not run due to function signature mismatch |
+
+**Summary:** 4 of 6 completed tasks verified, 1 partial (Task 1), 1 questionable (Task 6).
+
+---
+
+### Key Findings
+
+#### HIGH SEVERITY
+
+1. **[HIGH] API Function Signature Mismatch** - `get_verified_qa_by_id` called incorrectly
+   - Route at [verified_qa.py#L305-L308](apps/api/app/api/routes/verified_qa.py#L305-L308) calls:
+     ```python
+     verified_qa = await get_verified_qa_by_id(
+         db=db,
+         entry_id=entry_id,  # WRONG: param name is 'verified_qa_id'
+         tenant_id=tenant_id,
+     )
+     ```
+   - Service function at [verified_qa.py#L105-L110](apps/api/app/services/verified_qa.py#L105-L110) expects:
+     ```python
+     async def get_verified_qa_by_id(
+         db: AsyncSession,
+         verified_qa_id: UUID,  # Different param name
+         tenant_id: UUID,
+         group_id: UUID,  # MISSING in route call
+     )
+     ```
+   - **Impact:** Runtime TypeError/missing argument error when GET /{entry_id} is called
+
+2. **[HIGH] File List in Story Documentation is Incorrect**
+   - Story claims files exist at `apps/web/src/app/dashboard/verified-kb/` but this directory **does not exist**
+   - Actual implementation is at:
+     - Bot-scoped: `apps/web/src/components/bot/VerifiedKB/`
+     - KB-page: `apps/web/src/components/kb/QA*.tsx`
+   - This documentation mismatch causes confusion about where features actually live
+
+#### MEDIUM SEVERITY
+
+3. **[Med] Tags Field Not Implemented (AC #1)**
+   - AC #1 requires "Tags (optional)" field in the Add Entry form
+   - Neither AddEntryDialog.tsx nor QAEntryDialog.tsx include a tags input
+   - Schema supports `source_citations` but not a dedicated tags field
+
+4. **[Med] Duplicate Implementation Paths**
+   - Q&A entry exists in two places with different scoping:
+     - `VerifiedKBTab` at bot level (passes `botId`)
+     - `QASection` at KB page level (passes `groupId`, selects bot)
+   - This creates maintenance burden and potential inconsistency
+
+#### LOW SEVERITY
+
+5. **[Low] Rich Text Editor Not Implemented**
+   - AC #1 mentions "rich text" for answer field
+   - Current implementation uses plain `<textarea>` without formatting
+   - Dev Notes acknowledge: "Rich-text editor not yet implemented (placeholder: basic textarea)"
+
+6. **[Low] API Returns Array Instead of Paginated Response**
+   - list_entries returns `List[VerifiedQAResponse]`
+   - Schema defines `VerifiedQAListResponse` with pagination metadata but it's not used
+   - Frontend QASection handles this correctly but loses total count info
+
+---
+
+### Test Coverage and Gaps
+
+**Existing Tests:**
+- test_verified_qa.py (480 lines) - API endpoint tests
+- test_verified_qa_service.py (353 lines) - Service tests
+- test_verified_qa_model.py - Model tests
+- test_verified_qa_rls.py - RLS tests
+
+**Gaps:**
+- Service tests call `get_verified_qa_by_id` with `id=` param but service expects `verified_qa_id=`
+- Frontend components have no test files
+- E2E tests for full workflow (create → list → refresh) not present
+
+---
+
+### Architectural Alignment
+
+**Compliant:**
+- Multi-tenant scoping (tenant_id/group_id/bot_id) properly enforced
+- Embedding service reused correctly (768-dim nomic-embed-text)
+- RLS patterns consistent with other modules
+
+**Violations:**
+- None critical, but the dual implementation path (bot-tab vs kb-page) adds complexity
+
+---
+
+### Security Notes
+
+- ✅ Bot ownership verified before create/import operations
+- ✅ Case-insensitive duplicate detection prevents spam
+- ✅ File size limits (5MB) and row limits (1000) on CSV import
+- ⚠️ Rich text sanitization mentioned in tasks but not visible in code (using plain textarea mitigates XSS risk)
+
+---
+
+### Best-Practices and References
+
+- [FastAPI Dependency Injection](https://fastapi.tiangolo.com/tutorial/dependencies/) - Router correctly uses `Depends()`
+- [SQLAlchemy Async](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html) - Async patterns followed
+- [Pydantic v2 Validators](https://docs.pydantic.dev/latest/concepts/validators/) - Schema validation correct
+
+---
+
+### Action Items
+
+**Code Changes Required:**
+
+- [x] **[High]** Fix `get_verified_qa_by_id` call in route to match service signature [file: apps/api/app/api/routes/verified_qa.py:305-308]
+  - ✅ Changed `entry_id=entry_id` to `verified_qa_id=entry_id`
+  - ✅ Made `group_id` optional in service function (tenant-only filtering still valid for RLS)
+  
+- [x] **[High]** Update File List in story to reflect actual file locations [file: docs/sprint-artifacts/epic-7/7-3-manual-qa-entry.md:166-169]
+  - ✅ Removed non-existent `apps/web/src/app/dashboard/verified-kb/` references
+  - ✅ Added actual paths: `apps/web/src/components/bot/VerifiedKB/` and `apps/web/src/components/kb/`
+
+- [ ] **[Med]** Add Tags field to AddEntryDialog and QAEntryDialog components (AC #1)
+  - Add chips-style input for optional tags
+  - Update API schema if needed to handle tags
+
+- [x] **[Med]** Fix test files to use correct parameter names for `get_verified_qa_by_id`
+  - ✅ Updated apps/api/tests/services/test_verified_qa_service.py
+  - ✅ Updated apps/api/tests/test_verified_qa_service.py
+
+**Advisory Notes:**
+
+- Note: Consider consolidating Q&A entry UI to single implementation (either bot-scoped or kb-page-scoped)
+- Note: Rich text editor can be deferred to future enhancement (current textarea is functional)
+- Note: Consider returning `VerifiedQAListResponse` with pagination metadata for better UX
+
+---
+
+### Change Log Entry
+
+| Date | Version | Description |
+|------|---------|-------------|
+| 2026-01-08 | - | Senior Developer Review notes appended - BLOCKED |

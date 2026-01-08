@@ -106,7 +106,7 @@ async def get_verified_qa_by_id(
     db: AsyncSession,
     verified_qa_id: UUID,
     tenant_id: UUID,
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
 ) -> Optional[VerifiedQA]:
     """Retrieve a verified Q&A entry by ID with RLS enforcement.
     
@@ -114,18 +114,19 @@ async def get_verified_qa_by_id(
         db: Async database session
         verified_qa_id: UUID of the verified Q&A entry
         tenant_id: Tenant UUID for RLS check
-        group_id: Group UUID for RLS check
+        group_id: Optional group UUID for additional scoping
         
     Returns:
         VerifiedQA instance if found and accessible, None otherwise
     """
-    stmt = select(VerifiedQA).where(
-        and_(
-            VerifiedQA.id == verified_qa_id,
-            VerifiedQA.tenant_id == tenant_id,
-            VerifiedQA.group_id == group_id,
-        )
-    )
+    conditions = [
+        VerifiedQA.id == verified_qa_id,
+        VerifiedQA.tenant_id == tenant_id,
+    ]
+    if group_id:
+        conditions.append(VerifiedQA.group_id == group_id)
+    
+    stmt = select(VerifiedQA).where(and_(*conditions))
     
     result = await db.execute(stmt)
     verified_qa = result.scalar_one_or_none()
@@ -141,8 +142,8 @@ async def get_verified_qa_by_id(
 async def list_verified_qa(
     db: AsyncSession,
     tenant_id: UUID,
-    group_id: UUID,
     bot_id: Optional[UUID] = None,
+    group_id: Optional[UUID] = None,
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[List[VerifiedQA], int]:
@@ -151,8 +152,8 @@ async def list_verified_qa(
     Args:
         db: Async database session
         tenant_id: Tenant UUID for RLS filtering
-        group_id: Group UUID for group-level scoping
         bot_id: Optional bot ID to filter by specific bot
+        group_id: Optional group UUID for group-level scoping
         limit: Maximum number of entries to return (default 50)
         offset: Pagination offset (default 0)
         
@@ -162,8 +163,10 @@ async def list_verified_qa(
     # Build base query with RLS filters
     base_conditions = [
         VerifiedQA.tenant_id == tenant_id,
-        VerifiedQA.group_id == group_id,
     ]
+    
+    if group_id:
+        base_conditions.append(VerifiedQA.group_id == group_id)
     
     if bot_id:
         base_conditions.append(VerifiedQA.bot_id == bot_id)
