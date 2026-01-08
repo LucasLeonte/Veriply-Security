@@ -20,6 +20,7 @@ interface DashboardPreviewCardProps<T> {
     actions: ActionLink[];
     items?: T[];
     renderItem: (item: T) => ReactNode;
+    keyExtractor: (item: T) => string | number;
 }
 
 export function DashboardPreviewCard<T>({
@@ -32,6 +33,7 @@ export function DashboardPreviewCard<T>({
     actions,
     items,
     renderItem,
+    keyExtractor,
 }: DashboardPreviewCardProps<T>) {
     return (
         <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col">
@@ -82,8 +84,8 @@ export function DashboardPreviewCard<T>({
 
             {items && items.length > 0 && (
                 <ul className="mt-4 divide-y divide-slate-100">
-                    {items.map((item, index) => (
-                        <li key={index}>{renderItem(item)}</li>
+                    {items.map((item) => (
+                        <li key={keyExtractor(item)}>{renderItem(item)}</li>
                     ))}
                 </ul>
             )}
