@@ -452,6 +452,99 @@ async def list_gmail_messages(
         raise HTTPException(status_code=500, detail=f"Failed to fetch emails from Gmail: {str(e)}")
 
 
+@router.get("/gmail/messages/{message_id}")
+async def get_gmail_message(
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get full details of a specific email message."""
+    # Logic similar to list: get creds, fetch message body
+    # 1. Find integration
+    result = await db.execute(
+        select(EmailIntegration)
+        .where(
+            and_(
+                EmailIntegration.user_id == current_user.id,
+                EmailIntegration.provider == "gmail",
+                EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
+            )
+        )
+        .order_by(desc(EmailIntegration.updated_at))
+        .limit(1)
+    )
+    integration = result.scalars().first()
+
+    if not integration:
+        # Tenant fallback
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
+        # 3. Last resort fallback
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
+        raise HTTPException(status_code=404, detail="Gmail integration not found")
+
+    # 2. Get credentials
+    try:
+        redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/gmail/callback"
+        client_id, client_secret, _ = await _get_oauth_credentials(
+            db=db,
+            tenant_id=integration.tenant_id,
+            provider="gmail",
+            redirect_fallback=redirect_default,
+        )
+    except Exception as e:
+         logger.error(f"Configuration error: {e}")
+         raise HTTPException(status_code=500, detail="Service configuration error")
+
+    # 3. Decrypt token
+    try:
+        refresh_token = decrypt_token(integration.encrypted_refresh_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Authentication invalid")
+
+    # 4. Fetch message
+    try:
+        message = await gmail.get_message_details(
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
+            message_id=message_id
+        )
+        return message
+    except Exception as e:
+        logger.error(f"Failed to fetch message {message_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/gmail/import")
 async def import_gmail_message(
     payload: GmailMessageImport,
@@ -772,6 +865,7 @@ async def list_integrations(
             and_(
                 EmailIntegration.user_id == current_user.id,
                 EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
             )
         )
     )

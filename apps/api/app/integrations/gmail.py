@@ -143,7 +143,7 @@ async def get_message_details(
     refresh_token: str,
     message_id: str
 ) -> dict:
-    """Fetch full content of a specific message."""
+    """Fetch full content of a specific message and parse it."""
     token_data = await refresh_access_token(client_id, client_secret, refresh_token)
     access_token = token_data["access_token"]
     
@@ -154,7 +154,63 @@ async def get_message_details(
             headers=headers
         )
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        
+        payload = data.get("payload", {})
+        headers_list = payload.get("headers", [])
+        
+        subject = next((h["value"] for h in headers_list if h["name"].lower() == "subject"), "(No Subject)")
+        from_header = next((h["value"] for h in headers_list if h["name"].lower() == "from"), "Unknown")
+        to_header = next((h["value"] for h in headers_list if h["name"].lower() == "to"), "")
+        date = next((h["value"] for h in headers_list if h["name"].lower() == "date"), "")
+        
+        # Parse body
+        body = _extract_body(payload)
+        
+        return {
+            "id": data.get("id"),
+            "threadId": data.get("threadId"),
+            "snippet": data.get("snippet", ""),
+            "subject": subject,
+            "from": from_header,
+            "to": to_header,
+            "date": date,
+            "body": body
+        }
+
+def _extract_body(payload: dict) -> str:
+    """Recursively extract HTML or plain text body from Gmail payload."""
+    if not payload:
+        return ""
+        
+    # Check if body is directly in payload (e.g. non-multipart)
+    if "body" in payload and payload["body"].get("data"):
+        data = payload["body"]["data"]
+        # Fix padding
+        padding = len(data) % 4
+        if padding:
+            data += "=" * (4 - padding)
+        return base64.urlsafe_b64decode(data).decode("utf-8")
+    
+    # Check parts
+    parts = payload.get("parts", [])
+    
+    # Prioritize text/html
+    html_part = next((p for p in parts if p.get("mimeType") == "text/html"), None)
+    if html_part:
+        return _extract_body(html_part)
+        
+    # Fallback to text/plain
+    text_part = next((p for p in parts if p.get("mimeType") == "text/plain"), None)
+    if text_part:
+        return _extract_body(text_part)
+
+    # Recursive search if nested multipart
+    for part in parts:
+        if part.get("mimeType", "").startswith("multipart/"):
+            return _extract_body(part)
+            
+    return ""
 
 
 async def get_message(

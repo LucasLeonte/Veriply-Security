@@ -150,6 +150,28 @@ export async function listGmailMessages(
 }
 
 /**
+ * Get full Gmail message details
+ */
+export async function getGmailMessage(
+    token: string,
+    messageId: string
+): Promise<any> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/messages/${messageId}`, {
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error("Failed to fetch message details");
+    }
+
+    return response.json();
+}
+
+/**
  * Import a Gmail message as a Document
  */
 export async function importGmailMessage(
