@@ -310,9 +310,9 @@ development_status:
         assigned_to: Soulaymane
 
     7-2-verified-kb-priority:
-        status: backlog
-        assigned_to: null
-        blocked_by: 7-1-verified-kb-storage
+        status: review
+        assigned_to: Kainy
+        blocked_by: null
 
     7-3-manual-qa-entry:
         status: backlog
