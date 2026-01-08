@@ -4,21 +4,27 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, Loader2, XCircle } from "lucide-react";
-import { EmailIntegration, getOutlookAuthUrl, disconnectIntegration } from "@/lib/api/integrations";
+import { EmailIntegration, getOutlookAuthUrl, disconnectIntegration, setDefaultReplyBot } from "@/lib/api/integrations";
+import { Bot } from "@/types/bot";
 
 interface OutlookConnectionProps {
     integration: EmailIntegration | null;
     onDisconnect: () => void;
     token: string;
+    bots: Bot[];
+    onUpdated?: () => void;
 }
 
 export default function OutlookConnection({
     integration,
     onDisconnect,
     token,
+    bots,
+    onUpdated,
 }: OutlookConnectionProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [savingBot, setSavingBot] = useState(false);
 
     const handleConnect = () => {
         if (!token) {
@@ -52,6 +58,19 @@ export default function OutlookConnection({
     };
 
     const isConnected = integration && integration.status === "connected";
+
+    const handleSetDefaultBot = async (botId: string | null) => {
+        if (!integration) return;
+        try {
+            setSavingBot(true);
+            await setDefaultReplyBot(token, integration.id, botId);
+            onUpdated?.();
+        } catch (e: any) {
+            setError(e?.message || "Failed to set default bot");
+        } finally {
+            setSavingBot(false);
+        }
+    };
 
     return (
         <Card className="p-6">
@@ -119,9 +138,30 @@ export default function OutlookConnection({
 
             {isConnected && (
                 <div className="mt-4 pt-4 border-t border-slate-200">
-                    <p className="text-xs text-slate-600">
-                        <strong>Permissions granted:</strong> Read emails, send emails
-                    </p>
+                    <div className="flex flex-col gap-3">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Default reply bot</label>
+                            <div className="flex items-center gap-2">
+                                <select
+                                    className="w-full max-w-xs border rounded px-3 py-2"
+                                    value={integration?.default_reply_bot_id || ""}
+                                    onChange={(e) => handleSetDefaultBot(e.target.value || null)}
+                                    disabled={savingBot}
+                                >
+                                    <option value="">— None (no KB fallback) —</option>
+                                    {bots.map((b) => (
+                                        <option key={b.id} value={b.id}>{b.name}</option>
+                                    ))}
+                                </select>
+                                {savingBot && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
+                            </div>
+                            <p className="text-xs text-slate-500 mt-1">Used when no monitoring rule matches.</p>
+                        </div>
+
+                        <p className="text-xs text-slate-600">
+                            <strong>Permissions granted:</strong> Read emails, send emails
+                        </p>
+                    </div>
                 </div>
             )}
         </Card>

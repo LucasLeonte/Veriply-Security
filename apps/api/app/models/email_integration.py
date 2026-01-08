@@ -22,5 +22,7 @@ class EmailIntegration(Base):
     last_error_message = Column(String, nullable=True)
     next_poll_at = Column(DateTime, nullable=True)
     error_count = Column(Integer, nullable=False, default=0)
+    # Default bot for email replies (Story 6.4 - used if no rule matches)
+    default_reply_bot_id = Column(Uuid, ForeignKey("bots.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

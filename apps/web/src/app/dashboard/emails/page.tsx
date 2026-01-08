@@ -4,36 +4,50 @@ import { useState, useEffect, useCallback } from "react";
 import { DashboardLayout } from "@/components";
 import Link from "next/link";
 import { EmailList } from "@/components/emails/EmailList";
+import { EmailDetail } from "@/components/emails/EmailDetail";
 import { getAccessToken } from "@/lib/auth";
 import { EmailRule, listEmailRules, createEmailRule, updateEmailRule, deleteEmailRule, reorderEmailRules, testEmailRule, getMonitoringStatus, setMonitoringPause, MonitoringStatus } from "@/lib/api/emailRules";
-import { EmailIntegration, listIntegrations, disconnectIntegration } from "@/lib/api/integrations";
+import { EmailIntegration, listIntegrations, disconnectIntegration, setDefaultReplyBot, GmailMessage } from "@/lib/api/integrations";
 import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import { useGroup } from "@/contexts/GroupContext";
 import RuleForm from "../../../components/email-rules/RuleForm";
 import RulesList from "../../../components/email-rules/RulesList";
 import TestRuleModal from "../../../components/email-rules/TestRuleModal";
-import { Mail, Plus, Trash2, Settings as SettingsIcon, CheckCircle, XCircle } from "lucide-react";
+import { Mail, Plus, Inbox, Send, Menu, Trash2, Settings as SettingsIcon, CheckCircle, XCircle, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 export default function EmailsPage() {
-    const [activeTab, setActiveTab] = useState<"EMAILS" | "SETTINGS">("EMAILS");
-    const [emailView, setEmailView] = useState<"INBOX" | "SENT">("INBOX");
+    // View State
+    const [view, setView] = useState<"MAIL" | "SETTINGS">("MAIL");
+
+    // Mail State
     const [token, setToken] = useState<string | null>(null);
     const [integrations, setIntegrations] = useState<EmailIntegration[]>([]);
+    const [activeFolder, setActiveFolder] = useState<"INBOX" | "SENT">("INBOX");
+    const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+    const [isMobileListOpen, setIsMobileListOpen] = useState(true);
+
+    // Settings/Rules State
     const [bots, setBots] = useState<Bot[]>([]);
     const [rules, setRules] = useState<EmailRule[]>([]);
     const [selectedIntegrationId, setSelectedIntegrationId] = useState<string | null>(null);
     const [showTestModal, setShowTestModal] = useState<{ open: boolean; ruleId?: string }>({ open: false });
-    const [loading, setLoading] = useState(false);
+    const [loadingRules, setLoadingRules] = useState(false); // Renamed from loading
     const [error, setError] = useState<string | null>(null);
     const [monitoring, setMonitoring] = useState<MonitoringStatus | null>(null);
     const [monitoringError, setMonitoringError] = useState<string | null>(null);
+    const [savingDefaultBot, setSavingDefaultBot] = useState<string | null>(null);
     const { currentGroup } = useGroup();
 
+    // -- Effects --
+
     useEffect(() => {
-        const token = getAccessToken();
-        if (token) {
-            setToken(token);
+        const t = getAccessToken();
+        if (t) {
+            setToken(t);
         }
     }, []);
 
@@ -68,7 +82,7 @@ export default function EmailsPage() {
 
     const refreshRules = useCallback(async () => {
         if (!token) return;
-        setLoading(true);
+        setLoadingRules(true);
         try {
             const data = await listEmailRules(token, selectedIntegrationId || undefined);
             setRules(data);
@@ -76,7 +90,7 @@ export default function EmailsPage() {
             const msg = e instanceof Error ? e.message : "Failed to load rules";
             setError(msg);
         } finally {
-            setLoading(false);
+            setLoadingRules(false);
         }
     }, [token, selectedIntegrationId]);
 
@@ -92,6 +106,21 @@ export default function EmailsPage() {
         }
     }, [token, selectedIntegrationId]);
 
+    const onSetDefaultBot = useCallback(async (integrationId: string, botId: string | null) => {
+        if (!token) return;
+        try {
+            setSavingDefaultBot(integrationId);
+            await setDefaultReplyBot(token, integrationId, botId);
+            const ints = await listIntegrations(token);
+            setIntegrations(ints.integrations);
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : "Failed to set default bot";
+            setError(msg);
+        } finally {
+            setSavingDefaultBot(null);
+        }
+    }, [token]);
+
     useEffect(() => {
         if (token) {
             refreshRules();
@@ -99,14 +128,20 @@ export default function EmailsPage() {
         }
     }, [token, selectedIntegrationId, refreshRules, refreshMonitoring]);
 
-    // Periodic auto-refresh for monitoring
     useEffect(() => {
-        if (!token || !selectedIntegrationId || activeTab !== "SETTINGS") return;
+        if (!token || !selectedIntegrationId || view !== "SETTINGS") return;
         const id = setInterval(() => {
             refreshMonitoring();
         }, 15000);
         return () => clearInterval(id);
-    }, [token, selectedIntegrationId, activeTab]);
+    }, [token, selectedIntegrationId, view, refreshMonitoring]);
+
+    // -- Handlers --
+
+    const handleSelectEmail = (msg: GmailMessage) => {
+        setSelectedEmailId(msg.id);
+        setIsMobileListOpen(false);
+    };
 
     const onCreateRule = async (payload: Parameters<typeof createEmailRule>[1]) => {
         if (!token) return;
@@ -150,11 +185,6 @@ export default function EmailsPage() {
         }
     };
 
-    const fmt = (s?: string | null) => {
-        if (!s) return "—";
-        try { return new Date(s).toLocaleString(); } catch { return s; }
-    };
-
     const handleDisconnect = async (integrationId: string) => {
         if (!token) return;
         if (!confirm("Are you sure you want to disconnect this email account?")) return;
@@ -172,8 +202,16 @@ export default function EmailsPage() {
         }
     };
 
-    // If no integrations, show connect button
-    if (integrations.length === 0) {
+    const fmt = (s?: string | null) => {
+        if (!s) return "—";
+        try { return new Date(s).toLocaleString(); } catch { return s; }
+    };
+
+    // -- Render --
+
+    const selectedIntegration = integrations.find(i => i.id === selectedIntegrationId);
+
+    if (integrations.length === 0 && token) {
         return (
             <DashboardLayout>
                 <div className="min-h-[60vh] flex items-center justify-center">
@@ -182,10 +220,10 @@ export default function EmailsPage() {
                             <Mail className="w-10 h-10 text-indigo-600" />
                         </div>
                         <h1 className="text-3xl font-bold text-gray-900 mb-3">Welcome to Email Hub</h1>
-                        <p className="text-gray-600 mb-8 leading-relaxed">Connect your email account to access your inbox, manage messages, set up monitoring rules, and let AI help you draft replies.</p>
+                        <p className="text-gray-600 mb-8 leading-relaxed">Connect your email account to get started.</p>
                         <Link
                             href="/dashboard/integrations"
-                            className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 shadow-lg hover:shadow-xl transition-all"
+                            className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-indigo-700 shadow-lg transition-all"
                         >
                             <Plus className="w-5 h-5" />
                             Connect Email Account
@@ -197,84 +235,96 @@ export default function EmailsPage() {
     }
 
     return (
-        <DashboardLayout>
-            <div className="space-y-6">
-                {/* Header */}
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Email Hub</h1>
-                    <p className="text-gray-600 mt-1">Manage your emails, rules, and integrations</p>
-                </div>
-
-                {/* Main Tabs */}
-                <div className="border-b border-gray-200">
-                    <nav className="-mb-px flex gap-8">
-                        <button
-                            onClick={() => setActiveTab("EMAILS")}
-                            className={`py-4 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-                                activeTab === "EMAILS"
-                                    ? "border-indigo-500 text-indigo-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                            }`}
-                        >
-                            <Mail className="w-4 h-4" />
-                            Emails
-                        </button>
-                        <button
-                            onClick={() => setActiveTab("SETTINGS")}
-                            className={`py-4 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
-                                activeTab === "SETTINGS"
-                                    ? "border-indigo-500 text-indigo-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                            }`}
-                        >
-                            <SettingsIcon className="w-4 h-4" />
-                            Settings & Rules
-                        </button>
-                    </nav>
-                </div>
-
-                {/* Content */}
-                {activeTab === "EMAILS" ? (
-                    <div className="space-y-4">
-                        {/* Email sub-tabs */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                            <div className="border-b border-gray-200 px-6">
-                                <nav className="-mb-px flex">
-                                    <button
-                                        onClick={() => setEmailView("INBOX")}
-                                        className={`py-3 px-4 border-b-2 font-medium text-sm transition-colors ${
-                                            emailView === "INBOX"
-                                                ? "border-indigo-500 text-indigo-600"
-                                                : "border-transparent text-gray-500 hover:text-gray-700"
-                                        }`}
-                                    >
-                                        Inbox
-                                    </button>
-                                    <button
-                                        onClick={() => setEmailView("SENT")}
-                                        className={`py-3 px-4 border-b-2 font-medium text-sm transition-colors ${
-                                            emailView === "SENT"
-                                                ? "border-indigo-500 text-indigo-600"
-                                                : "border-transparent text-gray-500 hover:text-gray-700"
-                                        }`}
-                                    >
-                                        Sent
-                                    </button>
-                                </nav>
+        <DashboardLayout disableContentPadding={true}>
+            {view === "MAIL" ? (
+                <div className="flex h-full bg-white">
+                    {/* Left Sidebar / List Column */}
+                    <div className={cn(
+                        "flex flex-col border-r bg-gray-50/50 w-full md:w-[400px] lg:w-[450px] shrink-0 transition-all duration-300 absolute md:relative z-10 h-full",
+                        isMobileListOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+                    )}>
+                        {/* Header */}
+                        <div className="h-16 flex items-center justify-between px-4 border-b bg-white shrink-0">
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-lg font-semibold text-gray-900">Inbox</h1>
+                                <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full font-medium">Beta</span>
                             </div>
-                            <div className="p-6">
-                                {token ? (
-                                    <EmailList token={token} folder={emailView} />
-                                ) : (
-                                    <div className="text-center py-10 text-gray-500">
-                                        Loading...
-                                    </div>
-                                )}
+                            <Button variant="ghost" size="icon" title="Settings & Rules" onClick={() => setView("SETTINGS")}>
+                                <SettingsIcon className="h-5 w-5 text-gray-500" />
+                            </Button>
+                        </div>
+
+                        {/* Folder Tabs */}
+                        <div className="p-2 border-b bg-white shrink-0">
+                            <div className="grid grid-cols-2 gap-1 bg-gray-100 p-1 rounded-lg">
+                                <button
+                                    onClick={() => setActiveFolder("INBOX")}
+                                    className={cn(
+                                        "flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-all",
+                                        activeFolder === "INBOX" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                    )}
+                                >
+                                    <Inbox className="w-4 h-4" /> Inbox
+                                </button>
+                                <button
+                                    onClick={() => setActiveFolder("SENT")}
+                                    className={cn(
+                                        "flex items-center justify-center gap-2 py-1.5 text-sm font-medium rounded-md transition-all",
+                                        activeFolder === "SENT" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                                    )}
+                                >
+                                    <Send className="w-4 h-4" /> Sent
+                                </button>
                             </div>
                         </div>
+
+                        {/* Email List */}
+                        <div className="flex-1 overflow-y-auto">
+                            {token ? (
+                                <EmailList
+                                    token={token}
+                                    folder={activeFolder}
+                                    selectedId={selectedEmailId}
+                                    onSelect={handleSelectEmail}
+                                    provider={selectedIntegration?.provider}
+                                />
+                            ) : (
+                                <div className="p-8 text-center text-gray-500">Loading...</div>
+                            )}
+                        </div>
                     </div>
-                ) : (
-                    <div className="space-y-6">
+
+                    {/* Right Detail Column */}
+                    <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
+                        {selectedEmailId && token ? (
+                            <EmailDetail
+                                token={token}
+                                messageId={selectedEmailId}
+                                onClose={() => setIsMobileListOpen(true)} // Back button for mobile
+                            />
+                        ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-slate-50">
+                                <Mail className="w-16 h-16 mb-4 opacity-20" />
+                                <p className="text-lg font-medium">Select an email to view</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            ) : (
+                // Settings & Rules View
+                <div className="h-full overflow-y-auto bg-slate-100">
+                    <div className="max-w-7xl mx-auto p-6 space-y-6">
+                        {/* Header */}
+                        <div className="flex items-center gap-4 mb-6">
+                            <Button variant="ghost" onClick={() => setView("MAIL")} className="gap-2">
+                                <ArrowLeft className="w-4 h-4" /> Back to Inbox
+                            </Button>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900">Settings & Rules</h1>
+                                <p className="text-gray-600">Configure email integrations and automation rules</p>
+                            </div>
+                        </div>
+
                         {/* Connected Accounts */}
                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                             <div className="flex items-center justify-between mb-4">
@@ -319,6 +369,23 @@ export default function EmailsPage() {
                                                         <span className="text-xs text-gray-500">• Last sync: {fmt(integration.last_sync_time)}</span>
                                                     )}
                                                 </div>
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <label className="text-sm text-gray-700">Default Bot:</label>
+                                                    <select
+                                                        className="border rounded px-2 py-1 text-sm"
+                                                        value={integration.default_reply_bot_id ?? ""}
+                                                        disabled={savingDefaultBot === integration.id}
+                                                        onChange={(e) => {
+                                                            const v = e.target.value;
+                                                            onSetDefaultBot(integration.id, v === "" ? null : v);
+                                                        }}
+                                                    >
+                                                        <option value="">— None —</option>
+                                                        {bots.map((b) => (
+                                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
                                         <button
@@ -359,11 +426,10 @@ export default function EmailsPage() {
                                     </div>
                                     <button
                                         onClick={onTogglePause}
-                                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                                            monitoring?.is_paused
-                                                ? 'bg-green-600 hover:bg-green-700 text-white shadow-md'
-                                                : 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-md'
-                                        }`}
+                                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${monitoring?.is_paused
+                                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-md'
+                                            : 'bg-yellow-500 hover:bg-yellow-600 text-white shadow-md'
+                                            }`}
                                     >
                                         {monitoring?.is_paused ? '▶ Resume Monitoring' : '⏸ Pause Monitoring'}
                                     </button>
@@ -417,7 +483,7 @@ export default function EmailsPage() {
                                 onTest={(id: string) => setShowTestModal({ open: true, ruleId: id })}
                             />
 
-                            {loading && (
+                            {loadingRules && (
                                 <div className="text-center py-8 text-gray-500">Loading rules...</div>
                             )}
                         </div>
@@ -427,16 +493,16 @@ export default function EmailsPage() {
                                 {error}
                             </div>
                         )}
-                    </div>
-                )}
 
-                <TestRuleModal
-                    open={showTestModal.open}
-                    onClose={() => setShowTestModal({ open: false })}
-                    ruleId={showTestModal.ruleId}
-                    onTest={onTestRule}
-                />
-            </div>
+                        <TestRuleModal
+                            open={showTestModal.open}
+                            onClose={() => setShowTestModal({ open: false })}
+                            ruleId={showTestModal.ruleId}
+                            onTest={onTestRule}
+                        />
+                    </div>
+                </div>
+            )}
         </DashboardLayout>
     );
 }

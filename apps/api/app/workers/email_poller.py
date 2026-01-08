@@ -77,6 +77,11 @@ async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = Non
         # Resolve OAuth creds: tenant-specific, else global, else settings
         client_id, client_secret = await _resolve_oauth_credentials(db_session, integ.tenant_id, "gmail")
 
+        # Skip integrations that do not yet have a stored token
+        if not integ.encrypted_refresh_token:
+            logger.warning("[EmailPoller] Integration %s has no encrypted token; skipping", integ.id)
+            continue
+
         try:
             refresh_token = decrypt_token(integ.encrypted_refresh_token)
         except Exception as e:

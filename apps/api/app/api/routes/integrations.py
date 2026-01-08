@@ -7,10 +7,10 @@ from uuid import uuid4, UUID
 from datetime import datetime
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Request, HTTPException, status
+from fastapi import APIRouter, Depends, Request, HTTPException, status, Body
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, desc
 import httpx
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -19,6 +19,7 @@ from app.core.settings import settings
 from app.models.email_integration import EmailIntegration
 from app.models.integration_credentials import IntegrationCredentials
 from app.models.user import User
+from app.models.bot import Bot
 from app.api.v1.auth import get_current_user, get_current_tenant, get_jwt_secret, JWT_ALGORITHM
 from app.utils.encryption import encrypt_token, decrypt_token
 from pydantic import BaseModel, Field
@@ -26,6 +27,7 @@ import jwt
 from app.integrations import gmail, outlook
 from app.services.document_service import create_document
 from app.services.llm_service import LLMService
+from pydantic import ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,21 @@ class GmailMessageImport(BaseModel):
 class GmailMessageReply(BaseModel):
     message_id: str
     original_text: str  # OR fetch it fresh, but passing it might be easier/faster if frontend already has it
+    subject: Optional[str] = None
+    bot_id: Optional[str] = None
+
+
+class GmailSendReply(BaseModel):
+    thread_id: str
+    message_id: str
+    to: str
+    subject: str
+    body: str
+    
+    model_config = ConfigDict(populate_by_name=True)
+
+    bot_id: Optional[UUID] = None  # Bot to use for KB search; if None, generate without KB
+    subject: Optional[str] = None  # Email subject for better context
 
 
 async def _get_oauth_credentials(
@@ -279,6 +296,7 @@ async def gmail_callback(
     except Exception as e:
         logger.error("Failed to exchange token: %s", e)
         raise HTTPException(status_code=502, detail="Failed to exchange token with Google")
+    
     refresh_token = token_data.get("refresh_token")
     access_token = token_data.get("access_token")
 
@@ -344,17 +362,56 @@ async def list_gmail_messages(
     current_user: User = Depends(get_current_user),
 ):
     """List recent emails from Gmail (Inbox or Sent)."""
-    # Get credentials
+    # Get credentials. Prefer user's active Gmail integration; if none, fall back to
+    # the tenant's most recent active Gmail integration with a token.
     result = await db.execute(
-        select(EmailIntegration).where(
+        select(EmailIntegration)
+        .where(
             and_(
                 EmailIntegration.user_id == current_user.id,
                 EmailIntegration.provider == "gmail",
                 EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
             )
         )
+        .order_by(desc(EmailIntegration.updated_at))
+        .limit(1)
     )
     integration = result.scalars().first()
+
+    if not integration:
+        # Tenant-level fallback (integration might be owned by another user)
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
+        # Last resort: allow paused/inactive but still tokened integration at tenant scope
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
     if not integration:
         raise HTTPException(status_code=404, detail="Gmail integration not found")
 
@@ -395,6 +452,112 @@ async def list_gmail_messages(
         raise HTTPException(status_code=500, detail=f"Failed to fetch emails from Gmail: {str(e)}")
 
 
+@router.get("/gmail/messages/{message_id}")
+async def get_gmail_message(
+    message_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get full details of a specific email message."""
+    # Logic similar to list: get creds, fetch message body
+    # 1. Find integration
+    result = await db.execute(
+        select(EmailIntegration)
+        .where(
+            and_(
+                EmailIntegration.user_id == current_user.id,
+                EmailIntegration.provider == "gmail",
+                EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
+            )
+        )
+        .order_by(desc(EmailIntegration.updated_at))
+        .limit(1)
+    )
+    integration = result.scalars().first()
+
+    if not integration:
+        # Tenant fallback
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
+        # 3. Last resort fallback
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
+        raise HTTPException(status_code=404, detail="Gmail integration not found")
+
+    # 2. Get credentials
+    try:
+        redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/gmail/callback"
+        client_id, client_secret, _ = await _get_oauth_credentials(
+            db=db,
+            tenant_id=integration.tenant_id,
+            provider="gmail",
+            redirect_fallback=redirect_default,
+        )
+    except Exception as e:
+         logger.error(f"Configuration error: {e}")
+         raise HTTPException(status_code=500, detail="Service configuration error")
+
+    # 3. Decrypt token
+    try:
+        refresh_token = decrypt_token(integration.encrypted_refresh_token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Authentication invalid")
+
+    # 4. Fetch message
+    try:
+        # Fetch full thread details (which allows showing conversation history)
+        # We use message_id as thread_id hint because normally get_gmail_message is called from a list context
+        # But actually `message_id` from list_threads IS the thread_id effectively (or we can get threadId from message detail).
+        # To be safe: we first fetch the message to get its threadId, OR we just assume the frontend is passing a valid ID for usage.
+        
+        # NOTE: The frontend might be passing a message ID. Let's first get the message to find the thread ID, 
+        # OR we can assume `list_gmail_messages` returned thread IDs as `id`.
+        # Taking a look at `list_gmail_messages`: it returns `id` which is `thread['id']`.
+        # So `message_id` passed here is actually `thread_id`.
+        
+        # Let's verify if `message_id` is a thread ID using `gmail.get_thread_with_messages`.
+        # If it fails, maybe it is a collection of messages.
+        
+        thread = await gmail.get_thread_with_messages(
+            client_id=client_id,
+            client_secret=client_secret,
+            refresh_token=refresh_token,
+            thread_id=message_id 
+        )
+        return thread
+    except Exception as e:
+        logger.error(f"Failed to fetch message {message_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/gmail/import")
 async def import_gmail_message(
     payload: GmailMessageImport,
@@ -405,15 +568,51 @@ async def import_gmail_message(
     """Import a specific Gmail message as a Document."""
     # Logic similar to list: get creds, fetch message body, create document
     result = await db.execute(
-        select(EmailIntegration).where(
+        select(EmailIntegration)
+        .where(
             and_(
                 EmailIntegration.user_id == current_user.id,
                 EmailIntegration.provider == "gmail",
                 EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
             )
         )
+        .order_by(desc(EmailIntegration.updated_at))
+        .limit(1)
     )
     integration = result.scalars().first()
+
+    if not integration:
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
+    if not integration:
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.tenant_id == current_user.tenant_id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalars().first()
+
     if not integration:
         raise HTTPException(status_code=404, detail="Gmail integration not found")
 
@@ -466,53 +665,205 @@ async def import_gmail_message(
 async def generate_gmail_reply(
     payload: GmailMessageReply,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    """Generate a draft reply using LLM."""
+    """Generate a draft reply using LLM with optional KB context.
+    
+    If bot_id is provided, uses that bot's knowledge base.
+    If no bot_id, tries to find a matching monitoring rule and use its bot.
+    If still no bot, generates a generic professional reply.
+    """
     try:
         llm = LLMService()
+        bot_to_use = None
         
-        # Simple context-less generation for now, or we could RAG it if we wanted
-        # But user just wants a reply to THIS email.
+        # Strategy 1: User explicitly provided bot_id
+        if payload.bot_id:
+            bot_to_use = await db.get(Bot, payload.bot_id)
+            if not bot_to_use:
+                raise HTTPException(status_code=404, detail="Bot not found")
+            if bot_to_use.tenant_id != current_user.tenant_id:
+                raise HTTPException(status_code=403, detail="Unauthorized")
+        else:
+            # Strategy 2: Try to find matching monitoring rule
+            # Look up the email integration from the message (if available through message metadata)
+            # For now, find the active Gmail integration for this user
+            from app.models.email_monitoring_rule import EmailMonitoringRule
+            
+            result = await db.execute(
+                select(EmailIntegration).where(
+                    and_(
+                        EmailIntegration.user_id == current_user.id,
+                        EmailIntegration.provider == "gmail",
+                        EmailIntegration.is_active == True
+                    )
+                )
+            )
+            gmail_integration = result.scalar_one_or_none()
+            
+            if gmail_integration:
+                # Try to match this email against the user's rules
+                rules_result = await db.execute(
+                    select(EmailMonitoringRule).where(
+                        and_(
+                            EmailMonitoringRule.tenant_id == current_user.tenant_id,
+                            EmailMonitoringRule.integration_id == gmail_integration.id,
+                            EmailMonitoringRule.is_active == True
+                        )
+                    ).order_by(EmailMonitoringRule.priority.asc())
+                )
+                rules = rules_result.scalars().all()
+                
+                # Simple matching: first active rule wins
+                # (In production, you'd use proper email matching logic)
+                if rules:
+                    first_rule = rules[0]
+                    bot_to_use = await db.get(Bot, first_rule.bot_id)
+                
+                # Strategy 3: No rule matched, try default bot for this integration
+                if not bot_to_use and gmail_integration.default_reply_bot_id:
+                    bot_to_use = await db.get(Bot, gmail_integration.default_reply_bot_id)
+                    if bot_to_use and bot_to_use.tenant_id != current_user.tenant_id:
+                        bot_to_use = None
         
-        prompt = f"""
-        You are a helpful professional assistant. Please draft a polite, professional, and concise reply to the following email:
+        # Prepare context for RAG if we have a bot
+        context_chunks = []
+        if bot_to_use:
+            from app.services.vector_search_service import VectorSearchService
+            from app.services.embedding_service import EmbeddingService
+            
+            embedding_service = EmbeddingService()
+            vector_search = VectorSearchService(embedding_service)
+            
+            search_query = f"{payload.subject or ''} {payload.original_text}".strip()
+            
+            search_results, _ = await vector_search.search(
+                db=db,
+                bot_id=bot_to_use.id,
+                tenant_id=current_user.tenant_id,
+                query=search_query,
+                k=5,
+                similarity_threshold=0.3,
+            )
+            
+            context_chunks = search_results
         
-        Original Email:
-        "{payload.original_text}"
-        
-        Draft Reply:
-        """
+        query = f"Subject: {payload.subject or 'No subject'}\n\nEmail:\n{payload.original_text}"
         
         response_text = ""
-        # Create a dummy context chunk list if needed by generate_answer method signature
-        # But wait, generate_answer enforces "Context-only". 
-        # We might need a "Direct generation" method or hack the prompt.
-        # Actually LLMService is strictly RAG. 
-        # Let's use a lower-level call or bypass the strict prompt for this specific feature if possible.
-        # Or, we create a temporary "Context" which IS the email itself!
-        
-        from app.services.vector_search_service import SearchResult
-        
-        email_context = SearchResult(
-            id="email-context",
-            document_id=uuid4(),
-            document_name="Current Email",
-            text=payload.original_text,
-            score=1.0,
-            section="Body",
-            page_number=1
-        )
-        
-        query = "Draft a reply to this email."
-        
-        # Collect stream
-        async for token in llm.generate_answer(query, [email_context]):
+        async for token in llm.generate_answer(query, context_chunks):
             response_text += token
             
         return {"reply": response_text}
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to generate reply: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/gmail/send-reply")
+async def send_gmail_reply(
+    payload: GmailSendReply = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a reply email via Gmail API."""
+    try:
+        logger.info(f"Send reply payload: {payload.model_dump()}")
+        
+        # Get the user's most recent active Gmail integration that has a token.
+        # If none exists (e.g., integration stored under another user in the tenant),
+        # fall back to the tenant's most recent active Gmail integration with a token.
+        result = await db.execute(
+            select(EmailIntegration)
+            .where(
+                and_(
+                    EmailIntegration.user_id == current_user.id,
+                    EmailIntegration.provider == "gmail",
+                    EmailIntegration.is_active == True,
+                    EmailIntegration.encrypted_refresh_token.is_not(None),
+                )
+            )
+            .order_by(desc(EmailIntegration.updated_at))
+            .limit(1)
+        )
+        integration = result.scalar_one_or_none()
+
+        if not integration:
+            # Fallback: use the tenant-level most recent active Gmail integration with a token
+            result = await db.execute(
+                select(EmailIntegration)
+                .where(
+                    and_(
+                        EmailIntegration.tenant_id == current_user.tenant_id,
+                        EmailIntegration.provider == "gmail",
+                        EmailIntegration.is_active == True,
+                        EmailIntegration.encrypted_refresh_token.is_not(None),
+                    )
+                )
+                .order_by(desc(EmailIntegration.updated_at))
+                .limit(1)
+            )
+            integration = result.scalar_one_or_none()
+
+        if not integration:
+            # Last resort: allow paused/inactive but tokened integration at tenant scope
+            result = await db.execute(
+                select(EmailIntegration)
+                .where(
+                    and_(
+                        EmailIntegration.tenant_id == current_user.tenant_id,
+                        EmailIntegration.provider == "gmail",
+                        EmailIntegration.encrypted_refresh_token.is_not(None),
+                    )
+                )
+                .order_by(desc(EmailIntegration.updated_at))
+                .limit(1)
+            )
+            integration = result.scalar_one_or_none()
+
+        if not integration:
+            raise HTTPException(status_code=404, detail="Gmail integration not found")
+
+        # Resolve OAuth credentials (supports tenant overrides)
+        redirect_default = settings.GOOGLE_OAUTH_REDIRECT or "http://localhost:8000/api/v1/integrations/gmail/callback"
+        client_id, client_secret, _ = await _get_oauth_credentials(
+            db=db,
+            tenant_id=integration.tenant_id,
+            provider="gmail",
+            redirect_fallback=redirect_default,
+        )
+
+        # Decrypt and refresh token
+        refresh_token = decrypt_token(integration.encrypted_refresh_token)
+        token_data = await gmail.refresh_access_token(
+            client_id,
+            client_secret,
+            refresh_token
+        )
+        access_token = token_data["access_token"]
+        
+        # Send the reply
+        sent_message = await gmail.send_reply(
+            access_token=access_token,
+            thread_id=payload.thread_id,
+            message_id=payload.message_id,
+            to=payload.to,
+            subject=payload.subject,
+            body=payload.body
+        )
+        
+        return {
+            "message": "Reply sent successfully",
+            "sent_message_id": sent_message.get("id")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to send reply: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -527,6 +878,7 @@ async def list_integrations(
             and_(
                 EmailIntegration.user_id == current_user.id,
                 EmailIntegration.is_active == True,
+                EmailIntegration.encrypted_refresh_token.is_not(None),
             )
         )
     )
@@ -538,11 +890,55 @@ async def list_integrations(
                 "id": str(integration.id),
                 "provider": integration.provider,
                 "status": integration.status,
+                "default_reply_bot_id": str(integration.default_reply_bot_id) if integration.default_reply_bot_id else None,
                 "last_sync_time": integration.last_sync_time.isoformat() if integration.last_sync_time else None,
                 "created_at": integration.created_at.isoformat() if integration.created_at else None,
             }
             for integration in integrations
         ]
+    }
+
+
+@router.put("/{integration_id}/default-reply-bot")
+async def set_default_reply_bot(
+    integration_id: str,
+    payload: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Set the default bot for email replies on this integration."""
+    bot_id = payload.get("bot_id")
+    
+    result = await db.execute(
+        select(EmailIntegration).where(
+            and_(
+                EmailIntegration.id == integration_id,
+                EmailIntegration.user_id == current_user.id,
+            )
+        )
+    )
+    integration = result.scalar_one_or_none()
+    
+    if not integration:
+        raise HTTPException(status_code=404, detail="Integration not found")
+    
+    if bot_id:
+        # Verify bot exists and belongs to tenant
+        bot = await db.get(Bot, bot_id)
+        if not bot:
+            raise HTTPException(status_code=404, detail="Bot not found")
+        if bot.tenant_id != current_user.tenant_id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+        integration.default_reply_bot_id = bot_id
+    else:
+        integration.default_reply_bot_id = None
+    
+    await db.commit()
+    await db.refresh(integration)
+    
+    return {
+        "id": str(integration.id),
+        "default_reply_bot_id": str(integration.default_reply_bot_id) if integration.default_reply_bot_id else None,
     }
 
 

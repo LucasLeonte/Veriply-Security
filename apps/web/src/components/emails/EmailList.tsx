@@ -1,31 +1,29 @@
-"use client";
-
+// ... imports
 import { useState, useEffect } from "react";
 import { formatDistanceToNow } from "date-fns";
-import {
-    GmailMessage,
-    importGmailMessage,
-    listGmailMessages,
-} from "@/lib/api/integrations";
-import { ReplyComposer } from "./ReplyComposer";
+import { GmailMessage, listGmailMessages, importGmailMessage } from "@/lib/api/integrations";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 
 interface EmailListProps {
     token: string;
     folder: "INBOX" | "SENT";
+    selectedId?: string | null;
+    onSelect?: (message: GmailMessage) => void;
+    provider?: string;
 }
 
-export function EmailList({ token, folder }: EmailListProps) {
+export function EmailList({ token, folder, selectedId, onSelect, provider }: EmailListProps) {
     const [messages, setMessages] = useState<GmailMessage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [importingId, setImportingId] = useState<string | null>(null);
-
-    // Reply Composer State
-    const [activeReplyMessage, setActiveReplyMessage] = useState<GmailMessage | null>(null);
 
     useEffect(() => {
-        loadMessages();
-    }, [folder, token]);
+        if (provider === 'gmail') {
+            loadMessages();
+        }
+    }, [folder, token, provider]);
 
     const loadMessages = async () => {
         setIsLoading(true);
@@ -35,114 +33,93 @@ export function EmailList({ token, folder }: EmailListProps) {
             setMessages(data.messages);
         } catch (e) {
             console.error("Error loading emails:", e);
-            const msg = e instanceof Error ? e.message : "Failed to load emails. Please check your connection.";
+            const msg = e instanceof Error ? e.message : "Failed to load emails.";
             setError(msg);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleImport = async (messageId: string) => {
-        setImportingId(messageId);
-        try {
-            await importGmailMessage(token, messageId);
-            alert("Email imported to Knowledge Base!");
-        } catch (e) {
-            alert("Failed to import email.");
-            console.error(e);
-        } finally {
-            setImportingId(null);
-        }
-    };
+    if (provider !== 'gmail' && provider !== 'GMAIL') {
+        return (
+            <div className="p-12 text-center text-gray-500">
+                <p>Only Gmail is currently supported in this view.</p>
+                <p className="text-sm mt-2">Selected provider: {provider || 'Unknown'}</p>
+            </div>
+        );
+    }
 
     if (isLoading) {
         return (
             <div className="flex justify-center p-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                <Loader2 className="animate-spin h-6 w-6 text-indigo-600" />
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="bg-red-50 text-red-600 p-6 rounded-lg text-center break-words">
-                <p className="font-semibold mb-2">Error Loading Emails</p>
-                <p className="text-sm font-mono mb-4">{error}</p>
-                <button
-                    onClick={loadMessages}
-                    className="mt-4 px-4 py-2 bg-white border border-red-200 rounded-md hover:bg-red-50"
-                >
-                    Retry
-                </button>
+            <div className="p-6 text-center text-red-600 text-sm">
+                <p>{error}</p>
+                <button onClick={loadMessages} className="mt-2 underline">Retry</button>
             </div>
         );
     }
 
+
+
     if (messages.length === 0) {
         return (
-            <div className="text-center p-12 text-gray-500 bg-gray-50 rounded-lg">
-                No emails found in your {folder.toLowerCase()}.
+            <div className="text-center p-12 text-gray-500 bg-gray-50/50">
+                No emails found.
             </div>
         );
     }
 
     return (
-        <div className="space-y-4">
+        <div className="divide-y divide-gray-100">
             {messages.map((msg) => (
                 <div
                     key={msg.id}
-                    className="bg-white border border-gray-200 rounded-lg p-4 hover:border-indigo-300 transition-colors shadow-sm"
+                    onClick={() => onSelect?.(msg)}
+                    className={cn(
+                        "group flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-gray-50/80 border-l-[3px] border-transparent",
+                        selectedId === msg.id ? "bg-indigo-50/50 border-indigo-600" : ""
+                    )}
                 >
-                    <div className="flex justify-between items-start mb-2">
-                        <div>
-                            <h3 className="font-semibold text-gray-900 line-clamp-1">
-                                {msg.subject}
-                            </h3>
-                            <div className="text-sm text-gray-500 flex gap-2">
-                                <span className="font-medium text-gray-700">
-                                    {folder === "INBOX" ? msg.from : `To: ${msg.to}`}
-                                </span>
-                                <span>•</span>
-                                <span>
-                                    {msg.date
-                                        ? formatDistanceToNow(new Date(msg.date), {
-                                            addSuffix: true,
-                                        })
-                                        : "Unknown date"}
-                                </span>
-                            </div>
+                    <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                            <Avatar className="h-6 w-6 shrink-0">
+                                <AvatarFallback className="text-[10px] bg-indigo-100 text-indigo-700 font-medium">
+                                    {(folder === "INBOX" ? msg.from : msg.to)?.charAt(0).toUpperCase() || "?"}
+                                </AvatarFallback>
+                            </Avatar>
+                            <span className={cn(
+                                "text-sm truncate",
+                                // Simple logic: if unread (not available in API yet), bold. 
+                                // For now just make everything regular unless selected
+                                selectedId === msg.id ? "font-semibold text-gray-900" : "font-medium text-gray-700"
+                            )}>
+                                {folder === "INBOX" ? msg.from : `To: ${msg.to}`}
+                            </span>
                         </div>
-                        <div className="flex space-x-2">
-                            {folder === "INBOX" && (
-                                <button
-                                    onClick={() => setActiveReplyMessage(msg)}
-                                    className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors"
-                                >
-                                    Generate Reply
-                                </button>
-                            )}
-                            <button
-                                onClick={() => handleImport(msg.id)}
-                                disabled={importingId === msg.id}
-                                className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
-                            >
-                                {importingId === msg.id ? "Importing..." : "Import to KB"}
-                            </button>
-                        </div>
+                        <span className="text-xs text-gray-400 shrink-0 tabular-nums">
+                            {msg.date ? formatDistanceToNow(new Date(msg.date), { addSuffix: true }) : ""}
+                        </span>
                     </div>
-                    <p className="text-sm text-gray-600 line-clamp-2">{msg.snippet}</p>
+
+                    <h4 className={cn(
+                        "text-sm text-gray-900 truncate pr-4",
+                        selectedId === msg.id ? "font-medium" : "font-normal"
+                    )}>
+                        {msg.subject || "(No Subject)"}
+                    </h4>
+
+                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                        {msg.snippet}
+                    </p>
                 </div>
             ))}
-
-            {activeReplyMessage && (
-                <ReplyComposer
-                    isOpen={!!activeReplyMessage}
-                    onClose={() => setActiveReplyMessage(null)}
-                    token={token}
-                    messageId={activeReplyMessage.id}
-                    originalText={activeReplyMessage.snippet} // Ideally full body, but using snippet for MVP speed
-                />
-            )}
         </div>
     );
 }
