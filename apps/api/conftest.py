@@ -35,6 +35,7 @@ from app.models.chunk import Chunk  # noqa: F401
 from app.models.embedding import Embedding  # noqa: F401
 from app.models.verified_qa import VerifiedQA  # noqa: F401
 from app.models.confidence_log import ConfidenceLog, RoutingDecision  # noqa: F401
+from app.models.email_monitoring_rule import EmailMonitoringRule  # noqa: F401
 
 
 # SQLite fallback for JSONB columns used in Postgres
@@ -48,6 +49,19 @@ def _install_sqlite_jsonb_compiler():
     # Only install once
     if not hasattr(SQLiteTypeCompiler, "visit_JSONB"):
         SQLiteTypeCompiler.visit_JSONB = visit_JSONB
+
+
+# SQLite fallback for ARRAY columns used in Postgres
+def _install_sqlite_array_compiler():
+    from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+
+    # Treat PostgreSQL ARRAY as JSON (store as JSON array string) in SQLite
+    def visit_ARRAY(self, type_, **kw):  # noqa: N802 - external API naming
+        return "JSON"
+
+    # Only install once
+    if not hasattr(SQLiteTypeCompiler, "visit_ARRAY"):
+        SQLiteTypeCompiler.visit_ARRAY = visit_ARRAY
 
 
 # Test database URL - use file-based SQLite for tests to avoid in-memory connection issues
@@ -119,6 +133,7 @@ async def db_engine():
 
     if engine.dialect.name == "sqlite":
         _install_sqlite_jsonb_compiler()
+        _install_sqlite_array_compiler()
     
     # Create all tables
     async with engine.begin() as conn:
