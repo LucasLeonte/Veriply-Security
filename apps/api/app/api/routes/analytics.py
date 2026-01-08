@@ -17,6 +17,8 @@ from app.models import (
     FeedbackReason,
     ConfidenceLog,
     RoutingDecision,
+    Bot,
+    GroupMember,
 )
 from app.schemas.analytics import AnalyticsMetricsResponse
 
@@ -28,14 +30,12 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 @router.get("/metrics", response_model=AnalyticsMetricsResponse)
 async def get_analytics_metrics(
     period: int = Query(7, description="Number of days to look back"),
+    group_id: UUID | None = Query(None, description="Optional group to scope analytics"),
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get analytics metrics for the authenticated user's bots."""
     try:
-        # SECURITY: Set RLS context for tenant isolation
-        await set_tenant_context(db, UUID(current_user['tenant_id']))
-
         # Get user's tenant_id from current_user
         tenant_id = current_user.get("tenant_id")
         if not tenant_id:
@@ -48,33 +48,85 @@ async def get_analytics_metrics(
             except (ValueError, AttributeError):
                 raise HTTPException(status_code=403, detail="Invalid tenant")
 
+        # SECURITY: Validate group membership if group_id is provided
+        if group_id:
+            member = await db.scalar(
+                select(GroupMember).where(
+                    (GroupMember.group_id == group_id)
+                    & (GroupMember.user_id == UUID(current_user["sub"]))
+                )
+            )
+            if not member:
+                raise HTTPException(status_code=403, detail="Not a member of this group")
+        
+        # SECURITY: Set RLS context for tenant and optional group isolation
+        await set_tenant_context(
+            db,
+            tenant_id,
+            group_id if isinstance(group_id, UUID) else None,
+        )
+
         # Calculate date range
         end_date = datetime.utcnow()
         start_date = end_date - timedelta(days=period)
-
+        
         # Fetch confidence logs for the period
-        confidence_logs = await db.execute(
-            select(ConfidenceLog).where(
-                and_(
+        if group_id:
+            # Get bot IDs in this group only
+            bot_ids_result = await db.execute(
+                select(Bot.id).where(Bot.group_id == group_id)
+            )
+            bot_ids = [row[0] for row in bot_ids_result.all()]
+            
+            # Get logs from those bots
+            # NOTE: Logs may have NULL group_id if created before group_id was added
+            # So we join back to bots to find the group via bot->group relationship
+            if bot_ids:
+                confidence_logs = await db.execute(
+                    select(ConfidenceLog).where(and_(
+                        ConfidenceLog.tenant_id == tenant_id,
+                        ConfidenceLog.created_at >= start_date,
+                        ConfidenceLog.created_at <= end_date,
+                        ConfidenceLog.bot_id.in_(bot_ids)
+                    ))
+                )
+            else:
+                confidence_logs = []
+            
+            confidence_logs = confidence_logs.scalars().all() if bot_ids else []
+        else:
+            confidence_logs = await db.execute(
+                select(ConfidenceLog).where(and_(
                     ConfidenceLog.tenant_id == tenant_id,
                     ConfidenceLog.created_at >= start_date,
-                    ConfidenceLog.created_at <= end_date,
+                    ConfidenceLog.created_at <= end_date
+                ))
+            )
+            confidence_logs = confidence_logs.scalars().all()
+
+        # Fetch feedback data (scope to group via bot->group if provided)
+        if group_id:
+            # Include feedback where bot.group_id matches the group
+            feedback_query = select(Feedback).join(Bot, Feedback.bot_id == Bot.id).where(
+                and_(
+                    Bot.group_id == group_id,
+                    Feedback.tenant_id == tenant_id,
+                    Feedback.created_at >= start_date,
+                    Feedback.created_at <= end_date,
                 )
             )
-        )
-        confidence_logs = confidence_logs.scalars().all()
-
-        # Fetch feedback data
-        feedback_data = await db.execute(
-            select(Feedback).where(
+            feedback_data = await db.execute(feedback_query)
+            feedback_data = feedback_data.scalars().all()
+        else:
+            feedback_query = select(Feedback).where(
                 and_(
                     Feedback.tenant_id == tenant_id,
                     Feedback.created_at >= start_date,
                     Feedback.created_at <= end_date,
                 )
             )
-        )
-        feedback_data = feedback_data.scalars().all()
+            feedback_data = await db.execute(feedback_query)
+            feedback_data = feedback_data.scalars().all()
 
         # Calculate metrics in a single pass
         total_queries = len(confidence_logs)

@@ -40,7 +40,9 @@ export default function DashboardPage() {
         isLoading: queueLoading,
         items: queueItems,
     } = useHITLQueue("oldest");
-    const { metrics, isLoading: analyticsLoading } = useAnalytics();
+    const { metrics, isLoading: analyticsLoading } = useAnalytics(
+        currentGroup?.id
+    );
 
     const formatPercent = (v?: number) =>
         typeof v === "number" && !Number.isNaN(v) ? `${v.toFixed(1)}%` : "—";

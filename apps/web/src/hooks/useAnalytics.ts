@@ -23,7 +23,7 @@ export interface AnalyticsMetrics {
     }>;
 }
 
-export function useAnalytics() {
+export function useAnalytics(groupId?: string | null) {
     const [metrics, setMetrics] = useState<AnalyticsMetrics | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<Error | null>(null);
@@ -33,6 +33,7 @@ export function useAnalytics() {
             try {
                 setIsLoading(true);
                 setError(null);
+                setMetrics(null);
 
                 const token = getAccessToken();
                 const headers: Record<string, string> = {
@@ -43,7 +44,16 @@ export function useAnalytics() {
                     headers["authorization"] = `Bearer ${token}`;
                 }
 
-                const response = await fetch(`/api/analytics/metrics`, {
+                const params = new URLSearchParams();
+                if (groupId) params.set("group_id", groupId);
+
+                const apiBase =
+                    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+                const url = `${apiBase}/api/v1/analytics/metrics${
+                    params.toString() ? `?${params.toString()}` : ""
+                }`;
+
+                const response = await fetch(url, {
                     method: "GET",
                     headers,
                     credentials: "include",
@@ -68,7 +78,7 @@ export function useAnalytics() {
         };
 
         fetchMetrics();
-    }, []);
+    }, [groupId]);
 
     return {
         metrics,
