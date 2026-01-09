@@ -99,18 +99,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        6. Links
-                    </h2>
-                    <p>
-                        Veriply has not reviewed all of the sites linked to its
-                        website and is not responsible for the contents of any
-                        such linked site. The inclusion of any link does not
-                        imply endorsement by Veriply of the site. Use of any
-                        such linked website is at the user's own risk.
-                    </p>
-
-                    <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        7. Modifications
+                        6. Modifications
                     </h2>
                     <p>
                         Veriply may revise these Terms of Service for its
@@ -120,7 +109,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        8. Governing Law
+                        7. Governing Law
                     </h2>
                     <p>
                         These Terms and Conditions and any separate agreements
@@ -131,11 +120,11 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        9. Data Processing & GDPR Compliance
+                        8. Data Processing & GDPR Compliance
                     </h2>
 
                     <h3 className="text-xl font-semibold mt-6 mb-3 text-gray-900">
-                        9.1 Data Controller/Processor Relationship
+                        8.1 Data Controller/Processor Relationship
                     </h3>
                     <p>
                         You are the data controller for all documents, emails,
@@ -146,7 +135,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h3 className="text-xl font-semibold mt-6 mb-3 text-gray-900">
-                        9.2 User Data Control
+                        8.2 User Data Control
                     </h3>
                     <p>
                         You have full control over your data and can at any
@@ -161,7 +150,7 @@ export default function TermsOfServicePage() {
                     </ul>
 
                     <h3 className="text-xl font-semibold mt-6 mb-3 text-gray-900">
-                        9.3 GDPR Rights Exercise
+                        8.3 GDPR Rights Exercise
                     </h3>
                     <p>
                         You can exercise your GDPR rights (Articles 15-22) by:
@@ -193,7 +182,7 @@ export default function TermsOfServicePage() {
                     </ul>
 
                     <h3 className="text-xl font-semibold mt-6 mb-3 text-gray-900">
-                        9.4 GDPR-Specific Provisions
+                        8.4 GDPR-Specific Provisions
                     </h3>
                     <ul className="list-disc pl-6 my-4">
                         <li>
@@ -218,7 +207,7 @@ export default function TermsOfServicePage() {
                     </ul>
 
                     <h3 className="text-xl font-semibold mt-6 mb-3 text-gray-900">
-                        9.5 Email Integration
+                        8.5 Email Integration
                     </h3>
                     <p>
                         Email integration (Gmail, Outlook) requires explicit
@@ -230,7 +219,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        10. AI-Generated Responses
+                        9. AI-Generated Responses
                     </h2>
                     <p>
                         Veriply uses AI models to generate responses to your
@@ -243,7 +232,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        11. Billing & Payment
+                        10. Billing & Payment
                     </h2>
                     <p>
                         If you subscribe to a paid plan, you agree to pay the
@@ -253,7 +242,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        12. Termination
+                        11. Termination
                     </h2>
                     <p>
                         We reserve the right to terminate your account at any
@@ -263,7 +252,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        13. Intellectual Property
+                        12. Intellectual Property
                     </h2>
                     <p>
                         All content on Veriply, including text, graphics, logos,
@@ -274,7 +263,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        14. User Content
+                        13. User Content
                     </h2>
                     <p>
                         You retain all rights to documents and data you upload
@@ -285,7 +274,7 @@ export default function TermsOfServicePage() {
                     </p>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        15. Prohibited Conduct
+                        14. Prohibited Conduct
                     </h2>
                     <p>You agree not to use Veriply to:</p>
                     <ul className="list-disc pl-6 my-4">
@@ -300,7 +289,7 @@ export default function TermsOfServicePage() {
                     </ul>
 
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
-                        16. Severability
+                        15. Severability
                     </h2>
                     <p>
                         If any provision of these Terms is found to be invalid
