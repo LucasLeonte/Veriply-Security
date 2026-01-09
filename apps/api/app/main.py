@@ -30,6 +30,7 @@ from app.api.routes import verified_qa  # Story 7.3: Manual Q&A entry
 from app.workers.email_poller import run_periodic as start_email_poller
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
 from app.services.profile_service import cleanup_inactive_users
+from app.workers.retention import run_all_retention_jobs
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 
@@ -42,6 +43,12 @@ async def run_cleanup():
         await cleanup_inactive_users(session, days=30)
 
 
+async def run_retention_jobs():
+    """Run all data retention cleanup jobs."""
+    async with AsyncSessionLocal() as session:
+        await run_all_retention_jobs(session)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -49,11 +56,18 @@ async def lifespan(app: FastAPI):
     await enable_pgvector()
     await enable_rls()
     
-    # Start background cleanup scheduler (runs daily at 2 AM)
+    # Start background cleanup scheduler
+    # Runs daily at 2 AM UTC for both inactive users and data retention
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_cleanup, "cron", hour=2, minute=0, id="cleanup_inactive_users")
+    scheduler.add_job(run_retention_jobs, "cron", hour=2, minute=5, id="cleanup_retention_data")
     scheduler.start()
-    logger.info("Scheduled cleanup job for inactive users (daily at 2 AM)")
+    logger.info("Scheduled cleanup jobs:")
+    logger.info("  - Inactive users cleanup (daily at 2:00 AM UTC)")
+    logger.info("  - Data retention jobs (daily at 2:05 AM UTC)")
+    logger.info("    • Chat history (90 days)")
+    logger.info("    • Confidence logs (180 days)")
+    logger.info("    • HITL data (365 days)")
     
     # Start background email polling worker
     try:
