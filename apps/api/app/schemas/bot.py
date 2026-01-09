@@ -77,6 +77,7 @@ class BotResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     tenant_id: UUID
+    doc_count: int = 0  # Count of allowed documents for this bot
 
     model_config = {"from_attributes": True}
 

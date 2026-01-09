@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Bot } from "@/types/bot";
-import { MoreVertical, FileText, Target, Copy, Trash2 } from "lucide-react";
+import { MoreVertical, Target, Copy, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 
@@ -154,11 +154,7 @@ export function BotCard({
             {/* Stats */}
             <div className="px-6 pb-4">
                 <div className="flex items-center gap-4 text-sm">
-                    <div className="flex items-center gap-1.5 text-slate-600">
-                        <FileText size={16} className="text-slate-400" />
-                        <span className="font-medium">{bot.doc_count ?? 0}</span>
-                        <span className="text-slate-500">docs</span>
-                    </div>
+
                     <div className="flex items-center gap-1.5 text-slate-600">
                         <Target size={16} className="text-slate-400" />
                         <span className="font-medium">{bot.confidence_threshold}%</span>
