@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.models import (
     FeedbackReason,
     FeedbackType,
@@ -40,6 +40,9 @@ async def submit_feedback(
 ):
     """Submit feedback for a bot answer (authenticated)."""
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, UUID(current_user['tenant_id']))
+
         feedback_type = FeedbackType(payload.type)
         reason = FeedbackReason(payload.reason) if payload.reason else None
     except ValueError:

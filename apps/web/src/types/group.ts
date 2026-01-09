@@ -8,6 +8,7 @@ export interface Group {
     created_by: string;
     created_at: string;
     updated_at: string;
+    current_user_role?: GroupRole; // Role of the current user in this group
 }
 
 export interface GroupMember {

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, File, UploadFile, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.models.verified_qa import VerifiedQA
@@ -54,6 +54,9 @@ async def create_entry(
     **Scoping:** Entry is scoped to tenant_id and group_id (shared across all bots in the group)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, current_user.tenant_id)
+
         # Verify group belongs to tenant
         group_stmt = select(Group).where(
             and_(
@@ -307,6 +310,9 @@ async def get_entry(
     **Access Control:** RLS enforced - user can only access entries from their tenant
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, current_user.tenant_id)
+
         verified_qa = await get_verified_qa_by_id(
             db=db,
             verified_qa_id=entry_id,
@@ -348,6 +354,9 @@ async def list_entries(
     **Pagination:** Default 10 items, max 100 per request
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(db, current_user.tenant_id)
+
         # Query parameter bot_id/group_id filters by specific scope
         entries, total = await list_verified_qa(
             db=db,

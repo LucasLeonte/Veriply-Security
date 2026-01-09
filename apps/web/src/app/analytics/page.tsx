@@ -3,9 +3,11 @@
 import { DashboardLayout } from "@/components";
 import { AnalyticsDashboard } from "@/components/analytics/AnalyticsDashboard";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useGroup } from "@/contexts/GroupContext";
 
 export default function AnalyticsPage() {
-    const { metrics, isLoading, error } = useAnalytics();
+    const { currentGroup } = useGroup();
+    const { metrics, isLoading, error } = useAnalytics(currentGroup?.id);
 
     if (error) {
         return (
