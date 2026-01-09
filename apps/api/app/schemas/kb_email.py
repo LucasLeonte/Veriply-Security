@@ -36,7 +36,7 @@ class KBEmailResponse(BaseModel):
     body_text: Optional[str]
     sent_at: Optional[datetime]
     
-        metadata: Optional[Dict[str, Any]] = Field(None, alias="email_metadata")
+    metadata: Optional[Dict[str, Any]] = Field(None, alias="email_metadata")
     
     status: str
     processed_at: Optional[datetime]
