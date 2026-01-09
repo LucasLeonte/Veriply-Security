@@ -68,21 +68,30 @@ export default function GroupKnowledgeBasePage() {
         }
     }, [currentGroup?.id]);
 
+
     const buildFolderStats = useCallback(
         (fetchedFolders: Folder[], docs: Document[]) => {
             const stats = new Map<string, FolderStats>();
+
+            // Filter out verified Q&A documents before calculating stats
+            const regularDocs = docs.filter((d: Document) =>
+                !d.title?.startsWith("Verified Q&A:") &&
+                !d.filename?.startsWith("HITL-")
+            );
+
             fetchedFolders.forEach((folder: Folder) => {
-                const docCount = docs.filter(
+                const docCount = regularDocs.filter(
                     (d: Document) => d.folder_id === folder.id
                 ).length;
                 stats.set(folder.id, { document_count: docCount });
             });
-            // For "All Documents" we want the total count across every folder
-            stats.set("null", { document_count: docs.length });
+            // For "All Documents" we want the total count of regular documents only
+            stats.set("null", { document_count: regularDocs.length });
             return stats;
         },
         []
     );
+
 
     // Poll for document status updates
     useEffect(() => {
@@ -211,6 +220,9 @@ export default function GroupKnowledgeBasePage() {
             })
         );
 
+        // Close modal immediately
+        setIsUploadModalOpen(false);
+
         // Refresh documents to reflect folder assignments and counts
         const docsResponse = await documentsApi.listDocuments(
             currentGroup.id,
@@ -291,8 +303,7 @@ export default function GroupKnowledgeBasePage() {
         } catch (err) {
             console.error("Failed to bulk delete documents:", err);
             alert(
-                `Failed to delete documents: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to delete documents: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -347,8 +358,7 @@ export default function GroupKnowledgeBasePage() {
         } catch (err) {
             console.error("Failed to reprocess document:", err);
             alert(
-                `Failed to reprocess document: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess document: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -376,8 +386,7 @@ export default function GroupKnowledgeBasePage() {
         } catch (err) {
             console.error("Failed to bulk reprocess documents:", err);
             alert(
-                `Failed to reprocess documents: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess documents: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -391,7 +400,14 @@ export default function GroupKnowledgeBasePage() {
         const matchesSearch =
             !searchQuery ||
             doc.filename.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesFolder && matchesSearch;
+
+        // Exclude verified Q&A documents (legacy documents created before we stopped auto-creating them)
+        // These should only appear in the Q&A Entries section, not in Documents
+        const isVerifiedQA =
+            doc.title?.startsWith("Verified Q&A:") ||
+            doc.filename?.startsWith("HITL-");
+
+        return matchesFolder && matchesSearch && !isVerifiedQA;
     });
 
     // Keep folder stats in sync when docs or folders change
@@ -431,15 +447,13 @@ export default function GroupKnowledgeBasePage() {
                             {/* Documents Section Header */}
                             <button
                                 onClick={() => setActiveView('documents')}
-                                className={`w-full p-4 text-left transition-colors ${
-                                    activeView === 'documents'
-                                        ? 'bg-emerald-50 border-l-4 border-emerald-600'
-                                        : 'hover:bg-slate-50 border-l-4 border-transparent'
-                                }`}
+                                className={`w-full p-4 text-left transition-colors ${activeView === 'documents'
+                                    ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                    }`}
                             >
-                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${
-                                    activeView === 'documents' ? 'text-emerald-700' : 'text-slate-900'
-                                }`}>
+                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${activeView === 'documents' ? 'text-emerald-700' : 'text-slate-900'
+                                    }`}>
                                     <FolderIcon size={16} />
                                     Documents
                                 </h3>
@@ -451,15 +465,13 @@ export default function GroupKnowledgeBasePage() {
                             {/* Q&A Entries Section Header */}
                             <button
                                 onClick={() => setActiveView('qa')}
-                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${
-                                    activeView === 'qa'
-                                        ? 'bg-emerald-50 border-l-4 border-emerald-600'
-                                        : 'hover:bg-slate-50 border-l-4 border-transparent'
-                                }`}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${activeView === 'qa'
+                                    ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                    }`}
                             >
-                                <h3 className={`text-sm font-semibold ${
-                                    activeView === 'qa' ? 'text-emerald-700' : 'text-slate-900'
-                                }`}>
+                                <h3 className={`text-sm font-semibold ${activeView === 'qa' ? 'text-emerald-700' : 'text-slate-900'
+                                    }`}>
                                     Q&A Entries
                                 </h3>
                                 <p className="text-xs text-slate-600 mt-1">
@@ -488,125 +500,125 @@ export default function GroupKnowledgeBasePage() {
                     {/* Main Content */}
                     <div className="lg:col-span-3 space-y-4">
                         {activeView === 'documents' ? (
-                        <>
-                        {/* Toolbar */}
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                            <SearchBar
-                                value={searchQuery}
-                                onChange={setSearchQuery}
-                                placeholder="Search documents..."
-                                className="flex-1 min-w-[220px] max-w-md"
-                            />
-                            <div className="flex items-center gap-2 flex-wrap justify-end">
-                                {selectedDocumentIds.length > 0 && (
-                                    <>
-                                        <span className="text-sm text-slate-600">
-                                            {selectedDocumentIds.length}{" "}
-                                            selected
-                                        </span>
+                            <>
+                                {/* Toolbar */}
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                    <SearchBar
+                                        value={searchQuery}
+                                        onChange={setSearchQuery}
+                                        placeholder="Search documents..."
+                                        className="flex-1 min-w-[220px] max-w-md"
+                                    />
+                                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                                        {selectedDocumentIds.length > 0 && (
+                                            <>
+                                                <span className="text-sm text-slate-600">
+                                                    {selectedDocumentIds.length}{" "}
+                                                    selected
+                                                </span>
+                                                <button
+                                                    onClick={
+                                                        handleOpenBulkReprocessModal
+                                                    }
+                                                    className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors"
+                                                >
+                                                    Reprocess Selected
+                                                </button>
+                                                <button
+                                                    onClick={handleOpenBulkDeleteModal}
+                                                    className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                                >
+                                                    Delete Selected
+                                                </button>
+                                                <button
+                                                    onClick={() =>
+                                                        setSelectedDocumentIds([])
+                                                    }
+                                                    className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
+                                                >
+                                                    Clear
+                                                </button>
+                                            </>
+                                        )}
                                         <button
-                                            onClick={
-                                                handleOpenBulkReprocessModal
-                                            }
-                                            className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors"
+                                            onClick={() => setIsUploadModalOpen(true)}
+                                            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors"
                                         >
-                                            Reprocess Selected
+                                            <Upload size={18} />
+                                            Upload Documents
                                         </button>
-                                        <button
-                                            onClick={handleOpenBulkDeleteModal}
-                                            className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
-                                        >
-                                            Delete Selected
-                                        </button>
-                                        <button
-                                            onClick={() =>
-                                                setSelectedDocumentIds([])
-                                            }
-                                            className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                                        >
-                                            Clear
-                                        </button>
-                                    </>
-                                )}
-                                <button
-                                    onClick={() => setIsUploadModalOpen(true)}
-                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors"
-                                >
-                                    <Upload size={18} />
-                                    Upload Documents
-                                </button>
-                            </div>
-                        </div>
+                                    </div>
+                                </div>
 
-                        {/* Document Grid */}
-                        {isLoading ? (
-                            <div className="text-center py-12 text-slate-500">
-                                Loading documents...
-                            </div>
-                        ) : filteredDocuments.length === 0 ? (
-                            <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
-                                <FolderIcon
-                                    size={48}
-                                    className="text-slate-300 mx-auto mb-4"
-                                />
-                                <h3 className="text-lg font-medium text-slate-900 mb-2">
-                                    No documents
-                                </h3>
-                                <p className="text-sm text-slate-600">
-                                    {selectedFolderId
-                                        ? "This folder is empty"
-                                        : "Upload documents to get started"}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4">
-                                {filteredDocuments.map((document) => {
-                                    const folderName = document.folder_id
-                                        ? folders.find(
-                                              (f) => f.id === document.folder_id
-                                          )?.name
-                                        : undefined;
-
-                                    return (
-                                        <DocumentCard
-                                            key={document.id}
-                                            document={document}
-                                            onView={() => {}}
-                                            onDelete={async () => {
-                                                await documentsApi.deleteDocument(
-                                                    currentGroup.id,
-                                                    document.id
-                                                );
-                                                setDocuments((prev) =>
-                                                    prev.filter(
-                                                        (d) =>
-                                                            d.id !== document.id
-                                                    )
-                                                );
-                                                setSelectedDocumentIds((prev) =>
-                                                    prev.filter(
-                                                        (id) =>
-                                                            id !== document.id
-                                                    )
-                                                );
-                                            }}
-                                            onReprocess={
-                                                handleOpenReprocessModal
-                                            }
-                                            onMove={handleOpenMoveModal}
-                                            isSelected={selectedDocumentIds.includes(
-                                                document.id
-                                            )}
-                                            onToggleSelection={
-                                                handleToggleSelection
-                                            }
-                                            folderName={folderName}
+                                {/* Document Grid */}
+                                {isLoading ? (
+                                    <div className="text-center py-12 text-slate-500">
+                                        Loading documents...
+                                    </div>
+                                ) : filteredDocuments.length === 0 ? (
+                                    <div className="bg-white border border-slate-200 rounded-lg p-12 text-center">
+                                        <FolderIcon
+                                            size={48}
+                                            className="text-slate-300 mx-auto mb-4"
                                         />
-                                    );
-                                })}
-                            </div>
-                        )}
-                        </>
+                                        <h3 className="text-lg font-medium text-slate-900 mb-2">
+                                            No documents
+                                        </h3>
+                                        <p className="text-sm text-slate-600">
+                                            {selectedFolderId
+                                                ? "This folder is empty"
+                                                : "Upload documents to get started"}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-4">
+                                        {filteredDocuments.map((document) => {
+                                            const folderName = document.folder_id
+                                                ? folders.find(
+                                                    (f) => f.id === document.folder_id
+                                                )?.name
+                                                : undefined;
+
+                                            return (
+                                                <DocumentCard
+                                                    key={document.id}
+                                                    document={document}
+                                                    onView={() => { }}
+                                                    onDelete={async () => {
+                                                        await documentsApi.deleteDocument(
+                                                            currentGroup.id,
+                                                            document.id
+                                                        );
+                                                        setDocuments((prev) =>
+                                                            prev.filter(
+                                                                (d) =>
+                                                                    d.id !== document.id
+                                                            )
+                                                        );
+                                                        setSelectedDocumentIds((prev) =>
+                                                            prev.filter(
+                                                                (id) =>
+                                                                    id !== document.id
+                                                            )
+                                                        );
+                                                    }}
+                                                    onReprocess={
+                                                        handleOpenReprocessModal
+                                                    }
+                                                    onMove={handleOpenMoveModal}
+                                                    isSelected={selectedDocumentIds.includes(
+                                                        document.id
+                                                    )}
+                                                    onToggleSelection={
+                                                        handleToggleSelection
+                                                    }
+                                                    folderName={folderName}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             /* Q&A Entries View */
                             <QASection groupId={currentGroup.id} />
