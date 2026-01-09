@@ -212,12 +212,12 @@ export function ChatHistoryPanel({ botId, botName, botAvatar, onResumeChat }: Ch
                                                 )}
                                                 {conversation.origin && (
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase tracking-wider font-semibold ${conversation.origin.toLowerCase().includes('widget')
-                                                            ? 'bg-purple-50 text-purple-600 border-purple-100'
-                                                            : (conversation.origin === 'localhost' || conversation.origin.includes('veriply'))
-                                                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                                                : 'bg-slate-50 text-slate-600 border-slate-200'
+                                                        ? 'bg-purple-50 text-purple-600 border-purple-100'
+                                                        : (conversation.origin === 'localhost' || conversation.origin.includes('veriply'))
+                                                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                                                            : 'bg-slate-50 text-slate-600 border-slate-200'
                                                         }`}>
-                                                        {conversation.origin === 'localhost' ? 'Website' : conversation.origin}
+                                                        {conversation.origin === 'localhost' ? 'Internal Chat' : conversation.origin}
                                                     </span>
                                                 )}
                                             </div>
