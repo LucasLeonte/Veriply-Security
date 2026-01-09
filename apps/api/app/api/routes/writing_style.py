@@ -5,6 +5,7 @@ from uuid import UUID
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 
@@ -14,7 +15,6 @@ from app.models.user_writing_style import UserWritingStyle
 from app.models.user import User
 from app.models.email_integration import EmailIntegration
 from app.workers.style_analyzer_worker import StyleAnalysisWorker
-from app.schemas import BaseModel
 
 router = APIRouter(prefix="/api/v1/writing-style", tags=["writing-style"])
 
