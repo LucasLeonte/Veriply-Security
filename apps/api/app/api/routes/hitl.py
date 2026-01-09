@@ -715,6 +715,7 @@ async def approve_queue_item(
         kb_doc_id = None
 
         # Create VerifiedQA entry (FR52: Auto-add approved HITL to Verified KB)
+        verified_qa_created = False
         if question_text and approved_answer and item.bot_id:
             try:
                 # Generate embedding for the question
@@ -752,7 +753,11 @@ async def approve_queue_item(
                         f"Created VerifiedQA entry {verified_qa.id} from HITL approval "
                         f"(item={item_id}, bot={item.bot_id})"
                     )
-                    
+
+                    # Mark that VerifiedQA creation succeeded and set flag on confidence log
+                    verified_qa_created = True
+                    item.is_verified_kb = True
+
                     # Add reference to verified_qa in metadata
                     item.metadata_json["verified_qa_id"] = str(verified_qa.id)
                     
@@ -810,6 +815,8 @@ async def approve_queue_item(
                         
                         # Link document to verified_qa in metadata
                         item.metadata_json["kb_document_id"] = kb_doc_id
+                        # If document/chunk created, ensure is_verified_kb flag is set
+                        item.is_verified_kb = True
                         
                     except Exception as e:
                         logger.error(
@@ -822,6 +829,7 @@ async def approve_queue_item(
                         f"Bot {item.bot_id} not found or missing group_id, "
                         f"skipping VerifiedQA creation for HITL item {item_id}"
                     )
+                    # Ensure verified_qa_created remains False
                         
             except EmbeddingError as e:
                 logger.error(
@@ -842,6 +850,7 @@ async def approve_queue_item(
                 f"approved_answer={bool(approved_answer)}, "
                 f"bot_id={bool(item.bot_id)}"
             )
+            # No VerifiedQA created in this case
 
         # Commit transaction (HITL approval + VerifiedQA + Document + Chunk if created)
         try:
@@ -919,7 +928,7 @@ async def approve_queue_item(
             "resolved_answer": final_answer,
             "was_edited": was_edited,
             "diff": diff_result if was_edited else None,
-            "verified_kb_updated": True,
+            "verified_kb_updated": bool(verified_qa_created),
             "citations": metadata.get("citations", []),
             "chat_sent": chat_sent,
         }
