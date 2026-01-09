@@ -26,6 +26,9 @@ from .integration_credentials import IntegrationCredentials as IntegrationCreden
 from .email_monitoring_rule import EmailMonitoringRule as EmailMonitoringRule
 from .email_processing_queue import EmailProcessingQueue as EmailProcessingQueue
 from .email_draft import EmailDraft as EmailDraft
+from .user_email_history import UserEmailHistory as UserEmailHistory
+from .user_writing_style import UserWritingStyle as UserWritingStyle
+from .kb_email import KBEmail as KBEmail
 
 __all__ = [
     "Base",
@@ -56,4 +59,8 @@ __all__ = [
     "EmailMonitoringRule",
     "EmailProcessingQueue",
     "EmailDraft",
+    "UserEmailHistory",
+    "UserWritingStyle",
+    "KBEmail",
+    "VerifiedQA",
 ]

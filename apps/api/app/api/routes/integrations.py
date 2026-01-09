@@ -505,7 +505,7 @@ async def import_gmail_message(
     current_user: User = Depends(get_current_user),
     tenant_id: UUID = Depends(get_current_tenant),
 ):
-    """Import a specific Gmail message as a Document."""
+    """Import a specific Gmail message into KB emails."""
     # SECURITY FIX: Only allow user to access THEIR OWN Gmail integration
     result = await db.execute(
         select(EmailIntegration)
@@ -533,6 +533,10 @@ async def import_gmail_message(
     refresh_token = decrypt_token(integration.encrypted_refresh_token)
 
     try:
+        # Import service for KB emails
+        from app.services.kb_email import create_kb_email
+        from app.models.kb_email import KBEmail
+        
         # Fetch full thread (treat payload.message_id as thread_id)
         thread = await gmail.get_thread_with_messages(
             client_id=client_id,
@@ -541,24 +545,28 @@ async def import_gmail_message(
             thread_id=payload.message_id
         )
         
-        # Build content from all messages in the thread
+        # Extract email data
         subject = thread.get("subject", "Imported Email")
         messages = thread.get("messages", [])
         
-        content_parts = [f"Subject: {subject}\n"]
+        if not messages:
+            raise HTTPException(status_code=404, detail="No messages found in thread")
         
+        # Use the last message in the thread as the primary email
+        last_msg = messages[-1]
+        
+        # Build plain text body from all messages
+        content_parts = []
         for msg in messages:
             content_parts.append(f"From: {msg.get('from', 'Unknown')}")
             content_parts.append(f"Date: {msg.get('date', 'Unknown')}")
             content_parts.append(f"To: {msg.get('to', '')}")
             content_parts.append("\n" + msg.get("body", "(No content)"))
             content_parts.append("\n" + "-" * 50 + "\n")
-            
-        content = "\n".join(content_parts)
         
-        content = "\n".join(content_parts)
+        body_text = "\n".join(content_parts)
         
-        # Determine Group (Knowledge Base) to assign this document to
+        # Determine Group (Knowledge Base) to assign this email to
         group_id = None
         
         # 1. Prefer the integration's default bot if set
@@ -568,7 +576,7 @@ async def import_gmail_message(
                 group_id = bot.group_id
         
         if not group_id:
-            # 2. Strategy: Fetch the first available group for this tenant
+            # 2. Fetch the first available group for this tenant
             group_result = await db.execute(select(Group).where(Group.tenant_id == tenant_id).limit(1))
             group = group_result.scalar_one_or_none()
             
@@ -577,35 +585,64 @@ async def import_gmail_message(
                 group = Group(
                     tenant_id=tenant_id,
                     name="General",
-                    description="Default group for imported documents",
+                    description="Default group for imported emails",
                     created_by=current_user.id
                 )
                 db.add(group)
-                await db.flush() # Ensure we have an ID
+                await db.flush()
             
             group_id = group.id
 
-        # Create document
-        doc, _ = await create_document(
-            db=db,
-            bot_id=group_id, # The service maps 'bot_id' argument to 'group_id' column
-            tenant_id=tenant_id,
-            uploader_id=current_user.id,
-            filename=f"Email: {subject}.txt",
-            size_bytes=len(content.encode('utf-8')),
-            mime_type="text/plain", # Plain text representation of the thread
-            file_bytes=content.encode('utf-8'),
-            title=f"Email: {subject}"
+        # Check if email already imported
+        existing_stmt = select(KBEmail).where(
+            and_(
+                KBEmail.email_id == payload.message_id,
+                KBEmail.integration_id == integration.id,
+            )
         )
+        existing_result = await db.execute(existing_stmt)
+        existing_email = existing_result.scalar_one_or_none()
+        
+        if existing_email:
+            return {
+                "kb_email_id": str(existing_email.id),
+                "message": "Email already imported",
+                "status": existing_email.status
+            }
+        
+        # Create KB email entry
+        kb_email = await create_kb_email(
+            db=db,
+            tenant_id=tenant_id,
+            group_id=group_id,
+            user_id=current_user.id,
+            integration_id=integration.id,
+            email_id=payload.message_id,
+            thread_id=payload.message_id,
+            subject=subject,
+            from_email=last_msg.get("from"),
+            to_emails=last_msg.get("to"),
+            body_text=body_text,
+            sent_at=None,  # Could parse from date header if needed
+            metadata={
+                "message_count": len(messages),
+                "thread_id": payload.message_id,
+            }
+        )
+        
         await db.commit()
         
-        return {"document_id": str(doc.id), "message": "Email thread imported successfully"}
+        return {
+            "kb_email_id": str(kb_email.id),
+            "message": "Email imported successfully",
+            "status": kb_email.status
+        }
 
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to import message: {e}")
-        # If it was a 404 on the thread endpoint, it might really be missing
         if "404" in str(e):
-             raise HTTPException(status_code=404, detail="Email thread not found")
+            raise HTTPException(status_code=404, detail="Email thread not found")
         raise HTTPException(status_code=500, detail=str(e))
 
 
