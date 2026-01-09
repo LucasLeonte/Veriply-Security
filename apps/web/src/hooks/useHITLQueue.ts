@@ -119,7 +119,14 @@ export function useHITLQueue(
         } finally {
             setIsLoading(false);
         }
-    }, [sortBy, filters]);
+    }, [
+        sortBy,
+        filters?.groupId,
+        filters?.botId,
+        filters?.dateFrom,
+        filters?.dateTo,
+        filters?.status,
+    ]);
 
     // Fallback polling when WebSocket fails
     const startPolling = useCallback(() => {
@@ -127,14 +134,20 @@ export function useHITLQueue(
             return; // Already polling
         }
 
+        // Use longer polling interval (30 seconds) to reduce server load
+        // WebSocket is preferred for real-time updates
+        const pollingInterval = 30000; // 30 seconds instead of 5 seconds
+
         console.log(
-            "Starting fallback polling for queue updates (every 5 seconds)"
+            `Starting fallback polling for queue updates (every ${
+                pollingInterval / 1000
+            } seconds)`
         );
 
-        // Poll every 5 seconds
+        // Poll at longer interval
         pollingIntervalRef.current = setInterval(() => {
             fetchQueue();
-        }, 5000);
+        }, pollingInterval);
     }, [fetchQueue]);
 
     // Connect to WebSocket for real-time updates

@@ -486,6 +486,7 @@ interface ReviewQueueProps {
     onReject: (itemId: string, reason?: string) => Promise<void>;
     sortBy?: string;
     onSortChange?: (sortBy: string) => void;
+    onFilterChange?: (filters: Record<string, any>) => void;
 }
 
 export function ReviewQueue({
@@ -496,6 +497,7 @@ export function ReviewQueue({
     onReject,
     sortBy = "oldest",
     onSortChange,
+    onFilterChange,
 }: ReviewQueueProps) {
     const { currentGroup } = useGroup();
     const [selectedId, setSelectedId] = useState<string | null>(

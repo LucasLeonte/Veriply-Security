@@ -35,11 +35,15 @@ export default function DashboardPage() {
     const [botsPreview, setBotsPreview] = useState<Bot[]>([]);
     const [docsTotal, setDocsTotal] = useState<number | null>(null);
     const [recentDocs, setRecentDocs] = useState<KBDocument[]>([]);
+    const queueFilters = useMemo(
+        () => ({ groupId: currentGroup?.id }),
+        [currentGroup?.id]
+    );
     const {
         stats: queueStats,
         isLoading: queueLoading,
         items: queueItems,
-    } = useHITLQueue("oldest", { groupId: currentGroup?.id });
+    } = useHITLQueue("oldest", queueFilters);
     const { metrics, isLoading: analyticsLoading } = useAnalytics(
         currentGroup?.id
     );
@@ -72,8 +76,12 @@ export default function DashboardPage() {
                 setRecentDocs([]);
                 return;
             }
+
+            // Ensure we're fetching for the correct group
+            const groupId = currentGroup.id;
+
             try {
-                const botsRes = await botsApi.listBots(currentGroup.id, 3, 0);
+                const botsRes = await botsApi.listBots(groupId, 3, 0);
                 setBotsTotal(botsRes.total_count ?? botsRes.bots.length);
                 setBotsPreview(
                     (botsRes.bots || [])
@@ -84,19 +92,17 @@ export default function DashboardPage() {
                             )
                         )
                 );
-            } catch {
+            } catch (err) {
+                console.error("Failed to fetch bots:", err);
                 setBotsTotal(null);
                 setBotsPreview([]);
             }
             try {
-                const docsRes = await documentsApi.listDocuments(
-                    currentGroup.id,
-                    1,
-                    3
-                );
+                const docsRes = await documentsApi.listDocuments(groupId, 1, 3);
                 setDocsTotal(docsRes.total);
                 setRecentDocs((docsRes.documents || []).slice(0, 3));
-            } catch {
+            } catch (err) {
+                console.error("Failed to fetch documents:", err);
                 setDocsTotal(null);
                 setRecentDocs([]);
             }

@@ -33,6 +33,7 @@ export function useAnalytics(groupId?: string | null) {
             try {
                 setIsLoading(true);
                 setError(null);
+                // Explicitly clear metrics when refetching with new groupId
                 setMetrics(null);
 
                 const token = getAccessToken();
@@ -44,11 +45,13 @@ export function useAnalytics(groupId?: string | null) {
                     headers["authorization"] = `Bearer ${token}`;
                 }
 
-                const params = new URLSearchParams();
-                if (groupId) params.set("group_id", groupId);
-
+                // Build URL with group_id if provided
                 const apiBase =
                     process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+                const params = new URLSearchParams();
+                if (groupId) {
+                    params.set("group_id", groupId);
+                }
                 const url = `${apiBase}/api/v1/analytics/metrics${
                     params.toString() ? `?${params.toString()}` : ""
                 }`;

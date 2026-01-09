@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components";
 import { ReviewQueue } from "@/components/hitl/ReviewQueue";
@@ -16,26 +16,33 @@ export default function InboxPage() {
     const [sortBy, setSortBy] = useState<string>(
         searchParams.get("sort") || "oldest"
     );
-    const [filters, setFilters] = useState<HITLQueueFilters>({
-        groupId: currentGroup?.id || undefined,
-        botId: searchParams.get("bot") || undefined,
-        dateFrom: searchParams.get("from") || undefined,
-        dateTo: searchParams.get("to") || undefined,
-        status:
-            (searchParams.get("status") as "pending" | "in-progress") ||
-            undefined,
-    });
+    const [botId, setBotId] = useState<string | undefined>(
+        searchParams.get("bot") || undefined
+    );
+    const [dateFrom, setDateFrom] = useState<string | undefined>(
+        searchParams.get("from") || undefined
+    );
+    const [dateTo, setDateTo] = useState<string | undefined>(
+        searchParams.get("to") || undefined
+    );
+    const [status, setStatus] = useState<"pending" | "in-progress" | undefined>(
+        (searchParams.get("status") as "pending" | "in-progress") || undefined
+    );
+
+    // Memoize filters object to prevent unnecessary re-fetches
+    const filters = useMemo(
+        () => ({
+            groupId: currentGroup?.id || undefined,
+            botId,
+            dateFrom,
+            dateTo,
+            status,
+        }),
+        [currentGroup?.id, botId, dateFrom, dateTo, status]
+    );
 
     const { items, stats, isLoading, error, approveItem, rejectItem } =
         useHITLQueue(sortBy, filters);
-
-    // Update group filter when currentGroup changes (ensures group-scoped queue)
-    useEffect(() => {
-        setFilters((prev) => ({
-            ...prev,
-            groupId: currentGroup?.id || undefined,
-        }));
-    }, [currentGroup?.id]);
 
     // Update URL when filters or sort change (AC 5.5)
     useEffect(() => {
@@ -79,6 +86,13 @@ export default function InboxPage() {
         );
     }
 
+    const handleFilterChange = (newFilters: Partial<HITLQueueFilters>) => {
+        if (newFilters.botId !== undefined) setBotId(newFilters.botId);
+        if (newFilters.dateFrom !== undefined) setDateFrom(newFilters.dateFrom);
+        if (newFilters.dateTo !== undefined) setDateTo(newFilters.dateTo);
+        if (newFilters.status !== undefined) setStatus(newFilters.status);
+    };
+
     return (
         <DashboardLayout>
             <ReviewQueue
@@ -89,6 +103,7 @@ export default function InboxPage() {
                 onReject={rejectItem}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
+                onFilterChange={handleFilterChange}
             />
         </DashboardLayout>
     );
