@@ -203,6 +203,12 @@ export default function SettingsPage() {
         return role === "owner" || role === "admin";
     };
 
+    const canInviteGroupMembers = (): boolean => {
+        const role = getCurrentUserRole();
+        if (!role) return false;
+        return role === "owner" || role === "admin";
+    };
+
     const handleCreateGroup = async () => {
         if (!newGroupName.trim()) return;
 
@@ -237,6 +243,7 @@ export default function SettingsPage() {
 
     const handleInviteGroupMember = async () => {
         if (!currentGroup || !groupInviteEmail.trim()) return;
+        if (!canInviteGroupMembers()) return;
 
         try {
             await groupsApi.inviteMember(currentGroup.id, {
@@ -640,15 +647,17 @@ export default function SettingsPage() {
                                 <h3 className="text-lg font-semibold text-slate-900">
                                     Members
                                 </h3>
-                                <button
-                                    onClick={() =>
-                                        setShowGroupInviteModal(true)
-                                    }
-                                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
-                                >
-                                    <Mail className="h-4 w-4 inline-block mr-2" />
-                                    Invite
-                                </button>
+                                {canInviteGroupMembers() && (
+                                    <button
+                                        onClick={() =>
+                                            setShowGroupInviteModal(true)
+                                        }
+                                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                                    >
+                                        <Mail className="h-4 w-4 inline-block mr-2" />
+                                        Invite
+                                    </button>
+                                )}
                             </div>
                             <div className="divide-y">
                                 {loadingGroupMembers ? (

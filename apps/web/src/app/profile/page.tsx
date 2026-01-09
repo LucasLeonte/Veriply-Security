@@ -29,7 +29,8 @@ export default function ProfilePage() {
         name: "",
         notification_frequency: "weekly",
     });
-    const [success, setSuccess] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -71,6 +72,7 @@ export default function ProfilePage() {
                 }
                 const errorData = await response.json();
                 setError(errorData.detail || "Failed to load profile");
+                setSuccessMessage(null);
                 return;
             }
 
@@ -82,6 +84,7 @@ export default function ProfilePage() {
             });
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
+            setSuccessMessage(null);
         } finally {
             setLoading(false);
         }
@@ -101,7 +104,7 @@ export default function ProfilePage() {
         e.preventDefault();
         try {
             setError(null);
-            setSuccess(false);
+            setSuccessMessage(null);
 
             // Validate name
             if (
@@ -147,11 +150,11 @@ export default function ProfilePage() {
 
             const updatedProfile = await response.json();
             setProfile(updatedProfile);
-            setSuccess(true);
+            setSuccessMessage("Profile updated successfully");
             setIsEditing(false);
 
             // Clear success message after 3 seconds
-            setTimeout(() => setSuccess(false), 3000);
+            setTimeout(() => setSuccessMessage(null), 3000);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An error occurred");
         }
@@ -225,12 +228,71 @@ export default function ProfilePage() {
                     avatar_url: result.avatar_url,
                 });
             }
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+            setSuccessMessage("Avatar updated successfully");
+            setTimeout(() => setSuccessMessage(null), 3000);
         } catch (err) {
             setError(
                 err instanceof Error ? err.message : "Avatar upload failed"
             );
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        if (deleting) return;
+        const confirmed = window.confirm(
+            "This will permanently delete your account and personal data. This cannot be undone. Continue?"
+        );
+        if (!confirmed) return;
+
+        try {
+            setDeleting(true);
+            setError(null);
+            setSuccessMessage(null);
+
+            const token = getAccessToken();
+            if (!token) {
+                setError("Not authenticated. Please log in.");
+                return;
+            }
+
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            const response = await fetch(`${apiUrl}/api/v1/profile/me`, {
+                method: "DELETE",
+                credentials: "include",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    setError("Session expired. Please log in again.");
+                    clearAccessToken();
+                    window.location.href = "/login";
+                    return;
+                }
+                const errorData = await response.json();
+                setError(
+                    errorData.detail ||
+                        "Failed to delete account. Please try again."
+                );
+                return;
+            }
+
+            setSuccessMessage(
+                "Account deleted. Signing you out and clearing personal data..."
+            );
+            clearAccessToken();
+            setTimeout(() => {
+                window.location.href = "/login";
+            }, 1200);
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : "Failed to delete account."
+            );
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -273,9 +335,9 @@ export default function ProfilePage() {
                     </div>
                 )}
 
-                {success && (
+                {successMessage && (
                     <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-                        Profile updated successfully
+                        {successMessage}
                     </div>
                 )}
 
@@ -437,6 +499,29 @@ export default function ProfilePage() {
                             </div>
                         )}
                     </form>
+                </div>
+
+                {/* Delete Account */}
+                <div className="mt-8 p-6 bg-white border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700 mb-4">
+                        Delete your account and personal data. Requires another
+                        tenant owner/admin before deletion. If permitted, your
+                        integrations, memberships, audit logs, and personal
+                        identifiers are removed or anonymized, and your bots and
+                        documents are deleted rather than reassigned. This
+                        action is permanent and cannot be undone.
+                    </p>
+                    <button
+                        onClick={handleDeleteAccount}
+                        disabled={deleting}
+                        className={`px-4 py-2 rounded-lg text-white font-semibold transition ${
+                            deleting
+                                ? "bg-red-300 cursor-not-allowed"
+                                : "bg-red-600 hover:bg-red-700"
+                        }`}
+                    >
+                        {deleting ? "Deleting..." : "Delete my account"}
+                    </button>
                 </div>
             </div>
         </DashboardLayout>

@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 from app.models import GroupMember, GroupRole, User, Tenant
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.core.settings import settings
 from app.services.email_service import EmailService
 from app.api.v1.schemas import (
@@ -126,6 +126,9 @@ async def get_group(
     User must be a member of the group.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Get group with RLS isolation
         group = await GroupService.get_group(
             db=session,
@@ -157,7 +160,7 @@ async def list_groups(
     session: AsyncSession = Depends(get_db),
 ):
     """
-    List all groups the user is a member of.
+    List all groups the user is a member of, including their role in each group.
     """
     logger.info(f"LIST GROUPS REQUEST - user_id={current_user.get('sub')}, tenant_id={current_user.get('tenant_id')}")
     try:
@@ -169,8 +172,33 @@ async def list_groups(
             db=session,
             user_id=user_id,
         )
-        logger.info(f"Successfully retrieved {len(groups)} groups for user")
-        return groups
+        
+        # Fetch all user's memberships for their groups at once (avoid N+1 query)
+        group_ids = [group.id for group in groups]
+        memberships_result = await session.execute(
+            select(GroupMember.group_id, GroupMember.role).where(
+                (GroupMember.group_id.in_(group_ids)) &
+                (GroupMember.user_id == user_id)
+            )
+        )
+        roles_map = {m.group_id: m.role.value for m in memberships_result}
+        
+        # Build response with roles from the map
+        group_responses = []
+        for group in groups:
+            group_dict = {
+                "id": str(group.id),
+                "tenant_id": str(group.tenant_id),
+                "name": group.name,
+                "description": group.description,
+                "created_by": str(group.created_by),
+                "created_at": group.created_at,
+                "current_user_role": roles_map.get(group.id)
+            }
+            group_responses.append(group_dict)
+        
+        logger.info(f"Successfully retrieved {len(group_responses)} groups for user")
+        return group_responses
     except Exception as e:
         logger.exception(f"Error listing groups: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve groups")
@@ -189,6 +217,9 @@ async def update_group(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner/admin
         member = await session.scalar(
             select(GroupMember).where(
@@ -242,6 +273,9 @@ async def delete_group(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group exists and user is owner/admin
         member = await session.scalar(
             select(GroupMember).where(
@@ -303,6 +337,9 @@ async def invite_member(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner or admin
         member = await session.scalar(
             select(GroupMember).where(
@@ -442,6 +479,9 @@ async def list_group_members(
     User must be a member of the group.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify membership
         member = await session.scalar(
             select(GroupMember).where(
@@ -477,6 +517,9 @@ async def update_member_role(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner/admin
         admin_member = await session.scalar(
             select(GroupMember).where(
@@ -542,6 +585,9 @@ async def remove_member(
     Required permissions: owner or admin
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify current user is owner/admin
         admin_member = await session.scalar(
             select(GroupMember).where(

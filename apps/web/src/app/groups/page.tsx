@@ -17,6 +17,14 @@ export default function GroupSelectionPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    // Separate groups into owned and member groups
+    const ownedGroups = groups.filter(
+        (group) => group.current_user_role === "owner"
+    );
+    const memberGroups = groups.filter(
+        (group) => group.current_user_role !== "owner"
+    );
+
     useEffect(() => {
         // Check if user is authenticated
         const token = getAccessToken();
@@ -109,7 +117,7 @@ export default function GroupSelectionPage() {
                         <div className="flex items-center gap-2">
                             <Users className="h-5 w-5 text-slate-600" />
                             <h2 className="text-lg font-semibold text-slate-900">
-                                Your Groups
+                                Select a Group
                             </h2>
                         </div>
                         <button
@@ -137,27 +145,101 @@ export default function GroupSelectionPage() {
                                 </button>
                             </div>
                         ) : (
-                            groups.map((group) => (
-                                <div
-                                    key={group.id}
-                                    onClick={() => handleSelectGroup(group)}
-                                    className="p-6 hover:bg-slate-50 cursor-pointer transition group"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex-1">
-                                            <h3 className="font-semibold text-slate-900 mb-1">
-                                                {group.name}
+                            <>
+                                {/* Your Groups (Owner) */}
+                                {ownedGroups.length > 0 && (
+                                    <div>
+                                        <div className="px-6 py-3 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-sky-100">
+                                            <h3 className="text-sm font-semibold text-sky-900 flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-sky-500"></div>
+                                                Your Groups
+                                                <span className="text-xs font-normal text-sky-600">
+                                                    ({ownedGroups.length})
+                                                </span>
                                             </h3>
-                                            {group.description && (
-                                                <p className="text-sm text-slate-600">
-                                                    {group.description}
-                                                </p>
-                                            )}
                                         </div>
-                                        <ArrowRight className="h-5 w-5 text-slate-400 group-hover:text-sky-500 group-hover:translate-x-1 transition" />
+                                        {ownedGroups.map((group) => (
+                                            <div
+                                                key={group.id}
+                                                onClick={() =>
+                                                    handleSelectGroup(group)
+                                                }
+                                                className="p-6 hover:bg-sky-50 cursor-pointer transition group border-l-4 border-l-sky-500"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h3 className="font-semibold text-slate-900">
+                                                                {group.name}
+                                                            </h3>
+                                                            <span className="px-2 py-0.5 text-xs font-medium bg-sky-100 text-sky-700 rounded-full">
+                                                                Owner
+                                                            </span>
+                                                        </div>
+                                                        {group.description && (
+                                                            <p className="text-sm text-slate-600">
+                                                                {
+                                                                    group.description
+                                                                }
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <ArrowRight className="h-5 w-5 text-slate-400 group-hover:text-sky-500 group-hover:translate-x-1 transition" />
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                </div>
-                            ))
+                                )}
+
+                                {/* Other Groups (Member via invitation) */}
+                                {memberGroups.length > 0 && (
+                                    <div>
+                                        <div className="px-6 py-3 bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                                            <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                                <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                                                Member Groups
+                                                <span className="text-xs font-normal text-slate-500">
+                                                    ({memberGroups.length})
+                                                </span>
+                                            </h3>
+                                        </div>
+                                        {memberGroups.map((group) => (
+                                            <div
+                                                key={group.id}
+                                                onClick={() =>
+                                                    handleSelectGroup(group)
+                                                }
+                                                className="p-6 hover:bg-slate-50 cursor-pointer transition group border-l-4 border-l-slate-300"
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <h3 className="font-semibold text-slate-900">
+                                                                {group.name}
+                                                            </h3>
+                                                            {group.current_user_role && (
+                                                                <span className="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 rounded-full capitalize">
+                                                                    {
+                                                                        group.current_user_role
+                                                                    }
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {group.description && (
+                                                            <p className="text-sm text-slate-600">
+                                                                {
+                                                                    group.description
+                                                                }
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <ArrowRight className="h-5 w-5 text-slate-400 group-hover:text-slate-500 group-hover:translate-x-1 transition" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
 

@@ -17,6 +17,7 @@ from app.api.v1 import folders
 from app.api.v1 import bot_access
 from app.api.v1 import review_queue  # Story 4.4: Low-confidence review queue
 from app.api.v1 import query as query_v1  # Story 3.4: Confidence-based query
+from app.api.v1 import gdpr  # GDPR compliance endpoints
 from app.api.routes import query
 from app.api.routes import chat
 from app.api.routes import chat_history
@@ -88,6 +89,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(profile.router)
+app.include_router(gdpr.router)  # GDPR: /api/v1/profile/export, /api/v1/profile/me (DELETE)
 app.include_router(groups.router)
 app.include_router(bots_v1.router)  # Group-scoped: /api/v1/groups/{group_id}/bots
 app.include_router(documents_v1.router)  # Group-scoped: /api/v1/groups/{group_id}/documents

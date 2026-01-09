@@ -5,7 +5,7 @@ from app.core.database import get_db
 from app.api.v1.auth import get_current_user, get_current_tenant
 from app.models.user import User
 from app.services.document_service import create_document
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from app.models.document import Document
 from app.models.chunk import Chunk
 from app.schemas.document import (
@@ -241,7 +241,7 @@ async def delete_document(
     current_user: User = Depends(get_current_user),
     tenant_id: UUID = Depends(get_current_tenant),
 ):
-    """Delete a document and its chunks (tenant-isolated, cascades to chunks)."""
+    """Delete a document and its chunks (tenant-isolated, cascades to chunks and embeddings)."""
     # Verify document exists and belongs to tenant
     query = select(Document).where(
         Document.id == document_id,
@@ -263,7 +263,13 @@ async def delete_document(
     # Store storage path before deletion
     storage_path = doc.storage_path
     
-    # Delete chunks first (explicit deletion for logging/cleanup)
+    # Delete embeddings first (GDPR compliance - ensure vector store is cleaned)
+    from app.models import Embedding
+    await db.execute(
+        delete(Embedding).where(Embedding.document_id == document_id)
+    )
+    
+    # Delete chunks
     chunks_query = select(Chunk).where(Chunk.document_id == document_id)
     chunks_result = await db.execute(chunks_query)
     chunks = chunks_result.scalars().all()
@@ -276,7 +282,7 @@ async def delete_document(
     
     try:
         await db.commit()
-        logger.info(f"Deleted document {document_id} with {len(chunks)} chunks")
+        logger.info(f"Deleted document {document_id} with {len(chunks)} chunks and associated embeddings")
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to delete document {document_id}: {e}")

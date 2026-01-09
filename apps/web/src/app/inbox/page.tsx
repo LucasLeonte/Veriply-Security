@@ -1,27 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { DashboardLayout } from "@/components";
 import { ReviewQueue } from "@/components/hitl/ReviewQueue";
 import { useHITLQueue, HITLQueueFilters } from "@/hooks/useHITLQueue";
+import { useGroup } from "@/contexts/GroupContext";
 
 export default function InboxPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { currentGroup } = useGroup();
 
     // Initialize state from URL params (AC 5.5: persistent filter state)
     const [sortBy, setSortBy] = useState<string>(
         searchParams.get("sort") || "oldest"
     );
-    const [filters, setFilters] = useState<HITLQueueFilters>({
-        botId: searchParams.get("bot") || undefined,
-        dateFrom: searchParams.get("from") || undefined,
-        dateTo: searchParams.get("to") || undefined,
-        status:
-            (searchParams.get("status") as "pending" | "in-progress") ||
-            undefined,
-    });
+    const [botId, setBotId] = useState<string | undefined>(
+        searchParams.get("bot") || undefined
+    );
+    const [dateFrom, setDateFrom] = useState<string | undefined>(
+        searchParams.get("from") || undefined
+    );
+    const [dateTo, setDateTo] = useState<string | undefined>(
+        searchParams.get("to") || undefined
+    );
+    const [status, setStatus] = useState<"pending" | "in-progress" | undefined>(
+        (searchParams.get("status") as "pending" | "in-progress") || undefined
+    );
+
+    // Memoize filters object to prevent unnecessary re-fetches
+    const filters = useMemo(
+        () => ({
+            groupId: currentGroup?.id || undefined,
+            botId,
+            dateFrom,
+            dateTo,
+            status,
+        }),
+        [currentGroup?.id, botId, dateFrom, dateTo, status]
+    );
 
     const { items, stats, isLoading, error, approveItem, rejectItem } =
         useHITLQueue(sortBy, filters);
@@ -68,6 +86,13 @@ export default function InboxPage() {
         );
     }
 
+    const handleFilterChange = (newFilters: Partial<HITLQueueFilters>) => {
+        if (newFilters.botId !== undefined) setBotId(newFilters.botId);
+        if (newFilters.dateFrom !== undefined) setDateFrom(newFilters.dateFrom);
+        if (newFilters.dateTo !== undefined) setDateTo(newFilters.dateTo);
+        if (newFilters.status !== undefined) setStatus(newFilters.status);
+    };
+
     return (
         <DashboardLayout>
             <ReviewQueue
@@ -78,8 +103,7 @@ export default function InboxPage() {
                 onReject={rejectItem}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
-                filters={filters}
-                onFiltersChange={setFilters}
+                onFilterChange={handleFilterChange}
             />
         </DashboardLayout>
     );
