@@ -102,9 +102,7 @@ export default function MessageList({
                     name: data?.name,
                     avatar_url: data?.avatar_url,
                 });
-            } catch (err) {
-                
-            }
+            } catch (err) {}
         };
 
         loadUserProfile();
@@ -169,7 +167,6 @@ export default function MessageList({
                                 // Mark as sent even if backend reports logical failure,
                                 // to avoid hammering the endpoint on every render
                                 if (!result?.success) {
-                                    
                                 }
                                 setSentToReview((prev) =>
                                     new Set(prev).add(message.id)
@@ -177,7 +174,6 @@ export default function MessageList({
                             }
                         )
                         .catch((err: Error) => {
-                            
                             // Prevent infinite retry loops on hard failures
                             setSentToReview((prev) =>
                                 new Set(prev).add(message.id)

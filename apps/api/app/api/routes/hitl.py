@@ -571,6 +571,9 @@ async def approve_queue_item(
     **AC2**: If edited, system records diff between AI and human version
     """
     try:
+        # Ensure RLS / tenant isolation is set for this connection before any writes
+        await set_tenant_context(db, current_user.tenant_id)
+
         item_uuid = UUID(item_id)
         
         logger.debug(f"Approving HITL item {item_id} by user {current_user.id}")

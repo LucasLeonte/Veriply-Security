@@ -103,7 +103,7 @@ WebSocket Server: Broadcasts to ALL connected clients
 │  ↓ setItems(prev => filter)        │
 │  ✅ Badge count updates immediately │
 └──────────────────────────────────────┘
-    
+
 ┌──────────────────────────────────────┐
 │  Instance #2 (Inbox Page)            │
 │  ↓ Already removed via await         │
@@ -137,35 +137,41 @@ Clean State: Only valid pending items
 ## Key Improvements
 
 1. **Eliminated Race Condition** ✅
-   - Removed optimistic updates
-   - Added proper `await` on fetchQueue()
-   - Ensures DB transaction commits before UI updates
+
+    - Removed optimistic updates
+    - Added proper `await` on fetchQueue()
+    - Ensures DB transaction commits before UI updates
 
 2. **Better WebSocket Handling** ✅
-   - Immediate local state update on `item_resolved` event
-   - Keeps all instances in sync
-   - Works across tabs via WebSocket broadcast
+
+    - Immediate local state update on `item_resolved` event
+    - Keeps all instances in sync
+    - Works across tabs via WebSocket broadcast
 
 3. **Defensive Programming** ✅
-   - Added filtering to remove items with `resolution_action` in metadata
-   - Extra safety layer even if backend returns unexpected data
-   - Fail-safe approach
+
+    - Added filtering to remove items with `resolution_action` in metadata
+    - Extra safety layer even if backend returns unexpected data
+    - Fail-safe approach
 
 4. **Consistent Behavior** ✅
-   - Same fix applied to both `approveItem()` and `rejectItem()`
-   - Predictable behavior across all operations
+    - Same fix applied to both `approveItem()` and `rejectItem()`
+    - Predictable behavior across all operations
 
 ## Performance Impact
 
 **Before:**
-- Instant UI feedback (0ms)
-- Risk of showing stale data
+
+-   Instant UI feedback (0ms)
+-   Risk of showing stale data
 
 **After:**
-- Small delay (200-500ms typical)
-- 100% reliable - never shows rejected items
+
+-   Small delay (200-500ms typical)
+-   100% reliable - never shows rejected items
 
 **Mitigation:**
-- Loading spinner provides visual feedback
-- User knows action is in progress
-- Trade-off worth it for reliability
+
+-   Loading spinner provides visual feedback
+-   User knows action is in progress
+-   Trade-off worth it for reliability

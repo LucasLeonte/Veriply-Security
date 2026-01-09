@@ -103,7 +103,7 @@ export function useHITLQueue(
 
             // Defensive filtering: remove any items that should be resolved
             // (safety check in case backend returns stale data)
-            const validItems = (data.items || []).filter(item => {
+            const validItems = (data.items || []).filter((item) => {
                 // Filter out items with resolution_action in metadata
                 const hasResolution = item.metadata?.resolution_action;
                 return item.status === "pending" && !hasResolution;
@@ -230,7 +230,11 @@ export function useHITLQueue(
                         if (message.data.action === "item_resolved") {
                             // Item was approved/rejected - remove immediately from local state
                             if (message.data.item_id) {
-                                setItems((prev) => prev.filter(i => i.id !== message.data.item_id));
+                                setItems((prev) =>
+                                    prev.filter(
+                                        (i) => i.id !== message.data.item_id
+                                    )
+                                );
                             }
                             // Then refresh queue for stats update
                             fetchQueue();
