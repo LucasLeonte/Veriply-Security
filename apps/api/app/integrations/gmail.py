@@ -154,7 +154,7 @@ async def get_message_details(
             headers=headers
         )
         response.raise_for_status()
-        return _parse_message_data(data)
+        return _parse_message_data(response.json())
 
 async def get_thread_with_messages(
     client_id: str,

@@ -4,7 +4,8 @@ import { formatDistanceToNow } from "date-fns";
 import { GmailMessage, listGmailMessages, importGmailMessage } from "@/lib/api/integrations";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, MailIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface EmailListProps {
     token: string;
@@ -58,10 +59,31 @@ export function EmailList({ token, folder, selectedId, onSelect, provider }: Ema
     }
 
     if (error) {
+        if (error.includes("integration not found")) {
+            return (
+                <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                    <div className="bg-indigo-50 p-4 rounded-full">
+                        <MailIcon className="h-8 w-8 text-indigo-600" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900">Connect your Email</h3>
+                    <p className="text-sm text-gray-500 max-w-xs">
+                        Connect your Gmail account to start managing your emails with AI assistance.
+                    </p>
+                    <Button onClick={() => window.location.href = '/dashboard/integrations'}>
+                        Connect Gmail
+                    </Button>
+                </div>
+            );
+        }
+
         return (
-            <div className="p-6 text-center text-red-600 text-sm">
-                <p>{error}</p>
-                <button onClick={loadMessages} className="mt-2 underline">Retry</button>
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+                <p className="text-gray-900 font-medium">Failed to load emails</p>
+                <p className="text-sm text-gray-500">{error}</p>
+                <Button variant="outline" onClick={() => loadMessages()}>
+                    Retry
+                </Button>
             </div>
         );
     }
