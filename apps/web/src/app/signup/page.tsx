@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -9,6 +10,7 @@ export default function SignupPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [rememberMe, setRememberMe] = useState(false);
+    const [termsAccepted, setTermsAccepted] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -20,6 +22,10 @@ export default function SignupPage() {
         if (!email) return setError("Email is required");
         if (!password || password.length < 8)
             return setError("Password must be at least 8 characters");
+        if (!termsAccepted)
+            return setError(
+                "You must accept the Terms of Service and Privacy Policy"
+            );
 
         setLoading(true);
         try {
@@ -129,6 +135,41 @@ export default function SignupPage() {
                                 className="text-sm text-slate-700 select-none"
                             >
                                 Keep me signed in
+                            </label>
+                        </div>
+
+                        <div className="flex items-start gap-2 pt-2">
+                            <input
+                                type="checkbox"
+                                id="termsAccepted"
+                                checked={termsAccepted}
+                                onChange={(e) =>
+                                    setTermsAccepted(e.target.checked)
+                                }
+                                className="w-4 h-4 mt-1 text-sky-500 border-slate-300 rounded focus:ring-sky-500"
+                            />
+                            <label
+                                htmlFor="termsAccepted"
+                                className="text-sm text-slate-700 select-none"
+                            >
+                                I agree to the{" "}
+                                <Link
+                                    href="/terms-of-service"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sky-500 hover:underline"
+                                >
+                                    Terms of Service
+                                </Link>{" "}
+                                and{" "}
+                                <Link
+                                    href="/privacy-policy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sky-500 hover:underline"
+                                >
+                                    Privacy Policy
+                                </Link>
                             </label>
                         </div>
 

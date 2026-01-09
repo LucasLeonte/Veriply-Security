@@ -293,6 +293,29 @@ async def delete_user_account(
             await db.execute(delete(Document).where(Document.id.in_(doc_ids)))
             logger.info(f"Deleted documents (and chunks/embeddings) for user {user_id}")
 
+        # 6a. Delete all embeddings created by this user's bots
+        bot_ids_result = await db.execute(
+            select(Bot.id).where(Bot.creator_id == user_id)
+        )
+        bot_ids = [row[0] for row in bot_ids_result.all()]
+        if bot_ids:
+            await db.execute(delete(Embedding).where(Embedding.bot_id.in_(bot_ids)))
+            logger.info(f"Deleted embeddings for bots created by user {user_id}")
+
+        # 6b. Delete any remaining embeddings associated with user's chunks
+        await db.execute(
+            delete(Embedding).where(
+                Embedding.chunk_id.in_(
+                    select(Chunk.id).where(
+                        Chunk.document_id.in_(
+                            select(Document.id).where(Document.uploader_id == user_id)
+                        )
+                    )
+                )
+            )
+        )
+        logger.info(f"Deleted all embeddings for user {user_id}")
+
         # 6. Delete the user account
         await db.execute(delete(User).where(User.id == user_id))
         logger.info(f"Deleted user account {user_id}")

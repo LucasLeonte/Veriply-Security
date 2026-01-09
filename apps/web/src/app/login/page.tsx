@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
@@ -249,6 +250,30 @@ export default function LoginPage() {
                         >
                             {loading ? "Logging in..." : "Log in"}
                         </button>
+
+                        {/* Privacy Links */}
+                        <div className="text-center text-xs text-slate-500 mt-4 pt-4 border-t border-slate-200">
+                            <p>
+                                By logging in, you agree to our{" "}
+                                <Link
+                                    href="/terms-of-service"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sky-500 hover:underline"
+                                >
+                                    Terms of Service
+                                </Link>{" "}
+                                and{" "}
+                                <Link
+                                    href="/privacy-policy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sky-500 hover:underline"
+                                >
+                                    Privacy Policy
+                                </Link>
+                            </p>
+                        </div>
                     </form>
                 </div>
             </div>
