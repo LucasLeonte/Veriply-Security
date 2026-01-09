@@ -63,7 +63,7 @@ export function ReviewQueueItemCard({
     }, [isSelected]);
 
     const canApprove = reviewTimeElapsed >= 3; // AC3: Must review for >3 seconds
-    const canReject = reviewTimeElapsed >= 3;  // Match approve gating for reject
+    const canReject = reviewTimeElapsed >= 3; // Match approve gating for reject
 
     const handleApprove = async () => {
         if (!canApprove) return;
@@ -367,7 +367,11 @@ export function ReviewQueueItemCard({
                                 data-action="reject"
                                 data-item-id={item.id}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
-                                title={!canReject ? "Please review for at least 3 seconds" : ""}
+                                title={
+                                    !canReject
+                                        ? "Please review for at least 3 seconds"
+                                        : ""
+                                }
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -434,7 +438,11 @@ export function ReviewQueueItemCard({
                                 data-action="reject"
                                 data-item-id={item.id}
                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-white"
-                                title={!canReject ? "Please review for at least 3 seconds" : ""}
+                                title={
+                                    !canReject
+                                        ? "Please review for at least 3 seconds"
+                                        : ""
+                                }
                             >
                                 {isRejecting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -605,7 +613,6 @@ export function ReviewQueue({
                 setAvailableBots(botsFromItems);
                 setSelectedBot("all");
             } catch (error) {
-                
                 const botsFromItems = Array.from(
                     new Set(
                         items
