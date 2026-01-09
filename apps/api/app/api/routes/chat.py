@@ -481,17 +481,9 @@ async def chat_query(
         # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
         confidence_value = float(confidence_result.overall_score)
 
-        # Routing decision: send a wait message for HITL, otherwise stream draft
-        if confidence_result.routing_decision == RoutingDecision.hitl:
-            response = StreamingResponse(
-                _stream_hitl_wait_response(confidence_value),
-                media_type="text/event-stream",
-            )
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "*"
-            return response
-
+        # Stream the AI draft regardless of confidence - frontend will handle review queue submission
+        # The ConfidenceLog is already created with routing_decision=hitl, so the review queue
+        # will pick it up when the frontend submits it
         response = StreamingResponse(
             _stream_precomputed_response(
                 tokens=draft_tokens,
@@ -502,6 +494,8 @@ async def chat_query(
                     "verified": False,
                     "trust_level": "ai_generated",
                     "source_type": "rag",
+                    # Include routing decision for frontend to handle appropriately
+                    "routing_decision": confidence_result.routing_decision.value,
                 },
                 response_id=confidence_result.query_id,
             ),

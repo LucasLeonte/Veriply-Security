@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, delete, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.chat_message import ChatMessage
+from app.models.chat_message import ChatMessageLog
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
 
 logger = logging.getLogger(__name__)
@@ -37,13 +37,13 @@ async def cleanup_chat_history(db: AsyncSession, days: int = 90) -> int:
         
         # Count before deletion
         count_result = await db.execute(
-            select(ChatMessage).where(ChatMessage.created_at < cutoff_date)
+            select(ChatMessageLog).where(ChatMessageLog.created_at < cutoff_date)
         )
         count_before = len(count_result.scalars().all())
         
         # Delete old records
         result = await db.execute(
-            delete(ChatMessage).where(ChatMessage.created_at < cutoff_date)
+            delete(ChatMessageLog).where(ChatMessageLog.created_at < cutoff_date)
         )
         await db.commit()
         
