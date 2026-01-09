@@ -28,7 +28,7 @@ type FeedbackEntry = {
 // Context window size (configurable per bot, default 10 messages)
 const DEFAULT_CONTEXT_WINDOW = 10;
 
-export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTEXT_WINDOW) {
+export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTEXT_WINDOW, embedOrigin?: string) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState(false);
@@ -50,7 +50,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         }
         return sessionId;
     }, [botId]);
-    
+
     const sessionIdRef = useRef<string>(typeof window !== 'undefined' ? getOrCreateSessionId() : '');
 
     // Ensure sessionId is set on client-side mount (for SSR hydration)
@@ -64,21 +64,21 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     // The initial localStorage check is done in the history loading useEffect
     useEffect(() => {
         if (typeof window === "undefined") return;
-        
+
         const currentSession = sessionIdRef.current;
-        
+
         // Listen for storage events (for cross-tab communication)
         const handleStorage = (event: StorageEvent) => {
             if (event.key?.startsWith("approved_answer_") && event.newValue) {
                 try {
                     const data = JSON.parse(event.newValue);
                     const { type, sessionId, answer, timestamp } = data;
-                    
+
                     if (
-                        type === "approved_answer" && 
+                        type === "approved_answer" &&
                         sessionId === currentSession
                     ) {
-                        
+
                         const approvedMessage: ChatMessage = {
                             id: uuidv4(),
                             role: "assistant",
@@ -88,7 +88,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                             trustLevel: "verified",
                             sourceType: "hitl",
                         };
-                        
+
                         setMessages((prev) => {
                             const alreadyExists = prev.some(
                                 (m) => m.sourceType === "hitl" && m.content === answer
@@ -96,7 +96,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                             if (alreadyExists) return prev;
                             return [...prev, approvedMessage];
                         });
-                        
+
                         localStorage.removeItem(`approved_answer_${sessionId}`);
                     }
                 } catch (err) {
@@ -104,9 +104,9 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 }
             }
         };
-        
+
         window.addEventListener("storage", handleStorage);
-        
+
         return () => {
             window.removeEventListener("storage", handleStorage);
         };
@@ -132,10 +132,10 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         if (initialLoadDoneRef.current) {
             return;
         }
-        
+
         const sessionId = sessionIdRef.current;
         let history = loadChatHistory(botId, sessionId);
-        
+
         // Check for pending approved answer in localStorage
         if (sessionId) {
             const approvedKey = `approved_answer_${sessionId}`;
@@ -143,7 +143,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
             if (stored) {
                 try {
                     const data = JSON.parse(stored);
-                    
+
                     if (data.type === "approved_answer" && data.sessionId === sessionId) {
                         // Check if this answer is already in history
                         const alreadyExists = history.some(
@@ -171,7 +171,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 }
             }
         }
-        
+
         setMessages(history);
         initialLoadDoneRef.current = true;
     }, [botId]);
@@ -272,6 +272,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                     contextWindow,
                     sessionId: sessionIdRef.current,
                     messageId: assistantMessage.id,
+                    embedOrigin,
                 })) {
                     if (chunk.type === "token") {
                         fullContent += chunk.content;
@@ -486,7 +487,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
             // Retry logic with exponential backoff (3 attempts: 1s, 2s, 4s delays)
             const maxRetries = 3;
             let lastError: any = null;
-            
+
             for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
                     // Show "Retrying..." status on retries
@@ -528,7 +529,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 } catch (err: any) {
                     lastError = err;
                     const status = err?.status as number | undefined;
-                    
+
                     // Don't retry on 401 (auth) or 429 (rate limit) - these are client errors
                     if (status === 401 || status === 429) {
                         const message =
@@ -550,7 +551,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         }));
                         return { success: false, error: message };
                     }
-                    
+
                     // On last attempt, give up
                     if (attempt === maxRetries - 1) {
                         const message = err?.message || "Failed to send feedback";
@@ -567,7 +568,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         }));
                         return { success: false, error: message, retriesExhausted: true };
                     }
-                    
+
                     // Wait with exponential backoff: 1s, 2s, 4s
                     const delayMs = Math.pow(2, attempt) * 1000;
                     await new Promise(resolve => setTimeout(resolve, delayMs));

@@ -50,8 +50,11 @@ async def get_chat_history(
     if str(bot.tenant_id) != str(tenant_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
+    from app.models.user import User
+
     stmt = (
-        select(ChatMessageLog)
+        select(ChatMessageLog, User.email, User.name)
+        .outerjoin(User, ChatMessageLog.user_id == User.id)
         .where(ChatMessageLog.bot_id == bot_id)
         .where(ChatMessageLog.tenant_id == UUID(str(tenant_id)))
     )
@@ -64,7 +67,17 @@ async def get_chat_history(
     stmt = stmt.order_by(ChatMessageLog.created_at.desc()).limit(limit).offset(offset)
 
     result = await db.execute(stmt)
-    records = result.scalars().all()
+    rows = result.all()
+
+    # Map result rows to schema
+    history_items = []
+    for row in rows:
+        msg, user_email, user_name = row
+        item = ChatHistoryItem.from_orm(msg)
+        item.user_email = user_email
+        item.user_name = user_name
+        item.origin = msg.origin
+        history_items.append(item)
 
     # Return in ascending chronological order for readability
-    return list(reversed(records))
+    return list(reversed(history_items))

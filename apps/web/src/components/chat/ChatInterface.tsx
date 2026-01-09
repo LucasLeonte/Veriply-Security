@@ -26,6 +26,7 @@ interface ChatInterfaceProps {
     isPublic: boolean;
     confidenceThreshold: number; // 0-100 percentage from bot config
     embedded?: boolean; // whether to display in embedded mode
+    embedOrigin?: string;
 }
 
 export default function ChatInterface({
@@ -36,6 +37,7 @@ export default function ChatInterface({
     isPublic,
     confidenceThreshold,
     embedded = false,
+    embedOrigin,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const [showClearDialog, setShowClearDialog] = useState(false);
@@ -55,7 +57,7 @@ export default function ChatInterface({
         feedbackState,
         submitFeedbackForMessage,
         startNewSession,
-    } = useChat(botId);
+    } = useChat(botId, undefined, embedOrigin);
 
     // Validate message structure at runtime for defensive programming
     const validateMessages = (msgs: any[]) => {
@@ -203,9 +205,8 @@ export default function ChatInterface({
     return (
         <>
             <div
-                className={`w-full max-w-6xl flex gap-4 ${
-                    embedded ? "h-full" : "h-[calc(100vh-64px)]"
-                } flex-col md:flex-row`}
+                className={`w-full max-w-6xl flex gap-4 ${embedded ? "h-full" : "h-[calc(100vh-64px)]"
+                    } flex-col md:flex-row`}
                 style={
                     keyboardOffset
                         ? { paddingBottom: keyboardOffset + 12 }
@@ -240,11 +241,10 @@ export default function ChatInterface({
                                 userSessions.map((s) => (
                                     <div
                                         key={s.id}
-                                        className={`w-full text-left p-3 transition-colors group cursor-pointer ${
-                                            selectedSessionId === s.id
-                                                ? "bg-sky-50"
-                                                : "hover:bg-slate-50"
-                                        }`}
+                                        className={`w-full text-left p-3 transition-colors group cursor-pointer ${selectedSessionId === s.id
+                                            ? "bg-sky-50"
+                                            : "hover:bg-slate-50"
+                                            }`}
                                         onClick={() => {
                                             resumeSession(s.id);
                                         }}
@@ -282,11 +282,10 @@ export default function ChatInterface({
                 )}
 
                 <div
-                    className={`flex-1 h-full flex flex-col ${
-                        embedded
-                            ? "bg-white"
-                            : "bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100"
-                    } overflow-hidden relative min-h-[480px]`}
+                    className={`flex-1 h-full flex flex-col ${embedded
+                        ? "bg-white"
+                        : "bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100"
+                        } overflow-hidden relative min-h-[480px]`}
                 >
                     {/* Header - Hidden in widget mode (handled by PublicChatClient) */}
                     {!embedded && (
@@ -309,18 +308,17 @@ export default function ChatInterface({
                                         {streaming
                                             ? "Typing..."
                                             : loading
-                                            ? "Thinking..."
-                                            : "Online"}
+                                                ? "Thinking..."
+                                                : "Online"}
                                     </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 <span
-                                    className={`text-[10px] px-2 py-1 rounded-full border ${
-                                        isPublic
-                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                            : "bg-slate-100 text-slate-600 border-slate-200"
-                                    }`}
+                                    className={`text-[10px] px-2 py-1 rounded-full border ${isPublic
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-slate-100 text-slate-600 border-slate-200"
+                                        }`}
                                 >
                                     {isPublic ? "Public" : "Private"}
                                 </span>
@@ -449,11 +447,10 @@ export default function ChatInterface({
                                 <Button
                                     onClick={handleSend}
                                     disabled={!input.trim() || loading}
-                                    className={`mb-1 mr-1 rounded-full w-11 h-11 min-w-[44px] transition-all duration-300 ${
-                                        input.trim()
-                                            ? "bg-sky-600 hover:bg-sky-700 text-white shadow-md shadow-sky-200"
-                                            : "bg-slate-100 text-slate-400 hover:bg-slate-200"
-                                    }`}
+                                    className={`mb-1 mr-1 rounded-full w-11 h-11 min-w-[44px] transition-all duration-300 ${input.trim()
+                                        ? "bg-sky-600 hover:bg-sky-700 text-white shadow-md shadow-sky-200"
+                                        : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                                        }`}
                                     size="icon"
                                     aria-label="Send"
                                     title="Send"

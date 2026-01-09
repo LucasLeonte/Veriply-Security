@@ -14,6 +14,7 @@ class ChatMessageLog(Base):
     tenant_id = Column(PGUUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False)
     bot_id = Column(PGUUID(as_uuid=True), ForeignKey("bots.id"), nullable=False)
     user_id = Column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    origin = Column(String(50), nullable=True)
     session_id = Column(String(255), nullable=True)
     client_message_id = Column(String(255), nullable=True)
     answer_id = Column(PGUUID(as_uuid=True), nullable=True)

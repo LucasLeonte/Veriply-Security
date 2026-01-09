@@ -3,7 +3,7 @@
 import json
 import logging
 from typing import AsyncIterator
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.responses import StreamingResponse
@@ -22,11 +22,14 @@ from app.services.embedding_service import EmbeddingService
 from app.services.context_service import ContextService, DEFAULT_CONTEXT_WINDOW
 from app.services.confidence_service import ConfidenceCalculatorService
 from app.services.domain_whitelist_service import extract_request_origin, matches_whitelist
+from app.services.chat_message_service import ChatMessageService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bots", tags=["chat"])
+router = APIRouter(prefix="/bots", tags=["chat"])
 context_service = ContextService()
+chat_message_service = ChatMessageService()
 
 
 @router.get("/{bot_id}/public", response_model=PublicBotInfo)
@@ -94,15 +97,52 @@ async def get_public_bot_info(
         )
 
 
+from app.core.auth import get_current_user, security, get_jwt_secret, JWT_ALGORITHM
+import jwt
+from typing import Optional
+
+async def get_current_user_optional(
+    request: Request,
+    credentials = Depends(security)
+) -> Optional[dict]:
+    """
+    Optional authentication. Returns user dict if authenticated, None otherwise.
+    Does NOT raise HTTPException.
+    """
+    token = request.cookies.get("access_token")
+    if not token and credentials:
+        token = credentials.credentials
+    
+    if not token:
+        return None
+    
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        user_id: str = payload.get("sub")
+        tenant_id: str = payload.get("tenant_id")
+        
+        if not user_id or not tenant_id:
+            return None
+            
+        return {
+            "sub": user_id, 
+            "tenant_id": tenant_id,
+            "role": payload.get("role")
+        }
+    except Exception:
+        return None
+
 @router.post("/{bot_id}/chat/query")
 async def chat_query(
     bot_id: UUID,
     request: ChatQueryRequest,
     http_request: Request,
     db: AsyncSession = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional),
 ):
     """
     Query a bot via public chat interface (no authentication required).
+    If user is authenticated (e.g. via dashboard), logs the user_id.
 
     Streams response tokens via Server-Sent Events (SSE) for real-time feedback.
     Uses the bot's knowledge base to generate context-only answers.
@@ -118,6 +158,12 @@ async def chat_query(
         - 404: Bot not found
         - 403: Bot is not public
     """
+    # Use provided session_id or generate a new one
+    session_id = request.session_id or str(uuid4())
+    
+    # Get user_id if authenticated
+    user_id = UUID(current_user["sub"]) if current_user else None
+
     # Validate query
     if not request.query or not request.query.strip():
         raise HTTPException(
@@ -141,11 +187,15 @@ async def chat_query(
                 detail="Bot not found",
             )
 
+        # Basic public check
         if not bot.is_public:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bot is not public",
-            )
+             # Check if user is the owner/admin of this tenant. 
+             # If so, allow access even if private (Preview Mode)
+             if not (current_user and str(bot.tenant_id) == str(current_user.get("tenant_id"))):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Bot is not public",
+                )
         
         if not bot.is_active:
             raise HTTPException(
@@ -206,6 +256,19 @@ async def chat_query(
         # Get tenant_id from bot for context retrieval
         tenant_id = bot.tenant_id
 
+        # Log User Message
+        await chat_message_service.log_message(
+            db=db,
+            bot_id=bot_id,
+            tenant_id=tenant_id,
+            session_id=session_id,
+            role="user",
+            content=request.query.strip(),
+            user_id=user_id,
+            client_message_id=request.message_id,
+            origin=extract_request_origin(http_request) or "unknown",
+        )
+        
         # Enforce domain whitelist before processing request
         widget_cfg_result = await db.execute(
             select(WidgetConfig).where(WidgetConfig.bot_id == bot_id)
@@ -276,6 +339,28 @@ async def chat_query(
             ):
                 draft_tokens.append(token)
             ai_draft = "".join(draft_tokens)
+
+        # Log Assistant Message (RAG or Verified)
+        await chat_message_service.log_message(
+            db=db,
+            bot_id=bot_id,
+            tenant_id=tenant_id,
+            session_id=session_id,
+            role="assistant",
+            content=ai_draft,
+            citations=[
+                {
+                    "source": result.document_name or "Unknown",
+                    "document_id": str(result.document_id),
+                    "chunk_id": str(result.chunk_id),
+                    "url": f"/api/v1/documents/{result.document_id}/chunks",
+                    "similarity": result.similarity
+                }
+                for result in search_results
+            ] if search_results else None,
+            answer_id=verified_match.verified_id if verified_match else None,
+            origin=extract_request_origin(http_request) or "unknown",
+        )
 
         # Prepare lightweight citations metadata for confidence logging
         confidence_citations = [
