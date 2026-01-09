@@ -84,11 +84,15 @@ export function useHITLQueue(
                 params.append("status_filter", filters.status);
             }
 
+            // Add cache busting timestamp
+            params.set("_t", Date.now().toString());
+
             const response = await fetch(
                 `/api/hitl/queue?${params.toString()}`,
                 {
                     method: "GET",
                     headers,
+                    cache: "no-store",
                 }
             );
 
@@ -358,18 +362,24 @@ export function useHITLQueue(
             // Find the item to get its metadata (contains session_id)
             const item = items.find((i) => i.id === itemId);
 
+            // IMMEDIATELY remove from local state (optimistic update)
+            setItems((prev) => prev.filter((i) => i.id !== itemId));
+
             const response = await fetch(
                 `${
                     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-                }/api/v1/hitl/queue/${itemId}/approve`,
+                }/api/v1/hitl/queue/${itemId}/approve?_t=${Date.now()}`,
                 {
                     method: "POST",
                     headers,
                     body: JSON.stringify({ edits, send_to_chat: true }),
+                    cache: "no-store",
                 }
             );
 
             if (!response.ok) {
+                // Revert optimistic update on error
+                await fetchQueue();
                 throw new Error("Failed to approve item");
             }
 
@@ -397,8 +407,10 @@ export function useHITLQueue(
                 }
             }
 
-            // Wait for approval to complete, then refresh from server
-            // This ensures the database transaction has committed
+            // Wait 200ms for database commit to complete before refetching
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            // Refresh from server to ensure stats are updated
             await fetchQueue();
         } catch (err) {
             throw err;
@@ -415,23 +427,31 @@ export function useHITLQueue(
                 headers.Authorization = `Bearer ${token}`;
             }
 
+            // IMMEDIATELY remove from local state (optimistic update)
+            setItems((prev) => prev.filter((i) => i.id !== itemId));
+
             const response = await fetch(
                 `${
                     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-                }/api/v1/hitl/queue/${itemId}/reject`,
+                }/api/v1/hitl/queue/${itemId}/reject?_t=${Date.now()}`,
                 {
                     method: "POST",
                     headers,
                     body: JSON.stringify({ reason }),
+                    cache: "no-store",
                 }
             );
 
             if (!response.ok) {
+                // Revert optimistic update on error
+                await fetchQueue();
                 throw new Error("Failed to reject item");
             }
 
-            // Wait for rejection to complete, then refresh from server
-            // This ensures the database transaction has committed
+            // Wait 200ms for database commit to complete before refetching
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            // Refresh from server to ensure stats are updated
             await fetchQueue();
         } catch (err) {
             throw err;

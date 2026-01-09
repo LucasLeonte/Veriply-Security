@@ -843,7 +843,11 @@ async def approve_queue_item(
             
             logger.debug(f"Committing approval for item {item_id}")
             await db.commit()
-            logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
+            
+            # CRITICAL: Refetch again after commit to ensure all changes are visible
+            await db.refresh(item)
+            
+            logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved), hitl_resolved={item.hitl_resolved}, resolution_action={item.metadata_json.get('resolution_action')}")
             # Document is already set to "ready" with chunk created inline - no async processing needed
         except Exception as e:
             logger.error(f"Transaction failed during approval of {item_id}: {e}", exc_info=True)
@@ -1027,7 +1031,11 @@ async def reject_queue_item(
         
         logger.debug(f"Committing rejection for item {item_id}")
         await db.commit()
-        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (rejected)")
+        
+        # CRITICAL: Refetch again after commit to ensure all changes are visible
+        await db.refresh(item)
+        
+        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (rejected), hitl_resolved={item.hitl_resolved}, resolution_action={item.metadata_json.get('resolution_action')}")
         
         # Publish resolution event to Redis for real-time updates
         try:
