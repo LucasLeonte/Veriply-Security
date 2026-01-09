@@ -25,6 +25,7 @@ from app.api.routes import analytics
 from app.api.routes import hitl  # Story 3.4: HITL review queue
 from app.api.routes import integrations  # Story 6.2: Email integrations
 from app.api.routes import email_rules  # Story 6.3: Email monitoring rules
+from app.api.routes import verified_qa  # Story 7.3: Manual Q&A entry
 from app.workers.email_poller import run_periodic as start_email_poller
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
 from app.services.profile_service import cleanup_inactive_users
@@ -101,6 +102,7 @@ app.include_router(chat.router, prefix="/api/v1")  # Public chat: /api/v1/bots/{
 app.include_router(chat_history.router, prefix="/api/v1")  # Authenticated chat history
 app.include_router(feedback.router, prefix="/api/v1")  # Feedback collection and analytics
 app.include_router(analytics.router, prefix="/api/v1")  # Analytics metrics: /api/v1/analytics
+app.include_router(verified_qa.router, prefix="/api/v1")  # Story 7.3: Manual Q&A entry
 app.include_router(document_detail_router, prefix="/api/v1")  # Legacy: /api/v1/documents/{id} operations
 
 @app.get("/")

@@ -81,7 +81,9 @@ development_status:
     4-5-embeddable-widget-generation: in-progress
     4-6-widget-security-responsiveness: drafted
     7-1-verified-kb-storage: done
-    7-3-manual-qa-entry: in-progress
+    7-3-manual-qa-entry: review
+    7-4-verified-kb-management: in-progress
+
 ready_status:
     # Mark stories ready after context is generated
     1-5-secrets-management-and-configuration: ready
@@ -99,6 +101,7 @@ ready_status:
     4-5-embeddable-widget-generation: ready-for-dev
     4-6-widget-security-responsiveness: ready-for-dev
     7-1-verified-kb-storage: ready-for-dev
+    7-4-verified-kb-management: ready-for-dev
 
 assignments:
     # Format: <epic>-<story>-<slug>: <developer-name>

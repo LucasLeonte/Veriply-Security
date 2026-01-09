@@ -6,6 +6,7 @@ import {
     ReprocessModal,
     BulkReprocessModal,
     BulkDeleteModal,
+    QASection,
 } from "@/components/kb";
 import { useGroup } from "@/contexts/GroupContext";
 import { foldersApi } from "@/lib/api/folders";
@@ -560,6 +561,9 @@ export default function GroupKnowledgeBasePage() {
                         )}
                     </div>
                 </div>
+
+                {/* Q&A Section */}
+                <QASection groupId={currentGroup.id} />
 
                 {/* Upload Modal */}
                 <UploadModal
