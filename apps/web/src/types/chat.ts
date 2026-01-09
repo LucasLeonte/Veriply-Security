@@ -68,5 +68,8 @@ export interface ChatHistoryEntry {
     client_message_id?: string | null;
     answer_id?: string | null;
     citations?: Citation[];
+    origin?: string;
+    user_email?: string;
+    user_name?: string;
     created_at: string;
 }

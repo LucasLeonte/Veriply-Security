@@ -26,6 +26,8 @@ interface ChatInterfaceProps {
     isPublic: boolean;
     confidenceThreshold: number; // 0-100 percentage from bot config
     embedded?: boolean; // whether to display in embedded mode
+    embedOrigin?: string;
+    requirePublic?: boolean; // whether to enforce public access check (for public/embedded views)
 }
 
 export default function ChatInterface({
@@ -36,6 +38,8 @@ export default function ChatInterface({
     isPublic,
     confidenceThreshold,
     embedded = false,
+    embedOrigin,
+    requirePublic = false,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
     const [showClearDialog, setShowClearDialog] = useState(false);
@@ -55,7 +59,7 @@ export default function ChatInterface({
         feedbackState,
         submitFeedbackForMessage,
         startNewSession,
-    } = useChat(botId);
+    } = useChat(botId, undefined, embedOrigin);
 
     // Validate message structure at runtime for defensive programming
     const validateMessages = (msgs: any[]) => {
@@ -187,7 +191,8 @@ export default function ChatInterface({
         }
     };
 
-    if (!isPublic) {
+    // Only enforce public access check for public/embedded views (not for authenticated dashboard)
+    if (requirePublic && !isPublic) {
         return (
             <Card className="w-full max-w-2xl p-8 text-center">
                 <h2 className="text-xl font-semibold text-slate-900 mb-2">

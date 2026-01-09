@@ -45,6 +45,19 @@ JWT_ALGORITHM = "HS256"
 security = HTTPBearer(auto_error=False)
 
 
+def decode_jwt(token: str) -> dict | None:
+    """
+    Decode JWT token without raising exceptions.
+    Returns payload dict if valid, None if invalid/expired.
+    Used for optional authentication checks.
+    """
+    try:
+        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        return payload
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
+        return None
+
+
 async def get_current_user(
     request: Request,
     credentials = Depends(security)

@@ -21,9 +21,8 @@ import { useGroup } from "@/contexts/GroupContext";
 import { botsApi } from "@/lib/api/bots";
 import { Bot } from "@/types/bot";
 import BotGeneralSettings from "@/components/bot/BotGeneralSettings";
-import VerifiedKBTab from "@/components/bot/VerifiedKBTab";
 
-type TabType = "settings" | "documents" | "chat" | "history" | "widget" | "verified-kb";
+type TabType = "settings" | "documents" | "chat" | "history" | "widget";
 
 export default function BotSettingsPage() {
     const params = useParams();
@@ -40,7 +39,7 @@ export default function BotSettingsPage() {
         const tab = searchParams.get("tab") as TabType | null;
         if (
             tab &&
-            ["chat", "documents", "settings", "history", "widget", "verified-kb"].includes(tab)
+            ["chat", "documents", "settings", "history", "widget"].includes(tab)
         ) {
             setActiveTab(tab);
         }
@@ -87,70 +86,55 @@ export default function BotSettingsPage() {
                     <nav className="flex gap-6 flex-wrap">
                         <button
                             onClick={() => setActiveTab("chat")}
-                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                                activeTab === "chat"
-                                    ? "border-emerald-600 text-emerald-600"
-                                    : "border-transparent text-slate-600 hover:text-slate-900"
-                            }`}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "chat"
+                                ? "border-emerald-600 text-emerald-600"
+                                : "border-transparent text-slate-600 hover:text-slate-900"
+                                }`}
                         >
                             <MessageCircle size={16} />
                             Chat
                         </button>
                         <button
                             onClick={() => setActiveTab("documents")}
-                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                                activeTab === "documents"
-                                    ? "border-emerald-600 text-emerald-600"
-                                    : "border-transparent text-slate-600 hover:text-slate-900"
-                            }`}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "documents"
+                                ? "border-emerald-600 text-emerald-600"
+                                : "border-transparent text-slate-600 hover:text-slate-900"
+                                }`}
                         >
                             <FileText size={16} />
                             Document Access
                         </button>
                         <button
                             onClick={() => setActiveTab("settings")}
-                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                                activeTab === "settings"
-                                    ? "border-emerald-600 text-emerald-600"
-                                    : "border-transparent text-slate-600 hover:text-slate-900"
-                            }`}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "settings"
+                                ? "border-emerald-600 text-emerald-600"
+                                : "border-transparent text-slate-600 hover:text-slate-900"
+                                }`}
                         >
                             <Settings size={16} />
                             General Settings
                         </button>
                         <button
                             onClick={() => setActiveTab("history")}
-                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                                activeTab === "history"
-                                    ? "border-emerald-600 text-emerald-600"
-                                    : "border-transparent text-slate-600 hover:text-slate-900"
-                            }`}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "history"
+                                ? "border-emerald-600 text-emerald-600"
+                                : "border-transparent text-slate-600 hover:text-slate-900"
+                                }`}
                         >
                             <Clock3 size={16} />
                             History
                         </button>
                         <button
                             onClick={() => setActiveTab("widget")}
-                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                                activeTab === "widget"
-                                    ? "border-emerald-600 text-emerald-600"
-                                    : "border-transparent text-slate-600 hover:text-slate-900"
-                            }`}
+                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "widget"
+                                ? "border-emerald-600 text-emerald-600"
+                                : "border-transparent text-slate-600 hover:text-slate-900"
+                                }`}
                         >
                             <Settings2 size={16} />
                             Widget Configuration
                         </button>
-                        <button
-                            onClick={() => setActiveTab("verified-kb")}
-                            className={`flex items-center gap-2 px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                                activeTab === "verified-kb"
-                                    ? "border-emerald-600 text-emerald-600"
-                                    : "border-transparent text-slate-600 hover:text-slate-900"
-                            }`}
-                        >
-                            <BookOpen size={16} />
-                            Verified KB
-                        </button>
+
                     </nav>
                 </div>
 
@@ -222,7 +206,7 @@ export default function BotSettingsPage() {
                         </div>
                     )}
 
-                    {activeTab === "history" && (
+                    {activeTab === "history" && bot && (
                         <div className="space-y-4">
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-800">
                                 <p className="font-medium mb-1">
@@ -235,6 +219,8 @@ export default function BotSettingsPage() {
                             </div>
                             <ChatHistoryPanel
                                 botId={botId}
+                                botName={bot.name}
+                                botAvatar={bot.avatar_url}
                                 onResumeChat={() => setActiveTab("chat")}
                             />
                         </div>
@@ -250,11 +236,8 @@ export default function BotSettingsPage() {
                         </div>
                     )}
 
-                    {activeTab === "verified-kb" && currentGroup && (
-                        <VerifiedKBTab groupId={currentGroup.id} />
-                    )}
                 </div>
             </div>
-        </DashboardLayout>
+        </DashboardLayout >
     );
 }

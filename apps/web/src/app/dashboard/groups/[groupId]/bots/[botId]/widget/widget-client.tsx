@@ -746,6 +746,7 @@ function WidgetFloatingDemo({
                             isPublic={bot.is_public}
                             confidenceThreshold={bot.confidence_threshold}
                             embedded={true}
+                            embedOrigin="widget-preview"
                         />
                     </div>
                 </div>

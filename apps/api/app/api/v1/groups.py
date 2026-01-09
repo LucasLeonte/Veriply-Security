@@ -173,18 +173,19 @@ async def list_groups(
             user_id=user_id,
         )
         
-        # Fetch the user's role for each group
+        # Fetch all user's memberships for their groups at once (avoid N+1 query)
+        group_ids = [group.id for group in groups]
+        memberships_result = await session.execute(
+            select(GroupMember.group_id, GroupMember.role).where(
+                (GroupMember.group_id.in_(group_ids)) &
+                (GroupMember.user_id == user_id)
+            )
+        )
+        roles_map = {m.group_id: m.role.value for m in memberships_result}
+        
+        # Build response with roles from the map
         group_responses = []
         for group in groups:
-            # Get the user's membership to determine their role
-            member = await session.scalar(
-                select(GroupMember).where(
-                    (GroupMember.group_id == group.id) &
-                    (GroupMember.user_id == user_id)
-                )
-            )
-            
-            # Convert group to dict and add current_user_role
             group_dict = {
                 "id": str(group.id),
                 "tenant_id": str(group.tenant_id),
@@ -192,7 +193,7 @@ async def list_groups(
                 "description": group.description,
                 "created_by": str(group.created_by),
                 "created_at": group.created_at,
-                "current_user_role": member.role.value if member else None
+                "current_user_role": roles_map.get(group.id)
             }
             group_responses.append(group_dict)
         
