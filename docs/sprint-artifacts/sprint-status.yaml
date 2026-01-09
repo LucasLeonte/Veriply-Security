@@ -296,9 +296,11 @@ development_status:
         review_date: 2026-01-08
 
     6-5-writing-style-matching:
-        status: drafted
-        assigned_to: null
+        status: review
+        assigned_to: Dario
         blocked_by: 6-4-email-draft-generation
+        start_date: 2026-01-09
+        review_date: 2026-01-09
 
     epic-6-retrospective: optional
 
