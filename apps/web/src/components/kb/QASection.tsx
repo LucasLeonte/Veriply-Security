@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import QAEntryDialog from "./QAEntryDialog";
 import QAImportDialog from "./QAImportDialog";
 import { EditDialog } from "@/components/verified-kb/EditDialog";
+import { SearchBar } from "./SearchBar";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -34,6 +35,7 @@ export default function QASection({ groupId }: QASectionProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [skip, setSkip] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<VerifiedQA | null>(null);
@@ -187,11 +189,21 @@ export default function QASection({ groupId }: QASectionProps) {
     }
   };
 
+  // Filter entries based on search query
+  const filteredEntries = entries.filter((entry) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      entry.question_text.toLowerCase().includes(query) ||
+      entry.answer_text.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="bg-white border border-slate-200 rounded-lg">
       {/* Header */}
       <div className="p-4 border-b border-slate-200">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-semibold text-slate-900">
               Q&A Entries
@@ -225,6 +237,14 @@ export default function QASection({ groupId }: QASectionProps) {
             </Button>
           </div>
         </div>
+        
+        {/* Search Bar */}
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search questions and answers..."
+          className="max-w-md"
+        />
       </div>
 
       {/* Content */}
@@ -233,15 +253,23 @@ export default function QASection({ groupId }: QASectionProps) {
           <div className="text-center py-8">
             <p className="text-slate-600">Loading Q&A entries...</p>
           </div>
-        ) : entries.length === 0 ? (
+        ) : filteredEntries.length === 0 ? (
           <div className="bg-slate-50 rounded-lg p-8 text-center border border-slate-200">
             <p className="text-slate-600 text-sm">
-              No Q&A entries yet. Add entries manually or import from CSV.
+              {searchQuery
+                ? `No Q&A entries found matching "${searchQuery}"`
+                : "No Q&A entries yet. Add entries manually or import from CSV."}
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {entries.map((entry) => (
+          <>
+            {searchQuery && (
+              <div className="text-sm text-slate-600 mb-3">
+                Showing {filteredEntries.length} of {entries.length} entries
+              </div>
+            )}
+            <div className="space-y-3">
+            {filteredEntries.map((entry) => (
               <div
                 key={entry.id}
                 className="bg-slate-50 rounded-lg border border-slate-200 hover:shadow-sm transition"
@@ -328,6 +356,7 @@ export default function QASection({ groupId }: QASectionProps) {
               </div>
             ))}
           </div>
+          </>
         )}
 
         {/* Pagination */}
