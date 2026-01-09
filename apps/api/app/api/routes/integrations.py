@@ -648,25 +648,36 @@ async def import_gmail_message(
         content = "\n".join(content_parts)
         
         # Determine Group (Knowledge Base) to assign this document to
-        # Fetch the first available group for this tenant
-        group_result = await db.execute(select(Group).where(Group.tenant_id == tenant_id).limit(1))
-        group = group_result.scalar_one_or_none()
+        group_id = None
         
-        if not group:
-            # Create a default "General" group if none exists
-            group = Group(
-                tenant_id=tenant_id,
-                name="General",
-                description="Default group for imported documents",
-                created_by=current_user.id
-            )
-            db.add(group)
-            await db.flush() # Ensure we have an ID
+        # 1. Prefer the integration's default bot if set
+        if integration.default_reply_bot_id:
+            bot = await db.get(Bot, integration.default_reply_bot_id)
+            if bot and bot.group_id:
+                group_id = bot.group_id
+        
+        if not group_id:
+            # 2. Strategy: Fetch the first available group for this tenant
+            group_result = await db.execute(select(Group).where(Group.tenant_id == tenant_id).limit(1))
+            group = group_result.scalar_one_or_none()
             
+            if not group:
+                # 3. Create a default "General" group if none exists
+                group = Group(
+                    tenant_id=tenant_id,
+                    name="General",
+                    description="Default group for imported documents",
+                    created_by=current_user.id
+                )
+                db.add(group)
+                await db.flush() # Ensure we have an ID
+            
+            group_id = group.id
+
         # Create document
         doc, _ = await create_document(
             db=db,
-            bot_id=group.id, # The service maps 'bot_id' argument to 'group_id' column
+            bot_id=group_id, # The service maps 'bot_id' argument to 'group_id' column
             tenant_id=tenant_id,
             uploader_id=current_user.id,
             filename=f"Email: {subject}.txt",
