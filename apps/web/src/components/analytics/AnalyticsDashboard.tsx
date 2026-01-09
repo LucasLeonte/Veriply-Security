@@ -108,38 +108,39 @@ export function AnalyticsDashboard({
                     {/* Bar Chart */}
                     {metrics.chartData.length > 0 ? (
                         <>
-                            <div className="h-48 flex items-end gap-2">
-                                {metrics.chartData.map((data, idx) => (
-                                    <div key={idx} className="flex-1 relative">
-                                        <div
-                                            className="w-full bg-sky-500 rounded-t"
-                                            style={{
-                                                height: `${Math.max(
-                                                    data.interventionRate * 3,
-                                                    4
-                                                )}px`,
-                                            }}
-                                            title={`${data.period}: ${data.interventionRate}%`}
-                                        />
-                                    </div>
-                                ))}
+                            <div className="h-48 flex items-end gap-2 overflow-hidden">
+                                {metrics.chartData.map((data, idx) => {
+                                    // Calculate max value for scaling
+                                    const maxRate = Math.max(
+                                        ...metrics.chartData.map(d => d.interventionRate)
+                                    );
+                                    // Scale height to fit container (max 192px for h-48)
+                                    const containerHeight = 192; // h-48 in pixels
+                                    const heightPx = maxRate > 0
+                                        ? Math.min((data.interventionRate / maxRate) * containerHeight, containerHeight)
+                                        : 4;
+
+                                    return (
+                                        <div key={idx} className="flex-1 relative group">
+                                            <div
+                                                className="w-full bg-sky-500 rounded-t transition-all duration-200 group-hover:bg-sky-600"
+                                                style={{
+                                                    height: `${Math.max(heightPx, 4)}px`,
+                                                }}
+                                                title={`${data.period}: ${data.interventionRate}%`}
+                                            />
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            <p className="text-sm text-slate-500 mt-4 text-center">
+                            <p className="text-sm text-slate-600 mt-4 text-center">
                                 {metrics.chartData.length > 1 ? (
                                     <span>
-                                        Start{" "}
-                                        {metrics.chartData[0].interventionRate}%
-                                        →{" "}
-                                        {
-                                            metrics.chartData[
-                                                metrics.chartData.length - 1
-                                            ].interventionRate
-                                        }
-                                        %
+                                        Queries requiring human review: {metrics.chartData[0].interventionRate}% → {metrics.chartData[metrics.chartData.length - 1].interventionRate}%
                                     </span>
                                 ) : (
                                     <span>
-                                        Showing current intervention rate
+                                        {metrics.chartData[0].interventionRate}% of queries needed human review
                                     </span>
                                 )}
                             </p>
