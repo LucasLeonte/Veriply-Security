@@ -50,6 +50,23 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
     const containerRef = React.useRef<HTMLDivElement>(null);
     const scrollPosRef = React.useRef<number>(0);
 
+    const getScrollableParent = (): Element | null => {
+        let element = containerRef.current?.parentElement;
+        while (element) {
+            const { overflow, overflowY } = window.getComputedStyle(element);
+            if (
+                overflow === "auto" ||
+                overflow === "scroll" ||
+                overflowY === "auto" ||
+                overflowY === "scroll"
+            ) {
+                return element;
+            }
+            element = element.parentElement;
+        }
+        return document.documentElement; // fallback to document scroll
+    };
+
     const loadAccessData = useCallback(async () => {
         try {
             setIsLoading(true);
@@ -180,17 +197,18 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
                 is_allowed: newAccess,
             });
             // Store scroll position before refresh
-            if (containerRef.current?.parentElement) {
-                scrollPosRef.current =
-                    containerRef.current.parentElement.scrollTop;
-            }
+            const scrollParent = getScrollableParent();
+            scrollPosRef.current = scrollParent?.scrollTop || 0;
+
             // Refresh data in background to ensure consistency
             await loadAccessData();
+
             // Restore scroll position after refresh
-            if (containerRef.current?.parentElement) {
-                containerRef.current.parentElement.scrollTop =
-                    scrollPosRef.current;
-            }
+            requestAnimationFrame(() => {
+                if (scrollParent) {
+                    scrollParent.scrollTop = scrollPosRef.current;
+                }
+            });
         } catch (err) {
             setError(
                 err instanceof Error
@@ -241,17 +259,18 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
                 is_allowed: newAccess,
             });
             // Store scroll position before refresh
-            if (containerRef.current?.parentElement) {
-                scrollPosRef.current =
-                    containerRef.current.parentElement.scrollTop;
-            }
+            const scrollParent = getScrollableParent();
+            scrollPosRef.current = scrollParent?.scrollTop || 0;
+
             // Refresh data in background to ensure consistency
             await loadAccessData();
+
             // Restore scroll position after refresh
-            if (containerRef.current?.parentElement) {
-                containerRef.current.parentElement.scrollTop =
-                    scrollPosRef.current;
-            }
+            requestAnimationFrame(() => {
+                if (scrollParent) {
+                    scrollParent.scrollTop = scrollPosRef.current;
+                }
+            });
         } catch (err) {
             setError(
                 err instanceof Error
