@@ -83,10 +83,10 @@ export default function ChatClient({
             botName={botInfo.name}
             botAvatar={botInfo.avatar_url}
             description={botInfo.description}
-            isPublic={true}
+            isPublic={botInfo.is_public}
             confidenceThreshold={botInfo.confidence_threshold}
             embedded={embedded}
-            requirePublic={true}
+            requirePublic={false}
         />
     );
 }
