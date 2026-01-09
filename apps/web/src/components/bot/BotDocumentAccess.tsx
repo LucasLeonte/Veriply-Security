@@ -47,6 +47,8 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
     const [error, setError] = useState("");
     const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
     const expandedStateRef = React.useRef<Map<string, boolean>>(new Map());
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const scrollPosRef = React.useRef<number>(0);
 
     const loadAccessData = useCallback(async () => {
         try {
@@ -177,8 +179,18 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
             await botAccessApi.setFolderAccess(botId, folderId, {
                 is_allowed: newAccess,
             });
+            // Store scroll position before refresh
+            if (containerRef.current?.parentElement) {
+                scrollPosRef.current =
+                    containerRef.current.parentElement.scrollTop;
+            }
             // Refresh data in background to ensure consistency
-            loadAccessData();
+            await loadAccessData();
+            // Restore scroll position after refresh
+            if (containerRef.current?.parentElement) {
+                containerRef.current.parentElement.scrollTop =
+                    scrollPosRef.current;
+            }
         } catch (err) {
             setError(
                 err instanceof Error
@@ -228,8 +240,18 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
             await botAccessApi.setDocumentAccess(botId, documentId, {
                 is_allowed: newAccess,
             });
+            // Store scroll position before refresh
+            if (containerRef.current?.parentElement) {
+                scrollPosRef.current =
+                    containerRef.current.parentElement.scrollTop;
+            }
             // Refresh data in background to ensure consistency
-            loadAccessData();
+            await loadAccessData();
+            // Restore scroll position after refresh
+            if (containerRef.current?.parentElement) {
+                containerRef.current.parentElement.scrollTop =
+                    scrollPosRef.current;
+            }
         } catch (err) {
             setError(
                 err instanceof Error
@@ -264,7 +286,7 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
     }
 
     return (
-        <div className="space-y-2">
+        <div ref={containerRef} className="space-y-2">
             {folders.map((folderData, index) => {
                 const folderId = folderData.folder?.id || "root";
                 const isSaving = savingIds.has(folderId);
