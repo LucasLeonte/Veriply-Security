@@ -351,9 +351,25 @@ async def gmail_callback(
         logger.exception("Failed to save email integration: %s", e)
         raise HTTPException(status_code=500, detail="Failed to save integration")
 
-    # Redirect to frontend integrations page after successful connect
+    # Return HTML that redirects client-side with the access token intact
+    # This preserves cookies/auth context unlike server-side redirects
     frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
-    return RedirectResponse(f"{frontend_url}/dashboard/integrations?connected=gmail")
+    redirect_url = f"{frontend_url}/dashboard/integrations?connected=gmail"
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><title>Connecting Gmail...</title></head>
+    <body>
+        <script>
+            // Use client-side redirect to preserve auth context
+            window.location.href = '{redirect_url}';
+        </script>
+        <p>Redirecting...</p>
+    </body>
+    </html>
+    """
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=html_content)
 
 
 @router.get("/gmail/messages")
