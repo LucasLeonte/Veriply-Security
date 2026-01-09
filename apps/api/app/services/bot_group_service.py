@@ -1,7 +1,7 @@
 """Bot service with group scoping and provenance."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from uuid import UUID
 from datetime import datetime
 import logging
@@ -192,14 +192,22 @@ class BotGroupService:
         
         Note: Documents and chunks in the group KB are NOT deleted
         (they may be referenced by other bots in the group).
+        This method also deletes all chat messages associated with the bot.
         """
         bot = await BotGroupService.get_bot(db, bot_id, group_id, tenant_id)
         if not bot:
             raise ValueError(f"Bot {bot_id} not found")
 
+        # First delete all chat messages for this bot (to avoid foreign key constraint violation)
+        from app.models.chat_message import ChatMessageLog
+        await db.execute(
+            delete(ChatMessageLog).where(ChatMessageLog.bot_id == bot_id)
+        )
+        
+        # Then delete the bot
         await db.delete(bot)
         await db.flush()
-        logger.info(f"Bot deleted: id={bot_id}, group_id={group_id}")
+        logger.info(f"Bot deleted: id={bot_id}, group_id={group_id}, and all associated chat messages")
         return True
 
     @staticmethod
