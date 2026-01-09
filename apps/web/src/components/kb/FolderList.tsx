@@ -81,9 +81,8 @@ export function FolderList({
 
     return (
         <div className="space-y-2">
-            {/* Header with Create Button */}
-            <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-slate-700">Folders</h3>
+            {/* Create Button */}
+            <div className="flex items-center justify-end">
                 {!isCreating && (
                     <button
                         onClick={() => setIsCreating(true)}

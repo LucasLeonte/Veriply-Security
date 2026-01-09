@@ -7,7 +7,7 @@ from typing import List, Optional
 import logging
 
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.services.bot_access_service import BotAccessService
 from app.services.bot_service import BotService
 from app.services.group_service import GroupService
@@ -63,6 +63,9 @@ async def get_bot_access(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         
@@ -119,6 +122,9 @@ async def set_document_access(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         
@@ -192,6 +198,9 @@ async def set_folder_access(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         
@@ -264,6 +273,9 @@ async def bulk_set_access(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         

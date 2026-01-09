@@ -26,6 +26,7 @@ export interface HITLQueueStats {
 }
 
 export interface HITLQueueFilters {
+    groupId?: string;
     botId?: string;
     dateFrom?: string; // ISO date string
     dateTo?: string; // ISO date string
@@ -67,6 +68,9 @@ export function useHITLQueue(
 
             // Build query parameters with filters (AC 5.5)
             const params = new URLSearchParams({ sort_by: sortBy });
+            if (filters?.groupId) {
+                params.append("group_id", filters.groupId);
+            }
             if (filters?.botId) {
                 params.append("bot_id", filters.botId);
             }
@@ -115,7 +119,14 @@ export function useHITLQueue(
         } finally {
             setIsLoading(false);
         }
-    }, [sortBy, filters]);
+    }, [
+        sortBy,
+        filters?.groupId,
+        filters?.botId,
+        filters?.dateFrom,
+        filters?.dateTo,
+        filters?.status,
+    ]);
 
     // Fallback polling when WebSocket fails
     const startPolling = useCallback(() => {
@@ -123,14 +134,20 @@ export function useHITLQueue(
             return; // Already polling
         }
 
+        // Use longer polling interval (30 seconds) to reduce server load
+        // WebSocket is preferred for real-time updates
+        const pollingInterval = 30000; // 30 seconds instead of 5 seconds
+
         console.log(
-            "Starting fallback polling for queue updates (every 5 seconds)"
+            `Starting fallback polling for queue updates (every ${
+                pollingInterval / 1000
+            } seconds)`
         );
 
-        // Poll every 5 seconds
+        // Poll at longer interval
         pollingIntervalRef.current = setInterval(() => {
             fetchQueue();
-        }, 5000);
+        }, pollingInterval);
     }, [fetchQueue]);
 
     // Connect to WebSocket for real-time updates
@@ -386,11 +403,16 @@ export function useHITLQueue(
             // Find the item to get its metadata (contains session_id)
             const item = items.find((i) => i.id === itemId);
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/hitl/queue/${itemId}/approve`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({ edits, send_to_chat: true }),
-            });
+            const response = await fetch(
+                `${
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+                }/api/v1/hitl/queue/${itemId}/approve`,
+                {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify({ edits, send_to_chat: true }),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error("Failed to approve item");
@@ -401,7 +423,8 @@ export function useHITLQueue(
             // Store approved answer in localStorage for the chat to pick up
             // This works for both same-tab navigation and cross-tab communication
             if (typeof window !== "undefined" && item?.metadata) {
-                const sessionId = (item.metadata as Record<string, unknown>).session_id;
+                const sessionId = (item.metadata as Record<string, unknown>)
+                    .session_id;
                 if (sessionId && typeof sessionId === "string") {
                     const approvedAnswer = {
                         type: "approved_answer",
@@ -412,7 +435,10 @@ export function useHITLQueue(
                     };
                     // Store in localStorage - this triggers storage event in other tabs
                     // and can be read when navigating back to chat in same tab
-                    localStorage.setItem(`approved_answer_${sessionId}`, JSON.stringify(approvedAnswer));
+                    localStorage.setItem(
+                        `approved_answer_${sessionId}`,
+                        JSON.stringify(approvedAnswer)
+                    );
                 }
             }
 
@@ -437,11 +463,16 @@ export function useHITLQueue(
                 headers.Authorization = `Bearer ${token}`;
             }
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/hitl/queue/${itemId}/reject`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({ reason }),
-            });
+            const response = await fetch(
+                `${
+                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+                }/api/v1/hitl/queue/${itemId}/reject`,
+                {
+                    method: "POST",
+                    headers,
+                    body: JSON.stringify({ reason }),
+                }
+            );
 
             if (!response.ok) {
                 throw new Error("Failed to reject item");

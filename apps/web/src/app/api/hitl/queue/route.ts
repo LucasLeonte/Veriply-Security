@@ -7,22 +7,24 @@ export const revalidate = 0;
 export async function GET(request: NextRequest) {
     try {
         // Get the API base URL from environment or use default
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        
+        const apiBaseUrl =
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
         // Get auth token from Authorization header (forwarded from client)
         const authHeader = request.headers.get("Authorization");
-        
+
         // Build headers with auth token if available
         const headers: HeadersInit = {
             "Content-Type": "application/json",
         };
-        
+
         if (authHeader) {
             headers.Authorization = authHeader;
         }
-        
+
         // Get query parameters from request URL and forward them to backend
         const { searchParams } = new URL(request.url);
+        const groupId = searchParams.get("group_id");
         const sortBy = searchParams.get("sort_by") || "oldest";
         const botId = searchParams.get("bot_id");
         const dateFrom = searchParams.get("date_from");
@@ -30,6 +32,7 @@ export async function GET(request: NextRequest) {
         const statusFilter = searchParams.get("status_filter");
 
         const backendParams = new URLSearchParams({ sort_by: sortBy });
+        if (groupId) backendParams.set("group_id", groupId);
         if (botId) backendParams.set("bot_id", botId);
         if (dateFrom) backendParams.set("date_from", dateFrom);
         if (dateTo) backendParams.set("date_to", dateTo);
@@ -49,23 +52,27 @@ export async function GET(request: NextRequest) {
             console.error(
                 `Failed to fetch HITL queue from backend: ${response.status} ${response.statusText}`
             );
-            
+
             // Return empty queue on error instead of 500
-            return NextResponse.json({
-                items: [],
-                stats: {
-                    total: 0,
-                    pending: 0,
-                    chat: 0,
-                    email: 0,
+            return NextResponse.json(
+                {
+                    items: [],
+                    stats: {
+                        total: 0,
+                        pending: 0,
+                        chat: 0,
+                        email: 0,
+                    },
                 },
-            }, {
-                headers: {
-                    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-                    "Pragma": "no-cache",
-                    "Expires": "0",
-                },
-            });
+                {
+                    headers: {
+                        "Cache-Control":
+                            "no-store, no-cache, must-revalidate, proxy-revalidate",
+                        Pragma: "no-cache",
+                        Expires: "0",
+                    },
+                }
+            );
         }
 
         const data = await response.json();
@@ -82,15 +89,16 @@ export async function GET(request: NextRequest) {
             },
             {
                 headers: {
-                    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-                    "Pragma": "no-cache",
-                    "Expires": "0",
+                    "Cache-Control":
+                        "no-store, no-cache, must-revalidate, proxy-revalidate",
+                    Pragma: "no-cache",
+                    Expires: "0",
                 },
             }
         );
     } catch (error) {
         console.error("Error fetching HITL queue:", error);
-        
+
         // Return empty queue on error instead of 500
         return NextResponse.json(
             {
@@ -104,9 +112,10 @@ export async function GET(request: NextRequest) {
             },
             {
                 headers: {
-                    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-                    "Pragma": "no-cache",
-                    "Expires": "0",
+                    "Cache-Control":
+                        "no-store, no-cache, must-revalidate, proxy-revalidate",
+                    Pragma: "no-cache",
+                    Expires: "0",
                 },
             }
         );

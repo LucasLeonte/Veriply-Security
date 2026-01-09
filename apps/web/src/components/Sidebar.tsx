@@ -13,25 +13,30 @@ import {
     Mail,
     Menu,
     ChevronDown,
-    ListFilter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
-import {
-    Sheet,
-    SheetContent,
-    SheetTrigger,
-    SheetTitle,
-} from "./ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "./ui/sheet";
 import { useHITLQueue } from "@/hooks/useHITLQueue";
 import { GroupSwitcher } from "./GroupSwitcher";
 import { useGroup } from "@/contexts/GroupContext";
 
-const NAVIGATION_ITEMS = [
+interface NavItem {
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    label: string;
+    submenu?: NavItem[];
+}
+
+const NAVIGATION_ITEMS: NavItem[] = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/dashboard/bots", icon: Bot, label: "Bots" },
     { href: "/inbox", icon: Inbox, label: "Review Queue" },
-    { href: "/dashboard/knowledge-base", icon: BookOpen, label: "Knowledge Base" },
+    {
+        href: "/dashboard/knowledge-base",
+        icon: BookOpen,
+        label: "Knowledge Base",
+    },
     { href: "/dashboard/emails", icon: Mail, label: "Email Hub" },
     { href: "/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/settings", icon: Settings, label: "Settings" },
@@ -43,14 +48,15 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
-    const { stats } = useHITLQueue();
     const { currentGroup } = useGroup();
+    // Scope sidebar count to current group and keep it real-time via useHITLQueue
+    const { stats } = useHITLQueue("oldest", { groupId: currentGroup?.id });
     const [expandedItems, setExpandedItems] = useState<string[]>([]);
 
     const toggleExpanded = (href: string) => {
-        setExpandedItems(prev => 
-            prev.includes(href) 
-                ? prev.filter(h => h !== href)
+        setExpandedItems((prev) =>
+            prev.includes(href)
+                ? prev.filter((h) => h !== href)
                 : [...prev, href]
         );
     };
@@ -61,7 +67,7 @@ export function Sidebar({ className }: SidebarProps) {
             pathname === item.href ||
             (pathname.startsWith(item.href + "/") &&
                 item.href !== "/dashboard") ||
-            (item.submenu?.some(sub => pathname === sub.href)),
+            item.submenu?.some((sub) => pathname === sub.href),
     }));
 
     return (
@@ -100,11 +106,15 @@ export function Sidebar({ className }: SidebarProps) {
                                     )}
                                 >
                                     <Icon className="w-5 h-5 flex-shrink-0" />
-                                    <span className="flex-1 text-left">{item.label}</span>
-                                    <ChevronDown className={cn(
-                                        "w-4 h-4 transition-transform",
-                                        isExpanded && "rotate-180"
-                                    )} />
+                                    <span className="flex-1 text-left">
+                                        {item.label}
+                                    </span>
+                                    <ChevronDown
+                                        className={cn(
+                                            "w-4 h-4 transition-transform",
+                                            isExpanded && "rotate-180"
+                                        )}
+                                    />
                                 </button>
                             ) : (
                                 <Link
@@ -125,11 +135,11 @@ export function Sidebar({ className }: SidebarProps) {
                                     )}
                                 </Link>
                             )}
-                            
+
                             {/* Submenu */}
                             {hasSubmenu && isExpanded && (
                                 <div className="ml-8 mt-1 space-y-1">
-                                    {item.submenu.map((subItem) => (
+                                    {item.submenu!.map((subItem: NavItem) => (
                                         <Link
                                             key={subItem.href}
                                             href={subItem.href}
@@ -157,8 +167,12 @@ export function Sidebar({ className }: SidebarProps) {
                         D
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900">Dario</p>
-                        <p className="text-xs text-slate-500">Knowledge Manager</p>
+                        <p className="text-sm font-medium text-slate-900">
+                            Dario
+                        </p>
+                        <p className="text-xs text-slate-500">
+                            Knowledge Manager
+                        </p>
                     </div>
                 </div>
             </div>
@@ -169,7 +183,8 @@ export function Sidebar({ className }: SidebarProps) {
 export function MobileSidebar() {
     const pathname = usePathname();
     const [open, setOpen] = useState(false);
-    const { stats } = useHITLQueue();
+    const { currentGroup } = useGroup();
+    const { stats } = useHITLQueue("oldest", { groupId: currentGroup?.id });
 
     const navItems = NAVIGATION_ITEMS.map((item) => ({
         ...item,
@@ -220,9 +235,7 @@ export function MobileSidebar() {
                                     )}
                                 >
                                     <Icon className="w-5 h-5 flex-shrink-0" />
-                                    <span className="flex-1">
-                                        {item.label}
-                                    </span>
+                                    <span className="flex-1">{item.label}</span>
                                     {badge && (
                                         <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-amber-600 text-white">
                                             {badge}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { botsApi } from "@/lib/api/bots";
 import { Bot, UpdateBotInput } from "@/types/bot";
 import { Loader2, Upload } from "lucide-react";
@@ -29,6 +30,7 @@ export default function BotGeneralSettings({ groupId, botId }: Props) {
                     name: data.name,
                     description: data.description,
                     is_public: data.is_public,
+                    is_active: data.is_active ?? true, // Default to true if undefined
                     confidence_threshold: data.confidence_threshold,
                 });
             } catch (e: unknown) {
@@ -117,17 +119,25 @@ export default function BotGeneralSettings({ groupId, botId }: Props) {
                     />
                 </div>
                 <div className="flex items-center justify-between p-3 border rounded-md">
-                    <p className="text-sm text-slate-700">
-                        Allow anyone with the link to chat with this bot
+                    <p className="text-sm font-medium text-slate-700">
+                        Bot active
                     </p>
-                    <input
-                        id="is_public"
-                        type="checkbox"
-                        checked={!!form.is_public}
-                        onChange={(e) =>
-                            setForm({ ...form, is_public: e.target.checked })
+                    <Switch
+                        checked={!!form.is_active}
+                        onCheckedChange={(checked) =>
+                            setForm({ ...form, is_active: checked })
                         }
-                        className="h-5 w-5 accent-sky-600"
+                    />
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-md">
+                    <p className="text-sm text-slate-700">
+                        Allow link sharing
+                    </p>
+                    <Switch
+                        checked={!!form.is_public}
+                        onCheckedChange={(checked) =>
+                            setForm({ ...form, is_public: checked })
+                        }
                     />
                 </div>
                 {error && (

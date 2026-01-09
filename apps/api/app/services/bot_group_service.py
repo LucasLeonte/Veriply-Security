@@ -139,6 +139,7 @@ class BotGroupService:
         avatar_url: str | None = None,
         welcome_message: str | None = None,
         is_public: bool | None = None,
+        is_active: bool | None = None,
     ) -> Bot:
         """Update bot details."""
         bot = await BotGroupService.get_bot(db, bot_id, group_id, tenant_id)
@@ -173,6 +174,9 @@ class BotGroupService:
 
         if is_public is not None:
             bot.is_public = is_public
+        
+        if is_active is not None:
+            bot.is_active = is_active
 
         bot.updated_at = datetime.utcnow()
         await db.flush()

@@ -21,6 +21,7 @@ class Bot(Base):
     # New public/chat presentation fields
     avatar_url = Column(String(512), nullable=True)
     is_public = Column(Boolean, default=False, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_by = Column(Uuid, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

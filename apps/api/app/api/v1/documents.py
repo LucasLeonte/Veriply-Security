@@ -11,7 +11,7 @@ import logging
 
 from app.models import Group, GroupMember, GroupRole
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.api.v1.schemas import DocumentResponse, ChunkResponse
 from app.services.document_group_service import DocumentGroupService
 from app.services.audit_service import AuditService
@@ -168,6 +168,9 @@ async def get_document(
     User must be a member of the group.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group membership
         await check_group_access(group_id, current_user, session)
 
@@ -200,6 +203,9 @@ async def list_documents(
     Optionally include soft-deleted documents.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group membership
         await check_group_access(group_id, current_user, session)
 
@@ -232,6 +238,9 @@ async def delete_document(
     Required permissions: Any group member (Operator+)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group membership (any role can delete their own uploads)
         await check_group_access(group_id, current_user, session)
 
@@ -277,6 +286,9 @@ async def list_document_chunks(
     Useful for reviewing processed content and provenance.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
 
         # Verify group membership
         await check_group_access(group_id, current_user, session)
@@ -314,6 +326,9 @@ async def bulk_delete_documents(
 ):
     """Soft-delete multiple documents (max 100) in the group KB."""
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         await check_group_access(group_id, current_user, session)
 
         if not payload.document_ids:
@@ -383,6 +398,9 @@ async def bulk_reprocess_documents(
 ):
     """Reprocess up to 100 documents in the group knowledge base."""
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         await check_group_access(group_id, current_user, session)
 
         if not payload.document_ids:
@@ -475,6 +493,9 @@ async def reprocess_document(
     Returns immediately (202 Accepted) and processes asynchronously.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         await check_group_access(group_id, current_user, session)
 
         doc = await DocumentGroupService.get_document(

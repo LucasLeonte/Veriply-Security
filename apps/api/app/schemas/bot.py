@@ -36,6 +36,7 @@ class BotUpdateRequest(BaseModel):
     confidence_threshold: Optional[int] = Field(None, ge=0, le=100, description="Confidence threshold (0-100)")
     avatar_url: Optional[str] = Field(None, description="Bot avatar URL")
     is_public: Optional[bool] = Field(None, description="Whether bot is publicly accessible")
+    is_active: Optional[bool] = Field(None, description="Whether bot is active/enabled")
 
     @field_validator('name')
     @classmethod
@@ -70,6 +71,7 @@ class BotResponse(BaseModel):
     confidence_threshold: int
     avatar_url: Optional[str] = None
     is_public: bool = False
+    is_active: bool = True
     status: BotStatus
     created_by: UUID
     created_at: datetime

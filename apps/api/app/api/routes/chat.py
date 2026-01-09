@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.models.bot import Bot
 from app.models.confidence_log import RoutingDecision
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
@@ -66,6 +66,13 @@ async def get_public_bot_info(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Bot is not public",
+            )
+        
+        # Check if bot is active
+        if hasattr(bot, "is_active") and not bot.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is currently disabled",
             )
 
         return PublicBotInfo(
@@ -134,12 +141,17 @@ async def chat_query(
                 detail="Bot not found",
             )
 
-        # TODO: Check is_public field once added to model
-        # if not bot.is_public:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_403_FORBIDDEN,
-        #         detail="Bot is not public",
-        #     )
+        if not bot.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is not public",
+            )
+        
+        if not bot.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is currently disabled",
+            )
 
     except HTTPException:
         raise

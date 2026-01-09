@@ -22,6 +22,7 @@ import { Upload, Folder as FolderIcon } from "lucide-react";
 
 export default function GroupKnowledgeBasePage() {
     const { currentGroup } = useGroup();
+    const [activeView, setActiveView] = useState<'documents' | 'qa'>('documents');
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
         null
@@ -424,24 +425,70 @@ export default function GroupKnowledgeBasePage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    {/* Sidebar - Folders */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white border border-slate-200 rounded-lg p-4">
-                            <FolderList
-                                folders={folders}
-                                folderStats={folderStats}
-                                onCreateFolder={handleCreateFolder}
-                                onEditFolder={handleEditFolder}
-                                onDeleteFolder={handleDeleteFolder}
-                                onSelectFolder={setSelectedFolderId}
-                                selectedFolderId={selectedFolderId}
-                                isLoading={isLoading}
-                            />
+                    {/* Sidebar - Knowledge Base Sections */}
+                    <div className="lg:col-span-1 space-y-2">
+                        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                            {/* Documents Section Header */}
+                            <button
+                                onClick={() => setActiveView('documents')}
+                                className={`w-full p-4 text-left transition-colors ${
+                                    activeView === 'documents'
+                                        ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                        : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                }`}
+                            >
+                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${
+                                    activeView === 'documents' ? 'text-emerald-700' : 'text-slate-900'
+                                }`}>
+                                    <FolderIcon size={16} />
+                                    Documents
+                                </h3>
+                                <p className="text-xs text-slate-600 mt-1">
+                                    {folderStats.get("null")?.document_count || 0} documents
+                                </p>
+                            </button>
+
+                            {/* Q&A Entries Section Header */}
+                            <button
+                                onClick={() => setActiveView('qa')}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${
+                                    activeView === 'qa'
+                                        ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                        : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                }`}
+                            >
+                                <h3 className={`text-sm font-semibold ${
+                                    activeView === 'qa' ? 'text-emerald-700' : 'text-slate-900'
+                                }`}>
+                                    Q&A Entries
+                                </h3>
+                                <p className="text-xs text-slate-600 mt-1">
+                                    Manage verified Q&A pairs
+                                </p>
+                            </button>
                         </div>
+
+                        {/* Folders List - Only show when documents view is active */}
+                        {activeView === 'documents' && (
+                            <div className="bg-white border border-slate-200 rounded-lg p-4">
+                                <FolderList
+                                    folders={folders}
+                                    folderStats={folderStats}
+                                    onCreateFolder={handleCreateFolder}
+                                    onEditFolder={handleEditFolder}
+                                    onDeleteFolder={handleDeleteFolder}
+                                    onSelectFolder={setSelectedFolderId}
+                                    selectedFolderId={selectedFolderId}
+                                    isLoading={isLoading}
+                                />
+                            </div>
+                        )}
                     </div>
 
-                    {/* Main Content - Documents */}
+                    {/* Main Content */}
                     <div className="lg:col-span-3 space-y-4">
+                        {activeView === 'documents' ? (
+                        <>
                         {/* Toolbar */}
                         <div className="flex items-center justify-between gap-4 flex-wrap">
                             <SearchBar
@@ -559,11 +606,13 @@ export default function GroupKnowledgeBasePage() {
                                 })}
                             </div>
                         )}
+                        </>
+                        ) : (
+                            /* Q&A Entries View */
+                            <QASection groupId={currentGroup.id} />
+                        )}
                     </div>
                 </div>
-
-                {/* Q&A Section */}
-                <QASection groupId={currentGroup.id} />
 
                 {/* Upload Modal */}
                 <UploadModal

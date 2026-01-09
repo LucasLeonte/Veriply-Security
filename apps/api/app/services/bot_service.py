@@ -189,6 +189,15 @@ class BotService:
         if bot_data.confidence_threshold is not None:
             bot.confidence_threshold = bot_data.confidence_threshold
         
+        if bot_data.avatar_url is not None:
+            bot.avatar_url = bot_data.avatar_url
+        
+        if bot_data.is_public is not None:
+            bot.is_public = bot_data.is_public
+        
+        if bot_data.is_active is not None:
+            bot.is_active = bot_data.is_active
+        
         bot.updated_at = datetime.utcnow()
         
         await db.flush()

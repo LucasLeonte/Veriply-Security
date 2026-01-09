@@ -196,6 +196,7 @@ class GroupResponse(BaseModel):
     description: Optional[str] = None
     created_by: str | UUID
     created_at: datetime
+    current_user_role: Optional[str] = None  # Role of the current user in this group
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -281,6 +282,7 @@ class BotUpdate(BaseModel):
     avatar_url: Optional[str] = None
     welcome_message: Optional[str] = None
     is_public: Optional[bool] = None
+    is_active: Optional[bool] = None
 
     @field_validator("name")
     @classmethod
@@ -308,6 +310,7 @@ class BotResponse(BaseModel):
     avatar_url: Optional[str] = None
     welcome_message: Optional[str] = None
     is_public: Optional[bool] = False
+    is_active: Optional[bool] = True
     created_by: str | UUID
     created_at: datetime
 

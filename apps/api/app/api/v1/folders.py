@@ -7,7 +7,7 @@ from typing import List, Optional
 import logging
 
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
 from app.services.folder_service import FolderService
 from app.services.group_service import GroupService
 from app.services.audit_service import AuditService
@@ -57,6 +57,9 @@ async def create_folder(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         
@@ -145,6 +148,9 @@ async def list_folders(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         
@@ -203,6 +209,9 @@ async def get_folder(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         
@@ -264,6 +273,9 @@ async def update_folder(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         
@@ -355,6 +367,9 @@ async def delete_folder(
     Required permissions: group member (any role)
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         tenant_id = UUID(current_user["tenant_id"])
         user_id = UUID(current_user["sub"])
         

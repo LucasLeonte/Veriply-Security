@@ -10,7 +10,8 @@ import uuid
 
 from app.models import Group, GroupMember, GroupRole, WidgetConfig
 from app.core.auth import get_current_user
-from app.core.database import get_db
+from app.core.database import get_db, set_tenant_context
+from app.core.rbac import check_group_access as rbac_check_group_access, has_permission
 from app.api.v1.schemas import BotCreate, BotUpdate, BotResponse
 from app.schemas.widget import WidgetConfigResponse, WidgetConfigUpdate
 from app.services.bot_group_service import BotGroupService
@@ -65,6 +66,9 @@ async def create_bot(
     Required permissions: group_admin or manager
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group exists and user has permission
         await check_group_access(group_id, current_user, session, required_role=GroupRole.MANAGER)
 
@@ -131,6 +135,9 @@ async def get_bot(
     User must be a member of the group.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group membership
         await check_group_access(group_id, current_user, session)
 
@@ -171,6 +178,9 @@ async def list_bots(
     User must be a member of the group.
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group membership
         await check_group_access(group_id, current_user, session)
 
@@ -213,6 +223,9 @@ async def update_bot(
     Required permissions: group_admin or manager
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group membership and role
         await check_group_access(group_id, current_user, session, required_role=GroupRole.MANAGER)
 
@@ -228,6 +241,7 @@ async def update_bot(
             avatar_url=bot_data.avatar_url,
             welcome_message=bot_data.welcome_message,
             is_public=bot_data.is_public,
+            is_active=bot_data.is_active,
         )
 
         # Log to audit trail
@@ -356,6 +370,9 @@ async def delete_bot(
     Required permissions: group_admin or manager
     """
     try:
+        # SECURITY: Set RLS context for tenant isolation
+        await set_tenant_context(session, UUID(current_user['tenant_id']))
+
         # Verify group membership and role
         await check_group_access(group_id, current_user, session, required_role=GroupRole.MANAGER)
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.api.v1.schemas import UserRegister
 from app.services.user_service import register_user_and_tenant, get_user_by_email
@@ -135,7 +135,7 @@ async def register(req: UserRegister):
     }
 
 @router.post("/login", response_model=dict)
-async def login(req: UserRegister):
+async def login(req: UserRegister, response: Response):
     """Login an existing user."""
     user = await get_user_by_email(req.email)
     if not user:
@@ -159,6 +159,17 @@ async def login(req: UserRegister):
         "exp": datetime.utcnow() + timedelta(hours=24)
     }
     token = jwt.encode(token_payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
+    
+    # Set httpOnly cookie for middleware auth
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=settings.ENVIRONMENT == "production",  # Only HTTPS in production
+        samesite="lax",
+        max_age=86400,  # 24 hours
+        path="/"
+    )
     
     return {
         "access_token": token,
