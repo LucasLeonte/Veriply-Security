@@ -44,7 +44,7 @@ async def create_kb_email(
         to_emails: Comma-separated recipient list
         body_text: Plain text email body
         sent_at: Email send timestamp
-        metadata: Additional metadata dictionary
+        metadata: Additional metadata dictionary (stored in email_metadata column)
     
     Returns:
         Created KBEmail instance
@@ -61,7 +61,7 @@ async def create_kb_email(
         to_emails=to_emails,
         body_text=body_text,
         sent_at=sent_at,
-        metadata=metadata or {},
+        email_metadata=metadata or {},  # Renamed from 'metadata'
         status="uploaded",  # Will be processed by background worker
     )
     

@@ -37,7 +37,7 @@ class KBEmail(Base):
         sent_at: Original email send timestamp
         
         embedding: 768-dim vector embedding for semantic search
-        metadata: JSONB with additional email metadata
+        email_metadata: JSONB with additional email metadata (renamed from metadata)
         
         status: Processing status (uploaded, processing, ready, failed)
         processed_at: Timestamp when processing completed
@@ -71,7 +71,7 @@ class KBEmail(Base):
     
     # Embeddings and metadata
     embedding = Column(Vector(768), nullable=True)
-    metadata = Column(JSONB, nullable=True)
+    email_metadata = Column(JSONB, nullable=True)  # Renamed from 'metadata' (reserved by SQLAlchemy)
     
     # Processing status
     status = Column(String(50), nullable=False, default="uploaded")  # uploaded, processing, ready, failed

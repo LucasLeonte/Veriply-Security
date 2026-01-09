@@ -37,7 +37,7 @@ def upgrade():
         sa.Column('sent_at', sa.DateTime(), nullable=True),
         
         sa.Column('embedding', Vector(768), nullable=True),
-        sa.Column('metadata', postgresql.JSONB(), nullable=True),
+        sa.Column('email_metadata', postgresql.JSONB(), nullable=True),  # Renamed from 'metadata'
         
         sa.Column('status', sa.String(50), nullable=False, server_default='uploaded'),
         sa.Column('processed_at', sa.DateTime(), nullable=True),
