@@ -101,7 +101,15 @@ export function useHITLQueue(
             const data: { items: ReviewQueueItem[]; stats: HITLQueueStats } =
                 await response.json();
 
-            setItems(data.items || []);
+            // Defensive filtering: remove any items that should be resolved
+            // (safety check in case backend returns stale data)
+            const validItems = (data.items || []).filter(item => {
+                // Filter out items with resolution_action in metadata
+                const hasResolution = item.metadata?.resolution_action;
+                return item.status === "pending" && !hasResolution;
+            });
+
+            setItems(validItems);
             setStats(
                 data.stats || {
                     total: 0,
@@ -220,7 +228,11 @@ export function useHITLQueue(
                     } else if (message.type === "queue_update") {
                         // Real-time queue update received
                         if (message.data.action === "item_resolved") {
-                            // Item was approved/rejected, refresh queue
+                            // Item was approved/rejected - remove immediately from local state
+                            if (message.data.item_id) {
+                                setItems((prev) => prev.filter(i => i.id !== message.data.item_id));
+                            }
+                            // Then refresh queue for stats update
                             fetchQueue();
                         } else if (message.data.action === "new_item") {
                             // New item added to queue, refresh queue
@@ -381,11 +393,9 @@ export function useHITLQueue(
                 }
             }
 
-            // Remove item from local state immediately for optimistic update
-            setItems((prev) => prev.filter((i) => i.id !== itemId));
-
-            // Refresh queue from server
-            fetchQueue();
+            // Wait for approval to complete, then refresh from server
+            // This ensures the database transaction has committed
+            await fetchQueue();
         } catch (err) {
             throw err;
         }
@@ -416,11 +426,9 @@ export function useHITLQueue(
                 throw new Error("Failed to reject item");
             }
 
-            // Remove item from local state immediately for optimistic update
-            setItems((prev) => prev.filter((item) => item.id !== itemId));
-
-            // Refresh queue from server
-            fetchQueue();
+            // Wait for rejection to complete, then refresh from server
+            // This ensures the database transaction has committed
+            await fetchQueue();
         } catch (err) {
             throw err;
         }
