@@ -26,6 +26,7 @@ interface ChatInterfaceProps {
     isPublic: boolean;
     confidenceThreshold: number; // 0-100 percentage from bot config
     embedded?: boolean; // whether to display in embedded mode
+    embedOrigin?: string;
     requirePublic?: boolean; // whether to enforce public access check (for public/embedded views)
 }
 
@@ -37,6 +38,7 @@ export default function ChatInterface({
     isPublic,
     confidenceThreshold,
     embedded = false,
+    embedOrigin,
     requirePublic = false,
 }: ChatInterfaceProps) {
     const [input, setInput] = useState("");
@@ -57,7 +59,7 @@ export default function ChatInterface({
         feedbackState,
         submitFeedbackForMessage,
         startNewSession,
-    } = useChat(botId);
+    } = useChat(botId, undefined, embedOrigin);
 
     // Validate message structure at runtime for defensive programming
     const validateMessages = (msgs: any[]) => {

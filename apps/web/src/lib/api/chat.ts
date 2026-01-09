@@ -1,7 +1,12 @@
 ﻿import { BotPublicInfo, ChatMessage } from "@/types/chat";
 import { getAccessToken } from "@/lib/auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+let API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// Ensure we use localhost instead of 127.0.0.1 to allow cookie sharing
+if (API_BASE_URL.includes("127.0.0.1")) {
+    API_BASE_URL = API_BASE_URL.replace("127.0.0.1", "localhost");
+}
 
 /**
  * Fetch public bot information.
@@ -74,6 +79,7 @@ export async function* streamChatQuery(
         contextWindow?: number;
         sessionId?: string;
         messageId?: string;
+        embedOrigin?: string;
     }
 ): AsyncGenerator<
     | { type: "token"; content: string }
@@ -81,26 +87,28 @@ export async function* streamChatQuery(
     void,
     unknown
 > {
-    const embedOrigin =
-        typeof document !== "undefined"
+    const embedOrigin = options?.embedOrigin ||
+        (typeof document !== "undefined"
             ? (() => {
-                  try {
-                      const params = new URLSearchParams(
-                          window.location.search || ""
-                      );
-                      const qp = params.get("embed_origin");
-                      if (qp) return qp;
-                      // Prefer ancestor origin when referrer is stripped
-                      // @ts-ignore: ancestorOrigins exists on window in browsers
-                      const ancestor = window.location.ancestorOrigins?.[0];
-                      if (ancestor) return ancestor;
-                      if (document.referrer) return document.referrer;
-                      return window.location.origin;
-                  } catch {
-                      return undefined;
-                  }
-              })()
-            : undefined;
+                try {
+                    const params = new URLSearchParams(
+                        window.location.search || ""
+                    );
+                    const qp = params.get("embed_origin");
+                    if (qp) return qp;
+                    // Prefer ancestor origin when referrer is stripped
+                    // @ts-ignore: ancestorOrigins exists on window in browsers
+                    const ancestor = window.location.ancestorOrigins?.[0];
+                    if (ancestor) return ancestor;
+                    if (document.referrer) return document.referrer;
+                    return window.location.origin;
+                } catch {
+                    return undefined;
+                }
+            })()
+            : undefined);
+
+    const token = getAccessToken();
 
     const response = await fetch(
         `${API_BASE_URL}/api/v1/bots/${botId}/chat/query`,
@@ -109,6 +117,7 @@ export async function* streamChatQuery(
             headers: {
                 "Content-Type": "application/json",
                 ...(embedOrigin ? { "X-Embed-Origin": embedOrigin } : {}),
+                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
                 query,
@@ -123,6 +132,7 @@ export async function* streamChatQuery(
                 session_id: options?.sessionId,
                 message_id: options?.messageId,
             }),
+            credentials: "include",
         }
     );
 
@@ -226,7 +236,7 @@ export function saveChatHistory(
         if (indexRaw) {
             try {
                 index = JSON.parse(indexRaw);
-            } catch {}
+            } catch { }
         }
 
         const lastTimestamp = messages.length
@@ -268,7 +278,7 @@ export function clearChatHistory(botId: string, sessionId: string): void {
                 const index = JSON.parse(indexRaw) as Array<{ id: string }>;
                 const newIndex = index.filter((i) => i.id !== sessionId);
                 localStorage.setItem(indexKey, JSON.stringify(newIndex));
-            } catch {}
+            } catch { }
         }
     } catch (error) {
         console.error("Failed to clear chat history:", error);
