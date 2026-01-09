@@ -268,7 +268,6 @@ export default function BotsPage() {
                                 <BotCard
                                     key={bot.id}
                                     bot={bot}
-                                    onSettings={handleSettingsClick}
                                     onDuplicate={handleDuplicate}
                                     onDelete={handleDelete}
                                 />
@@ -305,11 +304,10 @@ export default function BotsPage() {
                                                 <button
                                                     key={i}
                                                     onClick={() => setPage(i)}
-                                                    className={`px-3 py-1 rounded ${
-                                                        page === i
+                                                    className={`px-3 py-1 rounded ${page === i
                                                             ? "bg-blue-600 text-white"
                                                             : "border border-gray-300 hover:bg-gray-50"
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {i + 1}
                                                 </button>

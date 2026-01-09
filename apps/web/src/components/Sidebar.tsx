@@ -159,23 +159,6 @@ export function Sidebar({ className }: SidebarProps) {
                     );
                 })}
             </div>
-
-            {/* Footer */}
-            <div className="pb-4 pt-4 border-t border-slate-100">
-                <div className="flex items-center gap-3 px-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-sm font-medium">
-                        D
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-sm font-medium text-slate-900">
-                            Dario
-                        </p>
-                        <p className="text-xs text-slate-500">
-                            Knowledge Manager
-                        </p>
-                    </div>
-                </div>
-            </div>
         </nav>
     );
 }
