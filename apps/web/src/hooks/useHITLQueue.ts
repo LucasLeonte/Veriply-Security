@@ -57,6 +57,7 @@ export function useHITLQueue(
     const fetchQueue = useCallback(async () => {
         try {
             setError(null);
+            setIsLoading(true);
 
             const token = getAccessToken();
             const headers: Record<string, string> = {
@@ -84,11 +85,15 @@ export function useHITLQueue(
                 params.append("status_filter", filters.status);
             }
 
+            // Add cache busting timestamp
+            params.set("_t", Date.now().toString());
+
             const response = await fetch(
                 `/api/hitl/queue?${params.toString()}`,
                 {
                     method: "GET",
                     headers,
+                    cache: "no-store",
                 }
             );
 
@@ -101,7 +106,20 @@ export function useHITLQueue(
             const data: { items: ReviewQueueItem[]; stats: HITLQueueStats } =
                 await response.json();
 
-            setItems(data.items || []);
+            // CRITICAL: Clear items first, then set filtered items
+            // This ensures old items don't stick around
+            const validItems = (data.items || []).filter((item) => {
+                // Filter out items with resolution_action in metadata - these should have been resolved
+                const hasResolution = item.metadata?.resolution_action;
+                if (hasResolution) {
+                    console.warn(
+                        `[HITL Queue] Filtering out resolved item: ${item.id} with resolution_action=${hasResolution}`
+                    );
+                }
+                return item.status === "pending" && !hasResolution;
+            });
+
+            setItems(validItems);
             setStats(
                 data.stats || {
                     total: 0,
@@ -220,7 +238,15 @@ export function useHITLQueue(
                     } else if (message.type === "queue_update") {
                         // Real-time queue update received
                         if (message.data.action === "item_resolved") {
-                            // Item was approved/rejected, refresh queue
+                            // Item was approved/rejected - remove immediately from local state
+                            if (message.data.item_id) {
+                                setItems((prev) =>
+                                    prev.filter(
+                                        (i) => i.id !== message.data.item_id
+                                    )
+                                );
+                            }
+                            // Then refresh queue for stats update
                             fetchQueue();
                         } else if (message.data.action === "new_item") {
                             // New item added to queue, refresh queue
@@ -342,18 +368,24 @@ export function useHITLQueue(
             // Find the item to get its metadata (contains session_id)
             const item = items.find((i) => i.id === itemId);
 
+            // IMMEDIATELY remove from local state (optimistic update)
+            setItems((prev) => prev.filter((i) => i.id !== itemId));
+
             const response = await fetch(
                 `${
                     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-                }/api/v1/hitl/queue/${itemId}/approve`,
+                }/api/v1/hitl/queue/${itemId}/approve?_t=${Date.now()}`,
                 {
                     method: "POST",
                     headers,
                     body: JSON.stringify({ edits, send_to_chat: true }),
+                    cache: "no-store",
                 }
             );
 
             if (!response.ok) {
+                // Revert optimistic update on error
+                await fetchQueue();
                 throw new Error("Failed to approve item");
             }
 
@@ -381,12 +413,20 @@ export function useHITLQueue(
                 }
             }
 
-            // Remove item from local state immediately for optimistic update
-            setItems((prev) => prev.filter((i) => i.id !== itemId));
+            // Wait 300ms for database commit to complete before refetching
+            // Increased from 200ms to ensure transaction is fully committed
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
-            // Refresh queue from server
-            fetchQueue();
+            // CRITICAL: Force a full refetch - don't rely on WebSocket to clean up
+            console.log(
+                `[HITL Queue] Approving item ${itemId} - forcing full refetch`
+            );
+            await fetchQueue();
         } catch (err) {
+            console.error(
+                `[HITL Queue] Approval error for item ${itemId}:`,
+                err
+            );
             throw err;
         }
     };
@@ -401,27 +441,41 @@ export function useHITLQueue(
                 headers.Authorization = `Bearer ${token}`;
             }
 
+            // IMMEDIATELY remove from local state (optimistic update)
+            setItems((prev) => prev.filter((i) => i.id !== itemId));
+
             const response = await fetch(
                 `${
                     process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-                }/api/v1/hitl/queue/${itemId}/reject`,
+                }/api/v1/hitl/queue/${itemId}/reject?_t=${Date.now()}`,
                 {
                     method: "POST",
                     headers,
                     body: JSON.stringify({ reason }),
+                    cache: "no-store",
                 }
             );
 
             if (!response.ok) {
+                // Revert optimistic update on error
+                await fetchQueue();
                 throw new Error("Failed to reject item");
             }
 
-            // Remove item from local state immediately for optimistic update
-            setItems((prev) => prev.filter((item) => item.id !== itemId));
+            // Wait 300ms for database commit to complete before refetching
+            // Increased from 200ms to ensure transaction is fully committed
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
-            // Refresh queue from server
-            fetchQueue();
+            // CRITICAL: Force a full refetch - don't rely on WebSocket to clean up
+            console.log(
+                `[HITL Queue] Rejecting item ${itemId} - forcing full refetch`
+            );
+            await fetchQueue();
         } catch (err) {
+            console.error(
+                `[HITL Queue] Rejection error for item ${itemId}:`,
+                err
+            );
             throw err;
         }
     };

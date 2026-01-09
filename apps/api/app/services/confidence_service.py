@@ -525,6 +525,24 @@ class ConfidenceCalculatorService:
             if existing.scalar_one_or_none() is not None:
                 logger.debug(f"Skipping duplicate confidence log for query: {query_text_truncated[:50]}...")
                 return
+
+            # Guard: Do not re-queue questions that were previously resolved (approved or rejected)
+            try:
+                existing_resolved = await db.scalar(
+                    select(ConfidenceLog)
+                    .where(ConfidenceLog.bot_id == bot_id)
+                    .where(ConfidenceLog.query_text == query_text_truncated)
+                    .where(ConfidenceLog.hitl_resolved == True)
+                    .order_by(ConfidenceLog.created_at.desc())
+                )
+                if existing_resolved is not None:
+                    logger.info(
+                        "Skipping HITL log: previously resolved question detected (id=%s)",
+                        existing_resolved.id,
+                    )
+                    return
+            except Exception as e:
+                logger.warning("Resolved-check failed; continuing without re-queue guard: %s", e)
             
             metadata_to_store = dict(metadata_json or {})
             metadata_to_store.setdefault("context_coverage", result.context_coverage)

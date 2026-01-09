@@ -216,7 +216,7 @@ export function BotDocumentAccess({ botId, groupId }: BotDocumentAccessProps) {
                     : "Failed to update folder access"
             );
             // Revert on error
-            loadAccessData();
+            await loadAccessData();
         } finally {
             setSavingIds((prev) => {
                 const newSet = new Set(prev);
