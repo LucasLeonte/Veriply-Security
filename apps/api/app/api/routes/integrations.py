@@ -20,6 +20,7 @@ from app.models.email_integration import EmailIntegration
 from app.models.integration_credentials import IntegrationCredentials
 from app.models.user import User
 from app.models.bot import Bot
+from app.models.group import Group
 from app.api.v1.auth import get_current_user, get_current_tenant, get_jwt_secret, JWT_ALGORITHM
 from app.utils.encryption import encrypt_token, decrypt_token
 from pydantic import BaseModel, Field
@@ -621,43 +622,68 @@ async def import_gmail_message(
     refresh_token = decrypt_token(integration.encrypted_refresh_token)
 
     try:
-        # Fetch full message
-        message = await gmail.get_message_details(
+        # Fetch full thread (treat payload.message_id as thread_id)
+        thread = await gmail.get_thread_with_messages(
             client_id=client_id,
             client_secret=client_secret,
             refresh_token=refresh_token,
-            message_id=payload.message_id
+            thread_id=payload.message_id
         )
         
-        # Extract content (simplified)
-        snippet = message.get("snippet", "")
-        # Real parsing of MIME parts is complex, for MVP use snippet + generic body
-        # For a hackathon/MVP, getting the full payload 'body' or 'parts' is needed
-        # We'll use the snippet as the "content" for now to keep it simple and safe
-        content = f"Subject: {snippet}\n\n[Full email content import pending full MIME parsing implementation]"
+        # Build content from all messages in the thread
+        subject = thread.get("subject", "Imported Email")
+        messages = thread.get("messages", [])
         
-        # Determine title
-        headers = message.get("payload", {}).get("headers", [])
-        subject = next((h["value"] for h in headers if h["name"] == "Subject"), "Imported Email")
+        content_parts = [f"Subject: {subject}\n"]
         
+        for msg in messages:
+            content_parts.append(f"From: {msg.get('from', 'Unknown')}")
+            content_parts.append(f"Date: {msg.get('date', 'Unknown')}")
+            content_parts.append(f"To: {msg.get('to', '')}")
+            content_parts.append("\n" + msg.get("body", "(No content)"))
+            content_parts.append("\n" + "-" * 50 + "\n")
+            
+        content = "\n".join(content_parts)
+        
+        content = "\n".join(content_parts)
+        
+        # Determine Group (Knowledge Base) to assign this document to
+        # Fetch the first available group for this tenant
+        group_result = await db.execute(select(Group).where(Group.tenant_id == tenant_id).limit(1))
+        group = group_result.scalar_one_or_none()
+        
+        if not group:
+            # Create a default "General" group if none exists
+            group = Group(
+                tenant_id=tenant_id,
+                name="General",
+                description="Default group for imported documents",
+                created_by=current_user.id
+            )
+            db.add(group)
+            await db.flush() # Ensure we have an ID
+            
         # Create document
         doc, _ = await create_document(
             db=db,
-            bot_id=None, # Not associated with a specific bot initially? Or maybe default?
+            bot_id=group.id, # The service maps 'bot_id' argument to 'group_id' column
             tenant_id=tenant_id,
             uploader_id=current_user.id,
             filename=f"Email: {subject}.txt",
             size_bytes=len(content.encode('utf-8')),
-            mime_type="text/plain",
+            mime_type="text/plain", # Plain text representation of the thread
             file_bytes=content.encode('utf-8'),
             title=f"Email: {subject}"
         )
         await db.commit()
         
-        return {"document_id": str(doc.id), "message": "Email imported successfully"}
+        return {"document_id": str(doc.id), "message": "Email thread imported successfully"}
 
     except Exception as e:
         logger.error(f"Failed to import message: {e}")
+        # If it was a 404 on the thread endpoint, it might really be missing
+        if "404" in str(e):
+             raise HTTPException(status_code=404, detail="Email thread not found")
         raise HTTPException(status_code=500, detail=str(e))
 
 
