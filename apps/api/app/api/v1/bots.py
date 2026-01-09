@@ -228,6 +228,7 @@ async def update_bot(
             avatar_url=bot_data.avatar_url,
             welcome_message=bot_data.welcome_message,
             is_public=bot_data.is_public,
+            is_active=bot_data.is_active,
         )
 
         # Log to audit trail

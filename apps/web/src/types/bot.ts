@@ -8,6 +8,7 @@ export interface Bot {
     status: BotStatus;
     avatar_url?: string;
     is_public: boolean;
+    is_active: boolean;
     created_by: string;
     created_at: string;
     updated_at: string;
@@ -30,6 +31,7 @@ export interface UpdateBotInput {
     confidence_threshold?: number;
     avatar_url?: string;
     is_public?: boolean;
+    is_active?: boolean;
 }
 
 export interface PaginatedBotsResponse {

@@ -67,6 +67,12 @@ async def query_bot(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Bot not found",
             )
+        
+        if not bot.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is currently disabled",
+            )
     except Exception as e:
         logger.error(f"Error verifying bot access: {e}")
         raise HTTPException(

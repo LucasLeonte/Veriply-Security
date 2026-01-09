@@ -612,8 +612,6 @@ async def approve_queue_item(
                 )
             metadata["human_edits"] = sanitized_edits
             metadata["human_final_answer"] = sanitized_edits
-            metadata["human_edits"] = request.edits
-            metadata["human_final_answer"] = request.edits
             metadata["resolution_action"] = "approved_with_edits"
             logger.info(f"Approval with edits for item {item_id} - AI:{len(ai_draft)} chars → Human:{len(request.edits)} chars")
         else:

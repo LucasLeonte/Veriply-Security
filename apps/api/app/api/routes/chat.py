@@ -67,6 +67,13 @@ async def get_public_bot_info(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Bot is not public",
             )
+        
+        # Check if bot is active
+        if hasattr(bot, "is_active") and not bot.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is currently disabled",
+            )
 
         return PublicBotInfo(
             id=str(bot.id),
@@ -134,12 +141,17 @@ async def chat_query(
                 detail="Bot not found",
             )
 
-        # TODO: Check is_public field once added to model
-        # if not bot.is_public:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_403_FORBIDDEN,
-        #         detail="Bot is not public",
-        #     )
+        if not bot.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is not public",
+            )
+        
+        if not bot.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Bot is currently disabled",
+            )
 
     except HTTPException:
         raise
