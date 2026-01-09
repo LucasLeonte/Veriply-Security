@@ -136,6 +136,28 @@ async def submit_to_review_queue(
         }
     
     try:
+        # Do not create a new queue item if an identical question was previously resolved
+        try:
+            prev_resolved = await session.scalar(
+                select(ConfidenceLog)
+                .where(ConfidenceLog.bot_id == bot_id)
+                .where(ConfidenceLog.query_text == (request.user_question[:500] if request.user_question else None))
+                .where(ConfidenceLog.hitl_resolved == True)
+                .order_by(ConfidenceLog.created_at.desc())
+            )
+            if prev_resolved:
+                logger.info(
+                    "Skipping review-queue submission: question previously resolved (id=%s)",
+                    prev_resolved.id,
+                )
+                return {
+                    "success": True,
+                    "message": "Question was previously resolved; not re-queued",
+                    "queue_item_id": None,
+                }
+        except Exception as e:
+            logger.warning("Resolved-check failed during submission; continuing: %s", e)
+
         # Check for deduplication - don't create duplicate entries for same question
         existing = await session.execute(
             select(ConfidenceLog)

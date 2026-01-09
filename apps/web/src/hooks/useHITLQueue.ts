@@ -57,6 +57,7 @@ export function useHITLQueue(
     const fetchQueue = useCallback(async () => {
         try {
             setError(null);
+            setIsLoading(true);
 
             const token = getAccessToken();
             const headers: Record<string, string> = {
@@ -105,11 +106,16 @@ export function useHITLQueue(
             const data: { items: ReviewQueueItem[]; stats: HITLQueueStats } =
                 await response.json();
 
-            // Defensive filtering: remove any items that should be resolved
-            // (safety check in case backend returns stale data)
+            // CRITICAL: Clear items first, then set filtered items
+            // This ensures old items don't stick around
             const validItems = (data.items || []).filter((item) => {
-                // Filter out items with resolution_action in metadata
+                // Filter out items with resolution_action in metadata - these should have been resolved
                 const hasResolution = item.metadata?.resolution_action;
+                if (hasResolution) {
+                    console.warn(
+                        `[HITL Queue] Filtering out resolved item: ${item.id} with resolution_action=${hasResolution}`
+                    );
+                }
                 return item.status === "pending" && !hasResolution;
             });
 
@@ -407,12 +413,20 @@ export function useHITLQueue(
                 }
             }
 
-            // Wait 200ms for database commit to complete before refetching
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            // Wait 300ms for database commit to complete before refetching
+            // Increased from 200ms to ensure transaction is fully committed
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
-            // Refresh from server to ensure stats are updated
+            // CRITICAL: Force a full refetch - don't rely on WebSocket to clean up
+            console.log(
+                `[HITL Queue] Approving item ${itemId} - forcing full refetch`
+            );
             await fetchQueue();
         } catch (err) {
+            console.error(
+                `[HITL Queue] Approval error for item ${itemId}:`,
+                err
+            );
             throw err;
         }
     };
@@ -448,12 +462,20 @@ export function useHITLQueue(
                 throw new Error("Failed to reject item");
             }
 
-            // Wait 200ms for database commit to complete before refetching
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            // Wait 300ms for database commit to complete before refetching
+            // Increased from 200ms to ensure transaction is fully committed
+            await new Promise((resolve) => setTimeout(resolve, 300));
 
-            // Refresh from server to ensure stats are updated
+            // CRITICAL: Force a full refetch - don't rely on WebSocket to clean up
+            console.log(
+                `[HITL Queue] Rejecting item ${itemId} - forcing full refetch`
+            );
             await fetchQueue();
         } catch (err) {
+            console.error(
+                `[HITL Queue] Rejection error for item ${itemId}:`,
+                err
+            );
             throw err;
         }
     };

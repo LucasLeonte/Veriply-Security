@@ -233,6 +233,13 @@ async def get_review_queue(
     If group_id is specified, verifies user has GroupMember access before filtering.
     """
     try:
+        # Ensure RLS context is set for this connection
+        await set_tenant_context(db, current_tenant)
+        
+        # CRITICAL: Commit any pending transaction and start fresh
+        # to ensure we see the latest committed data (especially after recent rejections/approvals)
+        await db.commit()
+        
         # Get user's group memberships to filter by accessible groups
         from app.models import GroupMember
         from sqlalchemy import func
@@ -363,6 +370,15 @@ async def get_review_queue(
                 # Fallback: use metadata if bot relationship not loaded
                 bot_name = metadata.get("bot_name", "Unknown Bot")
 
+            # CRITICAL: Log to debug why resolved items might appear in response
+            if item.hitl_resolved:
+                logger.warning(
+                    f"CRITICAL BUG: Returning resolved item in queue! "
+                    f"item_id={item.id}, hitl_resolved={item.hitl_resolved}, "
+                    f"resolution_action={metadata.get('resolution_action')}, "
+                    f"created_at={item.created_at}"
+                )
+
             response_item = ReviewQueueItemResponse(
                 id=str(item.id),
                 type=item_type,
@@ -382,6 +398,7 @@ async def get_review_queue(
                     "query_id": str(item.query_id),
                     "is_verified_kb": item.is_verified_kb,
                     "session_id": metadata.get("session_id"),  # For sending approved answer back to chat
+                    "resolution_action": metadata.get("resolution_action"),  # Include resolution action so frontend can filter
                 },
             )
             items_response.append(response_item)
