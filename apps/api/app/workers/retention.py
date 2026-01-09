@@ -8,7 +8,7 @@ Story 8.5: Data Retention Automation
 
 import logging
 from datetime import datetime, timedelta
-from sqlalchemy import select, delete, and_
+from sqlalchemy import delete, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_message import ChatMessageLog
@@ -35,23 +35,18 @@ async def cleanup_chat_history(db: AsyncSession, days: int = 90) -> int:
     try:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Count before deletion
-        count_result = await db.execute(
-            select(ChatMessageLog).where(ChatMessageLog.created_at < cutoff_date)
-        )
-        count_before = len(count_result.scalars().all())
-        
-        # Delete old records
+        # Delete old records and rely on rowcount instead of loading all rows
         result = await db.execute(
             delete(ChatMessageLog).where(ChatMessageLog.created_at < cutoff_date)
         )
         await db.commit()
+        count_deleted = result.rowcount or 0
         
         logger.info(
-            f"Deleted {count_before} chat history records older than {days} days "
+            f"Deleted {count_deleted} chat history records older than {days} days "
             f"(cutoff: {cutoff_date.isoformat()})"
         )
-        return count_before
+        return count_deleted
         
     except Exception as e:
         logger.error(f"Error cleaning up chat history: {e}")
@@ -77,18 +72,7 @@ async def cleanup_confidence_logs(db: AsyncSession, days: int = 180) -> int:
     try:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Count before deletion (only delete resolved logs)
-        count_result = await db.execute(
-            select(ConfidenceLog).where(
-                and_(
-                    ConfidenceLog.created_at < cutoff_date,
-                    ConfidenceLog.hitl_resolved == True
-                )
-            )
-        )
-        count_before = len(count_result.scalars().all())
-        
-        # Delete old resolved records
+        # Delete old resolved records and rely on rowcount instead of loading all rows
         result = await db.execute(
             delete(ConfidenceLog).where(
                 and_(
@@ -98,12 +82,13 @@ async def cleanup_confidence_logs(db: AsyncSession, days: int = 180) -> int:
             )
         )
         await db.commit()
+        count_deleted = result.rowcount or 0
         
         logger.info(
-            f"Deleted {count_before} resolved confidence logs older than {days} days "
+            f"Deleted {count_deleted} resolved confidence logs older than {days} days "
             f"(cutoff: {cutoff_date.isoformat()})"
         )
-        return count_before
+        return count_deleted
         
     except Exception as e:
         logger.error(f"Error cleaning up confidence logs: {e}")
@@ -129,19 +114,7 @@ async def cleanup_hitl_data(db: AsyncSession, days: int = 365) -> int:
     try:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
         
-        # Count before deletion (only delete resolved items)
-        count_result = await db.execute(
-            select(ConfidenceLog).where(
-                and_(
-                    ConfidenceLog.routing_decision == RoutingDecision.hitl,
-                    ConfidenceLog.created_at < cutoff_date,
-                    ConfidenceLog.hitl_resolved == True
-                )
-            )
-        )
-        count_before = len(count_result.scalars().all())
-        
-        # Delete old resolved records
+        # Delete old resolved records and rely on rowcount instead of loading all rows
         result = await db.execute(
             delete(ConfidenceLog).where(
                 and_(
@@ -152,12 +125,13 @@ async def cleanup_hitl_data(db: AsyncSession, days: int = 365) -> int:
             )
         )
         await db.commit()
+        count_deleted = result.rowcount or 0
         
         logger.info(
-            f"Deleted {count_before} resolved HITL items older than {days} days "
+            f"Deleted {count_deleted} resolved HITL items older than {days} days "
             f"(cutoff: {cutoff_date.isoformat()})"
         )
-        return count_before
+        return count_deleted
         
     except Exception as e:
         logger.error(f"Error cleaning up HITL data: {e}")
