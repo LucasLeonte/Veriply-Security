@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/lib/api/client';
 import {
   Card,
   CardContent,
@@ -69,9 +70,7 @@ export default function WritingStylePage() {
   const fetchStyles = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/v1/writing-style', {
-        credentials: 'include',
-      });
+      const response = await apiClient.get('/api/v1/writing-style');
 
       if (!response.ok) {
         throw new Error('Failed to fetch writing styles');
@@ -99,12 +98,8 @@ export default function WritingStylePage() {
   const handleRefreshStyle = async (integrationId: string) => {
     try {
       setIsRefreshing(true);
-      const response = await fetch(
-        `/api/v1/writing-style/${integrationId}/refresh`,
-        {
-          method: 'POST',
-          credentials: 'include',
-        }
+      const response = await apiClient.post(
+        `/api/v1/writing-style/${integrationId}/refresh`
       );
 
       if (!response.ok) {
@@ -134,24 +129,19 @@ export default function WritingStylePage() {
     if (!selectedIntegration) return;
 
     try {
-      const response = await fetch(
+      const response = await apiClient.put(
         `/api/v1/writing-style/${selectedIntegration}`,
         {
-          method: 'PUT',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tone: formData.tone,
+          tone: formData.tone,
+          greeting_pattern: formData.greeting_pattern,
+          closing_pattern: formData.closing_pattern,
+          formality_score: formData.formality_score,
+          uses_emojis: formData.uses_emojis,
+          custom_preferences: {
             greeting_pattern: formData.greeting_pattern,
             closing_pattern: formData.closing_pattern,
-            formality_score: formData.formality_score,
             uses_emojis: formData.uses_emojis,
-            custom_preferences: {
-              greeting_pattern: formData.greeting_pattern,
-              closing_pattern: formData.closing_pattern,
-              uses_emojis: formData.uses_emojis,
-            },
-          }),
+          },
         }
       );
 
@@ -180,12 +170,8 @@ export default function WritingStylePage() {
     if (!selectedIntegration) return;
 
     try {
-      const response = await fetch(
-        `/api/v1/writing-style/${selectedIntegration}/override`,
-        {
-          method: 'DELETE',
-          credentials: 'include',
-        }
+      const response = await apiClient.delete(
+        `/api/v1/writing-style/${selectedIntegration}/override`
       );
 
       if (!response.ok) {

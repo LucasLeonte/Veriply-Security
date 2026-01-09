@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function LoginPage() {
     const router = useRouter();
+    const { login: authLogin } = useAuth();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
@@ -84,13 +86,11 @@ export default function LoginPage() {
             const data = await response.json();
 
             if (data.access_token) {
-                if (rememberMe) {
-                    localStorage.setItem("access_token", data.access_token);
-                } else {
-                    sessionStorage.setItem("access_token", data.access_token);
-                }
+                // Use auth context to handle login
+                await authLogin(data.access_token, rememberMe);
             } else {
                 setError("Login failed: no access token returned");
+                return;
             }
 
             setSuccess(true);
