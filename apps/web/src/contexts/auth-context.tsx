@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUserProfile = async (authToken: string): Promise<User | null> => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${apiUrl}/api/v1/users/me`, {
+      const response = await fetch(`${apiUrl}/api/v1/profile/me`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
         },

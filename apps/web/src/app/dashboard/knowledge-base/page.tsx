@@ -18,11 +18,21 @@ import { DocumentCard } from "@/components/kb/DocumentCard";
 import { UploadModal } from "@/components/kb/UploadModal";
 import { MoveToFolderModal } from "@/components/kb/MoveToFolderModal";
 import { SearchBar } from "@/components/kb/SearchBar";
-import { Upload, Folder as FolderIcon } from "lucide-react";
+import { Upload, Folder as FolderIcon, Mail } from "lucide-react";
+import { getAccessToken } from "@/lib/auth";
+
+interface KBEmail {
+    id: string;
+    subject?: string;
+    from_email?: string;
+    sent_at?: string;
+    status: string;
+    created_at: string;
+}
 
 export default function GroupKnowledgeBasePage() {
     const { currentGroup } = useGroup();
-    const [activeView, setActiveView] = useState<'documents' | 'qa'>('documents');
+    const [activeView, setActiveView] = useState<'documents' | 'qa' | 'emails'>('documents');
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
         null
@@ -45,6 +55,9 @@ export default function GroupKnowledgeBasePage() {
     const [isBulkReprocessModalOpen, setIsBulkReprocessModalOpen] =
         useState(false);
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [kbEmails, setKbEmails] = useState<KBEmail[]>([]);
+    const [emailsLoading, setEmailsLoading] = useState(false);
+    const [emailsTotal, setEmailsTotal] = useState(0);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch folders
@@ -399,6 +412,39 @@ export default function GroupKnowledgeBasePage() {
         setFolderStats(buildFolderStats(folders, documents));
     }, [folders, documents, buildFolderStats]);
 
+    // Fetch KB emails
+    const fetchKBEmails = useCallback(async () => {
+        if (!currentGroup?.id) return;
+        setEmailsLoading(true);
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(
+                `${apiUrl}/api/v1/kb-emails?group_id=${currentGroup.id}&page=1&page_size=50`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setKbEmails(data.emails || []);
+                setEmailsTotal(data.total || 0);
+            }
+        } catch (err) {
+            console.error('Failed to fetch KB emails:', err);
+        } finally {
+            setEmailsLoading(false);
+        }
+    }, [currentGroup?.id]);
+
+    useEffect(() => {
+        if (activeView === 'emails') {
+            fetchKBEmails();
+        }
+    }, [activeView, fetchKBEmails]);
+
     if (!currentGroup) {
         return (
             <DashboardLayout>
@@ -466,6 +512,26 @@ export default function GroupKnowledgeBasePage() {
                                     Manage verified Q&A pairs
                                 </p>
                             </button>
+
+                            {/* Emails Section Header */}
+                            <button
+                                onClick={() => setActiveView('emails')}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${
+                                    activeView === 'emails'
+                                        ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                        : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                }`}
+                            >
+                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${
+                                    activeView === 'emails' ? 'text-emerald-700' : 'text-slate-900'
+                                }`}>
+                                    <Mail size={16} />
+                                    Emails
+                                </h3>
+                                <p className="text-xs text-slate-600 mt-1">
+                                    {emailsTotal} imported
+                                </p>
+                            </button>
                         </div>
 
                         {/* Folders List - Only show when documents view is active */}
@@ -487,7 +553,55 @@ export default function GroupKnowledgeBasePage() {
 
                     {/* Main Content */}
                     <div className="lg:col-span-3 space-y-4">
-                        {activeView === 'documents' ? (
+                        {activeView === 'emails' ? (
+                            <>
+                                <div className="bg-white border border-slate-200 rounded-lg p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Imported Emails</h3>
+                                    {emailsLoading ? (
+                                        <div className="text-center py-8 text-slate-500">Loading emails...</div>
+                                    ) : kbEmails.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-500">
+                                            <p>No emails imported yet.</p>
+                                            <p className="text-sm mt-2">Go to Email Hub and click "Save Thread to KB" to import emails.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead className="border-b border-slate-200 bg-slate-50">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left font-semibold">Subject</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">From</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">Status</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">Date</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-200">
+                                                    {kbEmails.map((email) => (
+                                                        <tr key={email.id} className="hover:bg-slate-50">
+                                                            <td className="px-4 py-2">{email.subject || '(No subject)'}</td>
+                                                            <td className="px-4 py-2 text-xs text-slate-600">{email.from_email || '—'}</td>
+                                                            <td className="px-4 py-2">
+                                                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                                                    email.status === 'ready' ? 'bg-green-100 text-green-700' :
+                                                                    email.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                                                                    email.status === 'failed' ? 'bg-red-100 text-red-700' :
+                                                                    'bg-gray-100 text-gray-700'
+                                                                }`}>
+                                                                    {email.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 py-2 text-xs text-slate-600">
+                                                                {email.sent_at ? new Date(email.sent_at).toLocaleDateString() : '—'}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : activeView === 'documents' ? (
                         <>
                         {/* Toolbar */}
                         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -607,10 +721,10 @@ export default function GroupKnowledgeBasePage() {
                             </div>
                         )}
                         </>
-                        ) : (
+                        ) : activeView === 'qa' ? (
                             /* Q&A Entries View */
                             <QASection groupId={currentGroup.id} />
-                        )}
+                        ) : null}
                     </div>
                 </div>
 
