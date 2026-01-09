@@ -135,9 +135,11 @@ async def register(req: UserRegister):
     }
 
 @router.post("/login", response_model=dict)
-async def login(req: UserRegister, response: Response):
+async def login(req: UserRegister, response: Response, db: AsyncSession = Depends(get_db)):
     """Login an existing user."""
-    user = await get_user_by_email(req.email)
+    result = await db.execute(select(User).where(User.email == req.email))
+    user = result.scalar_one_or_none()
+    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
