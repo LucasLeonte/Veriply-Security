@@ -28,7 +28,13 @@ useEffect(() => {
 }, [currentGroup?.id]);
 ```
 
-#### 2. **HITL Queue Hook** (`apps/web/src/hooks/useHITLQueue.ts`)
+#### 2. **Next.js API Proxies**
+
+-   Queue proxy forwards `group_id` to backend: `apps/web/src/app/api/hitl/queue/route.ts`
+-   Bots proxy forwards `group_id` to backend: `apps/web/src/app/api/hitl/bots/route.ts`
+-   Ensures backend receives group context even when frontend calls the Next API layer
+
+#### 3. **HITL Queue Hook** (`apps/web/src/hooks/useHITLQueue.ts`)
 
 -   Added `groupId` field to `HITLQueueFilters` interface
 -   Updated `fetchQueue` to pass `group_id` query parameter to API

@@ -14,10 +14,21 @@ export async function GET(request: NextRequest) {
             headers.Authorization = authHeader;
         }
 
-        const response = await fetch(`${apiBaseUrl}/api/v1/hitl/bots`, {
-            method: "GET",
-            headers,
-        });
+        // Forward optional group_id to scope bot list to current group
+        const { searchParams } = new URL(request.url);
+        const groupId = searchParams.get("group_id");
+        const backendParams = new URLSearchParams();
+        if (groupId) backendParams.set("group_id", groupId);
+
+        const response = await fetch(
+            `${apiBaseUrl}/api/v1/hitl/bots${
+                backendParams.toString() ? `?${backendParams.toString()}` : ""
+            }`,
+            {
+                method: "GET",
+                headers,
+            }
+        );
 
         if (!response.ok) {
             console.error(
