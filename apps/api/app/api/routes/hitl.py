@@ -828,6 +828,19 @@ async def approve_queue_item(
 
         # Commit transaction (HITL approval + VerifiedQA + Document + Chunk if created)
         try:
+            logger.debug(f"Flushing approval changes for item {item_id}")
+            await db.flush()
+            
+            # Refetch to confirm the changes were persisted
+            await db.refresh(item)
+            
+            if not item.hitl_resolved:
+                logger.error(f"CRITICAL: hitl_resolved flag not persisted for item {item_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to persist approval - database write issue",
+                )
+            
             logger.debug(f"Committing approval for item {item_id}")
             await db.commit()
             logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
@@ -951,6 +964,17 @@ async def reject_queue_item(
 
         logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
         
+        # SECURITY: Check if item is already resolved (prevent race condition)
+        if item.hitl_resolved:
+            logger.warning(
+                f"Race condition prevented: Item {item_id} already resolved by user "
+                f"{item.resolution_user_id} at {item.resolution_timestamp}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Item has already been resolved by another user",
+            )
+        
         # SECURITY: Verify user has access to the group this item belongs to
         if item.group_id:
             from app.models.group_member import GroupMember
@@ -988,6 +1012,19 @@ async def reject_queue_item(
 
         item.metadata_json = metadata
 
+        logger.debug(f"Flushing rejection changes for item {item_id}")
+        await db.flush()
+        
+        # Refetch to confirm the changes were persisted
+        await db.refresh(item)
+        
+        if not item.hitl_resolved:
+            logger.error(f"CRITICAL: hitl_resolved flag not persisted for item {item_id}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to persist rejection - database write issue",
+            )
+        
         logger.debug(f"Committing rejection for item {item_id}")
         await db.commit()
         logger.info(f"✓ HITL item {item_id} successfully marked as resolved (rejected)")
