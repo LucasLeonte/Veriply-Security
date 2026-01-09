@@ -74,7 +74,6 @@ export function useAnalytics(groupId?: string | null) {
                 setError(
                     err instanceof Error ? err : new Error("Unknown error")
                 );
-                console.error("Failed to fetch analytics:", err);
             } finally {
                 setIsLoading(false);
             }

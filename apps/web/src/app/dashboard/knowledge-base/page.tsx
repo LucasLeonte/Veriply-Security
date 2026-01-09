@@ -22,7 +22,9 @@ import { Upload, Folder as FolderIcon } from "lucide-react";
 
 export default function GroupKnowledgeBasePage() {
     const { currentGroup } = useGroup();
-    const [activeView, setActiveView] = useState<'documents' | 'qa'>('documents');
+    const [activeView, setActiveView] = useState<"documents" | "qa">(
+        "documents"
+    );
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
         null
@@ -63,20 +65,22 @@ export default function GroupKnowledgeBasePage() {
                         buildFolderStats(fetchedFolders, docsResponse.documents)
                     );
                 })
-                .catch((err) => console.error("Failed to fetch data:", err))
+                .catch(() => {
+                    // Silently ignore initial fetch errors; UI will reflect empty state
+                })
                 .finally(() => setIsLoading(false));
         }
     }, [currentGroup?.id]);
-
 
     const buildFolderStats = useCallback(
         (fetchedFolders: Folder[], docs: Document[]) => {
             const stats = new Map<string, FolderStats>();
 
             // Filter out verified Q&A documents before calculating stats
-            const regularDocs = docs.filter((d: Document) =>
-                !d.title?.startsWith("Verified Q&A:") &&
-                !d.filename?.startsWith("HITL-")
+            const regularDocs = docs.filter(
+                (d: Document) =>
+                    !d.title?.startsWith("Verified Q&A:") &&
+                    !d.filename?.startsWith("HITL-")
             );
 
             fetchedFolders.forEach((folder: Folder) => {
@@ -91,7 +95,6 @@ export default function GroupKnowledgeBasePage() {
         },
         []
     );
-
 
     // Poll for document status updates
     useEffect(() => {
@@ -118,12 +121,7 @@ export default function GroupKnowledgeBasePage() {
                             currentGroup.id
                         );
                         updatedDocs.push(updated as Document);
-                    } catch (err) {
-                        console.error(
-                            `Failed to fetch document ${docId}:`,
-                            err
-                        );
-                    }
+                    } catch (err) {}
                 }
 
                 if (updatedDocs.length > 0) {
@@ -137,9 +135,7 @@ export default function GroupKnowledgeBasePage() {
                         return Array.from(docMap.values());
                     });
                 }
-            } catch (err) {
-                console.error("Polling error:", err);
-            }
+            } catch (err) {}
         };
 
         // Immediate poll
@@ -301,9 +297,9 @@ export default function GroupKnowledgeBasePage() {
             setSelectedDocumentIds([]);
             setIsBulkDeleteModalOpen(false);
         } catch (err) {
-            console.error("Failed to bulk delete documents:", err);
             alert(
-                `Failed to delete documents: ${err instanceof Error ? err.message : "Unknown error"
+                `Failed to delete documents: ${
+                    err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -356,9 +352,9 @@ export default function GroupKnowledgeBasePage() {
             setIsReprocessModalOpen(false);
             setDocumentToReprocess(null);
         } catch (err) {
-            console.error("Failed to reprocess document:", err);
             alert(
-                `Failed to reprocess document: ${err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess document: ${
+                    err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -384,9 +380,9 @@ export default function GroupKnowledgeBasePage() {
             setSelectedDocumentIds([]);
             setIsBulkReprocessModalOpen(false);
         } catch (err) {
-            console.error("Failed to bulk reprocess documents:", err);
             alert(
-                `Failed to reprocess documents: ${err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess documents: ${
+                    err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -446,32 +442,46 @@ export default function GroupKnowledgeBasePage() {
                         <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
                             {/* Documents Section Header */}
                             <button
-                                onClick={() => setActiveView('documents')}
-                                className={`w-full p-4 text-left transition-colors ${activeView === 'documents'
-                                    ? 'bg-emerald-50 border-l-4 border-emerald-600'
-                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
-                                    }`}
+                                onClick={() => setActiveView("documents")}
+                                className={`w-full p-4 text-left transition-colors ${
+                                    activeView === "documents"
+                                        ? "bg-emerald-50 border-l-4 border-emerald-600"
+                                        : "hover:bg-slate-50 border-l-4 border-transparent"
+                                }`}
                             >
-                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${activeView === 'documents' ? 'text-emerald-700' : 'text-slate-900'
-                                    }`}>
+                                <h3
+                                    className={`text-sm font-semibold flex items-center gap-2 ${
+                                        activeView === "documents"
+                                            ? "text-emerald-700"
+                                            : "text-slate-900"
+                                    }`}
+                                >
                                     <FolderIcon size={16} />
                                     Documents
                                 </h3>
                                 <p className="text-xs text-slate-600 mt-1">
-                                    {folderStats.get("null")?.document_count || 0} documents
+                                    {folderStats.get("null")?.document_count ||
+                                        0}{" "}
+                                    documents
                                 </p>
                             </button>
 
                             {/* Q&A Entries Section Header */}
                             <button
-                                onClick={() => setActiveView('qa')}
-                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${activeView === 'qa'
-                                    ? 'bg-emerald-50 border-l-4 border-emerald-600'
-                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
-                                    }`}
+                                onClick={() => setActiveView("qa")}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${
+                                    activeView === "qa"
+                                        ? "bg-emerald-50 border-l-4 border-emerald-600"
+                                        : "hover:bg-slate-50 border-l-4 border-transparent"
+                                }`}
                             >
-                                <h3 className={`text-sm font-semibold ${activeView === 'qa' ? 'text-emerald-700' : 'text-slate-900'
-                                    }`}>
+                                <h3
+                                    className={`text-sm font-semibold ${
+                                        activeView === "qa"
+                                            ? "text-emerald-700"
+                                            : "text-slate-900"
+                                    }`}
+                                >
                                     Q&A Entries
                                 </h3>
                                 <p className="text-xs text-slate-600 mt-1">
@@ -481,7 +491,7 @@ export default function GroupKnowledgeBasePage() {
                         </div>
 
                         {/* Folders List - Only show when documents view is active */}
-                        {activeView === 'documents' && (
+                        {activeView === "documents" && (
                             <div className="bg-white border border-slate-200 rounded-lg p-4">
                                 <FolderList
                                     folders={folders}
@@ -499,7 +509,7 @@ export default function GroupKnowledgeBasePage() {
 
                     {/* Main Content */}
                     <div className="lg:col-span-3 space-y-4">
-                        {activeView === 'documents' ? (
+                        {activeView === "documents" ? (
                             <>
                                 {/* Toolbar */}
                                 <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -525,14 +535,18 @@ export default function GroupKnowledgeBasePage() {
                                                     Reprocess Selected
                                                 </button>
                                                 <button
-                                                    onClick={handleOpenBulkDeleteModal}
+                                                    onClick={
+                                                        handleOpenBulkDeleteModal
+                                                    }
                                                     className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
                                                 >
                                                     Delete Selected
                                                 </button>
                                                 <button
                                                     onClick={() =>
-                                                        setSelectedDocumentIds([])
+                                                        setSelectedDocumentIds(
+                                                            []
+                                                        )
                                                     }
                                                     className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
                                                 >
@@ -541,7 +555,9 @@ export default function GroupKnowledgeBasePage() {
                                             </>
                                         )}
                                         <button
-                                            onClick={() => setIsUploadModalOpen(true)}
+                                            onClick={() =>
+                                                setIsUploadModalOpen(true)
+                                            }
                                             className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 transition-colors"
                                         >
                                             <Upload size={18} />
@@ -573,17 +589,20 @@ export default function GroupKnowledgeBasePage() {
                                 ) : (
                                     <div className="grid gap-4">
                                         {filteredDocuments.map((document) => {
-                                            const folderName = document.folder_id
-                                                ? folders.find(
-                                                    (f) => f.id === document.folder_id
-                                                )?.name
-                                                : undefined;
+                                            const folderName =
+                                                document.folder_id
+                                                    ? folders.find(
+                                                          (f) =>
+                                                              f.id ===
+                                                              document.folder_id
+                                                      )?.name
+                                                    : undefined;
 
                                             return (
                                                 <DocumentCard
                                                     key={document.id}
                                                     document={document}
-                                                    onView={() => { }}
+                                                    onView={() => {}}
                                                     onDelete={async () => {
                                                         await documentsApi.deleteDocument(
                                                             currentGroup.id,
@@ -592,14 +611,17 @@ export default function GroupKnowledgeBasePage() {
                                                         setDocuments((prev) =>
                                                             prev.filter(
                                                                 (d) =>
-                                                                    d.id !== document.id
+                                                                    d.id !==
+                                                                    document.id
                                                             )
                                                         );
-                                                        setSelectedDocumentIds((prev) =>
-                                                            prev.filter(
-                                                                (id) =>
-                                                                    id !== document.id
-                                                            )
+                                                        setSelectedDocumentIds(
+                                                            (prev) =>
+                                                                prev.filter(
+                                                                    (id) =>
+                                                                        id !==
+                                                                        document.id
+                                                                )
                                                         );
                                                     }}
                                                     onReprocess={

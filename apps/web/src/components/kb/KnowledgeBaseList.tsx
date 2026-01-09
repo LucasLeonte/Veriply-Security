@@ -109,7 +109,7 @@ export function KnowledgeBaseList({
             setIsDeleteDialogOpen(false);
             setDocumentToDelete(null);
         } catch (err) {
-            console.error("Delete failed:", err);
+            
         } finally {
             setIsDeleting(false);
         }
@@ -119,7 +119,7 @@ export function KnowledgeBaseList({
         try {
             await onReprocess(document.id);
         } catch (err) {
-            console.error("Reprocess failed:", err);
+            
         }
     };
 
@@ -161,7 +161,7 @@ export function KnowledgeBaseList({
             setSelectedDocumentIds(new Set());
             // Note: Parent component should refresh document list
         } catch (err) {
-            console.error("Bulk delete failed:", err);
+            
         }
     };
 

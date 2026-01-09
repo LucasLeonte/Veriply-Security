@@ -47,7 +47,7 @@ export default function PendingVerification({
                     clearInterval(pollInterval);
                 }
             } catch (err) {
-                console.error("Error polling verification status:", err);
+                
                 setStatus("error");
                 setError(
                     err instanceof Error ? err.message : "Unknown error"

@@ -26,7 +26,7 @@ export async function POST(
         });
 
         if (!response.ok) {
-            console.error(`Failed to reject item: ${response.status} ${response.statusText}`);
+            
             return NextResponse.json(
                 { error: "Failed to reject item" },
                 { status: response.status }
@@ -42,7 +42,7 @@ export async function POST(
             },
         });
     } catch (error) {
-        console.error("Error rejecting item:", error);
+        
         return NextResponse.json(
             { error: "Failed to reject item" },
             { status: 500 }

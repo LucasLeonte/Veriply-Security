@@ -44,11 +44,7 @@ export default function ForgotPasswordPage() {
                 const errorData = await response.json().catch(() => ({
                     detail: `HTTP ${response.status}: ${response.statusText}`,
                 }));
-                console.error("Forgot password error:", {
-                    status: response.status,
-                    statusText: response.statusText,
-                    error: errorData,
-                });
+                
                 setError(
                     errorData.detail ||
                         "Failed to send reset email. Please check that the email exists in our system."
@@ -59,7 +55,7 @@ export default function ForgotPasswordPage() {
             setSuccess(true);
             setEmail("");
         } catch (err) {
-            console.error("Forgot password exception:", err);
+            
             setError(
                 err instanceof Error
                     ? err.message

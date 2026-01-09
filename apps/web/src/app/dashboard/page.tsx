@@ -93,7 +93,7 @@ export default function DashboardPage() {
                         )
                 );
             } catch (err) {
-                console.error("Failed to fetch bots:", err);
+                
                 setBotsTotal(null);
                 setBotsPreview([]);
             }
@@ -102,7 +102,7 @@ export default function DashboardPage() {
                 setDocsTotal(docsRes.total);
                 setRecentDocs((docsRes.documents || []).slice(0, 3));
             } catch (err) {
-                console.error("Failed to fetch documents:", err);
+                
                 setDocsTotal(null);
                 setRecentDocs([]);
             }

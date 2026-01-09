@@ -68,7 +68,7 @@ export function Header({ className }: HeaderProps) {
                     setAvatarUrl(data.avatar_url as string);
                 }
             } catch (err) {
-                console.error("Failed to load profile for header:", err);
+                
                 // leave fallbacks as-is
             }
         };
@@ -102,7 +102,7 @@ export function Header({ className }: HeaderProps) {
                 credentials: "include", // Include cookies
             });
         } catch (err) {
-            console.error("Logout error:", err);
+            
         }
 
         // Redirect to login (cookie is automatically cleared by browser)

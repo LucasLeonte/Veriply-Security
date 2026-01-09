@@ -47,7 +47,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             },
         });
     } catch (error) {
-        console.error("Failed to fetch widget config:", error);
+        
         return NextResponse.json(
             { detail: "Failed to fetch widget config" },
             { status: 500 }

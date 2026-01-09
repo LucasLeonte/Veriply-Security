@@ -90,7 +90,7 @@ export function CreateBotModal({
             onClose();
 
             // Show success toast (would integrate with toast library)
-            console.log(`Bot created: ${bot.name}`);
+            
         } catch (err) {
             const errorMessage =
                 err instanceof Error ? err.message : "Failed to create bot";

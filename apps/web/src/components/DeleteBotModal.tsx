@@ -58,7 +58,7 @@ export function DeleteBotModal({
             onClose();
 
             // Show success toast (would integrate with toast library)
-            console.log(`Bot deleted: ${bot.name}`);
+            
         } catch (err) {
             const errorMessage =
                 err instanceof Error ? err.message : "Failed to delete bot";

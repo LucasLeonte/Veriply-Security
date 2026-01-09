@@ -28,30 +28,39 @@ type FeedbackEntry = {
 // Context window size (configurable per bot, default 10 messages)
 const DEFAULT_CONTEXT_WINDOW = 10;
 
-export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTEXT_WINDOW, embedOrigin?: string) {
+export function useChat(
+    botId: string,
+    contextWindowSize: number = DEFAULT_CONTEXT_WINDOW,
+    embedOrigin?: string
+) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [streaming, setStreaming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
-    const [feedbackState, setFeedbackState] = useState<Record<string, FeedbackEntry>>({});
+    const [feedbackState, setFeedbackState] = useState<
+        Record<string, FeedbackEntry>
+    >({});
     const [feedbackRateLog, setFeedbackRateLog] = useState<number[]>([]);
     const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
     // Initialize sessionId synchronously to ensure it's available immediately
     const getOrCreateSessionId = useCallback(() => {
         const key = `chat_session_${botId}`;
-        let sessionId = typeof window !== 'undefined' ? sessionStorage.getItem(key) : null;
+        let sessionId =
+            typeof window !== "undefined" ? sessionStorage.getItem(key) : null;
         if (!sessionId) {
             sessionId = uuidv4();
-            if (typeof window !== 'undefined') {
+            if (typeof window !== "undefined") {
                 sessionStorage.setItem(key, sessionId);
             }
         }
         return sessionId;
     }, [botId]);
 
-    const sessionIdRef = useRef<string>(typeof window !== 'undefined' ? getOrCreateSessionId() : '');
+    const sessionIdRef = useRef<string>(
+        typeof window !== "undefined" ? getOrCreateSessionId() : ""
+    );
 
     // Ensure sessionId is set on client-side mount (for SSR hydration)
     useEffect(() => {
@@ -78,7 +87,6 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         type === "approved_answer" &&
                         sessionId === currentSession
                     ) {
-
                         const approvedMessage: ChatMessage = {
                             id: uuidv4(),
                             role: "assistant",
@@ -91,7 +99,9 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
 
                         setMessages((prev) => {
                             const alreadyExists = prev.some(
-                                (m) => m.sourceType === "hitl" && m.content === answer
+                                (m) =>
+                                    m.sourceType === "hitl" &&
+                                    m.content === answer
                             );
                             if (alreadyExists) return prev;
                             return [...prev, approvedMessage];
@@ -100,7 +110,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         localStorage.removeItem(`approved_answer_${sessionId}`);
                     }
                 } catch (err) {
-                    console.error("Error handling storage event:", err);
+                    // Silently handle storage errors
                 }
             }
         };
@@ -116,7 +126,11 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
     const streamingMessageRef = useRef<ChatMessage | null>(null);
     const contextWindow = useMemo(() => {
         const configured = Number(process.env.NEXT_PUBLIC_CONTEXT_WINDOW);
-        if (Number.isFinite(configured) && configured > 0 && configured <= 100) {
+        if (
+            Number.isFinite(configured) &&
+            configured > 0 &&
+            configured <= 100
+        ) {
             return Math.floor(configured);
         }
         return 10;
@@ -144,10 +158,15 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 try {
                     const data = JSON.parse(stored);
 
-                    if (data.type === "approved_answer" && data.sessionId === sessionId) {
+                    if (
+                        data.type === "approved_answer" &&
+                        data.sessionId === sessionId
+                    ) {
                         // Check if this answer is already in history
                         const alreadyExists = history.some(
-                            (m: ChatMessage) => m.sourceType === "hitl" && m.content === data.answer
+                            (m: ChatMessage) =>
+                                m.sourceType === "hitl" &&
+                                m.content === data.answer
                         );
                         if (!alreadyExists) {
                             const approvedMessage: ChatMessage = {
@@ -167,7 +186,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                         }
                     }
                 } catch (err) {
-                    console.error("Error processing pending approved answer:", err);
+                    // Silently handle processing errors
                 }
             }
         }
@@ -185,7 +204,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
             try {
                 setFeedbackState(JSON.parse(stored));
             } catch (err) {
-                console.error("Failed to load feedback state", err);
+                // Silently handle parse errors
             }
         }
     }, [botId]);
@@ -258,10 +277,12 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
 
             try {
                 // Build conversation history using context window
-                const conversationHistory = messages.slice(-contextWindowSize).map((msg) => ({
-                    role: msg.role,
-                    content: msg.content,
-                }));
+                const conversationHistory = messages
+                    .slice(-contextWindowSize)
+                    .map((msg) => ({
+                        role: msg.role,
+                        content: msg.content,
+                    }));
 
                 // Stream tokens
                 let fullContent = "";
@@ -327,13 +348,11 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                 setLoading(false);
                 setError(
                     err.message ||
-                    "Sorry, I encountered an issue. Please try again."
+                        "Sorry, I encountered an issue. Please try again."
                 );
 
                 // Remove incomplete assistant message
                 setMessages((prev) => prev.slice(0, -1));
-
-                console.error("Chat error:", err);
             }
         },
         [botId, messages, loading, contextWindow]
@@ -356,7 +375,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         const newSessionId = uuidv4();
         sessionIdRef.current = newSessionId;
         const key = `chat_session_${botId}`;
-        if (typeof window !== 'undefined') {
+        if (typeof window !== "undefined") {
             sessionStorage.setItem(key, newSessionId);
         }
         setError(null);
@@ -371,7 +390,7 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         const newSessionId = uuidv4();
         sessionIdRef.current = newSessionId;
         const key = `chat_session_${botId}`;
-        if (typeof window !== 'undefined') {
+        if (typeof window !== "undefined") {
             sessionStorage.setItem(key, newSessionId);
         }
         setError(null);
@@ -380,38 +399,39 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
         setFeedbackRateLog([]);
     }, [botId]);
 
-    const resumeSession = useCallback((sessionId: string) => {
-        sessionIdRef.current = sessionId;
-        const key = `chat_session_${botId}`;
-        if (typeof window !== 'undefined') {
-            sessionStorage.setItem(key, sessionId);
-        }
-        const history = loadChatHistory(botId, sessionId);
-        setMessages(history);
-        setError(null);
-        setRetryCount(0);
-        // Load feedback state for that session if available
-        if (typeof window !== "undefined") {
-            try {
-                const key = `feedback_state_${botId}_${sessionId}`;
-                const stored = sessionStorage.getItem(key);
-                setFeedbackState(stored ? JSON.parse(stored) : {});
-            } catch {
-                setFeedbackState({});
+    const resumeSession = useCallback(
+        (sessionId: string) => {
+            sessionIdRef.current = sessionId;
+            const key = `chat_session_${botId}`;
+            if (typeof window !== "undefined") {
+                sessionStorage.setItem(key, sessionId);
             }
-        }
-    }, [botId]);
+            const history = loadChatHistory(botId, sessionId);
+            setMessages(history);
+            setError(null);
+            setRetryCount(0);
+            // Load feedback state for that session if available
+            if (typeof window !== "undefined") {
+                try {
+                    const key = `feedback_state_${botId}_${sessionId}`;
+                    const stored = sessionStorage.getItem(key);
+                    setFeedbackState(stored ? JSON.parse(stored) : {});
+                } catch {
+                    setFeedbackState({});
+                }
+            }
+        },
+        [botId]
+    );
 
     const submitFeedbackForMessage = useCallback(
-        async (
-            params: {
-                messageId: string;
-                answerId?: string;
-                type: FeedbackType;
-                reason?: FeedbackReason;
-                notes?: string;
-            }
-        ) => {
+        async (params: {
+            messageId: string;
+            answerId?: string;
+            type: FeedbackType;
+            reason?: FeedbackReason;
+            notes?: string;
+        }) => {
             const { messageId, answerId, type, reason, notes } = params;
             if (!answerId) {
                 const err = "Missing answer identifier for feedback";
@@ -433,7 +453,8 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
             }
 
             // Fast-fail if user is not authenticated (no stored token)
-            const token = typeof window !== "undefined" ? getAccessToken() : null;
+            const token =
+                typeof window !== "undefined" ? getAccessToken() : null;
             if (!token) {
                 const err = "Please log in to provide feedback";
                 setFeedbackError(err);
@@ -499,7 +520,9 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                                 reason,
                                 status: "pending",
                                 timestamp: Date.now(),
-                                message: `Retrying... (attempt ${attempt + 1}/${maxRetries})`,
+                                message: `Retrying... (attempt ${
+                                    attempt + 1
+                                }/${maxRetries})`,
                                 retryAttempt: attempt,
                             },
                         }));
@@ -546,7 +569,9 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                                 timestamp: Date.now(),
                                 message,
                                 cooldownUntil:
-                                    status === 429 ? Date.now() + 60 * 1000 : undefined,
+                                    status === 429
+                                        ? Date.now() + 60 * 1000
+                                        : undefined,
                             },
                         }));
                         return { success: false, error: message };
@@ -554,7 +579,8 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
 
                     // On last attempt, give up
                     if (attempt === maxRetries - 1) {
-                        const message = err?.message || "Failed to send feedback";
+                        const message =
+                            err?.message || "Failed to send feedback";
                         setFeedbackError(message);
                         setFeedbackState((prev) => ({
                             ...prev,
@@ -566,12 +592,18 @@ export function useChat(botId: string, contextWindowSize: number = DEFAULT_CONTE
                                 message,
                             },
                         }));
-                        return { success: false, error: message, retriesExhausted: true };
+                        return {
+                            success: false,
+                            error: message,
+                            retriesExhausted: true,
+                        };
                     }
 
                     // Wait with exponential backoff: 1s, 2s, 4s
                     const delayMs = Math.pow(2, attempt) * 1000;
-                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                    await new Promise((resolve) =>
+                        setTimeout(resolve, delayMs)
+                    );
                 }
             }
 

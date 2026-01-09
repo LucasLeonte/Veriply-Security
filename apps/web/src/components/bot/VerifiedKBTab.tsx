@@ -53,15 +53,14 @@ export default function VerifiedKBTab({ groupId }: VerifiedKBTabProps) {
       const token = getAccessToken();
       
       if (!token) {
-        console.warn("No authentication token available yet, skipping fetch");
+        
         setEntries([]);
         setLoading(false);
         return;
       }
 
       const url = `${API_BASE_URL}/api/v1/verified-qa?group_id=${groupId}&skip=${skip}&limit=${limit}`;
-      console.log("Fetching from:", url);
-      
+
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -72,15 +71,15 @@ export default function VerifiedKBTab({ groupId }: VerifiedKBTabProps) {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("API Error:", response.status, errorText);
+        
         throw new Error(`API Error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      console.log("Fetched entries:", data);
+      
       setEntries(Array.isArray(data) ? data : []);
     } catch (error: any) {
-      console.error("Failed to fetch verified QA entries:", error);
+      
       toast({
         title: "Error",
         description: error.message || "Failed to load verified Q&A entries",

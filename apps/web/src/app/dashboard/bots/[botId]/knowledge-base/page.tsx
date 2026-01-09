@@ -81,7 +81,7 @@ export default function BotKnowledgeBasePage() {
             foldersApi
                 .listFolders(currentGroup.id)
                 .then((fetchedFolders) => setFolders(fetchedFolders))
-                .catch((err) => console.error("Failed to fetch folders:", err))
+                .catch((err) => )
                 .finally(() => setFoldersLoading(false));
         }
     }, [currentGroup?.id]);
@@ -96,7 +96,7 @@ export default function BotKnowledgeBasePage() {
             // Refresh the list after upload
             refetch();
         } catch (err) {
-            console.error("Upload failed:", err);
+            
             throw err;
         }
     };
@@ -111,7 +111,7 @@ export default function BotKnowledgeBasePage() {
             // Refresh the list after delete
             refetch();
         } catch (err) {
-            console.error("Delete failed:", err);
+            
             throw err;
         }
     };
@@ -122,7 +122,7 @@ export default function BotKnowledgeBasePage() {
             // Refresh the list after reprocess
             refetch();
         } catch (err) {
-            console.error("Reprocess failed:", err);
+            
             throw err;
         }
     };

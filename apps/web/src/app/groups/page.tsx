@@ -35,7 +35,7 @@ export default function GroupSelectionPage() {
 
         // Fetch groups with error handling
         refreshGroups().catch((err) => {
-            console.error("Failed to load groups:", err);
+            
             setError("Failed to load groups. Please try again.");
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,7 +63,7 @@ export default function GroupSelectionPage() {
             // Redirect to dashboard with selected group
             router.push("/dashboard");
         } catch (err) {
-            console.error("Failed to create group:", err);
+            
             setError(
                 err instanceof Error ? err.message : "Failed to create group"
             );

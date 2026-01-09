@@ -136,7 +136,7 @@ export function BotSettingsModal({
             onSave?.(updatedBot);
             setIsDirty(false);
             onClose();
-            console.log(`Bot updated: ${updatedBot.name}`);
+            
         } catch (err) {
             const errorMessage =
                 err instanceof Error ? err.message : "Failed to update bot";

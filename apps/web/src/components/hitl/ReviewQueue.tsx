@@ -601,7 +601,7 @@ export function ReviewQueue({
                 setAvailableBots(botsFromItems);
                 setSelectedBot("all");
             } catch (error) {
-                console.error("Failed to fetch bots:", error);
+                
                 const botsFromItems = Array.from(
                     new Set(
                         items

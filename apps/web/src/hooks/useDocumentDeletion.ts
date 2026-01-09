@@ -4,11 +4,9 @@ import { documentsApi } from "@/lib/api/documents";
 // Simple toast utility (can be replaced with a proper toast library like sonner or react-hot-toast)
 const toast = {
     success: (message: string) => {
-        console.log("[SUCCESS]", message);
         // TODO: Integrate with toast library
     },
     error: (message: string) => {
-        console.error("[ERROR]", message);
         // TODO: Integrate with toast library
     },
 };
@@ -76,7 +74,6 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
                 toast.error("Failed to delete document. Please try again.");
             }
 
-            console.error("Delete document error:", error);
             return false;
         } finally {
             setIsDeleting(false);
@@ -107,7 +104,7 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
             );
 
             // Success
-            const count = result.queued_count || documentIds.length;
+            const count = result.queued_count ?? documentIds.length;
             toast.success(`${count} document(s) deleted successfully`);
 
             // Remove all from deleting set
@@ -139,7 +136,6 @@ export function useDocumentDeletion(): UseDocumentDeletionReturn {
                 toast.error(`Failed to delete documents. Please try again.`);
             }
 
-            console.error("Bulk delete error:", error);
             return false;
         } finally {
             setIsDeleting(false);

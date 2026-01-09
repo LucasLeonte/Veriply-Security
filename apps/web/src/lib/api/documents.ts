@@ -276,9 +276,13 @@ export const documentsApi = {
     async bulkDeleteDocuments(
         groupId: string,
         documentIds: string[]
-    ): Promise<void> {
+    ): Promise<{
+        message: string;
+        queued_count: number;
+        document_ids: string[];
+    }> {
         if (USE_MOCK_DATA) {
-            return Promise.resolve();
+            return mockDocumentsApi.bulkDeleteDocuments(groupId, documentIds);
         }
 
         const response = await fetchWithAuth(
@@ -291,6 +295,12 @@ export const documentsApi = {
         if (!response.ok) {
             throw new Error(`Failed to delete documents: ${response.status}`);
         }
+
+        return handleResponse<{
+            message: string;
+            queued_count: number;
+            document_ids: string[];
+        }>(response);
     },
 
     /**

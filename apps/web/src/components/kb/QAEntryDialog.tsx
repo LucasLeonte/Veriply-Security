@@ -47,7 +47,7 @@ export default function QAEntryDialog({
           }
         })
         .catch((err) => {
-          console.error("Failed to fetch bots:", err);
+          
           toast({
             title: "Error",
             description: "Failed to load bots. Please try again.",
@@ -138,7 +138,7 @@ export default function QAEntryDialog({
     } catch (error: any) {
       const message =
         error.message || "Failed to create Q&A entry. Please try again.";
-      console.error("Error creating entry:", message);
+      
       toast({
         title: "Error",
         description: message,

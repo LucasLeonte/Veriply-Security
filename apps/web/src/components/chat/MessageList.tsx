@@ -103,7 +103,7 @@ export default function MessageList({
                     avatar_url: data?.avatar_url,
                 });
             } catch (err) {
-                console.error("Failed to load user profile:", err);
+                
             }
         };
 
@@ -166,10 +166,7 @@ export default function MessageList({
                                 // Mark as sent even if backend reports logical failure,
                                 // to avoid hammering the endpoint on every render
                                 if (!result?.success) {
-                                    console.warn(
-                                        "Review queue send reported failure:",
-                                        result?.message
-                                    );
+                                    
                                 }
                                 setSentToReview((prev) =>
                                     new Set(prev).add(message.id)
@@ -177,10 +174,7 @@ export default function MessageList({
                             }
                         )
                         .catch((err: Error) => {
-                            console.error(
-                                "Failed to send to review queue:",
-                                err
-                            );
+                            
                             // Prevent infinite retry loops on hard failures
                             setSentToReview((prev) =>
                                 new Set(prev).add(message.id)
