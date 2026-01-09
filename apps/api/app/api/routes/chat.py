@@ -2,15 +2,16 @@
 
 import json
 import logging
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Header
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db, set_tenant_context
+from app.core.auth import decode_jwt
 from app.models.bot import Bot
 from app.models.confidence_log import RoutingDecision
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
@@ -34,9 +35,13 @@ async def get_public_bot_info(
     bot_id: UUID,
     response: Response,
     db: AsyncSession = Depends(get_db),
+    authorization: Optional[str] = Header(None),
 ):
     """
-    Get public information about a bot (no authentication required).
+    Get public information about a bot.
+    
+    - No authentication: Only returns info if bot is public
+    - With authentication: Returns info regardless of public status (for bot owners/members)
 
     Returns bot name, avatar, welcome message, and public status.
     Used by the public chat interface to render bot details.
@@ -44,12 +49,31 @@ async def get_public_bot_info(
     Returns:
         - 200: Bot public information
         - 404: Bot not found
-        - 403: Bot is not public
+        - 403: Bot is not public (only for unauthenticated requests)
     """
     # Add CORS headers for widget embedding
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    # Check if user is authenticated
+    is_authenticated = False
+    if authorization:
+        token = None
+        if authorization.startswith("Bearer "):
+            token = authorization.replace("Bearer ", "")
+        else:
+            token = authorization
+            
+        if token:
+            try:
+                payload = decode_jwt(token)
+                if payload:
+                    is_authenticated = True
+                    logger.debug(f"User authenticated for bot {bot_id}")
+            except Exception as e:
+                logger.debug(f"Token validation failed: {e}")
+                pass  # Invalid token, treat as unauthenticated
     
     try:
         # Get bot without tenant/user context (public endpoint)
@@ -61,11 +85,11 @@ async def get_public_bot_info(
                 detail="Bot not found",
             )
 
-        # Check public visibility
-        if hasattr(bot, "is_public") and not bot.is_public:
+        # Check public visibility (skip check if authenticated)
+        if not is_authenticated and hasattr(bot, "is_public") and not bot.is_public:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bot is not public",
+                detail="Bot is not public. Enable 'Allow link sharing' in bot settings.",
             )
         
         # Check if bot is active

@@ -12,6 +12,7 @@ import TrustBadge from "./TrustBadge";
 import PendingVerification from "./PendingVerification";
 import FeedbackBar, { FeedbackSnapshot } from "../FeedbackBar";
 import { sendToReviewQueue } from "@/lib/api/chat";
+import { getAccessToken } from "@/lib/auth";
 
 interface MessageListProps {
     messages: ChatMessage[];
@@ -59,6 +60,10 @@ export default function MessageList({
     const [sendingToReview, setSendingToReview] = useState<Set<string>>(
         new Set()
     );
+    const [userProfile, setUserProfile] = useState<{
+        name?: string;
+        avatar_url?: string;
+    } | null>(null);
 
     // Use ref to track submission attempts across renders (persists between useEffect calls)
     const submissionAttemptsRef = useRef<Set<string>>(new Set());
@@ -73,6 +78,37 @@ export default function MessageList({
                 : 80) / 100
         )
     );
+
+    // Fetch user profile on component mount
+    useEffect(() => {
+        const loadUserProfile = async () => {
+            try {
+                const token = getAccessToken();
+                if (!token) return;
+
+                const apiUrl =
+                    process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+                const response = await fetch(`${apiUrl}/api/v1/profile/me`, {
+                    method: "GET",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (!response.ok) return;
+
+                const data = await response.json();
+                setUserProfile({
+                    name: data?.name,
+                    avatar_url: data?.avatar_url,
+                });
+            } catch (err) {
+                console.error("Failed to load user profile:", err);
+            }
+        };
+
+        loadUserProfile();
+    }, []);
 
     // Auto-scroll to bottom on new messages
     useEffect(() => {
@@ -426,7 +462,11 @@ export default function MessageList({
 
                         {message.role === "user" && (
                             <Avatar className="h-8 w-8 mt-1">
-                                <AvatarFallback className="bg-slate-700 text-white text-xs">
+                                <AvatarImage
+                                    src={userProfile?.avatar_url}
+                                    alt={userProfile?.name || "User"}
+                                />
+                                <AvatarFallback className="bg-blue-500 text-white text-xs">
                                     <User className="w-full h-full" />
                                 </AvatarFallback>
                             </Avatar>

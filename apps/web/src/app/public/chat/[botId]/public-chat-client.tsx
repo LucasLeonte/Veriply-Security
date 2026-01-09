@@ -71,6 +71,7 @@ export default function PublicChatClient({
                         isPublic={isPublic}
                         confidenceThreshold={confidenceThreshold}
                         embedded={true}
+                        requirePublic={true}
                     />
                 </div>
             </div>
@@ -87,6 +88,7 @@ export default function PublicChatClient({
             isPublic={isPublic}
             confidenceThreshold={confidenceThreshold}
             embedded={embedded}
+            requirePublic={true}
         />
     );
 }

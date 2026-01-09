@@ -1,9 +1,12 @@
 ﻿import { BotPublicInfo, ChatMessage } from "@/types/chat";
+import { getAccessToken } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 /**
- * Fetch public bot information (no authentication required)
+ * Fetch public bot information.
+ * If authenticated, returns bot info regardless of public status.
+ * If not authenticated, only returns info for public bots.
  */
 export async function getBotPublicInfo(
     botId: string,
@@ -16,6 +19,17 @@ export async function getBotPublicInfo(
         headers["X-Embed-Origin"] = embedOrigin;
     }
 
+    // Add auth token if available (allows access to non-public bots for authenticated users)
+    if (typeof window !== "undefined") {
+        const token = getAccessToken();
+        console.log(`[getBotPublicInfo] Token present: ${!!token}`);
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+            console.log(`[getBotPublicInfo] Added Authorization header`);
+        }
+    }
+
+    console.log(`[getBotPublicInfo] Fetching bot ${botId}...`);
     const response = await fetch(
         `${API_BASE_URL}/api/v1/bots/${botId}/public`,
         {
@@ -24,6 +38,7 @@ export async function getBotPublicInfo(
             cache: "no-store", // Disable caching for now, we'll add it later with TTL
         }
     );
+    console.log(`[getBotPublicInfo] Response status: ${response.status}`);
 
     if (!response.ok) {
         let detail = "Failed to fetch bot information";
