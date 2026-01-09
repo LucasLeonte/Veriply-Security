@@ -8,7 +8,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request, HTTPException, status, Body
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, desc
 import httpx
@@ -368,7 +368,6 @@ async def gmail_callback(
     </body>
     </html>
     """
-    from fastapi.responses import HTMLResponse
     return HTMLResponse(content=html_content)
 
 
