@@ -128,10 +128,13 @@ export default function MessageList({
             // Skip if already processed using ref (guards against concurrent useEffect runs)
             if (submissionAttemptsRef.current.has(message.id)) return;
 
+            // Treat missing confidence as 0 to ensure unanswered/empty replies still go to HITL
+            const effectiveConfidence =
+                message.confidence !== undefined ? message.confidence : 0;
+
             if (
                 message.role === "assistant" &&
-                message.confidence !== undefined &&
-                message.confidence < reviewThreshold &&
+                effectiveConfidence < reviewThreshold &&
                 !sentToReview.has(message.id) &&
                 !sendingToReview.has(message.id)
             ) {
@@ -154,7 +157,7 @@ export default function MessageList({
                         botId,
                         userQuestion,
                         message.content,
-                        message.confidence,
+                        effectiveConfidence,
                         message.citations,
                         sessionId
                     )
