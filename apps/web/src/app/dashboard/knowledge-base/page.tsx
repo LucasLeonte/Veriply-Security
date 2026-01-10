@@ -132,7 +132,7 @@ export default function GroupKnowledgeBasePage() {
                             currentGroup.id
                         );
                         updatedDocs.push(updated as Document);
-                    } catch (err) {}
+                    } catch (err) { }
                 }
 
                 if (updatedDocs.length > 0) {
@@ -146,7 +146,7 @@ export default function GroupKnowledgeBasePage() {
                         return Array.from(docMap.values());
                     });
                 }
-            } catch (err) {}
+            } catch (err) { }
         };
 
         // Immediate poll
@@ -309,8 +309,7 @@ export default function GroupKnowledgeBasePage() {
             setIsBulkDeleteModalOpen(false);
         } catch (err) {
             alert(
-                `Failed to delete documents: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to delete documents: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -364,8 +363,7 @@ export default function GroupKnowledgeBasePage() {
             setDocumentToReprocess(null);
         } catch (err) {
             alert(
-                `Failed to reprocess document: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess document: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -392,8 +390,7 @@ export default function GroupKnowledgeBasePage() {
             setIsBulkReprocessModalOpen(false);
         } catch (err) {
             alert(
-                `Failed to reprocess documents: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess documents: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -450,10 +447,10 @@ export default function GroupKnowledgeBasePage() {
     }, [currentGroup?.id]);
 
     useEffect(() => {
-        if (activeView === 'emails') {
+        if (currentGroup?.id) {
             fetchKBEmails();
         }
-    }, [activeView, fetchKBEmails]);
+    }, [currentGroup?.id, fetchKBEmails]);
 
     if (!currentGroup) {
         return (
@@ -487,18 +484,16 @@ export default function GroupKnowledgeBasePage() {
                             {/* Documents Section Header */}
                             <button
                                 onClick={() => setActiveView("documents")}
-                                className={`w-full p-4 text-left transition-colors ${
-                                    activeView === "documents"
-                                        ? "bg-emerald-50 border-l-4 border-emerald-600"
-                                        : "hover:bg-slate-50 border-l-4 border-transparent"
-                                }`}
+                                className={`w-full p-4 text-left transition-colors ${activeView === "documents"
+                                    ? "bg-emerald-50 border-l-4 border-emerald-600"
+                                    : "hover:bg-slate-50 border-l-4 border-transparent"
+                                    }`}
                             >
                                 <h3
-                                    className={`text-sm font-semibold flex items-center gap-2 ${
-                                        activeView === "documents"
-                                            ? "text-emerald-700"
-                                            : "text-slate-900"
-                                    }`}
+                                    className={`text-sm font-semibold flex items-center gap-2 ${activeView === "documents"
+                                        ? "text-emerald-700"
+                                        : "text-slate-900"
+                                        }`}
                                 >
                                     <FolderIcon size={16} />
                                     Documents
@@ -513,18 +508,16 @@ export default function GroupKnowledgeBasePage() {
                             {/* Q&A Entries Section Header */}
                             <button
                                 onClick={() => setActiveView("qa")}
-                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${
-                                    activeView === "qa"
-                                        ? "bg-emerald-50 border-l-4 border-emerald-600"
-                                        : "hover:bg-slate-50 border-l-4 border-transparent"
-                                }`}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${activeView === "qa"
+                                    ? "bg-emerald-50 border-l-4 border-emerald-600"
+                                    : "hover:bg-slate-50 border-l-4 border-transparent"
+                                    }`}
                             >
                                 <h3
-                                    className={`text-sm font-semibold ${
-                                        activeView === "qa"
-                                            ? "text-emerald-700"
-                                            : "text-slate-900"
-                                    }`}
+                                    className={`text-sm font-semibold ${activeView === "qa"
+                                        ? "text-emerald-700"
+                                        : "text-slate-900"
+                                        }`}
                                 >
                                     Q&A Entries
                                 </h3>
@@ -536,15 +529,13 @@ export default function GroupKnowledgeBasePage() {
                             {/* Emails Section Header */}
                             <button
                                 onClick={() => setActiveView('emails')}
-                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${
-                                    activeView === 'emails'
-                                        ? 'bg-emerald-50 border-l-4 border-emerald-600'
-                                        : 'hover:bg-slate-50 border-l-4 border-transparent'
-                                }`}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${activeView === 'emails'
+                                    ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                    }`}
                             >
-                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${
-                                    activeView === 'emails' ? 'text-emerald-700' : 'text-slate-900'
-                                }`}>
+                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${activeView === 'emails' ? 'text-emerald-700' : 'text-slate-900'
+                                    }`}>
                                     <Mail size={16} />
                                     Emails
                                 </h3>
@@ -601,12 +592,11 @@ export default function GroupKnowledgeBasePage() {
                                                             <td className="px-4 py-2">{email.subject || '(No subject)'}</td>
                                                             <td className="px-4 py-2 text-xs text-slate-600">{email.from_email || '—'}</td>
                                                             <td className="px-4 py-2">
-                                                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                                                                    email.status === 'ready' ? 'bg-green-100 text-green-700' :
+                                                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${email.status === 'ready' ? 'bg-green-100 text-green-700' :
                                                                     email.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                                                                    email.status === 'failed' ? 'bg-red-100 text-red-700' :
-                                                                    'bg-gray-100 text-gray-700'
-                                                                }`}>
+                                                                        email.status === 'failed' ? 'bg-red-100 text-red-700' :
+                                                                            'bg-gray-100 text-gray-700'
+                                                                    }`}>
                                                                     {email.status}
                                                                 </span>
                                                             </td>
@@ -622,36 +612,38 @@ export default function GroupKnowledgeBasePage() {
                                 </div>
                             </>
                         ) : activeView === 'documents' ? (
-                        <>
-                        {/* Toolbar */}
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                            <SearchBar
-                                value={searchQuery}
-                                onChange={setSearchQuery}
-                                placeholder="Search documents..."
-                                className="flex-1 min-w-[220px] max-w-md"
-                            />
-                            <div className="flex items-center gap-2 flex-wrap justify-end">
-                                {selectedDocumentIds.length > 0 && (
-                                    <>
-                                        <span className="text-sm text-slate-600">
-                                            {selectedDocumentIds.length}{" "}
-                                            selected
-                                        </span>
-                                        <button
-                                            onClick={
-                                                handleOpenBulkReprocessModal
-                                            }
-                                            className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors"
-                                        >
-                                            Reprocess Selected
-                                        </button>
-                                        <button
-                                            onClick={handleOpenBulkDeleteModal}
-                                            className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
-                                        >
-                                            Delete Selected
-                                        </button>
+                            <>
+                                {/* Toolbar */}
+                                <div className="flex items-center justify-between gap-4 flex-wrap">
+                                    <SearchBar
+                                        value={searchQuery}
+                                        onChange={setSearchQuery}
+                                        placeholder="Search documents..."
+                                        className="flex-1 min-w-[220px] max-w-md"
+                                    />
+                                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                                        {selectedDocumentIds.length > 0 && (
+                                            <>
+                                                <span className="text-sm text-slate-600">
+                                                    {selectedDocumentIds.length}{" "}
+                                                    selected
+                                                </span>
+                                                <button
+                                                    onClick={
+                                                        handleOpenBulkReprocessModal
+                                                    }
+                                                    className="px-3 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-md transition-colors"
+                                                >
+                                                    Reprocess Selected
+                                                </button>
+                                                <button
+                                                    onClick={handleOpenBulkDeleteModal}
+                                                    className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                                >
+                                                    Delete Selected
+                                                </button>
+                                            </>
+                                        )}
                                         <button
                                             onClick={() =>
                                                 setIsUploadModalOpen(true)
@@ -690,17 +682,17 @@ export default function GroupKnowledgeBasePage() {
                                             const folderName =
                                                 document.folder_id
                                                     ? folders.find(
-                                                          (f) =>
-                                                              f.id ===
-                                                              document.folder_id
-                                                      )?.name
+                                                        (f) =>
+                                                            f.id ===
+                                                            document.folder_id
+                                                    )?.name
                                                     : undefined;
 
                                             return (
                                                 <DocumentCard
                                                     key={document.id}
                                                     document={document}
-                                                    onView={() => {}}
+                                                    onView={() => { }}
                                                     onDelete={async () => {
                                                         await documentsApi.deleteDocument(
                                                             currentGroup.id,
@@ -742,7 +734,7 @@ export default function GroupKnowledgeBasePage() {
                         ) : (
                             /* Q&A Entries View */
                             <QASection groupId={currentGroup.id} />
-                        ) : null}
+                        )}
                     </div>
                 </div>
 

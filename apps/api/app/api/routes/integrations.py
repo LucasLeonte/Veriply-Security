@@ -10,7 +10,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, Request, HTTPException, status, Body
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc
+from sqlalchemy import select, and_, or_, desc
 import httpx
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -26,6 +26,7 @@ from app.utils.encryption import encrypt_token, decrypt_token
 from pydantic import BaseModel, Field
 import jwt
 from app.integrations import gmail, outlook
+from email.utils import parsedate_to_datetime
 from app.services.document_service import create_document
 from app.services.llm_service import LLMService
 from pydantic import ConfigDict
@@ -611,8 +612,11 @@ async def import_gmail_message(
         # Check if email already imported
         existing_stmt = select(KBEmail).where(
             and_(
-                KBEmail.email_id == payload.message_id,
                 KBEmail.integration_id == integration.id,
+                or_(
+                    KBEmail.email_id == payload.message_id,
+                    KBEmail.thread_id == payload.message_id
+                )
             )
         )
         existing_result = await db.execute(existing_stmt)
@@ -638,7 +642,7 @@ async def import_gmail_message(
             from_email=last_msg.get("from"),
             to_emails=last_msg.get("to"),
             body_text=body_text,
-            sent_at=None,  # Could parse from date header if needed
+            sent_at=parsedate_to_datetime(last_msg.get("date")) if last_msg.get("date") else None,
             metadata={
                 "message_count": len(messages),
                 "thread_id": payload.message_id,
