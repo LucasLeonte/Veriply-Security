@@ -14,6 +14,7 @@ class EmailProcessingQueue(Base):
 
     id = Column(Uuid, primary_key=True)
     tenant_id = Column(Uuid, ForeignKey("tenants.id"), nullable=False)
+    user_id = Column(Uuid, ForeignKey("users.id"), nullable=False)  # Who initiated processing
     integration_id = Column(Uuid, ForeignKey("email_integrations.id"), nullable=False)
     rule_id = Column(Uuid, ForeignKey("email_monitoring_rules.id"), nullable=True)
     bot_id = Column(Uuid, ForeignKey("bots.id"), nullable=True)  # Resolved from rule

@@ -6,6 +6,7 @@ Coordinates: Email extraction → PII redaction → RAG retrieval → LLM genera
 import logging
 import asyncio
 import time
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from uuid import UUID, uuid4
 
@@ -173,7 +174,7 @@ class EmailDraftGenerationService:
             
             # Step 6: Mark queue item as completed
             queue_item.status = "completed"
-            queue_item.processed_at = asyncio.get_event_loop()._time() if hasattr(asyncio.get_event_loop(), '_time') else None
+            queue_item.processed_at = datetime.utcnow()
             
             await db.commit()
             
@@ -282,13 +283,18 @@ class EmailDraftGenerationService:
         prompt = self._build_draft_prompt(original_email, context_results, style_profile)
         
         try:
-            # Generate using LLM with timeout
+            # Generate using LLM with 20-second timeout (AC#3: <20s LLM generation)
             response_tokens = []
-            async for token in self.llm_service.generate_answer(
-                query=original_email['body'],
-                context_chunks=context_results,
-            ):
-                response_tokens.append(token)
+            try:
+                async with asyncio.timeout(20):  # Python 3.11+
+                    async for token in self.llm_service.generate_answer(
+                        query=original_email['body'],
+                        context_chunks=context_results,
+                    ):
+                        response_tokens.append(token)
+            except asyncio.TimeoutError:
+                logger.error(f"LLM generation timeout (20s limit) for bot {bot_id}")
+                raise DraftGenerationError("LLM generation timeout (20s limit)")
             
             draft_body = ''.join(response_tokens)
             
