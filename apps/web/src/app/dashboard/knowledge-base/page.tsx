@@ -33,6 +33,7 @@ interface KBEmail {
     status: string;
     created_at: string;
     email_metadata?: Record<string, any>;
+    is_style_sample?: boolean;
 }
 
 export default function GroupKnowledgeBasePage() {
@@ -688,6 +689,11 @@ export default function GroupKnowledgeBasePage() {
                                                                     }`}>
                                                                     {email.status}
                                                                 </span>
+                                                                {email.is_style_sample && (
+                                                                    <span className="ml-2 inline-block px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                                                                        Writing Style
+                                                                    </span>
+                                                                )}
                                                             </td>
                                                             <td className="px-4 py-2 text-xs text-slate-600">
                                                                 {email.sent_at ? new Date(email.sent_at).toLocaleDateString() : '—'}

@@ -61,8 +61,31 @@ async def list_emails(
             page_size=page_size,
         )
         
+        # Check which emails are used for style analysis
+        from app.models.user_email_history import UserEmailHistory
+        
+        email_ids = [e.email_id for e in emails]
+        style_map = set()
+        
+        if email_ids:
+            style_stmt = select(UserEmailHistory.email_id).where(
+                and_(
+                    UserEmailHistory.tenant_id == tenant_id,
+                    UserEmailHistory.email_id.in_(email_ids)
+                )
+            )
+            style_result = await db.execute(style_stmt)
+            style_map = set(style_result.scalars().all())
+
+        # Construct response manually
+        response_emails = []
+        for email in emails:
+            resp = KBEmailResponse.from_orm(email)
+            resp.is_style_sample = email.email_id in style_map
+            response_emails.append(resp)
+        
         return KBEmailListResponse(
-            emails=[KBEmailResponse.from_orm(email) for email in emails],
+            emails=response_emails,
             total=total,
             page=page,
             page_size=page_size,
@@ -98,7 +121,21 @@ async def get_email(
                 detail="KB email not found",
             )
         
-        return KBEmailResponse.from_orm(kb_email)
+        from app.models.user_email_history import UserEmailHistory
+        
+        # Check style usage
+        style_stmt = select(UserEmailHistory.id).where(
+            and_(
+                UserEmailHistory.tenant_id == tenant_id,
+                UserEmailHistory.email_id == kb_email.email_id
+            )
+        )
+        style_result = await db.execute(style_stmt)
+        is_style = style_result.scalar_one_or_none() is not None
+        
+        resp = KBEmailResponse.from_orm(kb_email)
+        resp.is_style_sample = is_style
+        return resp
     
     except HTTPException:
         raise

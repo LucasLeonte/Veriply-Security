@@ -235,6 +235,8 @@ async def check_and_trigger_style_analysis(
     user_id: UUID,
     integration_id: UUID,
     kb_email: KBEmail,
+    mode: str = "auto",
+    custom_content: Optional[str] = None
 ) -> None:
     """Check if email matches user's integration and trigger style analysis."""
     from app.models.email_integration import EmailIntegration

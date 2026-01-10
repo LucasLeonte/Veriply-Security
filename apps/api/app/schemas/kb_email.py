@@ -41,6 +41,7 @@ class KBEmailResponse(BaseModel):
     status: str
     processed_at: Optional[datetime]
     chunk_count: Optional[str]
+    is_style_sample: bool = False
     
     created_at: datetime
     updated_at: datetime

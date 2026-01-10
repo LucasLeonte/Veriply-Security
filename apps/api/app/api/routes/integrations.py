@@ -578,9 +578,18 @@ async def import_gmail_message(
             
         # Use getattr because 'email' column might not be migrated yet
         integration_email = getattr(integration, "email", None)
+        
+        # If missing, try fetching from Gmail API
+        if not integration_email:
+            try:
+                profile = await gmail.get_profile(client_id, client_secret, refresh_token)
+                integration_email = profile.get("emailAddress")
+            except Exception as e:
+                logger.warning(f"Failed to fetch Gmail profile: {e}")
+
         user_email_normalized = normalize_email(integration_email)
         
-        # Fallback if integration.email is missing (due to migration timing)
+        # Fallback if integration.email is missing (and API call failed)
         if not user_email_normalized:
             user_email_normalized = normalize_email(current_user.email)
 
@@ -601,7 +610,10 @@ async def import_gmail_message(
             
             # For style analysis: Only include messages sent by the user
             # Check if "From" contains user's email
-            if user_email_normalized in normalize_email(msg_from):
+            is_match = user_email_normalized in normalize_email(msg_from)
+            logger.info(f"[DEBUG] Msg From: '{msg_from}' -> Normalized: '{normalize_email(msg_from)}' | Expected: '{user_email_normalized}' | Match: {is_match}")
+            
+            if is_match:
                 user_authored_parts.append(msg_body)
         
         body_text = "\n".join(content_parts)
