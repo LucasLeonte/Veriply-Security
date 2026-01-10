@@ -256,6 +256,7 @@ class TestErrorHandling:
         queue_item = EmailProcessingQueue(
             id=uuid4(),
             tenant_id=uuid4(),
+            user_id=uuid4(),
             integration_id=uuid4(),
             provider_message_id="msg123",
             status="failed",
