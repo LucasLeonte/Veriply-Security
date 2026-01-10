@@ -69,14 +69,20 @@ async def get_all_writing_styles(
     result = await db.execute(stmt)
     styles = result.scalars().all()
     
-    # Fetch integration details for each style
-    responses = []
-    for style in styles:
+    # Fetch integration details for all styles in one query
+    integration_ids = list(set([style.integration_id for style in styles if style.integration_id]))
+    integrations_map = {}
+    
+    if integration_ids:
         integration_stmt = select(EmailIntegration).where(
-            EmailIntegration.id == style.integration_id
+            EmailIntegration.id.in_(integration_ids)
         )
         integration_result = await db.execute(integration_stmt)
-        integration = integration_result.scalar()
+        integrations_map = {str(i.id): i for i in integration_result.scalars().all()}
+    
+    responses = []
+    for style in styles:
+        integration = integrations_map.get(str(style.integration_id))
         
         responses.append(StyleProfileResponse(
             id=str(style.id),
