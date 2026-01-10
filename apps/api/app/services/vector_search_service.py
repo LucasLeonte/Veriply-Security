@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Default search parameters
 DEFAULT_TOP_K = 5
-DEFAULT_SIMILARITY_THRESHOLD = 0.5
+DEFAULT_SIMILARITY_THRESHOLD = 0.65
 # Story 7.2: Configurable threshold for verified KB (default 0.95)
 VERIFIED_KB_SIMILARITY_THRESHOLD = settings.VERIFIED_KB_SIMILARITY_THRESHOLD
 HNSW_EF_SEARCH = 40  # Runtime parameter for HNSW index

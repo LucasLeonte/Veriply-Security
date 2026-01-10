@@ -39,6 +39,7 @@ class ApproveQueueItemRequest(BaseModel):
     """Request to approve a review queue item."""
     edits: Optional[str] = Field(None, description="Optional edited response text")
     send_to_chat: bool = Field(True, description="Send approved answer back to chat")
+    add_to_kb: bool = Field(True, description="Whether to add the approved answer to the Knowledge Base")
 
 
 class RejectQueueItemRequest(BaseModel):
@@ -716,7 +717,7 @@ async def approve_queue_item(
 
         # Create VerifiedQA entry (FR52: Auto-add approved HITL to Verified KB)
         verified_qa_created = False
-        if question_text and approved_answer and item.bot_id:
+        if request.add_to_kb and question_text and approved_answer and item.bot_id:
             try:
                 # Generate embedding for the question
                 embedding_service = EmbeddingService()
