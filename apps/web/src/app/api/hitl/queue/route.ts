@@ -49,9 +49,6 @@ export async function GET(request: NextRequest) {
         );
 
         if (!response.ok) {
-            console.error(
-                `Failed to fetch HITL queue from backend: ${response.status} ${response.statusText}`
-            );
 
             // Return empty queue on error instead of 500
             return NextResponse.json(
@@ -97,7 +94,6 @@ export async function GET(request: NextRequest) {
             }
         );
     } catch (error) {
-        console.error("Error fetching HITL queue:", error);
 
         // Return empty queue on error instead of 500
         return NextResponse.json(

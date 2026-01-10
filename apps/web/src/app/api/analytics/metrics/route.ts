@@ -44,7 +44,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             },
         });
     } catch (error) {
-        console.error("Error fetching analytics:", error);
+        
         return NextResponse.json(
             { error: "Failed to fetch analytics" },
             { status: 502 }

@@ -80,8 +80,7 @@ export default function CSVImportDialog({
       formData.append("file", selectedFile);
 
       const url = `${API_BASE_URL}/api/v1/verified-qa/bulk-import?group_id=${groupId}`;
-      console.log("Importing CSV from URL:", url);
-      
+
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -90,9 +89,7 @@ export default function CSVImportDialog({
         body: formData,
       });
 
-      console.log("Response status:", response.status);
       const result = await response.json();
-      console.log("Response data:", result);
 
       if (!response.ok) {
         throw new Error(result.detail || `API Error: ${response.status}`);
@@ -107,7 +104,7 @@ export default function CSVImportDialog({
       onSuccess(result);
     } catch (error: any) {
       const message = error.message || "Failed to import CSV. Please check the file format and try again.";
-      console.error("Error importing CSV:", message);
+      
       toast({
         title: "Import failed",
         description: message,

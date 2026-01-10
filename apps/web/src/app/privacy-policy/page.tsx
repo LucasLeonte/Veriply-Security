@@ -128,28 +128,31 @@ export default function PrivacyPolicyPage() {
                     <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-900">
                         5. Data Retention
                     </h2>
+                    <p>
+                        We automatically delete data according to the following
+                        schedule to minimize storage and comply with GDPR
+                        Article 5 (Storage Limitation).
+                    </p>
                     <ul className="list-disc pl-6 my-4">
                         <li>
-                            <strong>Chat History:</strong> 90 days
-                            (auto-deleted)
+                            <strong>Chat History:</strong> 90 days (auto-deleted
+                            daily)
                         </li>
                         <li>
-                            <strong>Confidence Logs:</strong> 180 days
-                            (auto-deleted)
+                            <strong>Confidence Logs:</strong> 180 days after
+                            resolution (auto-deleted daily)
                         </li>
                         <li>
-                            <strong>HITL Data:</strong> 365 days (auto-deleted)
+                            <strong>HITL Review Data:</strong> 365 days after
+                            resolution (auto-deleted daily)
                         </li>
                         <li>
-                            <strong>Audit Logs:</strong> 730 days, then
-                            anonymized
+                            <strong>Inactive Accounts:</strong> 365 days of
+                            inactivity (auto-deleted after warning emails)
                         </li>
                         <li>
-                            <strong>Inactive Accounts:</strong> 365 days
-                            inactivity, then auto-deleted
-                        </li>
-                        <li>
-                            <strong>Backups:</strong> 30 days retention
+                            <strong>Audit Logs:</strong> Retained indefinitely
+                            for security and compliance
                         </li>
                     </ul>
 

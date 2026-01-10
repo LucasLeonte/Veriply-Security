@@ -143,17 +143,16 @@ export function FolderList({
             {/* All Documents (no folder) */}
             <button
                 onClick={() => onSelectFolder(null)}
-                className={`w-full flex items-center px-3 py-2 text-sm rounded transition-colors ${
-                    selectedFolderId === null
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "hover:bg-slate-50 text-slate-700 border border-transparent"
-                }`}
+                className={`w-full flex items-center px-3 py-2 text-sm rounded transition-colors ${selectedFolderId === null
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "hover:bg-slate-50 text-slate-700 border border-transparent"
+                    }`}
             >
                 <div className="flex items-center gap-2 flex-1">
                     <FileText size={16} />
                     <span>All Documents</span>
                 </div>
-                <span className="ml-auto text-xs text-slate-500 tabular-nums text-right">
+                <span className="ml-auto text-xs text-slate-500 tabular-nums text-right min-w-[3ch] flex-shrink-0 overflow-hidden">
                     {folderStats.get("null")?.document_count || 0}
                 </span>
             </button>
@@ -163,11 +162,10 @@ export function FolderList({
                 {folders.map((folder) => (
                     <div
                         key={folder.id}
-                        className={`group flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${
-                            selectedFolderId === folder.id
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "hover:bg-slate-50 text-slate-700 border border-transparent"
-                        }`}
+                        className={`group flex items-center gap-2 px-3 py-2 text-sm rounded transition-colors ${selectedFolderId === folder.id
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                            : "hover:bg-slate-50 text-slate-700 border border-transparent"
+                            }`}
                     >
                         {editingId === folder.id ? (
                             // Edit Mode
@@ -208,14 +206,14 @@ export function FolderList({
                             <>
                                 <button
                                     onClick={() => onSelectFolder(folder.id)}
-                                    className="flex items-center gap-2 flex-1 text-left"
+                                    className="flex items-center gap-2 flex-1 min-w-0 text-left"
                                 >
-                                    <Folder size={16} />
+                                    <Folder size={16} className="flex-shrink-0" />
                                     <span className="truncate">
                                         {folder.name}
                                     </span>
                                 </button>
-                                <div className="ml-auto flex items-center gap-3">
+                                <div className="ml-auto flex items-center gap-2 flex-shrink-0">
                                     <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1">
                                         <button
                                             onClick={() => startEdit(folder)}
@@ -240,10 +238,12 @@ export function FolderList({
                                             />
                                         </button>
                                     </div>
-                                    <span className="text-xs text-slate-500 tabular-nums text-right w-10">
-                                        {folderStats.get(folder.id)
-                                            ?.document_count || 0}
-                                    </span>
+                                    <div className="w-6 text-right">
+                                        <span className="text-xs text-slate-500 tabular-nums">
+                                            {folderStats.get(folder.id)
+                                                ?.document_count || 0}
+                                        </span>
+                                    </div>
                                 </div>
                             </>
                         )}

@@ -102,9 +102,7 @@ export default function MessageList({
                     name: data?.name,
                     avatar_url: data?.avatar_url,
                 });
-            } catch (err) {
-                console.error("Failed to load user profile:", err);
-            }
+            } catch (err) {}
         };
 
         loadUserProfile();
@@ -128,10 +126,13 @@ export default function MessageList({
             // Skip if already processed using ref (guards against concurrent useEffect runs)
             if (submissionAttemptsRef.current.has(message.id)) return;
 
+            // Treat missing confidence as 0 to ensure unanswered/empty replies still go to HITL
+            const effectiveConfidence =
+                message.confidence !== undefined ? message.confidence : 0;
+
             if (
                 message.role === "assistant" &&
-                message.confidence !== undefined &&
-                message.confidence < reviewThreshold &&
+                effectiveConfidence < reviewThreshold &&
                 !sentToReview.has(message.id) &&
                 !sendingToReview.has(message.id)
             ) {
@@ -154,7 +155,7 @@ export default function MessageList({
                         botId,
                         userQuestion,
                         message.content,
-                        message.confidence,
+                        effectiveConfidence,
                         message.citations,
                         sessionId
                     )
@@ -166,10 +167,6 @@ export default function MessageList({
                                 // Mark as sent even if backend reports logical failure,
                                 // to avoid hammering the endpoint on every render
                                 if (!result?.success) {
-                                    console.warn(
-                                        "Review queue send reported failure:",
-                                        result?.message
-                                    );
                                 }
                                 setSentToReview((prev) =>
                                     new Set(prev).add(message.id)
@@ -177,10 +174,6 @@ export default function MessageList({
                             }
                         )
                         .catch((err: Error) => {
-                            console.error(
-                                "Failed to send to review queue:",
-                                err
-                            );
                             // Prevent infinite retry loops on hard failures
                             setSentToReview((prev) =>
                                 new Set(prev).add(message.id)

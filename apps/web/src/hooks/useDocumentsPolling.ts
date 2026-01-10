@@ -55,7 +55,7 @@ export function useDocumentsPolling({
                         processingDocsRef.current.delete(docId);
                     }
                 } catch (err) {
-                    console.error(`Failed to fetch document ${docId}:`, err);
+                    // Silently handle fetch errors
                 }
             }
 
@@ -64,7 +64,7 @@ export function useDocumentsPolling({
                 onUpdate(updatedDocs);
             }
         } catch (err) {
-            console.error("Polling error:", err);
+            // Silently handle polling errors
         }
     }, [onUpdate]);
 

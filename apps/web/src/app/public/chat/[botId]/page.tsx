@@ -70,7 +70,7 @@ async function getWidgetConfig(
         ) {
             throw error;
         }
-        console.error("Failed to fetch widget config:", error);
+        
     }
     return null;
 }
@@ -101,9 +101,7 @@ export default async function PublicChatPage({
     } catch (error) {
         const errorMsg =
             error instanceof Error ? error.message : "Unknown error";
-        console.error(
-            `[PublicChatPage] Failed to load public bot ${resolvedParams.botId}: ${errorMsg}`
-        );
+        
         const lowered = errorMsg.toLowerCase();
         if (lowered.includes("not authorized")) {
             domainBlocked = true;

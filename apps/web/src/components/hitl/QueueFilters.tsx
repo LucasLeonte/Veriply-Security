@@ -40,7 +40,7 @@ export function QueueFilters({
                     setBots(data.bots || []);
                 }
             } catch (error) {
-                console.error("Failed to fetch bots:", error);
+                
             } finally {
                 setIsLoadingBots(false);
             }

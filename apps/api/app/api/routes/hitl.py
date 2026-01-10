@@ -233,6 +233,13 @@ async def get_review_queue(
     If group_id is specified, verifies user has GroupMember access before filtering.
     """
     try:
+        # Ensure RLS context is set for this connection
+        await set_tenant_context(db, current_tenant)
+        
+        # CRITICAL: Commit any pending transaction and start fresh
+        # to ensure we see the latest committed data (especially after recent rejections/approvals)
+        await db.commit()
+        
         # Get user's group memberships to filter by accessible groups
         from app.models import GroupMember
         from sqlalchemy import func
@@ -363,6 +370,15 @@ async def get_review_queue(
                 # Fallback: use metadata if bot relationship not loaded
                 bot_name = metadata.get("bot_name", "Unknown Bot")
 
+            # CRITICAL: Log to debug why resolved items might appear in response
+            if item.hitl_resolved:
+                logger.warning(
+                    f"CRITICAL BUG: Returning resolved item in queue! "
+                    f"item_id={item.id}, hitl_resolved={item.hitl_resolved}, "
+                    f"resolution_action={metadata.get('resolution_action')}, "
+                    f"created_at={item.created_at}"
+                )
+
             response_item = ReviewQueueItemResponse(
                 id=str(item.id),
                 type=item_type,
@@ -382,6 +398,7 @@ async def get_review_queue(
                     "query_id": str(item.query_id),
                     "is_verified_kb": item.is_verified_kb,
                     "session_id": metadata.get("session_id"),  # For sending approved answer back to chat
+                    "resolution_action": metadata.get("resolution_action"),  # Include resolution action so frontend can filter
                 },
             )
             items_response.append(response_item)
@@ -571,6 +588,9 @@ async def approve_queue_item(
     **AC2**: If edited, system records diff between AI and human version
     """
     try:
+        # Ensure RLS / tenant isolation is set for this connection before any writes
+        await set_tenant_context(db, current_user.tenant_id)
+
         item_uuid = UUID(item_id)
         
         logger.debug(f"Approving HITL item {item_id} by user {current_user.id}")
@@ -695,6 +715,7 @@ async def approve_queue_item(
         kb_doc_id = None
 
         # Create VerifiedQA entry (FR52: Auto-add approved HITL to Verified KB)
+        verified_qa_created = False
         if question_text and approved_answer and item.bot_id:
             try:
                 # Generate embedding for the question
@@ -732,7 +753,11 @@ async def approve_queue_item(
                         f"Created VerifiedQA entry {verified_qa.id} from HITL approval "
                         f"(item={item_id}, bot={item.bot_id})"
                     )
-                    
+
+                    # Mark that VerifiedQA creation succeeded and set flag on confidence log
+                    verified_qa_created = True
+                    item.is_verified_kb = True
+
                     # Add reference to verified_qa in metadata
                     item.metadata_json["verified_qa_id"] = str(verified_qa.id)
                     
@@ -790,6 +815,8 @@ async def approve_queue_item(
                         
                         # Link document to verified_qa in metadata
                         item.metadata_json["kb_document_id"] = kb_doc_id
+                        # If document/chunk created, ensure is_verified_kb flag is set
+                        item.is_verified_kb = True
                         
                     except Exception as e:
                         logger.error(
@@ -802,6 +829,7 @@ async def approve_queue_item(
                         f"Bot {item.bot_id} not found or missing group_id, "
                         f"skipping VerifiedQA creation for HITL item {item_id}"
                     )
+                    # Ensure verified_qa_created remains False
                         
             except EmbeddingError as e:
                 logger.error(
@@ -822,12 +850,30 @@ async def approve_queue_item(
                 f"approved_answer={bool(approved_answer)}, "
                 f"bot_id={bool(item.bot_id)}"
             )
+            # No VerifiedQA created in this case
 
         # Commit transaction (HITL approval + VerifiedQA + Document + Chunk if created)
         try:
+            logger.debug(f"Flushing approval changes for item {item_id}")
+            await db.flush()
+            
+            # Refetch to confirm the changes were persisted
+            await db.refresh(item)
+            
+            if not item.hitl_resolved:
+                logger.error(f"CRITICAL: hitl_resolved flag not persisted for item {item_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to persist approval - database write issue",
+                )
+            
             logger.debug(f"Committing approval for item {item_id}")
             await db.commit()
-            logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved)")
+            
+            # CRITICAL: Refetch again after commit to ensure all changes are visible
+            await db.refresh(item)
+            
+            logger.info(f"✓ HITL item {item_id} successfully marked as resolved (approved), hitl_resolved={item.hitl_resolved}, resolution_action={item.metadata_json.get('resolution_action')}")
             # Document is already set to "ready" with chunk created inline - no async processing needed
         except Exception as e:
             logger.error(f"Transaction failed during approval of {item_id}: {e}", exc_info=True)
@@ -882,7 +928,7 @@ async def approve_queue_item(
             "resolved_answer": final_answer,
             "was_edited": was_edited,
             "diff": diff_result if was_edited else None,
-            "verified_kb_updated": True,
+            "verified_kb_updated": bool(verified_qa_created),
             "citations": metadata.get("citations", []),
             "chat_sent": chat_sent,
         }
@@ -948,6 +994,17 @@ async def reject_queue_item(
 
         logger.debug(f"Found HITL item: {item.id}, currently resolved={item.hitl_resolved}")
         
+        # SECURITY: Check if item is already resolved (prevent race condition)
+        if item.hitl_resolved:
+            logger.warning(
+                f"Race condition prevented: Item {item_id} already resolved by user "
+                f"{item.resolution_user_id} at {item.resolution_timestamp}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Item has already been resolved by another user",
+            )
+        
         # SECURITY: Verify user has access to the group this item belongs to
         if item.group_id:
             from app.models.group_member import GroupMember
@@ -985,9 +1042,26 @@ async def reject_queue_item(
 
         item.metadata_json = metadata
 
+        logger.debug(f"Flushing rejection changes for item {item_id}")
+        await db.flush()
+        
+        # Refetch to confirm the changes were persisted
+        await db.refresh(item)
+        
+        if not item.hitl_resolved:
+            logger.error(f"CRITICAL: hitl_resolved flag not persisted for item {item_id}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to persist rejection - database write issue",
+            )
+        
         logger.debug(f"Committing rejection for item {item_id}")
         await db.commit()
-        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (rejected)")
+        
+        # CRITICAL: Refetch again after commit to ensure all changes are visible
+        await db.refresh(item)
+        
+        logger.info(f"✓ HITL item {item_id} successfully marked as resolved (rejected), hitl_resolved={item.hitl_resolved}, resolution_action={item.metadata_json.get('resolution_action')}")
         
         # Publish resolution event to Redis for real-time updates
         try:

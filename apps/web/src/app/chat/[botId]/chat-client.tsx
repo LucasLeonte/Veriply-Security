@@ -24,19 +24,15 @@ export default function ChatClient({
     useEffect(() => {
         async function loadBot() {
             try {
-                console.log(`[ChatClient] Loading bot ${botId}...`);
+                
                 const info = await getBotPublicInfo(botId);
-                console.log(`[ChatClient] Bot loaded successfully:`, info);
+                
                 setBotInfo(info);
             } catch (err) {
                 const errorMsg =
                     err instanceof Error ? err.message : "Failed to load bot";
                 setError(errorMsg);
-                console.error(
-                    `[ChatClient] Failed to load bot ${botId}:`,
-                    errorMsg,
-                    err
-                );
+                
             } finally {
                 setLoading(false);
             }

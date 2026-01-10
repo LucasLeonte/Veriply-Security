@@ -33,7 +33,7 @@ export function EmailList({ token, folder, selectedId, onSelect, provider }: Ema
             const data = await listGmailMessages(token, folder);
             setMessages(data.messages);
         } catch (e) {
-            console.error("Error loading emails:", e);
+            
             const msg = e instanceof Error ? e.message : "Failed to load emails.";
             setError(msg);
         } finally {
@@ -87,8 +87,6 @@ export function EmailList({ token, folder, selectedId, onSelect, provider }: Ema
             </div>
         );
     }
-
-
 
     if (messages.length === 0) {
         return (

@@ -69,7 +69,7 @@ export default function IntegrationsPage() {
             const response = await listIntegrations(authToken);
             setIntegrations(response.integrations);
         } catch (err: any) {
-            console.error("Failed to load integrations:", err);
+            
             setError(err.message || "Failed to load integrations");
         } finally {
             setLoading(false);

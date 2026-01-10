@@ -71,10 +71,7 @@ export default function AddEntryDialog({
         group_id: groupId,
         source_citations: null,
       };
-      
-      console.log("Creating entry with URL:", url);
-      console.log("Payload:", payload);
-      
+
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -84,9 +81,7 @@ export default function AddEntryDialog({
         body: JSON.stringify(payload),
       });
 
-      console.log("Response status:", response.status);
       const responseData = await response.json();
-      console.log("Response data:", responseData);
 
       if (!response.ok) {
         throw new Error(responseData.detail || `API Error: ${response.status}`);
@@ -101,7 +96,7 @@ export default function AddEntryDialog({
       onSuccess();
     } catch (error: any) {
       const message = error.message || "Failed to create Q&A entry. Please try again.";
-      console.error("Error creating entry:", message);
+      
       toast({
         title: "Error",
         description: message,

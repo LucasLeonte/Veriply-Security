@@ -170,7 +170,7 @@ export default function SettingsPage() {
             const result = await groupsApi.listMembers(groupId);
             setGroupMembers(result);
         } catch (err) {
-            console.error("Failed to load group members:", err);
+            
         } finally {
             setLoadingGroupMembers(false);
         }
@@ -234,7 +234,7 @@ export default function SettingsPage() {
             setNewGroupName("");
             setNewGroupDescription("");
         } catch (err) {
-            console.error("Failed to create group:", err);
+            
             const message =
                 err instanceof Error ? err.message : "Failed to create group";
             alert(message);
@@ -262,7 +262,7 @@ export default function SettingsPage() {
                 setSuccessMessage(null);
             }, 3000);
         } catch (err) {
-            console.error("Failed to invite member:", err);
+            
             alert("Failed to invite member");
         }
     };
@@ -275,7 +275,7 @@ export default function SettingsPage() {
             await groupsApi.removeMember(currentGroup.id, userId);
             await loadGroupMembers(currentGroup.id);
         } catch (err) {
-            console.error("Failed to remove member:", err);
+            
             alert("Failed to remove member");
         }
     };
@@ -290,7 +290,7 @@ export default function SettingsPage() {
             await groupsApi.updateMemberRole(currentGroup.id, userId, newRole);
             await loadGroupMembers(currentGroup.id);
         } catch (err) {
-            console.error("Failed to update role:", err);
+            
             alert("Failed to update role");
         }
     };
@@ -316,7 +316,7 @@ export default function SettingsPage() {
             setNewGroupName("");
             setNewGroupDescription("");
         } catch (err) {
-            console.error("Failed to rename group:", err);
+            
             alert("Failed to rename group");
         }
     };
@@ -337,7 +337,7 @@ export default function SettingsPage() {
                 setGroupMembers([]);
             }
         } catch (err) {
-            console.error("Failed to delete group:", err);
+            
             alert("Failed to delete group");
         }
     };

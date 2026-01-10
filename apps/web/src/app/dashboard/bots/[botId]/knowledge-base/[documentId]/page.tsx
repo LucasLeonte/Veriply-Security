@@ -67,7 +67,7 @@ export default function DocumentDetailPage() {
                 const updated = await documentsApi.getDocument(documentId);
                 setLocalDocument(updated as Document);
             } catch (err) {
-                console.error("Failed to poll document:", err);
+                
             }
         };
 
@@ -90,7 +90,7 @@ export default function DocumentDetailPage() {
             // Refresh the document details after reprocess
             refetch();
         } catch (err) {
-            console.error("Reprocess failed:", err);
+            
             throw err;
         }
     };
@@ -107,7 +107,7 @@ export default function DocumentDetailPage() {
             // Redirect back to KB list after delete
             router.push(`/dashboard/bots/${botId}/knowledge-base`);
         } catch (err) {
-            console.error("Delete failed:", err);
+            
             throw err;
         }
     };

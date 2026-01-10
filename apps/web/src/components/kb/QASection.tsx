@@ -71,7 +71,7 @@ export default function QASection({ groupId }: QASectionProps) {
       const data = await response.json();
       setEntries(data);
     } catch (error: any) {
-      console.error("Error fetching Q&A entries:", error);
+      
       toast({
         title: "Error",
         description: "Failed to load Q&A entries",

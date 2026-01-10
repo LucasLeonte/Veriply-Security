@@ -80,7 +80,7 @@ export function DuplicateBotModal({
             onClose();
 
             // Show success toast (would integrate with toast library)
-            console.log(`Bot duplicated: ${duplicatedBot.name}`);
+            
         } catch (err) {
             const errorMessage =
                 err instanceof Error ? err.message : "Failed to duplicate bot";

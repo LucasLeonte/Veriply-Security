@@ -93,7 +93,7 @@ export default function DashboardPage() {
                         )
                 );
             } catch (err) {
-                console.error("Failed to fetch bots:", err);
+                
                 setBotsTotal(null);
                 setBotsPreview([]);
             }
@@ -102,7 +102,7 @@ export default function DashboardPage() {
                 setDocsTotal(docsRes.total);
                 setRecentDocs((docsRes.documents || []).slice(0, 3));
             } catch (err) {
-                console.error("Failed to fetch documents:", err);
+                
                 setDocsTotal(null);
                 setRecentDocs([]);
             }
@@ -143,12 +143,6 @@ export default function DashboardPage() {
                             Dashboard
                         </h2>
                     </div>
-                    <Link
-                        href="/settings"
-                        className="inline-flex items-center gap-2 px-3 py-2 text-sm rounded-lg border border-slate-300 hover:bg-slate-50"
-                    >
-                        <Settings className="h-4 w-4" /> Settings
-                    </Link>
                 </div>
 
                 {!currentGroup && (
@@ -190,8 +184,8 @@ export default function DashboardPage() {
                                 {analyticsLoading
                                     ? "…"
                                     : formatPercent(
-                                          metrics?.autoResolvedPercent
-                                      )}
+                                        metrics?.autoResolvedPercent
+                                    )}
                             </p>
                             <p className="text-xs text-slate-400 mt-1">
                                 Auto-resolved without review
@@ -210,8 +204,8 @@ export default function DashboardPage() {
                                 {analyticsLoading
                                     ? "…"
                                     : formatPercent(
-                                          metrics?.hitlInterventionRate
-                                      )}
+                                        metrics?.hitlInterventionRate
+                                    )}
                             </p>
                             <p className="text-xs text-slate-400 mt-1">
                                 Required human review
@@ -258,8 +252,8 @@ export default function DashboardPage() {
                     </div>
                     <div className="mt-4">
                         {!metrics ||
-                        analyticsLoading ||
-                        !metrics.chartData?.length ? (
+                            analyticsLoading ||
+                            !metrics.chartData?.length ? (
                             <div className="flex h-40 items-center justify-center text-slate-400 text-sm">
                                 No data
                             </div>
@@ -282,8 +276,8 @@ export default function DashboardPage() {
                         </div>
                         <div className="mt-4 space-y-3">
                             {!metrics ||
-                            analyticsLoading ||
-                            !metrics.rejectionReasons?.length ? (
+                                analyticsLoading ||
+                                !metrics.rejectionReasons?.length ? (
                                 <div className="text-sm text-slate-400">
                                     No data
                                 </div>
@@ -334,8 +328,8 @@ export default function DashboardPage() {
                         </div>
                         <ul className="mt-4 divide-y divide-slate-100">
                             {!metrics ||
-                            analyticsLoading ||
-                            !metrics.knowledgeGaps?.length ? (
+                                analyticsLoading ||
+                                !metrics.knowledgeGaps?.length ? (
                                 <li className="py-1 text-sm text-slate-400">
                                     No data
                                 </li>
@@ -438,11 +432,10 @@ export default function DashboardPage() {
                         renderItem={(q: ReviewQueueItem) => (
                             <div className="py-2 flex items-start gap-3">
                                 <span
-                                    className={`mt-1 inline-flex items-center justify-center h-6 w-6 rounded-full text-xs ${
-                                        q.type === "email"
+                                    className={`mt-1 inline-flex items-center justify-center h-6 w-6 rounded-full text-xs ${q.type === "email"
                                             ? "bg-indigo-100 text-indigo-700"
                                             : "bg-sky-100 text-sky-700"
-                                    }`}
+                                        }`}
                                 >
                                     {q.type === "email" ? "E" : "C"}
                                 </span>

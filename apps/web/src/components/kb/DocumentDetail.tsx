@@ -74,7 +74,7 @@ export function DocumentDetail({
         try {
             await onReprocess(document.id);
         } catch (err) {
-            console.error("Reprocess failed:", err);
+            
         } finally {
             setIsReprocessing(false);
         }
@@ -88,7 +88,7 @@ export function DocumentDetail({
         try {
             await onDelete(document.id);
         } catch (err) {
-            console.error("Delete failed:", err);
+            
         } finally {
             setIsDeleting(false);
         }

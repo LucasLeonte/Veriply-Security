@@ -45,7 +45,7 @@ export default function QAImportDialog({
           }
         })
         .catch((err) => {
-          console.error("Failed to fetch bots:", err);
+          
           toast({
             title: "Error",
             description: "Failed to load bots. Please try again.",
@@ -152,7 +152,7 @@ export default function QAImportDialog({
       const message =
         error.message ||
         "Failed to import CSV. Please check the file format and try again.";
-      console.error("Error importing CSV:", message);
+      
       toast({
         title: "Import failed",
         description: message,

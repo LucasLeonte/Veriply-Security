@@ -55,7 +55,7 @@ export function ReplyComposer({
             setReply(result.reply);
         } catch (e) {
             setError("Failed to generate reply. Please try again.");
-            console.error(e);
+            
         } finally {
             setIsLoading(false);
         }
@@ -86,7 +86,7 @@ export function ReplyComposer({
             }, 2000);
         } catch (e) {
             setError("Failed to send reply. Please try again.");
-            console.error(e);
+            
         } finally {
             setIsSending(false);
         }

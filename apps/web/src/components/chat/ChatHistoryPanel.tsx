@@ -295,7 +295,7 @@ export function ChatHistoryPanel({ botId, botName, botAvatar, onResumeChat }: Ch
                                         saveChatHistory(botId, selectedConversation.sessionId, mapped);
                                         onResumeChat?.();
                                     } catch (err) {
-                                        console.error("Failed to resume conversation", err);
+                                        
                                     }
                                 }}
                                 className="bg-sky-600 hover:bg-sky-700 text-white shadow-sm"

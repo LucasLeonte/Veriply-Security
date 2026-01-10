@@ -22,9 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 # Confidence component weights (must sum to 1.0)
-RETRIEVAL_WEIGHT = 0.4
-CONTEXT_COVERAGE_WEIGHT = 0.3
-GENERATION_WEIGHT = 0.3
+# Note: Since generation_confidence is not yet implemented (returns None),
+# weights effectively become: retrieval 60% + context_coverage 40%
+# This balances single-best-match quality with overall evidence breadth
+RETRIEVAL_WEIGHT = 0.6
+CONTEXT_COVERAGE_WEIGHT = 0.4
+GENERATION_WEIGHT = 0.0  # Placeholder - not yet implemented
 
 # Verified KB confidence boost
 VERIFIED_KB_CONFIDENCE = 0.95
@@ -65,10 +68,10 @@ class ConfidenceResult:
     
     Attributes:
         overall_score: Combined confidence score (0-1)
-        retrieval_confidence: Max similarity from vector search
-        context_coverage: Coverage of the answer by retrieved context
-        source_consistency: Agreement between retrieved chunks (placeholder)
-        generation_confidence: LLM logprobs confidence (placeholder)
+        retrieval_confidence: Max similarity from vector search (60% weight)
+        context_coverage: Average similarity across chunks (40% weight)
+        source_consistency: Agreement between retrieved chunks (used in reasoning only)
+        generation_confidence: Not implemented - placeholder for future LLM logprobs
         routing_decision: Whether to auto_send or route to HITL
         is_verified_kb: Whether answer came from verified KB
         reasoning: Human-readable explanation of the score
@@ -77,7 +80,7 @@ class ConfidenceResult:
     retrieval_confidence: float
     context_coverage: float
     source_consistency: Optional[float]
-    generation_confidence: Optional[float]
+    generation_confidence: Optional[float]  # Always None - not implemented
     routing_decision: RoutingDecision
     is_verified_kb: bool
     reasoning: str
@@ -88,10 +91,11 @@ class ConfidenceCalculatorService:
     """Service for calculating confidence scores and routing decisions.
     
     Implements the confidence formula:
-        confidence = (retrieval * 0.4) + (context coverage * 0.3) + (generation * 0.3)
+        confidence = (retrieval × 0.6) + (context coverage × 0.4)
     
-    For MVP, focuses on retrieval confidence with placeholders for
-    source consistency and LLM logprobs.
+    Note: Generation confidence (LLM logprobs) is not yet implemented.
+    When available, the intended formula will be:
+        confidence = (retrieval × 0.4) + (context coverage × 0.3) + (generation × 0.3)
     """
 
     async def calculate_confidence(
@@ -181,14 +185,11 @@ class ConfidenceCalculatorService:
         retrieval_confidence = self._calculate_retrieval_confidence(search_results)
         context_coverage = self._calculate_context_coverage(search_results)
         source_consistency = self._calculate_source_consistency(search_results)
-        generation_confidence = self._calculate_generation_confidence(token_logprobs)
         
-        # Combine components with weighting
+        # Combine components with weighting (60% retrieval + 40% coverage)
         overall_score = self._combine_confidence_scores(
             retrieval_confidence,
             context_coverage,
-            source_consistency,
-            generation_confidence,
         )
         
         # Determine routing decision
@@ -203,7 +204,6 @@ class ConfidenceCalculatorService:
             retrieval_confidence,
             context_coverage,
             source_consistency,
-            generation_confidence,
             overall_score,
             threshold,
             routing_decision,
@@ -215,7 +215,7 @@ class ConfidenceCalculatorService:
             retrieval_confidence=round(retrieval_confidence, 3),
             context_coverage=round(context_coverage, 3),
             source_consistency=round(source_consistency, 3) if source_consistency else None,
-            generation_confidence=round(generation_confidence, 3) if generation_confidence else None,
+            generation_confidence=None,  # Not implemented
             routing_decision=routing_decision,
             is_verified_kb=False,
             reasoning=reasoning,
@@ -347,84 +347,55 @@ class ConfidenceCalculatorService:
         
         return avg_similarity
 
-    def _calculate_generation_confidence(
-        self,
-        token_logprobs: Optional[List[float]],
-    ) -> Optional[float]:
-        """Calculate generation confidence from LLM token logprobs.
-        
-        Extracts confidence from token probability distributions.
-        Higher average logprob = more confident generation.
-        
-        MVP: Placeholder - returns None.
-        Future: Extract from Ollama response logprobs.
-        
-        Args:
-            token_logprobs: Token-level log probabilities from LLM
-            
-        Returns:
-            Generation confidence (0-1) or None if not available
-        """
-        if not token_logprobs:
-            # Logprobs not available - placeholder for future
-            return None
-        
-        # Convert average logprob to confidence score
-        # logprob=-0.1 → ~0.9, logprob=-1.0 → ~0.5, logprob=-5+ → ~0.0
-        avg_logprob = sum(token_logprobs) / len(token_logprobs)
-        confidence = 1.0 / (1.0 + abs(avg_logprob) * 0.5)
-        
-        logger.debug(f"Generation confidence: {confidence:.3f} (from logprobs)")
-        
-        return max(0.0, min(1.0, confidence))
+    # FUTURE IMPLEMENTATION: Generation Confidence from LLM Token Logprobs
+    # Currently not implemented because Ollama doesn't expose per-token probabilities.
+    # Uncomment and integrate when LLM provides logprobs in responses.
+    #
+    # def _calculate_generation_confidence(
+    #     self,
+    #     token_logprobs: Optional[List[float]],
+    # ) -> Optional[float]:
+    #     """Calculate generation confidence from LLM token logprobs.
+    #     
+    #     Extracts confidence from token probability distributions.
+    #     Higher average logprob = more confident generation.
+    #     
+    #     Args:
+    #         token_logprobs: Token-level log probabilities from LLM
+    #         
+    #     Returns:
+    #         Generation confidence (0-1) or None if not available
+    #     """
+    #     if not token_logprobs:
+    #         return None
+    #     
+    #     # Convert average logprob to confidence score
+    #     # logprob=-0.1 → ~0.9, logprob=-1.0 → ~0.5, logprob=-5+ → ~0.0
+    #     avg_logprob = sum(token_logprobs) / len(token_logprobs)
+    #     confidence = 1.0 / (1.0 + abs(avg_logprob) * 0.5)
+    #     
+    #     logger.debug(f"Generation confidence: {confidence:.3f} (from logprobs)")
+    #     
+    #     return max(0.0, min(1.0, confidence))
 
     def _combine_confidence_scores(
         self,
         retrieval_confidence: float,
         context_coverage: float,
-        source_consistency: Optional[float],
-        generation_confidence: Optional[float],
     ) -> float:
         """Combine confidence components with weighting.
         
-        Formula: (retrieval * 0.4) + (context coverage * 0.3) + (generation * 0.3)
-        
-        If consistency or generation unavailable, redistribute weights.
+        Current formula: (retrieval × 0.6) + (context_coverage × 0.4)
         
         Args:
-            retrieval_confidence: Max similarity from vector search
-            source_consistency: Agreement between sources
-            generation_confidence: LLM logprobs confidence
+            retrieval_confidence: Max similarity from vector search (60% weight)
+            context_coverage: Average similarity across all chunks (40% weight)
             
         Returns:
             Overall confidence score (0-1)
         """
-        # Start with retrieval (always available)
-        score = retrieval_confidence * RETRIEVAL_WEIGHT
-        remaining_weight = 1.0 - RETRIEVAL_WEIGHT
-
-        # Context coverage per AC
-        score += context_coverage * CONTEXT_COVERAGE_WEIGHT
-        remaining_weight -= CONTEXT_COVERAGE_WEIGHT
-        
-        # Add source consistency as a secondary modifier (cap at half of remaining)
-        if source_consistency is not None and remaining_weight > 0:
-            consistency_weight = min(remaining_weight, CONTEXT_COVERAGE_WEIGHT / 2)
-            score += source_consistency * consistency_weight
-            remaining_weight -= consistency_weight
-        
-        # Add generation confidence if available
-        if generation_confidence is not None and remaining_weight > 0:
-            gen_weight = min(GENERATION_WEIGHT, remaining_weight)
-            score += generation_confidence * gen_weight
-            remaining_weight -= gen_weight
-        
-        # Redistribute remaining weight to retrieval
-        # (fallback when components unavailable)
-        if remaining_weight > 0:
-            score += retrieval_confidence * remaining_weight
-        
-        return score
+        score = (retrieval_confidence * RETRIEVAL_WEIGHT) + (context_coverage * CONTEXT_COVERAGE_WEIGHT)
+        return max(0.0, min(1.0, score))
 
     def _create_verified_kb_result(
         self,
@@ -452,7 +423,6 @@ class ConfidenceCalculatorService:
         retrieval_confidence: float,
         context_coverage: float,
         source_consistency: Optional[float],
-        generation_confidence: Optional[float],
         overall_score: float,
         threshold: float,
         routing_decision: RoutingDecision,
@@ -464,7 +434,7 @@ class ConfidenceCalculatorService:
         """
         reasons = []
         
-        # Retrieval quality
+        # Retrieval quality (60% weight)
         if retrieval_confidence >= 0.85:
             reasons.append("Excellent retrieval match")
         elif retrieval_confidence >= 0.7:
@@ -476,7 +446,7 @@ class ConfidenceCalculatorService:
         else:
             reasons.append("No relevant context found")
 
-        # Context coverage
+        # Context coverage (40% weight)
         if context_coverage >= 0.8:
             reasons.append("strong context coverage")
         elif context_coverage >= 0.6:
@@ -486,7 +456,7 @@ class ConfidenceCalculatorService:
         else:
             reasons.append("no supporting context")
         
-        # Source consistency
+        # Source consistency (informational only, not used in score)
         if source_consistency is not None:
             if source_consistency >= 0.8:
                 reasons.append("high agreement between sources")
@@ -494,15 +464,6 @@ class ConfidenceCalculatorService:
                 reasons.append("moderate source agreement")
             else:
                 reasons.append("sources may be contradictory")
-        
-        # Generation confidence
-        if generation_confidence is not None:
-            if generation_confidence >= 0.8:
-                reasons.append("strong model confidence")
-            elif generation_confidence >= 0.5:
-                reasons.append("moderate model confidence")
-            else:
-                reasons.append("low model confidence (uncertain)")
         
         # Combine reasoning
         reasoning = ", ".join(reasons)
@@ -564,6 +525,24 @@ class ConfidenceCalculatorService:
             if existing.scalar_one_or_none() is not None:
                 logger.debug(f"Skipping duplicate confidence log for query: {query_text_truncated[:50]}...")
                 return
+
+            # Guard: Do not re-queue questions that were previously resolved (approved or rejected)
+            try:
+                existing_resolved = await db.scalar(
+                    select(ConfidenceLog)
+                    .where(ConfidenceLog.bot_id == bot_id)
+                    .where(ConfidenceLog.query_text == query_text_truncated)
+                    .where(ConfidenceLog.hitl_resolved == True)
+                    .order_by(ConfidenceLog.created_at.desc())
+                )
+                if existing_resolved is not None:
+                    logger.info(
+                        "Skipping HITL log: previously resolved question detected (id=%s)",
+                        existing_resolved.id,
+                    )
+                    return
+            except Exception as e:
+                logger.warning("Resolved-check failed; continuing without re-queue guard: %s", e)
             
             metadata_to_store = dict(metadata_json or {})
             metadata_to_store.setdefault("context_coverage", result.context_coverage)

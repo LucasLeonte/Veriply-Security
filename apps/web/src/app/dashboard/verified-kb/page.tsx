@@ -86,7 +86,7 @@ export default function VerifiedKBPage() {
             setTotalPages(normalizedTotalPages);
         } catch (error) {
             if (error instanceof DOMException && error.name === "AbortError") return;
-            console.error("Error fetching verified KB entries:", error);
+            
         } finally {
             if (!controller.signal.aborted) {
                 setIsLoading(false);
@@ -150,7 +150,7 @@ export default function VerifiedKBPage() {
             setSelectedEntry(null);
             await fetchEntries();
         } catch (error) {
-            console.error("Error updating entry:", error);
+            
             // Rollback optimistic update
             setEntries(prevEntries);
         }
@@ -176,7 +176,7 @@ export default function VerifiedKBPage() {
             setEntryToDelete(null);
             await fetchEntries();
         } catch (error) {
-            console.error("Error deleting entry:", error);
+            
         }
     };
 

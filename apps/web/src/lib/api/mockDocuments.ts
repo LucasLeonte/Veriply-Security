@@ -1,4 +1,8 @@
-import { Document, DocumentChunk, PaginatedDocumentsResponse } from "@/types/document";
+import {
+    Document,
+    DocumentChunk,
+    PaginatedDocumentsResponse,
+} from "@/types/document";
 
 // Mock documents data
 export const mockDocuments: Document[] = [
@@ -188,7 +192,8 @@ export const mockChunks: DocumentChunk[] = [
     {
         id: "chunk-1",
         document_id: "doc-1",
-        content: "Product Specifications Overview: This document outlines the technical specifications for our flagship product. The system is designed to handle high-volume data processing with low latency.",
+        content:
+            "Product Specifications Overview: This document outlines the technical specifications for our flagship product. The system is designed to handle high-volume data processing with low latency.",
         chunk_index: 0,
         page_number: 1,
         created_at: "2025-12-08T10:32:00Z",
@@ -197,7 +202,8 @@ export const mockChunks: DocumentChunk[] = [
     {
         id: "chunk-2",
         document_id: "doc-1",
-        content: "Performance Requirements: The system must process at least 10,000 requests per second with an average response time under 100ms. Peak capacity should support 50,000 concurrent users.",
+        content:
+            "Performance Requirements: The system must process at least 10,000 requests per second with an average response time under 100ms. Peak capacity should support 50,000 concurrent users.",
         chunk_index: 1,
         page_number: 2,
         created_at: "2025-12-08T10:32:05Z",
@@ -206,7 +212,8 @@ export const mockChunks: DocumentChunk[] = [
     {
         id: "chunk-3",
         document_id: "doc-1",
-        content: "Security Features: All data is encrypted at rest using AES-256 encryption. Transport layer security uses TLS 1.3. Role-based access control (RBAC) is implemented throughout the system.",
+        content:
+            "Security Features: All data is encrypted at rest using AES-256 encryption. Transport layer security uses TLS 1.3. Role-based access control (RBAC) is implemented throughout the system.",
         chunk_index: 2,
         page_number: 3,
         created_at: "2025-12-08T10:32:10Z",
@@ -215,7 +222,8 @@ export const mockChunks: DocumentChunk[] = [
     {
         id: "chunk-4",
         document_id: "doc-1",
-        content: "Integration Capabilities: The system provides RESTful APIs and WebSocket support for real-time communication. SDKs are available for Python, JavaScript, Java, and Go.",
+        content:
+            "Integration Capabilities: The system provides RESTful APIs and WebSocket support for real-time communication. SDKs are available for Python, JavaScript, Java, and Go.",
         chunk_index: 3,
         page_number: 4,
         created_at: "2025-12-08T10:32:15Z",
@@ -224,7 +232,7 @@ export const mockChunks: DocumentChunk[] = [
 ];
 
 // Helper function to simulate API delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Mock API functions
 export const mockDocumentsApi = {
@@ -236,13 +244,14 @@ export const mockDocumentsApi = {
     ): Promise<PaginatedDocumentsResponse> {
         await delay(300); // Simulate network delay
 
-        let filteredDocs = mockDocuments.filter(doc => doc.bot_id === botId);
+        let filteredDocs = mockDocuments.filter((doc) => doc.bot_id === botId);
 
         if (search) {
             const searchLower = search.toLowerCase();
-            filteredDocs = filteredDocs.filter(doc =>
-                doc.filename.toLowerCase().includes(searchLower) ||
-                doc.title?.toLowerCase().includes(searchLower)
+            filteredDocs = filteredDocs.filter(
+                (doc) =>
+                    doc.filename.toLowerCase().includes(searchLower) ||
+                    doc.title?.toLowerCase().includes(searchLower)
             );
         }
 
@@ -263,21 +272,21 @@ export const mockDocumentsApi = {
 
     async getDocument(documentId: string) {
         await delay(200);
-        
-        const doc = mockDocuments.find(d => d.id === documentId);
+
+        const doc = mockDocuments.find((d) => d.id === documentId);
         if (!doc) {
             throw new Error("Document not found");
         }
 
         return {
             ...doc,
-            chunks: mockChunks.filter(c => c.document_id === documentId),
+            chunks: mockChunks.filter((c) => c.document_id === documentId),
         };
     },
 
     async uploadDocuments(botId: string, files: File[]) {
         await delay(500);
-        
+
         // Simulate successful upload
         return {
             id: `doc-${Date.now()}`,
@@ -289,41 +298,38 @@ export const mockDocumentsApi = {
 
     async deleteDocument(documentId: string) {
         await delay(300);
-        
-        const index = mockDocuments.findIndex(d => d.id === documentId);
+
+        const index = mockDocuments.findIndex((d) => d.id === documentId);
         if (index === -1) {
             throw new Error("Document not found");
         }
-        
+
         // In a real implementation, this would delete from the array
-        console.log(`Mock: Deleted document ${documentId}`);
     },
 
     async bulkDeleteDocuments(botId: string, documentIds: string[]) {
         await delay(500);
-        
+
         // Validate documents belong to the bot
         const validDocs = mockDocuments.filter(
-            d => d.bot_id === botId && documentIds.includes(d.id)
+            (d) => d.bot_id === botId && documentIds.includes(d.id)
         );
-        
+
         if (validDocs.length === 0) {
             throw new Error("No valid documents found");
         }
 
-        console.log(`Mock: Bulk deleted ${validDocs.length} documents`);
-
         return {
             message: "Bulk deletion initiated",
             queued_count: validDocs.length,
-            document_ids: validDocs.map(d => d.id),
+            document_ids: validDocs.map((d) => d.id),
         };
     },
 
     async reprocessDocument(documentId: string) {
         await delay(400);
-        
-        const doc = mockDocuments.find(d => d.id === documentId);
+
+        const doc = mockDocuments.find((d) => d.id === documentId);
         if (!doc) {
             throw new Error("Document not found");
         }
@@ -337,8 +343,8 @@ export const mockDocumentsApi = {
 
     async getDocumentChunks(documentId: string) {
         await delay(250);
-        
-        const chunks = mockChunks.filter(c => c.document_id === documentId);
+
+        const chunks = mockChunks.filter((c) => c.document_id === documentId);
         return {
             chunks,
             total: chunks.length,

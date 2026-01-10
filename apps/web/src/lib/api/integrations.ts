@@ -16,9 +16,9 @@ export interface ListIntegrationsResponse {
 }
 
 export interface GmailMessage {
-    id: string;              // thread id from Gmail
-    threadId: string;        // camelCase thread id for UI convenience
-    lastMessageId: string;   // most recent message id within the thread
+    id: string; // thread id from Gmail
+    threadId: string; // camelCase thread id for UI convenience
+    lastMessageId: string; // most recent message id within the thread
     snippet: string;
     subject: string;
     from: string;
@@ -60,7 +60,9 @@ export function getOutlookAuthUrl(token?: string): string {
 /**
  * List all email integrations for the current user
  */
-export async function listIntegrations(token: string): Promise<ListIntegrationsResponse> {
+export async function listIntegrations(
+    token: string
+): Promise<ListIntegrationsResponse> {
     const response = await fetch(`${API_BASE_URL}/api/v1/integrations/list`, {
         method: "GET",
         headers: {
@@ -125,7 +127,9 @@ export async function listGmailMessages(
             const errorData = await response.json();
             if (errorData.detail) {
                 errorMessage = Array.isArray(errorData.detail)
-                    ? errorData.detail.map((d: any) => (d.msg ? d.msg : String(d))).join("; ")
+                    ? errorData.detail
+                          .map((d: any) => (d.msg ? d.msg : String(d)))
+                          .join("; ")
                     : String(errorData.detail);
             }
         } catch (e) {
@@ -156,13 +160,16 @@ export async function getGmailMessage(
     token: string,
     messageId: string
 ): Promise<any> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/messages/${messageId}`, {
-        method: "GET",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-    });
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/integrations/gmail/messages/${messageId}`,
+        {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+        }
+    );
 
     if (!response.ok) {
         throw new Error("Failed to fetch message details");
@@ -178,14 +185,17 @@ export async function importGmailMessage(
     token: string,
     messageId: string
 ): Promise<{ message: string; document_id: string }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/import`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message_id: messageId }),
-    });
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/integrations/gmail/import`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ message_id: messageId }),
+        }
+    );
 
     if (!response.ok) {
         throw new Error("Failed to import message");
@@ -207,14 +217,17 @@ export async function generateGmailReply(
     if (options?.botId) body.bot_id = options.botId;
     if (options?.subject) body.subject = options.subject;
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/generate-reply`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-    });
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/integrations/gmail/generate-reply`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(body),
+        }
+    );
 
     if (!response.ok) {
         throw new Error("Failed to generate reply");
@@ -250,7 +263,6 @@ export async function setDefaultReplyBot(
     return response.json();
 }
 
-
 /**
  * Send a reply email via Gmail
  */
@@ -262,20 +274,23 @@ export async function sendGmailReply(
     subject: string,
     body: string
 ): Promise<{ message: string; sent_message_id: string }> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/integrations/gmail/send-reply`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-            thread_id: threadId,
-            message_id: messageId,
-            to,
-            subject,
-            body,
-        }),
-    });
+    const response = await fetch(
+        `${API_BASE_URL}/api/v1/integrations/gmail/send-reply`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                thread_id: threadId,
+                message_id: messageId,
+                to,
+                subject,
+                body,
+            }),
+        }
+    );
 
     if (!response.ok) {
         let errorDetail = "Failed to send reply";
@@ -283,18 +298,16 @@ export async function sendGmailReply(
             const errorData = await response.json();
             if (errorData.detail && Array.isArray(errorData.detail)) {
                 errorDetail = errorData.detail
-                    .map((err: any) => `${err.loc?.join('.')} - ${err.msg}`)
+                    .map((err: any) => `${err.loc?.join(".")} - ${err.msg}`)
                     .join("; ");
             } else if (errorData.detail) {
                 errorDetail = String(errorData.detail);
             }
-            console.error("API Error Details:", errorDetail);
         } catch (e) {
-            console.error("Failed to parse error response");
+            // Silently handle parse errors
         }
         throw new Error(errorDetail);
     }
 
     return response.json();
 }
-

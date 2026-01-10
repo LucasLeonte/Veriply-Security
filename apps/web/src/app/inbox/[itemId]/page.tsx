@@ -45,7 +45,7 @@ export default function ReviewItemPage() {
                 const data = await response.json();
                 setItem(data);
             } catch (err) {
-                console.error("Failed to fetch item detail:", err);
+                
                 setError(err instanceof Error ? err.message : "Unknown error");
             } finally {
                 setIsLoading(false);
@@ -78,7 +78,7 @@ export default function ReviewItemPage() {
             // Navigate back to queue
             router.push("/inbox");
         } catch (err) {
-            console.error("Failed to approve item:", err);
+            
             throw err;
         }
     };
@@ -106,7 +106,7 @@ export default function ReviewItemPage() {
             // Navigate back to queue
             router.push("/inbox");
         } catch (err) {
-            console.error("Failed to reject item:", err);
+            
             throw err;
         }
     };

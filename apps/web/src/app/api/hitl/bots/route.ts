@@ -31,9 +31,7 @@ export async function GET(request: NextRequest) {
         );
 
         if (!response.ok) {
-            console.error(
-                `Failed to fetch HITL bots from backend: ${response.status} ${response.statusText}`
-            );
+            
             return NextResponse.json({ bots: [] });
         }
 
@@ -46,7 +44,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ bots });
     } catch (error) {
-        console.error("Error fetching HITL bots:", error);
+        
         return NextResponse.json({ bots: [] });
     }
 }

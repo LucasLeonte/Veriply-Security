@@ -72,10 +72,7 @@ export default function ChatInterface({
     };
 
     if (messages.length > 0 && !validateMessages(messages)) {
-        console.warn(
-            "[ChatInterface] Invalid message structure detected:",
-            messages
-        );
+        
     }
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);

@@ -74,10 +74,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
         const body = await upstream.text();
 
         if (!upstream.ok) {
-            console.error(
-                `Widget config save failed: ${upstream.status} ${upstream.statusText}`,
-                body
-            );
+            
         }
 
         return new NextResponse(body, {
@@ -88,7 +85,7 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
             },
         });
     } catch (error) {
-        console.error("Widget config PUT error:", error);
+        
         return NextResponse.json(
             { detail: "Failed to save widget config" },
             { status: 500 }

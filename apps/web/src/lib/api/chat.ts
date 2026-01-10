@@ -27,14 +27,11 @@ export async function getBotPublicInfo(
     // Add auth token if available (allows access to non-public bots for authenticated users)
     if (typeof window !== "undefined") {
         const token = getAccessToken();
-        console.log(`[getBotPublicInfo] Token present: ${!!token}`);
         if (token) {
             headers["Authorization"] = `Bearer ${token}`;
-            console.log(`[getBotPublicInfo] Added Authorization header`);
         }
     }
 
-    console.log(`[getBotPublicInfo] Fetching bot ${botId}...`);
     const response = await fetch(
         `${API_BASE_URL}/api/v1/bots/${botId}/public`,
         {
@@ -43,7 +40,6 @@ export async function getBotPublicInfo(
             cache: "no-store", // Disable caching for now, we'll add it later with TTL
         }
     );
-    console.log(`[getBotPublicInfo] Response status: ${response.status}`);
 
     if (!response.ok) {
         let detail = "Failed to fetch bot information";
@@ -87,25 +83,26 @@ export async function* streamChatQuery(
     void,
     unknown
 > {
-    const embedOrigin = options?.embedOrigin ||
+    const embedOrigin =
+        options?.embedOrigin ||
         (typeof document !== "undefined"
             ? (() => {
-                try {
-                    const params = new URLSearchParams(
-                        window.location.search || ""
-                    );
-                    const qp = params.get("embed_origin");
-                    if (qp) return qp;
-                    // Prefer ancestor origin when referrer is stripped
-                    // @ts-ignore: ancestorOrigins exists on window in browsers
-                    const ancestor = window.location.ancestorOrigins?.[0];
-                    if (ancestor) return ancestor;
-                    if (document.referrer) return document.referrer;
-                    return window.location.origin;
-                } catch {
-                    return undefined;
-                }
-            })()
+                  try {
+                      const params = new URLSearchParams(
+                          window.location.search || ""
+                      );
+                      const qp = params.get("embed_origin");
+                      if (qp) return qp;
+                      // Prefer ancestor origin when referrer is stripped
+                      // @ts-ignore: ancestorOrigins exists on window in browsers
+                      const ancestor = window.location.ancestorOrigins?.[0];
+                      if (ancestor) return ancestor;
+                      if (document.referrer) return document.referrer;
+                      return window.location.origin;
+                  } catch {
+                      return undefined;
+                  }
+              })()
             : undefined);
 
     const token = getAccessToken();
@@ -117,7 +114,7 @@ export async function* streamChatQuery(
             headers: {
                 "Content-Type": "application/json",
                 ...(embedOrigin ? { "X-Embed-Origin": embedOrigin } : {}),
-                ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
                 query,
@@ -178,7 +175,7 @@ export async function* streamChatQuery(
                         yield { type: "metadata", data: parsed.metadata };
                     }
                 } catch (e) {
-                    console.error("Failed to parse SSE data:", e);
+                    // Silently handle parse errors
                 }
             }
         }
@@ -203,7 +200,6 @@ export function loadChatHistory(
         if (!stored) return [];
         return JSON.parse(stored);
     } catch (error) {
-        console.error("Failed to load chat history:", error);
         return [];
     }
 }
@@ -236,7 +232,7 @@ export function saveChatHistory(
         if (indexRaw) {
             try {
                 index = JSON.parse(indexRaw);
-            } catch { }
+            } catch {}
         }
 
         const lastTimestamp = messages.length
@@ -257,7 +253,7 @@ export function saveChatHistory(
         index.sort((a, b) => b.lastTimestamp - a.lastTimestamp);
         localStorage.setItem(indexKey, JSON.stringify(index));
     } catch (error) {
-        console.error("Failed to save chat history:", error);
+        // Silently handle save errors
     }
 }
 
@@ -278,10 +274,10 @@ export function clearChatHistory(botId: string, sessionId: string): void {
                 const index = JSON.parse(indexRaw) as Array<{ id: string }>;
                 const newIndex = index.filter((i) => i.id !== sessionId);
                 localStorage.setItem(indexKey, JSON.stringify(newIndex));
-            } catch { }
+            } catch {}
         }
     } catch (error) {
-        console.error("Failed to clear chat history:", error);
+        // Silently handle clear errors
     }
 }
 
@@ -346,7 +342,6 @@ export function getUserSessions(
         }>;
         return Array.isArray(index) ? index : [];
     } catch (e) {
-        console.error("Failed to get user sessions index", e);
         return [];
     }
 }
