@@ -7,6 +7,8 @@ import {
     BulkReprocessModal,
     BulkDeleteModal,
     QASection,
+    ViewEmailModal,
+    ConfirmDeleteDialog,
 } from "@/components/kb";
 import { useGroup } from "@/contexts/GroupContext";
 import { foldersApi } from "@/lib/api/folders";
@@ -25,9 +27,12 @@ interface KBEmail {
     id: string;
     subject?: string;
     from_email?: string;
+    to_emails?: string;
+    body_text?: string;
     sent_at?: string;
     status: string;
     created_at: string;
+    email_metadata?: Record<string, any>;
 }
 
 export default function GroupKnowledgeBasePage() {
@@ -58,7 +63,46 @@ export default function GroupKnowledgeBasePage() {
     const [kbEmails, setKbEmails] = useState<KBEmail[]>([]);
     const [emailsLoading, setEmailsLoading] = useState(false);
     const [emailsTotal, setEmailsTotal] = useState(0);
+    const [emailToView, setEmailToView] = useState<KBEmail | null>(null);
+    const [emailToDelete, setEmailToDelete] = useState<KBEmail | null>(null);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleViewEmail = (email: KBEmail) => {
+        setEmailToView(email);
+    };
+
+    const confirmDeleteEmail = (email: KBEmail) => {
+        setEmailToDelete(email);
+    };
+
+    const handleDeleteEmail = async () => {
+        if (!emailToDelete) return;
+
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(
+                `${apiUrl}/api/v1/kb-emails/${emailToDelete.id}`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (response.ok || response.status === 204) {
+                setKbEmails(prev => prev.filter(e => e.id !== emailToDelete.id));
+                setEmailsTotal(prev => Math.max(0, prev - 1));
+                setEmailToDelete(null);
+            } else {
+                alert("Failed to delete email");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error deleting email");
+        }
+    };
 
     // Fetch folders
     useEffect(() => {
@@ -419,6 +463,34 @@ export default function GroupKnowledgeBasePage() {
         setFolderStats(buildFolderStats(folders, documents));
     }, [folders, documents, buildFolderStats]);
 
+    const handleReprocessEmail = async (emailId: string) => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(
+                `${apiUrl}/api/v1/kb-emails/${emailId}/reprocess`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (response.ok) {
+                // Optimistic update
+                setKbEmails(prev => prev.map(e =>
+                    e.id === emailId ? { ...e, status: 'processing' } : e
+                ));
+            } else {
+                alert("Failed to trigger reprocessing");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error triggering reprocessing");
+        }
+    };
+
     // Fetch KB emails
     const fetchKBEmails = useCallback(async () => {
         if (!currentGroup?.id) return;
@@ -451,6 +523,22 @@ export default function GroupKnowledgeBasePage() {
             fetchKBEmails();
         }
     }, [currentGroup?.id, fetchKBEmails]);
+
+    // Poll for email status updates
+    useEffect(() => {
+        const processingEmails = kbEmails.filter(e => e.status === 'processing');
+
+        if (processingEmails.length === 0 || !currentGroup?.id) {
+            return;
+        }
+
+        const pollEmails = async () => {
+            await fetchKBEmails();
+        };
+
+        const intervalId = setInterval(pollEmails, 3000);
+        return () => clearInterval(intervalId);
+    }, [kbEmails, currentGroup?.id, fetchKBEmails]);
 
     if (!currentGroup) {
         return (
@@ -584,6 +672,7 @@ export default function GroupKnowledgeBasePage() {
                                                         <th className="px-4 py-2 text-left font-semibold">From</th>
                                                         <th className="px-4 py-2 text-left font-semibold">Status</th>
                                                         <th className="px-4 py-2 text-left font-semibold">Date</th>
+                                                        <th className="px-4 py-2 text-right font-semibold">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-200">
@@ -602,6 +691,29 @@ export default function GroupKnowledgeBasePage() {
                                                             </td>
                                                             <td className="px-4 py-2 text-xs text-slate-600">
                                                                 {email.sent_at ? new Date(email.sent_at).toLocaleDateString() : '—'}
+                                                            </td>
+                                                            <td className="px-4 py-2 text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <button
+                                                                        onClick={() => handleViewEmail(email)}
+                                                                        className="p-1 px-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded transition-colors"
+                                                                    >
+                                                                        View
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleReprocessEmail(email.id)}
+                                                                        disabled={email.status === 'processing'}
+                                                                        className="p-1 px-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors disabled:opacity-50"
+                                                                    >
+                                                                        Reprocess
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => confirmDeleteEmail(email)}
+                                                                        className="p-1 px-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                                                                    >
+                                                                        Delete
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -783,6 +895,21 @@ export default function GroupKnowledgeBasePage() {
                     }}
                     onConfirm={handleReprocessDocument}
                     documentName={documentToReprocess?.filename}
+                />
+
+                {/* Email Modals */}
+                <ViewEmailModal
+                    isOpen={!!emailToView}
+                    onClose={() => setEmailToView(null)}
+                    email={emailToView}
+                />
+
+                <ConfirmDeleteDialog
+                    isOpen={!!emailToDelete}
+                    onClose={() => setEmailToDelete(null)}
+                    onConfirm={handleDeleteEmail}
+                    title="Delete Email"
+                    description={`Are you sure you want to delete "${emailToDelete?.subject || 'this email'}"? This cannot be undone.`}
                 />
             </div>
         </DashboardLayout>

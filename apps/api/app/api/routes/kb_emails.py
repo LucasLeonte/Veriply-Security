@@ -22,7 +22,9 @@ from app.services.kb_email import (
     list_kb_emails,
     get_kb_email_by_id,
     delete_kb_email,
+    reprocess_kb_email,
 )
+from app import tasks
 
 logger = logging.getLogger(__name__)
 
@@ -145,4 +147,44 @@ async def delete_email(
         raise HTTPException(
             status_code=500,
             detail="Failed to delete KB email",
+        )
+@router.post("/{email_id}/reprocess")
+async def reprocess_email(
+    email_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    tenant_id: UUID = Depends(get_current_tenant),
+):
+    """Trigger reprocessing for a KB email.
+    
+    **Access Control:** Email must belong to user's tenant
+    """
+    try:
+        await set_tenant_context(db, tenant_id)
+        
+        kb_email = await get_kb_email_by_id(db, email_id, tenant_id)
+        
+        if not kb_email:
+            raise HTTPException(
+                status_code=404,
+                detail="KB email not found",
+            )
+        
+        await reprocess_kb_email(db, kb_email)
+        await db.commit()
+        
+        # Trigger processing task
+        tasks.enqueue_kb_email_processing(str(kb_email.id))
+        
+        return {"message": "Email queued for reprocessing"}
+    
+    except HTTPException:
+        await db.rollback()
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Error reprocessing KB email: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to trigger reprocessing",
         )

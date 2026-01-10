@@ -650,6 +650,12 @@ async def import_gmail_message(
         )
         
         await db.commit()
+
+        # Trigger background processing
+        from app.tasks import enqueue_kb_email_processing
+        enqueue_kb_email_processing(
+            email_id=kb_email.id
+        )
         
         return {
             "kb_email_id": str(kb_email.id),

@@ -3,7 +3,7 @@
 import logging
 from typing import Optional, List, Tuple
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func, desc
@@ -49,6 +49,11 @@ async def create_kb_email(
     Returns:
         Created KBEmail instance
     """
+    # Ensure sent_at is timezone-naive UTC
+    if sent_at and sent_at.tzinfo:
+        # Convert to UTC first if it has timezone info
+        sent_at = sent_at.astimezone(timezone.utc).replace(tzinfo=None)
+
     kb_email = KBEmail(
         tenant_id=tenant_id,
         group_id=group_id,
@@ -68,6 +73,14 @@ async def create_kb_email(
     db.add(kb_email)
     await db.flush()
     await db.refresh(kb_email)
+    
+    # Async check for style analysis (dont block return)
+    try:
+        await check_and_trigger_style_analysis(
+            db, tenant_id, user_id, integration_id, kb_email
+        )
+    except Exception as e:
+        logger.error(f"Error in style analysis trigger: {e}")
     
     return kb_email
 
@@ -186,3 +199,112 @@ async def delete_kb_email(
     """
     await db.delete(kb_email)
     await db.flush()
+
+
+async def reprocess_kb_email(
+    db: AsyncSession,
+    kb_email: KBEmail,
+) -> KBEmail:
+    """Reset KB email status to uploaded to trigger reprocessing.
+    
+    Args:
+        db: Database session
+        kb_email: KBEmail instance to reprocess
+    
+    Returns:
+        Updated KBEmail instance
+    """
+    kb_email.status = "uploaded"
+    kb_email.updated_at = datetime.utcnow()
+    # Reset chunk count as they will be regenerated
+    kb_email.chunk_count = None
+    
+    await db.flush()
+    await db.refresh(kb_email)
+    
+    return kb_email
+
+
+async def check_and_trigger_style_analysis(
+    db: AsyncSession,
+    tenant_id: UUID,
+    user_id: UUID,
+    integration_id: UUID,
+    kb_email: KBEmail,
+) -> None:
+    """Check if email matches user's integration and trigger style analysis."""
+    from app.models.email_integration import EmailIntegration
+    from app.models.user_email_history import UserEmailHistory
+    from app.workers.style_analyzer_worker import StyleAnalysisWorker
+    
+    # Get integration to check email address
+    stmt = select(EmailIntegration).where(
+        and_(
+            EmailIntegration.id == integration_id,
+            EmailIntegration.tenant_id == tenant_id,
+        )
+    )
+    result = await db.execute(stmt)
+    integration = result.scalar_one_or_none()
+    
+    # Check if sender matches integration email (case insensitive)
+    # Use getattr because 'email' column might not be migrated yet
+    integration_email = getattr(integration, "email", None)
+    
+    if not integration_email:
+        # Fallback: check against user's email
+        from app.models.user import User
+        user = await db.get(User, user_id)
+        if user and user.email:
+            integration_email = user.email
+
+    if not integration_email:
+        return
+
+    if not kb_email.from_email or kb_email.from_email.lower() != integration_email.lower():
+        return
+        
+    # It's a sent email! processing for style analysis
+    logger.info(f"Detected sent email import (ID {kb_email.id}). Adding to style history.")
+    
+    # Check if already in history
+    hist_stmt = select(UserEmailHistory).where(
+        and_(
+            UserEmailHistory.integration_id == integration_id,
+            UserEmailHistory.email_id == kb_email.email_id,
+        )
+    )
+    hist_result = await db.execute(hist_stmt)
+    if hist_result.scalar_one_or_none():
+        return # Already exists
+        
+    # Add to history
+    email_history = UserEmailHistory(
+        tenant_id=tenant_id,
+        user_id=user_id,
+        integration_id=integration_id,
+        email_id=kb_email.email_id,
+        subject=kb_email.subject,
+        body=kb_email.body_text,
+        sent_at=kb_email.sent_at or datetime.utcnow(),
+        analyzed=False 
+    )
+    db.add(email_history)
+    await db.flush()
+    
+    # Trigger analysis worker (fire and forget via background task ideally, but logic here for MVP)
+    # Using the worker class directly here might be blocking if not careful, 
+    # but since it's async it should be fine to await if short, or enqueue.
+    # For now we will just log it. The weekly worker or manual refresh will pick it up,
+    # OR we can explicitly trigger it.
+    # Let's trigger it.
+    try:
+        worker = StyleAnalysisWorker(
+            client_id="internal", # Not needed for internal processing usually
+            client_secret="internal"
+        )
+        # We don't want to re-fetch from Gmail, just smooth analyze existing db records
+        await worker.analyze_user_style(db, tenant_id, user_id, integration_id)
+    except Exception as e:
+        logger.error(f"Failed to trigger style analysis for KB email {kb_email.id}: {e}")
+

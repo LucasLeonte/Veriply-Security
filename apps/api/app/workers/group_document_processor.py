@@ -314,3 +314,116 @@ async def _restore_chunks(doc: Document, db_session: AsyncSession, backup_chunks
             )
         )
     await db_session.flush()
+    try:
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+
+    if error_code:
+        return {"document_id": str(document_id), "status": "failed", "error": error_code}
+    return {"document_id": str(document_id), "status": "ready", "chunks_created": created}
+
+
+async def _restore_chunks(doc: Document, db_session: AsyncSession, backup_chunks: list[dict]) -> None:
+    """Restore prior chunks after a failed reprocess attempt."""
+    for data in backup_chunks:
+        db_session.add(
+            Chunk(
+                document_id=doc.id,
+                tenant_id=doc.tenant_id,
+                group_id=doc.group_id,
+                chunk_index=data["chunk_index"],
+                content=data["content"],
+                page_number=data["page_number"],
+                vector=data["vector"],
+                metadata_json=data["metadata_json"],
+                created_at=data["created_at"],
+                updated_at=data["updated_at"],
+            )
+        )
+    await db_session.flush()
+
+
+# --- KB Email Processing ---
+
+from app.models.kb_email import KBEmail
+
+async def process_kb_email(
+    email_id: str | uuid.UUID,
+    db_session: AsyncSession,
+    embedding_service: Optional[EmbeddingService] = None,
+) -> dict:
+    """Process a KB Email: generate embedding and update status."""
+    
+    try:
+        e_id = uuid.UUID(str(email_id))
+    except Exception:
+        e_id = email_id  # type: ignore
+
+    email = await db_session.get(KBEmail, e_id)
+    if not email:
+        logger.error("KB Email %s not found", email_id)
+        return {"email_id": str(email_id), "status": "not_found"}
+
+    email.status = "processing"
+    email.updated_at = datetime.utcnow()
+    await db_session.flush()
+    try:
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+
+    # Prepare content for embedding
+    parts = []
+    if email.subject:
+        parts.append(f"Subject: {email.subject}")
+    if email.from_email:
+        parts.append(f"From: {email.from_email}")
+    if email.body_text:
+        parts.append(email.body_text)
+    
+    full_text = "\\n\\n".join(parts)
+    text = _sanitize_text(full_text)
+    
+    own_service = False
+    if embedding_service is None:
+        embedding_service = EmbeddingService()
+        own_service = True
+
+    error_code: Optional[str] = None
+    vec = None
+
+    try:
+        if text.strip():
+            vec = await embedding_service.embed_query(text)
+        
+        email.embedding = vec
+        email.status = "ready"
+        email.processed_at = datetime.utcnow()
+        # Mark as 1 "chunk" since we embedded the whole email
+        email.chunk_count = "1"
+        email.updated_at = datetime.utcnow()
+        
+    except Exception as e:
+        logger.exception("Processing failed for KB Email %s", email.id)
+        error_code = "processing_error"
+        email.status = "failed"
+        email.updated_at = datetime.utcnow()
+        
+    finally:
+        if own_service:
+            try:
+                await embedding_service.close()  # type: ignore
+            except Exception:
+                pass
+
+    await db_session.flush()
+    try:
+        await db_session.commit()
+    except Exception:
+        await db_session.rollback()
+
+    if error_code:
+         return {"email_id": str(email_id), "status": "failed", "error": error_code}
+    return {"email_id": str(email_id), "status": "ready"}
+
