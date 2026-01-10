@@ -13,10 +13,11 @@ import { Separator } from "@/components/ui/separator";
 interface EmailDetailProps {
     token: string;
     messageId: string;
+    folder?: "INBOX" | "SENT";
     onClose?: () => void; // For mobile view
 }
 
-export function EmailDetail({ token, messageId, onClose }: EmailDetailProps) {
+export function EmailDetail({ token, messageId, folder, onClose }: EmailDetailProps) {
     const [thread, setThread] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -52,14 +53,14 @@ export function EmailDetail({ token, messageId, onClose }: EmailDetailProps) {
     const handleImport = async () => {
         setImporting(true);
         try {
-            await importGmailMessage(token, messageId);
+            await importGmailMessage(token, messageId, folder);
             toast({
                 title: "Success",
                 description: "Email thread imported to Knowledge Base!",
             });
         } catch (e) {
             toast({
-                variant: "destructive",
+                variant: "error",
                 title: "Error",
                 description: "Failed to import email.",
             });

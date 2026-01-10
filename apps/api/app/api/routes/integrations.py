@@ -46,6 +46,7 @@ class IntegrationCredentialRequest(BaseModel):
 
 class GmailMessageImport(BaseModel):
     message_id: str
+    folder: Optional[str] = None
 
 
 class GmailMessageReply(BaseModel):
@@ -571,17 +572,52 @@ async def import_gmail_message(
         # Use the last message in the thread as the primary email
         last_msg = messages[-1]
         
-        # Build plain text body from all messages
+        # Helper to normalize email for comparison
+        def normalize_email(e):
+            return e.lower().strip() if e else ""
+            
+        # Use getattr because 'email' column might not be migrated yet
+        integration_email = getattr(integration, "email", None)
+        user_email_normalized = normalize_email(integration_email)
+        
+        # Fallback if integration.email is missing (due to migration timing)
+        if not user_email_normalized:
+            user_email_normalized = normalize_email(current_user.email)
+
+        # Build plain text body from all messages for Knowledge Base (Generic Context)
+        # AND extract user-authored text for Writing Style Analysis
         content_parts = []
+        user_authored_parts = []
+        
         for msg in messages:
-            content_parts.append(f"From: {msg.get('from', 'Unknown')}")
+            msg_from = msg.get('from', 'Unknown')
+            msg_body = msg.get("body", "(No content)")
+            
+            content_parts.append(f"From: {msg_from}")
             content_parts.append(f"Date: {msg.get('date', 'Unknown')}")
             content_parts.append(f"To: {msg.get('to', '')}")
-            content_parts.append("\n" + msg.get("body", "(No content)"))
+            content_parts.append("\n" + msg_body)
             content_parts.append("\n" + "-" * 50 + "\n")
+            
+            # For style analysis: Only include messages sent by the user
+            # Check if "From" contains user's email
+            if user_email_normalized in normalize_email(msg_from):
+                user_authored_parts.append(msg_body)
         
         body_text = "\n".join(content_parts)
+        style_training_text = "\n\n".join(user_authored_parts)
         
+        # User Rule: 
+        # INBOX tab -> Knowledge Base Only (skip style)
+        # SENT tab -> Knowledge Base + Writing Style (if valid content found)
+        # Default (no folder provided) -> Fallback to automatic detection
+        
+        style_mode = "auto"
+        if payload.folder == 'SENT':
+            style_mode = "force"
+        elif payload.folder == 'INBOX':
+            style_mode = "skip"
+
         # Determine Group (Knowledge Base) to assign this email to
         group_id = None
         
@@ -646,7 +682,9 @@ async def import_gmail_message(
             metadata={
                 "message_count": len(messages),
                 "thread_id": payload.message_id,
-            }
+            },
+            style_analysis_mode=style_mode,
+            style_content=style_training_text
         )
         
         await db.commit()

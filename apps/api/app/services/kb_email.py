@@ -28,6 +28,8 @@ async def create_kb_email(
     body_text: Optional[str],
     sent_at: Optional[datetime],
     metadata: Optional[dict] = None,
+    style_analysis_mode: str = "auto",  # 'auto', 'force', 'skip'
+    style_content: Optional[str] = None,
 ) -> KBEmail:
     """Create a new KB email entry.
     
@@ -77,7 +79,9 @@ async def create_kb_email(
     # Async check for style analysis (dont block return)
     try:
         await check_and_trigger_style_analysis(
-            db, tenant_id, user_id, integration_id, kb_email
+            db, tenant_id, user_id, integration_id, kb_email, 
+            mode=style_analysis_mode,
+            custom_content=style_content
         )
     except Exception as e:
         logger.error(f"Error in style analysis trigger: {e}")
@@ -261,11 +265,28 @@ async def check_and_trigger_style_analysis(
     if not integration_email:
         return
 
-    if not kb_email.from_email or kb_email.from_email.lower() != integration_email.lower():
+    if mode == "skip":
         return
-        
+
+    should_process = False
+    if mode == "force":
+        should_process = True
+    else:
+        # Auto mode: check sender
+        if kb_email.from_email and integration_email and kb_email.from_email.lower() == integration_email.lower():
+            should_process = True
+    
+    if not should_process:
+        return
+    
     # It's a sent email! processing for style analysis
     logger.info(f"Detected sent email import (ID {kb_email.id}). Adding to style history.")
+    
+    content_to_analyze = custom_content if custom_content else kb_email.body_text
+    
+    if not content_to_analyze or not content_to_analyze.strip():
+        logger.warning(f"No user-authored content found for style analysis (ID {kb_email.id}). Skipping.")
+        return
     
     # Check if already in history
     hist_stmt = select(UserEmailHistory).where(
@@ -285,7 +306,7 @@ async def check_and_trigger_style_analysis(
         integration_id=integration_id,
         email_id=kb_email.email_id,
         subject=kb_email.subject,
-        body=kb_email.body_text,
+        body=content_to_analyze,
         sent_at=kb_email.sent_at or datetime.utcnow(),
         analyzed=False 
     )

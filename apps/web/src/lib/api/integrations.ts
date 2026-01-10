@@ -128,8 +128,8 @@ export async function listGmailMessages(
             if (errorData.detail) {
                 errorMessage = Array.isArray(errorData.detail)
                     ? errorData.detail
-                          .map((d: any) => (d.msg ? d.msg : String(d)))
-                          .join("; ")
+                        .map((d: any) => (d.msg ? d.msg : String(d)))
+                        .join("; ")
                     : String(errorData.detail);
             }
         } catch (e) {
@@ -183,7 +183,8 @@ export async function getGmailMessage(
  */
 export async function importGmailMessage(
     token: string,
-    messageId: string
+    messageId: string,
+    folder?: string
 ): Promise<{ message: string; document_id: string }> {
     const response = await fetch(
         `${API_BASE_URL}/api/v1/integrations/gmail/import`,
@@ -193,9 +194,10 @@ export async function importGmailMessage(
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ message_id: messageId }),
+            body: JSON.stringify({ message_id: messageId, folder }),
         }
     );
+
 
     if (!response.ok) {
         throw new Error("Failed to import message");
