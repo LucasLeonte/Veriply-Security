@@ -6,21 +6,24 @@ Coordinates: Email extraction → PII redaction → RAG retrieval → LLM genera
 import logging
 import asyncio
 import time
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 from uuid import UUID, uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 
 from app.models.email_processing_queue import EmailProcessingQueue
 from app.models.email_draft import EmailDraft
 from app.models.email_monitoring_rule import EmailMonitoringRule
 from app.models.bot import Bot
+from app.models.user_writing_style import UserWritingStyle
 from app.services.pii_service import PIIRedactionService
 from app.services.vector_search_service import VectorSearchService
 from app.services.llm_service import LLMService
 from app.services.citation_service import CitationService
 from app.email_automation.email_extractor import EmailExtractor
+from app.email_automation.style_analyzer import create_style_guidelines_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +134,20 @@ class EmailDraftGenerationService:
             
             # Step 4: Generate draft via LLM
             logger.info(f"Generating draft for email")
+            
+            # Load user's writing style profile
+            style_profile = await self._get_user_writing_style(
+                db=db,
+                user_id=queue_item.user_id,
+                integration_id=queue_item.integration_id
+            )
+            
             draft_body, citations, confidence_score = await self._generate_draft(
                 original_email=email_data,
                 context_results=search_results,
                 bot_id=bot_id,
                 has_context=len(search_results) > 0,
+                style_profile=style_profile,
             )
             
             # Step 5: Create draft record
@@ -162,7 +174,7 @@ class EmailDraftGenerationService:
             
             # Step 6: Mark queue item as completed
             queue_item.status = "completed"
-            queue_item.processed_at = asyncio.get_event_loop()._time() if hasattr(asyncio.get_event_loop(), '_time') else None
+            queue_item.processed_at = datetime.utcnow()
             
             await db.commit()
             
@@ -222,14 +234,39 @@ class EmailDraftGenerationService:
             logger.exception(f"Failed to extract email: {e}")
             return None
     
+    async def _get_user_writing_style(
+        self,
+        db: AsyncSession,
+        user_id: UUID,
+        integration_id: UUID,
+    ) -> Optional['UserWritingStyle']:
+        """Get user's writing style profile for an integration.
+        
+        Returns:
+            UserWritingStyle if exists, None otherwise
+        """
+        try:
+            stmt = select(UserWritingStyle).where(
+                and_(
+                    UserWritingStyle.user_id == user_id,
+                    UserWritingStyle.integration_id == integration_id
+                )
+            )
+            result = await db.execute(stmt)
+            return result.scalar()
+        except Exception as e:
+            logger.warning(f"Failed to load writing style profile: {e}")
+            return None
+    
     async def _generate_draft(
         self,
         original_email: Dict[str, str],
         context_results: List,
         bot_id: UUID,
         has_context: bool,
+        style_profile: Optional['UserWritingStyle'] = None,
     ) -> tuple[str, Optional[Dict], int]:
-        """Generate draft using LLM.
+        """Generate draft using LLM with optional style matching.
         
         Returns:
             Tuple of (draft_body, citations, confidence_score)
@@ -242,17 +279,22 @@ class EmailDraftGenerationService:
                 DEFAULT_LOW_CONTEXT_CONFIDENCE,
             )
         
-        # Build prompt
-        prompt = self._build_draft_prompt(original_email, context_results)
+        # Build prompt with optional style guidelines
+        prompt = self._build_draft_prompt(original_email, context_results, style_profile)
         
         try:
-            # Generate using LLM with timeout
+            # Generate using LLM with 20-second timeout (AC#3: <20s LLM generation)
             response_tokens = []
-            async for token in self.llm_service.generate_answer(
-                query=original_email['body'],
-                context_chunks=context_results,
-            ):
-                response_tokens.append(token)
+            try:
+                async with asyncio.timeout(20):  # Python 3.11+
+                    async for token in self.llm_service.generate_answer(
+                        query=original_email['body'],
+                        context_chunks=context_results,
+                    ):
+                        response_tokens.append(token)
+            except asyncio.TimeoutError:
+                logger.error(f"LLM generation timeout (20s limit) for bot {bot_id}")
+                raise DraftGenerationError("LLM generation timeout (20s limit)")
             
             draft_body = ''.join(response_tokens)
             
@@ -281,20 +323,48 @@ class EmailDraftGenerationService:
         self,
         original_email: Dict[str, str],
         context_results: List,
+        style_profile: Optional['UserWritingStyle'] = None,
     ) -> str:
-        """Build structured prompt for draft generation."""
+        """Build structured prompt for draft generation with optional style guidelines."""
         
         context_text = "\n\n".join([
             f"Source: {r.document_name} (Section: {r.section})\n{r.text}"
             for r in context_results
         ])
         
+        # Build base prompt
         prompt = f"""You are a helpful email assistant. Generate a professional reply to the email below using ONLY the provided context.
 
 Context from knowledge base:
 {context_text}
 
-Original Email:
+"""
+        
+        # Inject style guidelines if profile exists and has sufficient data
+        if style_profile and style_profile.sample_count >= 10:
+            style_dict = {
+                "tone": style_profile.tone,
+                "greeting_pattern": style_profile.greeting_pattern,
+                "closing_pattern": style_profile.closing_pattern,
+                "avg_email_length": style_profile.avg_email_length,
+                "avg_sentence_length": style_profile.avg_sentence_length,
+                "uses_emojis": style_profile.uses_emojis,
+                "formality_score": style_profile.formality_score,
+            }
+            # Add any custom preferences (overrides)
+            if style_profile.custom_preferences:
+                style_dict.update(style_profile.custom_preferences)
+            
+            style_guidelines = create_style_guidelines_prompt(style_dict)
+            prompt += style_guidelines + "\n\n"
+        elif style_profile and style_profile.sample_count > 0 and style_profile.sample_count < 10:
+            # Show learning banner
+            prompt += f"""**Note**: We're learning your writing style ({style_profile.sample_count}/10 emails analyzed). Send more emails to improve personalization.
+
+"""
+        
+        # Add original email
+        prompt += f"""Original Email:
 From: {original_email.get('sender_email', 'Unknown')}
 Subject: {original_email.get('subject', '(No Subject)')}
 
@@ -304,7 +374,13 @@ Generate a reply that:
 - Addresses the sender's question/request
 - Uses information from the context only
 - Is professional and courteous
-- Maintains company tone
+- Maintains company tone"""
+        
+        if style_profile and style_profile.sample_count >= 10:
+            prompt += """
+- Matches the user's detected writing style"""
+        
+        prompt += """
 - If context insufficient: politely say you need to review and will respond soon
 
 Reply:"""

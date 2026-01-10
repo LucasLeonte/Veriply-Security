@@ -28,6 +28,7 @@ class TestEmailDraftRoutes:
         queue_item = EmailProcessingQueue(
             id=queue_id,
             tenant_id=tenant_id,
+            user_id=uuid4(),
             integration_id=uuid4(),
             provider_message_id="msg123",
             status="failed",
@@ -50,6 +51,7 @@ class TestEmailDraftRoutes:
         queue_item = EmailProcessingQueue(
             id=queue_id,
             tenant_id=tenant_id,
+            user_id=uuid4(),
             integration_id=uuid4(),
             provider_message_id="msg123",
             status="failed",
@@ -99,6 +101,7 @@ class TestEmailDraftRoutes:
         queue_item1 = EmailProcessingQueue(
             id=uuid4(),
             tenant_id=tenant_id,
+            user_id=uuid4(),
             integration_id=uuid4(),
             provider_message_id="msg123",
             status="failed",
@@ -108,6 +111,7 @@ class TestEmailDraftRoutes:
         queue_item2 = EmailProcessingQueue(
             id=uuid4(),
             tenant_id=tenant_id,
+            user_id=uuid4(),
             integration_id=uuid4(),
             provider_message_id="msg456",
             status="failed",

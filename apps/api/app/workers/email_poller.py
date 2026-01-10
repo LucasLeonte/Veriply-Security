@@ -165,6 +165,7 @@ async def poll_once(db_session: AsyncSession, *, tenant_id: Optional[UUID] = Non
             record = EmailProcessingQueue(
                 id=uuid4(),
                 tenant_id=integ.tenant_id,
+                user_id=integ.user_id,  # Capture user who owns this integration for audit trail
                 integration_id=integ.id,
                 rule_id=matched.get("id"),
                 provider_message_id=provider_id,

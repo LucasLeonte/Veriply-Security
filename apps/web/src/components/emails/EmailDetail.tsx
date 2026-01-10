@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { getGmailMessage, importGmailMessage } from "@/lib/api/integrations";
 import { ReplyComposer } from "./ReplyComposer";
+import { useToast } from "@/hooks/useToast";
 import { ArrowLeft, MoreVertical, Paperclip, Reply, Trash2, Import as ImportIcon, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,15 +13,17 @@ import { Separator } from "@/components/ui/separator";
 interface EmailDetailProps {
     token: string;
     messageId: string;
+    folder?: "INBOX" | "SENT";
     onClose?: () => void; // For mobile view
 }
 
-export function EmailDetail({ token, messageId, onClose }: EmailDetailProps) {
+export function EmailDetail({ token, messageId, folder, onClose }: EmailDetailProps) {
     const [thread, setThread] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [importing, setImporting] = useState(false);
     const [showReply, setShowReply] = useState(false);
+    const { toast } = useToast();
 
     useEffect(() => {
         let mounted = true;
@@ -50,10 +53,17 @@ export function EmailDetail({ token, messageId, onClose }: EmailDetailProps) {
     const handleImport = async () => {
         setImporting(true);
         try {
-            await importGmailMessage(token, messageId);
-            alert("Email thread imported to Knowledge Base!");
+            await importGmailMessage(token, messageId, folder);
+            toast({
+                title: "Success",
+                description: "Email thread imported to Knowledge Base!",
+            });
         } catch (e) {
-            alert("Failed to import email.");
+            toast({
+                variant: "error",
+                title: "Error",
+                description: "Failed to import email.",
+            });
         } finally {
             setImporting(false);
         }

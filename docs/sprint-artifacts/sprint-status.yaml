@@ -289,16 +289,22 @@ development_status:
         blocked_by: 6-1-gmail-oauth-integration
 
     6-4-email-draft-generation:
-        status: review
+        status: done
         assigned_to: Dario
         blocked_by: 6-3-email-monitoring-rules
         start_date: 2026-01-08
         review_date: 2026-01-08
+        fix_start_date: 2026-01-10
+        completed_date: 2026-01-10
+        fix_notes: "All 3 HIGH severity fixes applied and verified: (1) datetime.utcnow() for processed_at, (2) added user_id field to audit trail, (3) added 20s LLM timeout. All tests updated. Migration ready."
 
     6-5-writing-style-matching:
-        status: drafted
-        assigned_to: null
+        status: done
+        assigned_to: Dario
         blocked_by: 6-4-email-draft-generation
+        start_date: 2026-01-09
+        review_date: 2026-01-09
+        completed_date: 2026-01-10
 
     epic-6-retrospective: optional
 

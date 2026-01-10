@@ -8,9 +8,9 @@ from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request, HTTPException, status, Body
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, desc
+from sqlalchemy import select, and_, or_, desc
 import httpx
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -26,6 +26,7 @@ from app.utils.encryption import encrypt_token, decrypt_token
 from pydantic import BaseModel, Field
 import jwt
 from app.integrations import gmail, outlook
+from email.utils import parsedate_to_datetime
 from app.services.document_service import create_document
 from app.services.llm_service import LLMService
 from pydantic import ConfigDict
@@ -45,6 +46,7 @@ class IntegrationCredentialRequest(BaseModel):
 
 class GmailMessageImport(BaseModel):
     message_id: str
+    folder: Optional[str] = None
 
 
 class GmailMessageReply(BaseModel):
@@ -351,9 +353,24 @@ async def gmail_callback(
         logger.exception("Failed to save email integration: %s", e)
         raise HTTPException(status_code=500, detail="Failed to save integration")
 
-    # Redirect to frontend integrations page after successful connect
+    # Return HTML that redirects client-side with the access token intact
+    # This preserves cookies/auth context unlike server-side redirects
     frontend_url = settings.FRONTEND_URL or "http://localhost:3000"
-    return RedirectResponse(f"{frontend_url}/dashboard/integrations?connected=gmail")
+    redirect_url = f"{frontend_url}/dashboard/integrations?connected=gmail"
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><title>Connecting Gmail...</title></head>
+    <body>
+        <script>
+            // Use client-side redirect to preserve auth context
+            window.location.href = '{redirect_url}';
+        </script>
+        <p>Redirecting...</p>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 
 @router.get("/gmail/messages")
@@ -505,7 +522,7 @@ async def import_gmail_message(
     current_user: User = Depends(get_current_user),
     tenant_id: UUID = Depends(get_current_tenant),
 ):
-    """Import a specific Gmail message as a Document."""
+    """Import a specific Gmail message into KB emails."""
     # SECURITY FIX: Only allow user to access THEIR OWN Gmail integration
     result = await db.execute(
         select(EmailIntegration)
@@ -533,6 +550,10 @@ async def import_gmail_message(
     refresh_token = decrypt_token(integration.encrypted_refresh_token)
 
     try:
+        # Import service for KB emails
+        from app.services.kb_email import create_kb_email
+        from app.models.kb_email import KBEmail
+        
         # Fetch full thread (treat payload.message_id as thread_id)
         thread = await gmail.get_thread_with_messages(
             client_id=client_id,
@@ -541,24 +562,75 @@ async def import_gmail_message(
             thread_id=payload.message_id
         )
         
-        # Build content from all messages in the thread
+        # Extract email data
         subject = thread.get("subject", "Imported Email")
         messages = thread.get("messages", [])
         
-        content_parts = [f"Subject: {subject}\n"]
+        if not messages:
+            raise HTTPException(status_code=404, detail="No messages found in thread")
+        
+        # Use the last message in the thread as the primary email
+        last_msg = messages[-1]
+        
+        # Helper to normalize email for comparison
+        def normalize_email(e):
+            return e.lower().strip() if e else ""
+            
+        # Use getattr because 'email' column might not be migrated yet
+        integration_email = getattr(integration, "email", None)
+        
+        # If missing, try fetching from Gmail API
+        if not integration_email:
+            try:
+                profile = await gmail.get_profile(client_id, client_secret, refresh_token)
+                integration_email = profile.get("emailAddress")
+            except Exception as e:
+                logger.warning(f"Failed to fetch Gmail profile: {e}")
+
+        user_email_normalized = normalize_email(integration_email)
+        
+        # Fallback if integration.email is missing (and API call failed)
+        if not user_email_normalized:
+            user_email_normalized = normalize_email(current_user.email)
+
+        # Build plain text body from all messages for Knowledge Base (Generic Context)
+        # AND extract user-authored text for Writing Style Analysis
+        content_parts = []
+        user_authored_parts = []
         
         for msg in messages:
-            content_parts.append(f"From: {msg.get('from', 'Unknown')}")
+            msg_from = msg.get('from', 'Unknown')
+            msg_body = msg.get("body", "(No content)")
+            
+            content_parts.append(f"From: {msg_from}")
             content_parts.append(f"Date: {msg.get('date', 'Unknown')}")
             content_parts.append(f"To: {msg.get('to', '')}")
-            content_parts.append("\n" + msg.get("body", "(No content)"))
+            content_parts.append("\n" + msg_body)
             content_parts.append("\n" + "-" * 50 + "\n")
             
-        content = "\n".join(content_parts)
+            # For style analysis: Only include messages sent by the user
+            # Check if "From" contains user's email
+            is_match = user_email_normalized in normalize_email(msg_from)
+            logger.info(f"[DEBUG] Msg From: '{msg_from}' -> Normalized: '{normalize_email(msg_from)}' | Expected: '{user_email_normalized}' | Match: {is_match}")
+            
+            if is_match:
+                user_authored_parts.append(msg_body)
         
-        content = "\n".join(content_parts)
+        body_text = "\n".join(content_parts)
+        style_training_text = "\n\n".join(user_authored_parts)
         
-        # Determine Group (Knowledge Base) to assign this document to
+        # User Rule: 
+        # INBOX tab -> Knowledge Base Only (skip style)
+        # SENT tab -> Knowledge Base + Writing Style (if valid content found)
+        # Default (no folder provided) -> Fallback to automatic detection
+        
+        style_mode = "auto"
+        if payload.folder == 'SENT':
+            style_mode = "force"
+        elif payload.folder == 'INBOX':
+            style_mode = "skip"
+
+        # Determine Group (Knowledge Base) to assign this email to
         group_id = None
         
         # 1. Prefer the integration's default bot if set
@@ -568,7 +640,7 @@ async def import_gmail_message(
                 group_id = bot.group_id
         
         if not group_id:
-            # 2. Strategy: Fetch the first available group for this tenant
+            # 2. Fetch the first available group for this tenant
             group_result = await db.execute(select(Group).where(Group.tenant_id == tenant_id).limit(1))
             group = group_result.scalar_one_or_none()
             
@@ -577,35 +649,75 @@ async def import_gmail_message(
                 group = Group(
                     tenant_id=tenant_id,
                     name="General",
-                    description="Default group for imported documents",
+                    description="Default group for imported emails",
                     created_by=current_user.id
                 )
                 db.add(group)
-                await db.flush() # Ensure we have an ID
+                await db.flush()
             
             group_id = group.id
 
-        # Create document
-        doc, _ = await create_document(
-            db=db,
-            bot_id=group_id, # The service maps 'bot_id' argument to 'group_id' column
-            tenant_id=tenant_id,
-            uploader_id=current_user.id,
-            filename=f"Email: {subject}.txt",
-            size_bytes=len(content.encode('utf-8')),
-            mime_type="text/plain", # Plain text representation of the thread
-            file_bytes=content.encode('utf-8'),
-            title=f"Email: {subject}"
+        # Check if email already imported
+        existing_stmt = select(KBEmail).where(
+            and_(
+                KBEmail.integration_id == integration.id,
+                or_(
+                    KBEmail.email_id == payload.message_id,
+                    KBEmail.thread_id == payload.message_id
+                )
+            )
         )
-        await db.commit()
+        existing_result = await db.execute(existing_stmt)
+        existing_email = existing_result.scalar_one_or_none()
         
-        return {"document_id": str(doc.id), "message": "Email thread imported successfully"}
+        if existing_email:
+            return {
+                "kb_email_id": str(existing_email.id),
+                "message": "Email already imported",
+                "status": existing_email.status
+            }
+        
+        # Create KB email entry
+        kb_email = await create_kb_email(
+            db=db,
+            tenant_id=tenant_id,
+            group_id=group_id,
+            user_id=current_user.id,
+            integration_id=integration.id,
+            email_id=payload.message_id,
+            thread_id=payload.message_id,
+            subject=subject,
+            from_email=last_msg.get("from"),
+            to_emails=last_msg.get("to"),
+            body_text=body_text,
+            sent_at=parsedate_to_datetime(last_msg.get("date")) if last_msg.get("date") else None,
+            metadata={
+                "message_count": len(messages),
+                "thread_id": payload.message_id,
+            },
+            style_analysis_mode=style_mode,
+            style_content=style_training_text
+        )
+        
+        await db.commit()
+
+        # Trigger background processing
+        from app.tasks import enqueue_kb_email_processing
+        enqueue_kb_email_processing(
+            email_id=kb_email.id
+        )
+        
+        return {
+            "kb_email_id": str(kb_email.id),
+            "message": "Email imported successfully",
+            "status": kb_email.status
+        }
 
     except Exception as e:
+        await db.rollback()
         logger.error(f"Failed to import message: {e}")
-        # If it was a 404 on the thread endpoint, it might really be missing
         if "404" in str(e):
-             raise HTTPException(status_code=404, detail="Email thread not found")
+            raise HTTPException(status_code=404, detail="Email thread not found")
         raise HTTPException(status_code=500, detail=str(e))
 
 

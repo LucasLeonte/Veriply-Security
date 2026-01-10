@@ -7,8 +7,10 @@ interface ConfirmDeleteDialogProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: () => void;
-    documentName: string;
+    documentName?: string;
     isDeleting?: boolean;
+    title?: string;
+    description?: string;
 }
 
 export function ConfirmDeleteDialog({
@@ -17,6 +19,8 @@ export function ConfirmDeleteDialog({
     onConfirm,
     documentName,
     isDeleting = false,
+    title = "Delete Document",
+    description,
 }: ConfirmDeleteDialogProps) {
     const dialogRef = useRef<HTMLDivElement>(null);
     const cancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -25,7 +29,7 @@ export function ConfirmDeleteDialog({
     useEffect(() => {
         if (isOpen) {
             const previousFocus = document.activeElement as HTMLElement;
-            
+
             // Focus cancel button (safer default)
             cancelButtonRef.current?.focus();
 
@@ -48,7 +52,7 @@ export function ConfirmDeleteDialog({
     if (!isOpen) return null;
 
     return (
-        <div 
+        <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
             onClick={(e) => {
                 if (e.target === e.currentTarget && !isDeleting) {
@@ -56,7 +60,7 @@ export function ConfirmDeleteDialog({
                 }
             }}
         >
-            <div 
+            <div
                 ref={dialogRef}
                 role="dialog"
                 aria-modal="true"
@@ -72,18 +76,24 @@ export function ConfirmDeleteDialog({
                         </div>
                         <div className="flex-1">
                             <h2 id="delete-dialog-title" className="text-lg font-semibold text-slate-900">
-                                Delete Document
+                                {title}
                             </h2>
                             <p id="delete-dialog-description" className="text-sm text-slate-600 mt-2">
-                                Are you sure you want to delete{" "}
-                                <span className="font-medium text-slate-900">
-                                    {documentName}
-                                </span>
-                                ? This action cannot be undone.
+                                {description || (
+                                    <>
+                                        Are you sure you want to delete{" "}
+                                        <span className="font-medium text-slate-900">
+                                            {documentName}
+                                        </span>
+                                        ? This action cannot be undone.
+                                    </>
+                                )}
                             </p>
-                            <p className="text-sm text-slate-600 mt-2">
-                                All associated chunks and embeddings will be permanently removed.
-                            </p>
+                            {!description && (
+                                <p className="text-sm text-slate-600 mt-2">
+                                    All associated chunks and embeddings will be permanently removed.
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -105,7 +115,7 @@ export function ConfirmDeleteDialog({
                         className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label={`Delete ${documentName}`}
                     >
-                        {isDeleting ? "Deleting..." : "Delete Document"}
+                        {isDeleting ? "Deleting..." : title}
                     </button>
                 </div>
             </div>

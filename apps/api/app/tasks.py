@@ -10,10 +10,34 @@ from app.workers.document_processor import process_document
 from app.workers.group_document_processor import (
     process_group_document,
     process_group_document_reprocess,
+    process_kb_email,
 )
 from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
+
+
+def enqueue_kb_email_processing(email_id: str) -> bool:
+    """Schedule processing of a KB Email on the running loop."""
+    async def _runner():
+        try:
+            async with AsyncSessionLocal() as session:
+                await process_kb_email(email_id, db_session=session)
+        except Exception as e:
+            logger.exception("Background KB email processing failed for %s: %s", email_id, e)
+
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_runner())
+        return True
+    except RuntimeError:
+        try:
+            asyncio.run(_runner())
+            return True
+        except Exception:
+            logger.exception("Synchronous KB email processing failed for %s", email_id)
+            return False
+
 
 
 def enqueue_document_processing(document_id: str) -> bool:

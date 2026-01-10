@@ -7,6 +7,8 @@ import {
     BulkReprocessModal,
     BulkDeleteModal,
     QASection,
+    ViewEmailModal,
+    ConfirmDeleteDialog,
 } from "@/components/kb";
 import { useGroup } from "@/contexts/GroupContext";
 import { foldersApi } from "@/lib/api/folders";
@@ -18,13 +20,25 @@ import { DocumentCard } from "@/components/kb/DocumentCard";
 import { UploadModal } from "@/components/kb/UploadModal";
 import { MoveToFolderModal } from "@/components/kb/MoveToFolderModal";
 import { SearchBar } from "@/components/kb/SearchBar";
-import { Upload, Folder as FolderIcon } from "lucide-react";
+import { Upload, Folder as FolderIcon, Mail } from "lucide-react";
+import { getAccessToken } from "@/lib/auth";
+
+interface KBEmail {
+    id: string;
+    subject?: string;
+    from_email?: string;
+    to_emails?: string;
+    body_text?: string;
+    sent_at?: string;
+    status: string;
+    created_at: string;
+    email_metadata?: Record<string, any>;
+    is_style_sample?: boolean;
+}
 
 export default function GroupKnowledgeBasePage() {
     const { currentGroup } = useGroup();
-    const [activeView, setActiveView] = useState<"documents" | "qa">(
-        "documents"
-    );
+    const [activeView, setActiveView] = useState<'documents' | 'qa' | 'emails'>('documents');
     const [folders, setFolders] = useState<Folder[]>([]);
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
         null
@@ -47,7 +61,49 @@ export default function GroupKnowledgeBasePage() {
     const [isBulkReprocessModalOpen, setIsBulkReprocessModalOpen] =
         useState(false);
     const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+    const [kbEmails, setKbEmails] = useState<KBEmail[]>([]);
+    const [emailsLoading, setEmailsLoading] = useState(false);
+    const [emailsTotal, setEmailsTotal] = useState(0);
+    const [emailToView, setEmailToView] = useState<KBEmail | null>(null);
+    const [emailToDelete, setEmailToDelete] = useState<KBEmail | null>(null);
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const handleViewEmail = (email: KBEmail) => {
+        setEmailToView(email);
+    };
+
+    const confirmDeleteEmail = (email: KBEmail) => {
+        setEmailToDelete(email);
+    };
+
+    const handleDeleteEmail = async () => {
+        if (!emailToDelete) return;
+
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(
+                `${apiUrl}/api/v1/kb-emails/${emailToDelete.id}`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (response.ok || response.status === 204) {
+                setKbEmails(prev => prev.filter(e => e.id !== emailToDelete.id));
+                setEmailsTotal(prev => Math.max(0, prev - 1));
+                setEmailToDelete(null);
+            } else {
+                alert("Failed to delete email");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error deleting email");
+        }
+    };
 
     // Fetch folders
     useEffect(() => {
@@ -121,7 +177,7 @@ export default function GroupKnowledgeBasePage() {
                             currentGroup.id
                         );
                         updatedDocs.push(updated as Document);
-                    } catch (err) {}
+                    } catch (err) { }
                 }
 
                 if (updatedDocs.length > 0) {
@@ -135,7 +191,7 @@ export default function GroupKnowledgeBasePage() {
                         return Array.from(docMap.values());
                     });
                 }
-            } catch (err) {}
+            } catch (err) { }
         };
 
         // Immediate poll
@@ -298,8 +354,7 @@ export default function GroupKnowledgeBasePage() {
             setIsBulkDeleteModalOpen(false);
         } catch (err) {
             alert(
-                `Failed to delete documents: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to delete documents: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -353,8 +408,7 @@ export default function GroupKnowledgeBasePage() {
             setDocumentToReprocess(null);
         } catch (err) {
             alert(
-                `Failed to reprocess document: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess document: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -381,8 +435,7 @@ export default function GroupKnowledgeBasePage() {
             setIsBulkReprocessModalOpen(false);
         } catch (err) {
             alert(
-                `Failed to reprocess documents: ${
-                    err instanceof Error ? err.message : "Unknown error"
+                `Failed to reprocess documents: ${err instanceof Error ? err.message : "Unknown error"
                 }`
             );
         }
@@ -410,6 +463,83 @@ export default function GroupKnowledgeBasePage() {
     useEffect(() => {
         setFolderStats(buildFolderStats(folders, documents));
     }, [folders, documents, buildFolderStats]);
+
+    const handleReprocessEmail = async (emailId: string) => {
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(
+                `${apiUrl}/api/v1/kb-emails/${emailId}/reprocess`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (response.ok) {
+                // Optimistic update
+                setKbEmails(prev => prev.map(e =>
+                    e.id === emailId ? { ...e, status: 'processing' } : e
+                ));
+            } else {
+                alert("Failed to trigger reprocessing");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error triggering reprocessing");
+        }
+    };
+
+    // Fetch KB emails
+    const fetchKBEmails = useCallback(async () => {
+        if (!currentGroup?.id) return;
+        setEmailsLoading(true);
+        try {
+            const token = await getAccessToken();
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
+            const response = await fetch(
+                `${apiUrl}/api/v1/kb-emails?group_id=${currentGroup.id}&page=1&page_size=50`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                }
+            );
+            if (response.ok) {
+                const data = await response.json();
+                setKbEmails(data.emails || []);
+                setEmailsTotal(data.total || 0);
+            }
+        } catch (err) {
+            console.error('Failed to fetch KB emails:', err);
+        } finally {
+            setEmailsLoading(false);
+        }
+    }, [currentGroup?.id]);
+
+    useEffect(() => {
+        if (currentGroup?.id) {
+            fetchKBEmails();
+        }
+    }, [currentGroup?.id, fetchKBEmails]);
+
+    // Poll for email status updates
+    useEffect(() => {
+        const processingEmails = kbEmails.filter(e => e.status === 'processing');
+
+        if (processingEmails.length === 0 || !currentGroup?.id) {
+            return;
+        }
+
+        const pollEmails = async () => {
+            await fetchKBEmails();
+        };
+
+        const intervalId = setInterval(pollEmails, 3000);
+        return () => clearInterval(intervalId);
+    }, [kbEmails, currentGroup?.id, fetchKBEmails]);
 
     if (!currentGroup) {
         return (
@@ -443,18 +573,16 @@ export default function GroupKnowledgeBasePage() {
                             {/* Documents Section Header */}
                             <button
                                 onClick={() => setActiveView("documents")}
-                                className={`w-full p-4 text-left transition-colors ${
-                                    activeView === "documents"
-                                        ? "bg-emerald-50 border-l-4 border-emerald-600"
-                                        : "hover:bg-slate-50 border-l-4 border-transparent"
-                                }`}
+                                className={`w-full p-4 text-left transition-colors ${activeView === "documents"
+                                    ? "bg-emerald-50 border-l-4 border-emerald-600"
+                                    : "hover:bg-slate-50 border-l-4 border-transparent"
+                                    }`}
                             >
                                 <h3
-                                    className={`text-sm font-semibold flex items-center gap-2 ${
-                                        activeView === "documents"
-                                            ? "text-emerald-700"
-                                            : "text-slate-900"
-                                    }`}
+                                    className={`text-sm font-semibold flex items-center gap-2 ${activeView === "documents"
+                                        ? "text-emerald-700"
+                                        : "text-slate-900"
+                                        }`}
                                 >
                                     <FolderIcon size={16} />
                                     Documents
@@ -469,23 +597,39 @@ export default function GroupKnowledgeBasePage() {
                             {/* Q&A Entries Section Header */}
                             <button
                                 onClick={() => setActiveView("qa")}
-                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${
-                                    activeView === "qa"
-                                        ? "bg-emerald-50 border-l-4 border-emerald-600"
-                                        : "hover:bg-slate-50 border-l-4 border-transparent"
-                                }`}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${activeView === "qa"
+                                    ? "bg-emerald-50 border-l-4 border-emerald-600"
+                                    : "hover:bg-slate-50 border-l-4 border-transparent"
+                                    }`}
                             >
                                 <h3
-                                    className={`text-sm font-semibold ${
-                                        activeView === "qa"
-                                            ? "text-emerald-700"
-                                            : "text-slate-900"
-                                    }`}
+                                    className={`text-sm font-semibold ${activeView === "qa"
+                                        ? "text-emerald-700"
+                                        : "text-slate-900"
+                                        }`}
                                 >
                                     Q&A Entries
                                 </h3>
                                 <p className="text-xs text-slate-600 mt-1">
                                     Manage verified Q&A pairs
+                                </p>
+                            </button>
+
+                            {/* Emails Section Header */}
+                            <button
+                                onClick={() => setActiveView('emails')}
+                                className={`w-full p-4 text-left transition-colors border-t border-slate-200 ${activeView === 'emails'
+                                    ? 'bg-emerald-50 border-l-4 border-emerald-600'
+                                    : 'hover:bg-slate-50 border-l-4 border-transparent'
+                                    }`}
+                            >
+                                <h3 className={`text-sm font-semibold flex items-center gap-2 ${activeView === 'emails' ? 'text-emerald-700' : 'text-slate-900'
+                                    }`}>
+                                    <Mail size={16} />
+                                    Emails
+                                </h3>
+                                <p className="text-xs text-slate-600 mt-1">
+                                    {emailsTotal} imported
                                 </p>
                             </button>
                         </div>
@@ -509,7 +653,83 @@ export default function GroupKnowledgeBasePage() {
 
                     {/* Main Content */}
                     <div className="lg:col-span-3 space-y-4">
-                        {activeView === "documents" ? (
+                        {activeView === 'emails' ? (
+                            <>
+                                <div className="bg-white border border-slate-200 rounded-lg p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Imported Emails</h3>
+                                    {emailsLoading ? (
+                                        <div className="text-center py-8 text-slate-500">Loading emails...</div>
+                                    ) : kbEmails.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-500">
+                                            <p>No emails imported yet.</p>
+                                            <p className="text-sm mt-2">Go to Email Hub and click "Save Thread to KB" to import emails.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-sm">
+                                                <thead className="border-b border-slate-200 bg-slate-50">
+                                                    <tr>
+                                                        <th className="px-4 py-2 text-left font-semibold">Subject</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">From</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">Status</th>
+                                                        <th className="px-4 py-2 text-left font-semibold">Date</th>
+                                                        <th className="px-4 py-2 text-right font-semibold">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-200">
+                                                    {kbEmails.map((email) => (
+                                                        <tr key={email.id} className="hover:bg-slate-50">
+                                                            <td className="px-4 py-2">{email.subject || '(No subject)'}</td>
+                                                            <td className="px-4 py-2 text-xs text-slate-600">{email.from_email || '—'}</td>
+                                                            <td className="px-4 py-2">
+                                                                <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${email.status === 'ready' ? 'bg-green-100 text-green-700' :
+                                                                    email.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                                                                        email.status === 'failed' ? 'bg-red-100 text-red-700' :
+                                                                            'bg-gray-100 text-gray-700'
+                                                                    }`}>
+                                                                    {email.status}
+                                                                </span>
+                                                                {email.is_style_sample && (
+                                                                    <span className="ml-2 inline-block px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                                                                        Writing Style
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 py-2 text-xs text-slate-600">
+                                                                {email.sent_at ? new Date(email.sent_at).toLocaleDateString() : '—'}
+                                                            </td>
+                                                            <td className="px-4 py-2 text-right">
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <button
+                                                                        onClick={() => handleViewEmail(email)}
+                                                                        className="p-1 px-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded transition-colors"
+                                                                    >
+                                                                        View
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleReprocessEmail(email.id)}
+                                                                        disabled={email.status === 'processing'}
+                                                                        className="p-1 px-2 text-xs font-medium text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded transition-colors disabled:opacity-50"
+                                                                    >
+                                                                        Reprocess
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => confirmDeleteEmail(email)}
+                                                                        className="p-1 px-2 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                                                                    >
+                                                                        Delete
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        ) : activeView === 'documents' ? (
                             <>
                                 {/* Toolbar */}
                                 <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -535,22 +755,10 @@ export default function GroupKnowledgeBasePage() {
                                                     Reprocess Selected
                                                 </button>
                                                 <button
-                                                    onClick={
-                                                        handleOpenBulkDeleteModal
-                                                    }
+                                                    onClick={handleOpenBulkDeleteModal}
                                                     className="px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
                                                 >
                                                     Delete Selected
-                                                </button>
-                                                <button
-                                                    onClick={() =>
-                                                        setSelectedDocumentIds(
-                                                            []
-                                                        )
-                                                    }
-                                                    className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-md transition-colors"
-                                                >
-                                                    Clear
                                                 </button>
                                             </>
                                         )}
@@ -592,17 +800,17 @@ export default function GroupKnowledgeBasePage() {
                                             const folderName =
                                                 document.folder_id
                                                     ? folders.find(
-                                                          (f) =>
-                                                              f.id ===
-                                                              document.folder_id
-                                                      )?.name
+                                                        (f) =>
+                                                            f.id ===
+                                                            document.folder_id
+                                                    )?.name
                                                     : undefined;
 
                                             return (
                                                 <DocumentCard
                                                     key={document.id}
                                                     document={document}
-                                                    onView={() => {}}
+                                                    onView={() => { }}
                                                     onDelete={async () => {
                                                         await documentsApi.deleteDocument(
                                                             currentGroup.id,
@@ -693,6 +901,21 @@ export default function GroupKnowledgeBasePage() {
                     }}
                     onConfirm={handleReprocessDocument}
                     documentName={documentToReprocess?.filename}
+                />
+
+                {/* Email Modals */}
+                <ViewEmailModal
+                    isOpen={!!emailToView}
+                    onClose={() => setEmailToView(null)}
+                    email={emailToView}
+                />
+
+                <ConfirmDeleteDialog
+                    isOpen={!!emailToDelete}
+                    onClose={() => setEmailToDelete(null)}
+                    onConfirm={handleDeleteEmail}
+                    title="Delete Email"
+                    description={`Are you sure you want to delete "${emailToDelete?.subject || 'this email'}"? This cannot be undone.`}
                 />
             </div>
         </DashboardLayout>

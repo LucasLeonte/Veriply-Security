@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function SignupPage() {
     const router = useRouter();
+    const { login: authLogin } = useAuth();
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -45,11 +47,8 @@ export default function SignupPage() {
 
             const data = await res.json();
             if (data.access_token) {
-                if (rememberMe) {
-                    localStorage.setItem("access_token", data.access_token);
-                } else {
-                    sessionStorage.setItem("access_token", data.access_token);
-                }
+                // Use auth context to handle login
+                await authLogin(data.access_token, rememberMe);
             }
 
             // Redirect to group selection

@@ -1219,8 +1219,23 @@ async def websocket_queue_updates(
         # Try Redis pub-sub (optional)
         redis_available = False
         try:
-            redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
-            await redis_client.ping()
+            try:
+                redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                await redis_client.ping()
+            except Exception as first_error:
+                # Fallback for local development if 'redis' host resolution fails
+                if "redis" in settings.REDIS_URL and "getaddrinfo failed" in str(first_error):
+                    logger.warning(f"Redis connection failed with {settings.REDIS_URL}, attempting localhost fallback...")
+                    fallback_url = "redis://localhost:6379/0"
+                    if settings.REDIS_PASSWORD:
+                        fallback_url = f"redis://:{settings.REDIS_PASSWORD}@localhost:6379/0"
+                    
+                    redis_client = await aioredis.from_url(fallback_url, decode_responses=True)
+                    await redis_client.ping()
+                    logger.info("Connected to Redis via localhost fallback")
+                else:
+                    raise first_error
+
             pubsub = redis_client.pubsub()
             channel = f"hitl_queue:{tenant_id}"
             await pubsub.subscribe(channel)

@@ -300,6 +300,7 @@ export default function EmailsPage() {
                             <EmailDetail
                                 token={token}
                                 messageId={selectedEmailId}
+                                folder={activeFolder}
                                 onClose={() => setIsMobileListOpen(true)} // Back button for mobile
                             />
                         ) : (

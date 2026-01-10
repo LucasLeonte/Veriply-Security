@@ -27,6 +27,8 @@ from app.api.routes import hitl  # Story 3.4: HITL review queue
 from app.api.routes import integrations  # Story 6.2: Email integrations
 from app.api.routes import email_rules  # Story 6.3: Email monitoring rules
 from app.api.routes import verified_qa  # Story 7.3: Manual Q&A entry
+from app.api.routes import kb_emails  # KB emails separate from documents
+from app.api.routes import writing_style  # Story 6.5: Writing style matching
 from app.workers.email_poller import run_periodic as start_email_poller
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
 from app.services.profile_service import cleanup_inactive_users
@@ -113,6 +115,8 @@ app.include_router(review_queue.router)  # Review queue: /api/v1/bots/{bot_id}/r
 app.include_router(hitl.router)  # HITL review queue: /api/v1/hitl/queue
 app.include_router(integrations.router)  # Email integrations: /api/v1/integrations
 app.include_router(email_rules.router)  # Email monitoring rules: /api/v1/email-rules
+app.include_router(kb_emails.router, prefix="/api/v1")  # KB emails: /api/v1/kb-emails
+app.include_router(writing_style.router, prefix="/api/v1")  # Writing style: /api/v1/writing-style
 app.include_router(query.router, prefix="/api/v1")  # Legacy: /api/v1/query
 app.include_router(chat.router, prefix="/api/v1")  # Public chat: /api/v1/bots/{bot_id}/public, /api/v1/bots/{bot_id}/chat/query
 app.include_router(chat_history.router, prefix="/api/v1")  # Authenticated chat history
