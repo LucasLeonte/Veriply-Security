@@ -40,4 +40,4 @@ yarn-error.log*
 storage/avatars/
 storage/documents/
 /apps/api/storage/documents
-package.json
+

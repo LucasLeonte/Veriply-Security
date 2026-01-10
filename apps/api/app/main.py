@@ -29,28 +29,7 @@ from app.api.routes import email_rules  # Story 6.3: Email monitoring rules
 from app.api.routes import verified_qa  # Story 7.3: Manual Q&A entry
 from app.api.routes import kb_emails  # KB emails separate from documents
 from app.api.routes import writing_style  # Story 6.5: Writing style matching
-from app.workers.email_poller import run_periodic as start_email_poller
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
-from app.services.profile_service import cleanup_inactive_users
-from app.workers.retention import run_all_retention_jobs
-from apscheduler.schedulers.background import BackgroundScheduler
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-async def run_cleanup():
-    """Run the inactive users cleanup task."""
-    async with AsyncSessionLocal() as session:
-        await cleanup_inactive_users(session, days=30)
-
-
-async def run_retention_jobs():
-    """Run all data retention cleanup jobs."""
-    async with AsyncSessionLocal() as session:
-        await run_all_retention_jobs(session)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -58,29 +37,8 @@ async def lifespan(app: FastAPI):
     await enable_pgvector()
     await enable_rls()
     
-    # Start background cleanup scheduler
-    # Runs daily at 2 AM UTC for both inactive users and data retention
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(run_cleanup, "cron", hour=2, minute=0, id="cleanup_inactive_users")
-    scheduler.add_job(run_retention_jobs, "cron", hour=2, minute=5, id="cleanup_retention_data")
-    scheduler.start()
-    logger.info("Scheduled cleanup jobs:")
-    logger.info("  - Inactive users cleanup (daily at 2:00 AM UTC)")
-    logger.info("  - Data retention jobs (daily at 2:05 AM UTC)")
-    logger.info("    • Chat history (90 days)")
-    logger.info("    • Confidence logs (180 days)")
-    logger.info("    • HITL data (365 days)")
-    
-    # Start background email polling worker
-    try:
-        asyncio.create_task(start_email_poller(AsyncSessionLocal, settings.EMAIL_POLL_INTERVAL_SECONDS))
-    except Exception:
-        # Don't crash app if background task fails to start
-        pass
     yield
-    
-    # Shutdown
-    scheduler.shutdown()
+    # Shutdown logic if needed
 
 app = FastAPI(
     title="Veriply API",
