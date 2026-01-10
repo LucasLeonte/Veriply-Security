@@ -26,6 +26,7 @@ export default function EmailsPage() {
     // Mail State
     const [token, setToken] = useState<string | null>(null);
     const [integrations, setIntegrations] = useState<EmailIntegration[]>([]);
+    const [loadingIntegrations, setLoadingIntegrations] = useState(true);
     const [activeFolder, setActiveFolder] = useState<"INBOX" | "SENT">("INBOX");
     const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
     const [isMobileListOpen, setIsMobileListOpen] = useState(true);
@@ -63,6 +64,8 @@ export default function EmailsPage() {
             } catch (e: unknown) {
                 const msg = e instanceof Error ? e.message : "Failed to load integrations";
                 setError(msg);
+            } finally {
+                setLoadingIntegrations(false);
             }
         })();
     }, [token]);
@@ -210,6 +213,16 @@ export default function EmailsPage() {
     // -- Render --
 
     const selectedIntegration = integrations.find(i => i.id === selectedIntegrationId);
+
+    if (loadingIntegrations && token) {
+        return (
+            <DashboardLayout>
+                <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+            </DashboardLayout>
+        );
+    }
 
     if (integrations.length === 0 && token) {
         return (
