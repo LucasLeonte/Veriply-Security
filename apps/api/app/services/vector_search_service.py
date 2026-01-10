@@ -469,14 +469,106 @@ class VectorSearchService:
             )
 
         # Story 7.2: Return document results (verified KB already short-circuited above)
+        
+        # ============================================================
+        # STEP 3: Search KB Emails (Union with Documents)
+        # ============================================================
+        
+        # We need to search KBEmail table as well since it stores embeddings separately from Chunks
+        from app.models.kb_email import KBEmail
+        
+        email_stmt = (
+            select(
+                KBEmail.id,
+                KBEmail.subject,
+                KBEmail.body_text,
+                KBEmail.email_metadata,
+                KBEmail.embedding.cosine_distance(query_embedding).label("distance"),
+            )
+            .where(KBEmail.tenant_id == tenant_id)
+            .where(KBEmail.status == 'ready')
+            .where(KBEmail.embedding.isnot(None))
+            # Basic RLS: User can see emails if they have access to the group
+            # (Assuming same group-based access logic applies)
+            .where(KBEmail.group_id == group_id_val)
+            .order_by(text("distance"))
+            .limit(k * 2)
+        )
+        
+        email_result = await db.execute(email_stmt)
+        email_rows = email_result.all()
+        
+        # Normalize Email Results
+        for row in email_rows:
+            similarity = 1.0 - row.distance
+            if similarity >= similarity_threshold:
+                # Mock a "chunk" tuple structure or add directly to results list if refactored
+                # For minimal refactor, we'll append to a unified list of (item, type, similarity)
+                pass
+
+        # REFACTOR: Unified Search Result Construction
+        # 1. Document Chunks
+        unified_results = []
+        
+        for row, similarity in chunk_results:
+            chunk = row
+            doc = documents.get(chunk.document_id)
+            doc_name = doc.filename if doc else "Unknown"
+            
+            section = None
+            is_verified = False
+            if chunk.metadata_json:
+                try:
+                    import json
+                    meta = json.loads(chunk.metadata_json)
+                    section = meta.get("section")
+                    is_verified = bool(meta.get("verified") or meta.get("is_verified"))
+                except: pass
+
+            unified_results.append(SearchResult(
+                chunk_id=str(chunk.id),
+                document_id=str(chunk.document_id),
+                document_name=doc_name,
+                section=section,
+                text=chunk.content,
+                similarity=round(similarity, 4),
+                position=chunk.chunk_index,
+                page_number=chunk.page_number,
+                is_verified=is_verified
+            ))
+            
+        # 2. KB Emails
+        for row in email_rows:
+            similarity = 1.0 - row.distance
+            if similarity >= similarity_threshold:
+                # Use subject as document name, body as text
+                # We can construct a pseudo-chunk-id from email id
+                unified_results.append(SearchResult(
+                    chunk_id=f"email_{str(row.id)}",
+                    document_id=str(row.id),
+                    document_name=f"Email: {row.subject or 'No Subject'}",
+                    section="KB Email",
+                    text=row.body_text or "",
+                    similarity=round(similarity, 4),
+                    position=0,
+                    page_number=None,
+                    is_verified=False
+                ))
+        
+        # Sort combined results by similarity descending
+        unified_results.sort(key=lambda x: x.similarity, reverse=True)
+        
+        # Take top K
+        final_results = unified_results[:k]
+
         latency_ms = int((time.time() - start_time) * 1000)
         logger.info(
-            f"Document search completed: query='{query[:50]}...', "
-            f"bot_id={bot_id}, results={len(document_search_results)}, "
-            f"latency={latency_ms}ms (verified KB returned no matches, using RAG fallback)"
+            f"Hybrid search completed: query='{query[:50]}...', "
+            f"bot_id={bot_id}, results={len(final_results)} (docs+emails), "
+            f"latency={latency_ms}ms"
         )
 
-        return document_search_results, latency_ms
+        return final_results, latency_ms
 
 
 class VectorSearchError(Exception):
