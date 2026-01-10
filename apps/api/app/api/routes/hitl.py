@@ -898,6 +898,7 @@ async def approve_queue_item(
                         "question": item.query_text,
                         "citations": item.metadata_json.get("citations", []),
                         "timestamp": datetime.utcnow().isoformat(),
+                        "message_id": item.metadata_json.get("message_id"),
                     }
                     await redis_client.publish(chat_channel, json.dumps(chat_message))
                     await redis_client.close()

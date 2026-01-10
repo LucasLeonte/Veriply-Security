@@ -2,6 +2,7 @@
 
 import json
 import logging
+import string
 from typing import AsyncIterator, Optional
 from uuid import UUID, uuid4
 
@@ -12,6 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db, set_tenant_context
 from app.core.auth import decode_jwt
+from app.core.settings import settings
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request, Header, WebSocket, WebSocketDisconnect
+import redis.asyncio as aioredis
+import asyncio
+from typing import Dict, Set
 from app.models.bot import Bot
 from app.models.confidence_log import RoutingDecision
 from app.schemas.chat import ChatQueryRequest, ChatMessage, PublicBotInfo
@@ -308,6 +314,21 @@ async def chat_query(
                     detail="This widget is not authorized for this domain",
                 )
 
+        # Check for greeting/chitchat (bypass vector search)
+        normalized_query = request.query.strip().lower()
+        normalized_query = normalized_query.translate(str.maketrans('', '', string.punctuation))
+        
+        if normalized_query in GREETINGS:
+            logger.info(f"Greeting detected: '{request.query}', sending welcome message")
+            response = StreamingResponse(
+                _stream_greeting_response(getattr(bot, "welcome_message", None)),
+                media_type="text/event-stream",
+            )
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = "*"
+            return response
+
         # Retrieve relevant context from vector store
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
@@ -315,7 +336,7 @@ async def chat_query(
             tenant_id=tenant_id,
             query=request.query.strip(),
             k=3,
-            similarity_threshold=0.5,
+            similarity_threshold=0.70, # Increased to prevent irrelevant retrieval
         )
 
         if not search_results:
@@ -396,9 +417,9 @@ async def chat_query(
         ]
 
         # Build detailed citations for streaming metadata.
-        # Use the same threshold as vector search (0.5) so that
+        # Use the same threshold as vector search so that
         # every retrieved chunk is surfaced as a source.
-        CITATION_SIMILARITY_THRESHOLD = 0.5
+        CITATION_SIMILARITY_THRESHOLD = 0.70
         streaming_citations = [
             {
                 "source": result.document_name or "Unknown",
@@ -676,3 +697,153 @@ async def get_public_widget_config(
         )
 
     return WidgetConfigResponse(**cfg.to_dict())
+
+
+GREETINGS = {
+    "hey", "hi", "hello", "hallo", "hoi", "good morning", "good afternoon", "good evening",
+    "bonjour", "salut", "yo", "greetings", "start", "begin"
+}
+
+async def _stream_greeting_response(welcome_message: Optional[str] = None) -> AsyncIterator[str]:
+    """Stream a greeting response."""
+    message = welcome_message or "Hello! How can I help you today?"
+    
+    for char in message:
+        yield f"data: {json.dumps({'token': char})}\n\n"
+        
+    yield f"data: {json.dumps({'metadata': {'citations': [], 'chunks_used': 0, 'confidence': 1.0}})}\n\n"
+    yield "data: [DONE]\n\n"
+
+
+# ============================================================================
+# WebSocket for Real-Time Chat Updates
+# ============================================================================
+
+class ChatConnectionManager:
+    """
+    Manages WebSocket connections for chat sessions.
+    """
+    def __init__(self):
+        self.active_connections: Dict[str, Set[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, session_id: str):
+        await websocket.accept()
+        if session_id not in self.active_connections:
+            self.active_connections[session_id] = set()
+        self.active_connections[session_id].add(websocket)
+        logger.debug(f"WebSocket connected for session {session_id}")
+
+    def disconnect(self, websocket: WebSocket, session_id: str):
+        if session_id in self.active_connections:
+            self.active_connections[session_id].discard(websocket)
+            if not self.active_connections[session_id]:
+                del self.active_connections[session_id]
+        logger.debug(f"WebSocket disconnected for session {session_id}")
+
+    async def send_message(self, session_id: str, message: dict):
+        if session_id in self.active_connections:
+            for connection in self.active_connections[session_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception as e:
+                    logger.error(f"Error sending to chat connection: {e}")
+
+chat_connection_manager = ChatConnectionManager()
+
+@router.websocket("/{bot_id}/chat/ws/{session_id}")
+async def websocket_chat_endpoint(
+    websocket: WebSocket,
+    bot_id: UUID, 
+    session_id: str,
+):
+    """
+    WebSocket endpoint for real-time chat updates (e.g. approved answers).
+    Subscribes to Redis channel chat_session:{session_id}.
+    """
+    await chat_connection_manager.connect(websocket, session_id)
+    
+    redis_client = None
+    pubsub = None
+    
+    try:
+        # Connect to Redis
+        try:
+            redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            await redis_client.ping()
+        except Exception as first_error:
+             # Fallback logic similar to hitl.py
+             if "redis" in settings.REDIS_URL and "getaddrinfo failed" in str(first_error):
+                logger.warning(f"Redis connection failed with {settings.REDIS_URL}, attempting localhost fallback...")
+                fallback_url = "redis://localhost:6379/0"
+                if settings.REDIS_PASSWORD:
+                    fallback_url = f"redis://:{settings.REDIS_PASSWORD}@localhost:6379/0"
+                redis_client = await aioredis.from_url(fallback_url, decode_responses=True)
+             else:
+                raise first_error
+
+        pubsub = redis_client.pubsub()
+        channel = f"chat_session:{session_id}"
+        await pubsub.subscribe(channel)
+        logger.info(f"Chat WebSocket subscribed to {channel}")
+        
+        # Send initial connected message
+        await websocket.send_json({
+            "type": "connected",
+            "session_id": session_id,
+            "timestamp": asyncio.get_event_loop().time()
+        })
+
+        # Main loop: listen for Redis messages or client disconnect
+        while True:
+            try:
+                # We need to poll both websocket (for close) and redis
+                # Usually we just loop on redis, but if client disconnects we need to know.
+                # However, Starlette/FastAPI handles disconnect by raising WebSocketDisconnect
+                # when we try to send/receive.
+                
+                # Use a task to listen to Redis
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                
+                if message and message["type"] == "message":
+                    data = json.loads(message["data"])
+                    await websocket.send_json(data)
+                
+                # Check for client messages (pings) to keep alive
+                # Use wait_for to yield control
+                try:
+                    client_msg = await asyncio.wait_for(websocket.receive_text(), timeout=0.1)
+                    # If we receive something, pass
+                except asyncio.TimeoutError:
+                    pass
+                    
+            except WebSocketDisconnect:
+                break
+            except Exception as e:
+                # Only log non-disconnect errors
+                if "disconnect" not in str(e).lower():
+                    logger.error(f"Error in chat websocket loop: {e}")
+                break
+
+            # Small sleep to prevent tight loop
+            await asyncio.sleep(0.1)
+            
+    except Exception as e:
+        logger.error(f"Chat WebSocket error: {e}")
+        try:
+            await websocket.close(code=status.WS_1011_SERVER_ERROR)
+        except:
+            pass
+            
+    finally:
+        chat_connection_manager.disconnect(websocket, session_id)
+        if pubsub:
+            try:
+                await pubsub.unsubscribe()
+                await pubsub.close()
+            except:
+                pass
+        if redis_client:
+            try:
+                await redis_client.close()
+            except:
+                pass

@@ -149,13 +149,14 @@ class LLMService:
 Your role is to answer questions based ONLY on the provided context.
 
 CRITICAL RULES:
-1. Answer ONLY using the provided context
-2. If the context doesn't contain the answer, say "I don't have information about that in the knowledge base."
-3. NEVER make up facts
-4. NEVER use outside knowledge
-5. NEVER hallucinate details
-6. Be sure that your answers are traceable back to the source
-7. Be clear and concise
+1. Answer ONLY using the provided KNOWLEDGE BASE CONTEXT.
+2. Do NOT assume that the provided KNOWLEDGE BASE CONTEXT belongs to the current conversation history unless explicitly stated.
+3. If the KNOWLEDGE BASE CONTEXT doesn't contain the answer, say "I don't have information about that in the knowledge base."
+4. NEVER make up facts.
+5. NEVER use outside knowledge.
+6. NEVER hallucinate details.
+7. Do not synthesize a response from irrelevant context just to be helpful.
+8. Be clear and concise.
 
 When answering:
 - Cite the source for important facts: "According to [Source]..."
@@ -179,20 +180,22 @@ When answering:
         # Build conversation context section if provided
         conversation_section = ""
         if conversation_context:
-            conversation_section = f"""## Conversation Context
+            conversation_section = f"""## Current Conversation History
+(This is what has been said in the CURRENT session. Do not confuse this with the Knowledge Base.)
 {conversation_context}
 
 """
         # Handle empty context
         if not context_chunks:
-            return f"""{conversation_section}Context from our knowledge base:
+            return f"""{conversation_section}## Knowledge Base Context
+(Potential information retrieved from the database - MAY BE IRRELEVANT)
 [No documents found in knowledge base]
 
 ---
 
 Question: {query}
 
-Answer (based ONLY on the context above):"""
+Answer (based ONLY on the relevant Knowledge Base Context above):"""
 
         # Format context chunks with source labels and separators
         context_sections = []
@@ -202,7 +205,8 @@ Answer (based ONLY on the context above):"""
 
         context_text = "\n---\n".join(context_sections)
 
-        return f"""{conversation_section}Context from our knowledge base:
+        return f"""{conversation_section}## Knowledge Base Context
+(Potential information retrieved from the database - MAY BE IRRELEVANT. Ignore if not useful.)
 
 {context_text}
 
@@ -210,7 +214,7 @@ Answer (based ONLY on the context above):"""
 
 Question: {query}
 
-Answer (based ONLY on the context above):"""
+Answer (based ONLY on the relevant Knowledge Base Context above):"""
 
     def _format_source(self, chunk: SearchResult) -> str:
         """Format source citation for a chunk.

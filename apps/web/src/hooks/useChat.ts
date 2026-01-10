@@ -122,6 +122,132 @@ export function useChat(
         };
     }, [botId]);
 
+    // WebSocket for real-time updates (e.g. approved answers from HITL)
+    const wsRef = useRef<WebSocket | null>(null);
+    const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    const connectWebSocket = useCallback(() => {
+        if (typeof window === "undefined" || !sessionIdRef.current) return;
+
+        // Avoid duplicate connections
+        if (
+            wsRef.current &&
+            (wsRef.current.readyState === WebSocket.OPEN ||
+                wsRef.current.readyState === WebSocket.CONNECTING)
+        ) {
+            return;
+        }
+
+        const getWsUrl = () => {
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            // Check if we need to use a relative path (for proxy) or absolute
+            // If API_URL is absolute, replace protocol
+            if (apiUrl.startsWith("http")) {
+                const wsProtocol = apiUrl.startsWith("https") ? "wss" : "ws";
+                const hostPath = apiUrl.replace(/^https?:\/\//, "");
+                return `${wsProtocol}://${hostPath}/api/v1/bots/${botId}/chat/ws/${sessionIdRef.current}`;
+            }
+            // Fallback for relative paths
+            const protocol =
+                window.location.protocol === "https:" ? "wss:" : "ws:";
+            return `${protocol}//${window.location.host}/api/v1/bots/${botId}/chat/ws/${sessionIdRef.current}`;
+        };
+
+        const wsUrl = getWsUrl();
+
+        try {
+            console.log(`[Chat] Connecting to WebSocket: ${wsUrl}`);
+            const ws = new WebSocket(wsUrl);
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                console.log("[Chat] WebSocket connected");
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.type === "approved_answer") {
+                        setMessages((prev) => {
+                            // 1. Try to find and update existing message by ID
+                            if (data.message_id) {
+                                const exists = prev.find(
+                                    (m) => m.id === data.message_id
+                                );
+                                if (exists) {
+                                    return prev.map((m) =>
+                                        m.id === data.message_id
+                                            ? {
+                                                ...m,
+                                                content: data.answer,
+                                                citations: data.citations || m.citations,
+                                                trustLevel: "verified",
+                                                sourceType: "hitl",
+                                                confidence: 1.0,
+                                            }
+                                            : m
+                                    );
+                                }
+                            }
+
+                            // 2. Fallback: check for duplication by content
+                            const alreadyExists = prev.some(
+                                (m) =>
+                                    m.sourceType === "hitl" &&
+                                    m.content === data.answer
+                            );
+                            if (alreadyExists) return prev;
+
+                            // 3. Append as new message
+                            const newMsg: ChatMessage = {
+                                id: data.message_id || uuidv4(),
+                                role: "assistant",
+                                content: data.answer,
+                                timestamp: Date.now(),
+                                confidence: 1.0,
+                                trustLevel: "verified",
+                                sourceType: "hitl",
+                                citations: data.citations,
+                            };
+                            return [...prev, newMsg];
+                        });
+                    }
+                } catch (e) {
+                    // ignore errors
+                }
+            };
+
+            ws.onclose = () => {
+                wsRef.current = null;
+                // Reconnect after delay
+                reconnectTimeoutRef.current = setTimeout(() => {
+                    connectWebSocket();
+                }, 3000);
+            };
+
+            ws.onerror = (e) => {
+                console.error("[Chat] WebSocket error", e);
+            };
+        } catch (e) {
+            console.error(e);
+        }
+    }, [botId]);
+
+    useEffect(() => {
+        connectWebSocket();
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current);
+            }
+        };
+    }, [connectWebSocket]);
+
     const lastQueryRef = useRef<string>("");
     const streamingMessageRef = useRef<ChatMessage | null>(null);
     const contextWindow = useMemo(() => {
@@ -348,7 +474,7 @@ export function useChat(
                 setLoading(false);
                 setError(
                     err.message ||
-                        "Sorry, I encountered an issue. Please try again."
+                    "Sorry, I encountered an issue. Please try again."
                 );
 
                 // Remove incomplete assistant message
@@ -520,9 +646,8 @@ export function useChat(
                                 reason,
                                 status: "pending",
                                 timestamp: Date.now(),
-                                message: `Retrying... (attempt ${
-                                    attempt + 1
-                                }/${maxRetries})`,
+                                message: `Retrying... (attempt ${attempt + 1
+                                    }/${maxRetries})`,
                                 retryAttempt: attempt,
                             },
                         }));
