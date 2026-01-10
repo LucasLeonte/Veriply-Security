@@ -29,8 +29,8 @@ async def run_retention():
 async def main():
     logger.info("Starting Veriply Background Worker...")
     
-    # Initialize DB (creates pool)
-    await init_db()
+    # Initialize DB (creates pool) - API handles schema creation
+    # await init_db()
     
     # Scheduler for Cron Tasks
     scheduler = AsyncIOScheduler()
