@@ -103,7 +103,6 @@
 | [Team Welcome](docs/team/TEAM-WELCOME.md) | New member onboarding |
 | [Team Quick Reference](docs/team/TEAM-QUICK-REF.md) | Quick lookup guide |
 | [Moderation Guide](docs/security/moderation-guide.md) | Content moderation guidelines |
-| [Incident Response Plan](docs/security/INCIDENT-RESPONSE-PLAN.md) | Crisis response procedures |
 
 ---
 
