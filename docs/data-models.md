@@ -9,53 +9,94 @@
 
 ## Entity Relationship Diagram
 
-```
-┌──────────────────┐
-│    Tenant        │ (Organization)
-└────────┬─────────┘
-         │ 1:N
-    ┌────┴────────────────────────────────┐
-    │                                      │
-    ▼                                      ▼
-┌──────────────┐                    ┌──────────────┐
-│    User      │                    │    Group     │
-└──────┬───────┘                    └──────┬───────┘
-       │ 1:N                               │ 1:N
-       │                                   │
-       └───────────────┬────────────────────┘
-                       │
-                    ┌──▼───────────┐
-                    │  Bot         │
-                    └──┬───────┬───┘
-                       │       │
-                ┌──────┘       └────────┐
-                │                       │
-                ▼                       ▼
-         ┌────────────┐          ┌─────────────┐
-         │  Document  │          │   Folder    │
-         └─┬──────────┘          └─────────────┘
-           │ 1:N
-           ▼
-         ┌────────────┐
-         │  Chunk     │ (Text segments)
-         └─┬──────────┘
-           │ 1:N
-           ▼
-         ┌────────────┐
-         │ Embedding  │ (pgvector)
-         └────────────┘
+```mermaid
+erDiagram
+    TENANT ||--o{ USER : contains
+    TENANT ||--o{ GROUP : contains
+    USER ||--o{ CHATMESSAGE : sends
+    USER ||--o{ FEEDBACK : submits
+    GROUP ||--o{ BOT : contains
+    BOT ||--o{ DOCUMENT : has
+    BOT ||--o{ FOLDER : organizes
+    BOT ||--o{ CHATMESSAGE : receives
+    BOT ||--o{ CONFIDENCELOG : tracks
+    BOT ||--o{ VERIFIEDQA : contains
+    DOCUMENT ||--o{ CHUNK : contains
+    CHUNK ||--o{ EMBEDDING : generates
+    CHATMESSAGE ||--o{ FEEDBACK : receives
+    CHATMESSAGE ||--o{ CONFIDENCELOG : creates
+    FOLDER ||--o{ DOCUMENT : groups
+    TENANT ||--o{ EMAILINTEGRATION : has
+    TENANT ||--o{ AUDITLOG : logs
+    BOT ||--o{ EMAILMONITORINGRULE : defines
+    BOT ||--o{ EMAILPROCESSINGQUEUE : processes
+    USER ||--o{ AUDITLOG : triggers
 
-         ┌──────────────────┐
-         │ ChatMessage      │
-         └──────────────────┘
-         
-         ┌──────────────────┐
-         │ ConfidenceLog    │
-         └──────────────────┘
-         
-         ┌──────────────────┐
-         │ Feedback         │
-         └──────────────────┘
+    TENANT {
+        UUID id
+        String name
+    }
+    USER {
+        UUID id
+        String email
+    }
+    GROUP {
+        UUID id
+        String name
+    }
+    BOT {
+        UUID id
+        String name
+        String status
+    }
+    DOCUMENT {
+        UUID id
+        String filename
+    }
+    CHUNK {
+        UUID id
+        Text text
+    }
+    EMBEDDING {
+        UUID id
+        vector embedding
+    }
+    CHATMESSAGE {
+        UUID id
+        String message
+    }
+    FOLDER {
+        UUID id
+        String name
+    }
+    FEEDBACK {
+        UUID id
+        String rating
+    }
+    CONFIDENCELOG {
+        UUID id
+        Integer confidence
+    }
+    VERIFIEDQA {
+        UUID id
+        Text question
+    }
+    EMAILINTEGRATION {
+        UUID id
+        String email_address
+    }
+    EMAILMONITORINGRULE {
+        UUID id
+        String name
+    }
+    EMAILPROCESSINGQUEUE {
+        UUID id
+        String status
+    }
+    AUDITLOG {
+        UUID id
+        String action
+    }
 ```
 
 ## Core Tables

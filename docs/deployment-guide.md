@@ -4,44 +4,39 @@
 
 Veriply uses Docker Compose for orchestration with the following services:
 
-```
-┌─────────────────────────────────────────────────────┐
-│              Client Layer (Browser)                 │
-└────────────┬────────────────────────────────────────┘
-             │ HTTPS
-┌────────────▼────────────────────────────────────────┐
-│         Nginx Reverse Proxy (Port 80/443)           │
-│  - Static file serving (Next.js build)              │
-│  - API proxy to FastAPI backend                     │
-│  - SSL/TLS termination                              │
-└────────────┬────────────────────────────────────────┘
-             │
-    ┌────────┴─────────┐
-    │                  │
-┌───▼───────┐  ┌──────▼────────┐
-│ Next.js   │  │  FastAPI      │
-│ Port 3000 │  │  Port 8000    │
-└───┬───────┘  └──────┬────────┘
-    │                 │
-    │        ┌────────┴─────────┐
-    │        │                  │
-    └────────▼──────────────────┴──────┐
-             │                          │
-      ┌──────▼──────┐          ┌───────▼──────┐
-      │ PostgreSQL  │          │    Redis     │
-      │ Port 5432   │          │  Port 6379   │
-      │ (External)  │          │  (Alpine)    │
-      └─────────────┘          └──────────────┘
-             ▲
-             │
-      ┌──────▴──────────┐
-      │ pgvector        │
-      │ HNSW Index      │
-      └─────────────────┘
-
-Background Services:
-  - Celery Worker (email polling, retention jobs)
-  - Ollama LLM Inference (local model serving)
+```mermaid
+graph TB
+    CLIENT["🌐 Client Layer<br/>(Browser)"]
+    NGINX["🔄 Nginx Reverse Proxy<br/>(Port 80/443)<br/>Static files | API proxy | SSL/TLS"]
+    NEXTJS["⚛️ Next.js Frontend<br/>(Port 3000)<br/>React + TypeScript"]
+    FASTAPI["🐍 FastAPI Backend<br/>(Port 8000)<br/>Python async"]
+    POSTGRES["🗄️ PostgreSQL<br/>(Port 5432)<br/>External at 10.2.160.214"]
+    PGVECTOR["📦 pgvector<br/>HNSW Index<br/>Vector Search"]
+    REDIS["⚡ Redis<br/>(Port 6379)<br/>Alpine<br/>Cache & Queue"]
+    CELERY["🔄 Celery Worker<br/>Email polling<br/>Retention jobs"]
+    OLLAMA["🤖 Ollama LLM<br/>Model serving<br/>bge-m3 | Qwen 2.5"]
+    
+    CLIENT -->|HTTPS| NGINX
+    NGINX --> NEXTJS
+    NGINX --> FASTAPI
+    NEXTJS --> FASTAPI
+    FASTAPI --> POSTGRES
+    FASTAPI --> REDIS
+    FASTAPI --> OLLAMA
+    POSTGRES --> PGVECTOR
+    CELERY --> POSTGRES
+    CELERY --> REDIS
+    CELERY --> OLLAMA
+    
+    style CLIENT fill:#e1f5ff,color:#000
+    style NGINX fill:#fff3e0,color:#000
+    style NEXTJS fill:#f3e5f5,color:#000
+    style FASTAPI fill:#e8f5e9,color:#000
+    style POSTGRES fill:#fce4ec,color:#000
+    style PGVECTOR fill:#f1f8e9,color:#000
+    style REDIS fill:#fff9c4,color:#000
+    style CELERY fill:#e0f2f1,color:#000
+    style OLLAMA fill:#ede7f6,color:#000
 ```
 
 ## Docker Compose Configuration
