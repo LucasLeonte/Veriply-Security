@@ -63,6 +63,21 @@ const nextConfig: NextConfig = {
 
     // Output configuration
     output: "standalone", // For Docker deployment
+
+    // Rewrites to proxy API requests to backend
+    async rewrites() {
+        return [
+            {
+                source: "/api/:path*",
+                destination: `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/:path*`,
+            },
+            // Also proxy avatars if not handled by images.remotePatterns
+            {
+                source: "/avatars/:path*",
+                destination: `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/avatars/:path*`,
+            },
+        ];
+    },
 };
 
 export default nextConfig;

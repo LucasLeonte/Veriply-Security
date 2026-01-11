@@ -59,6 +59,17 @@ NO_ANSWER_PATTERNS = [
     "outside my knowledge",
     "beyond my knowledge",
     "not able to find",
+    # Dutch patterns
+    "is niet vermeld",
+    "geen informatie",
+    "niet gevonden",
+    "ik weet het niet",
+    "ik kan geen antwoord geven",
+    "geen antwoord vinden",
+    "buiten mijn kennis",
+    "kan dit niet beantwoorden",
+    "niet beschikbaar",
+    "ik heb geen informatie",
 ]
 
 
@@ -507,24 +518,42 @@ class ConfidenceCalculatorService:
         from sqlalchemy.future import select
         
         try:
-            # Dedup check: prevent duplicate entries for the same query within 5 seconds
-            # This handles React StrictMode double-invocations
-            dedup_window = datetime.utcnow() - timedelta(seconds=5)
-            query_text_truncated = query[:500] if query else None
+            # Dedup check: prevent duplicate entries
+            # If message_id is provided, use it for strict idempotency
+            # Otherwise fall back to query_text + time window (legacy behavior)
+            message_id = metadata_json.get("message_id") if metadata_json else None
             
-            existing = await db.execute(
-                select(ConfidenceLog.id).where(
-                    and_(
-                        ConfidenceLog.bot_id == bot_id,
-                        ConfidenceLog.tenant_id == tenant_id,
-                        ConfidenceLog.query_text == query_text_truncated,
-                        ConfidenceLog.created_at >= dedup_window,
-                    )
-                ).limit(1)
-            )
-            if existing.scalar_one_or_none() is not None:
-                logger.debug(f"Skipping duplicate confidence log for query: {query_text_truncated[:50]}...")
-                return
+            if message_id:
+                # Check for existing log with same message_id
+                existing = await db.execute(
+                    select(ConfidenceLog.id).where(
+                        and_(
+                            ConfidenceLog.bot_id == bot_id,
+                            ConfidenceLog.metadata_json.op('->>')('message_id') == message_id
+                        )
+                    ).limit(1)
+                )
+                if existing.scalar_one_or_none() is not None:
+                    logger.debug(f"Skipping duplicate confidence log for message_id: {message_id}")
+                    return
+            else:
+                # Legacy dedup: same query within 5 seconds
+                dedup_window = datetime.utcnow() - timedelta(seconds=5)
+                query_text_truncated = query[:500] if query else None
+                
+                existing = await db.execute(
+                    select(ConfidenceLog.id).where(
+                        and_(
+                            ConfidenceLog.bot_id == bot_id,
+                            ConfidenceLog.tenant_id == tenant_id,
+                            ConfidenceLog.query_text == query_text_truncated,
+                            ConfidenceLog.created_at >= dedup_window,
+                        )
+                    ).limit(1)
+                )
+                if existing.scalar_one_or_none() is not None:
+                    logger.debug(f"Skipping duplicate confidence log for query: {query_text_truncated[:50]}...")
+                    return
 
             # Guard: Do not re-queue questions that were previously resolved (approved or rejected)
             try:

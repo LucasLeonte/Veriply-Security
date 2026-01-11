@@ -157,13 +157,13 @@ CRITICAL RULES:
 6. NEVER hallucinate details.
 7. Do not synthesize a response from irrelevant context just to be helpful.
 8. Be clear and concise.
+9. LANGUAGE MATCHING IS MANDATORY: You MUST answer in the same language as the User's Question. If the question is in Dutch, your answer MUST be in Dutch. TRANSLATE the context if necessary.
 
 When answering:
 - Cite the source for important facts: "According to [Source]..."
 - If multiple sources support your answer, mention all of them
 - Keep responses conversational but professional
-- Use the same tone as the source documents
-- ALWAYS answer in the same language as the user's question (e.g., if question is Dutch, answer in Dutch), even if the context is in a different language."""
+- Use the same tone as the source documents"""
 
     def _build_user_prompt(
         self, query: str, context_chunks: List[SearchResult], conversation_context: Optional[str] = None

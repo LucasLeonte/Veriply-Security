@@ -511,6 +511,7 @@ async def chat_query(
             query=request.query.strip(),
             search_results=search_results,
             confidence_threshold=threshold,
+            group_id=bot.group_id,
             is_verified_kb=is_verified_kb,
             metadata_json={
                 "confidence_threshold": threshold,
@@ -527,19 +528,46 @@ async def chat_query(
         # Stream the AI draft regardless of confidence - frontend will handle review queue submission
         # The ConfidenceLog is already created with routing_decision=hitl, so the review queue
         # will pick it up when the frontend submits it
+        
+        # Story 7.2 Enhancement: If routing to HITL (low confidence), HIDE the draft from the user
+        # and display a generic "checking with team" message. The original draft is sent in metadata
+        # so the frontend can still submit it to the review queue.
+        if confidence_result.routing_decision == RoutingDecision.hitl or getattr(confidence_result.routing_decision, "value", str(confidence_result.routing_decision)) == "hitl":
+            logger.info(f"Low confidence ({confidence_value:.2f}), suppressing draft and routing to HITL.")
+            
+            # Use the generic wait message tokens
+            wait_message = "I am not confident enough to answer this question accurately. I have sent it to the team for review, and you will receive an answer shortly."
+            response_tokens = [wait_message] # Send as single block or char-by-char doesn't matter much for static
+            
+            # Suppress citations for the user view (don't show sources for an 'I don't know')
+            response_citations = []
+            
+            # Ensure the full actual draft is in metadata for the review queue
+            extra_meta = {
+                "confidence": confidence_value,
+                "verified": False,
+                "trust_level": "pending", # Show orange clock icon
+                "source_type": "rag",
+                "routing_decision": "hitl",
+                "ai_draft": ai_draft, # CRITICAL: used by frontend to submit to queue
+            }
+        else:
+            # High confidence: show actual draft and citations
+            response_tokens = draft_tokens
+            response_citations = streaming_citations
+            extra_meta = {
+                "confidence": confidence_value,
+                "verified": False,
+                "trust_level": "ai_generated",
+                "source_type": "rag",
+                "routing_decision": "auto_send",
+            }
+
         response = StreamingResponse(
             _stream_precomputed_response(
-                tokens=draft_tokens,
-                citations=streaming_citations,
-                extra_metadata={
-                    "confidence": confidence_value,
-                    # Story 7.2: Mark as AI-generated from RAG
-                    "verified": False,
-                    "trust_level": "ai_generated",
-                    "source_type": "rag",
-                    # Include routing decision for frontend to handle appropriately
-                    "routing_decision": confidence_result.routing_decision.value,
-                },
+                tokens=response_tokens,
+                citations=response_citations,
+                extra_metadata=extra_meta,
                 response_id=confidence_result.query_id,
             ),
             media_type="text/event-stream",
@@ -578,7 +606,7 @@ async def get_message_status(
 
     Args:
         - bot_id: UUID of the bot
-        - message_id: ID of the pending message
+        - message_id: ID of the pending message (frontend-generated ID sent in query)
 
     Returns:
         - 200: { status: "pending" | "resolved", response?: {...} }
@@ -593,21 +621,54 @@ async def get_message_status(
                 detail="Bot not found",
             )
 
-        # TODO: Implement message status tracking in database
-        # For now, return pending status as placeholder
-        # In production:
-        # 1. Query message_status table to get current status
-        # 2. If status == "resolved", fetch and return the verified response
-        # 3. If status == "pending", return pending status
-        # 4. If message not found, return 404
-
         logger.debug(f"Checking status for message {message_id} in bot {bot_id}")
 
-        # Placeholder response - implement when HITL queue is ready
-        return {
-            "status": "pending",
-            "error": "Message status tracking not yet implemented",
-        }
+        # Query ConfidenceLog to find the item corresponding to this message_id
+        # We look inside metadata_json for the 'message_id' key
+        # Note: Using op('->>') for Postgres JSON text extraction
+        from app.models.confidence_log import ConfidenceLog
+        from sqlalchemy import desc
+
+        stmt = select(ConfidenceLog).where(
+            ConfidenceLog.bot_id == bot_id,
+            ConfidenceLog.metadata_json.op('->>')('message_id') == message_id
+        ).order_by(desc(ConfidenceLog.created_at)).limit(1)
+
+        result = await db.execute(stmt)
+        log_entry = result.scalar_one_or_none()
+
+        if not log_entry:
+            # If not found, it might simply not be created yet or ID is wrong
+            # Return 404 so client stops polling or retries
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Message log not found",
+            )
+
+        if log_entry.hitl_resolved:
+            # Resolved! Return the approved answer
+            metadata = log_entry.metadata_json or {}
+            
+            # Prefer human edited answer, fallback to AI draft (though resolved usually means human touched it)
+            final_content = metadata.get("human_final_answer") or metadata.get("ai_draft") or ""
+            
+            return {
+                "status": "resolved",
+                "response": {
+                    "id": str(log_entry.id), # Return backend ID or keep original? Frontend might not care
+                    "role": "assistant",
+                    "content": final_content,
+                    "confidence": 1.0,
+                    "trustLevel": "verified",
+                    "sourceType": "hitl",
+                    "timestamp": int(log_entry.resolution_timestamp.timestamp() * 1000) if log_entry.resolution_timestamp else None,
+                }
+            }
+        else:
+            # Still pending
+            return {
+                "status": "pending"
+            }
 
     except HTTPException:
         raise

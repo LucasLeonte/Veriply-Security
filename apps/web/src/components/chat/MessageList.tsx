@@ -30,13 +30,14 @@ interface MessageListProps {
         answerId?: string;
         type: "positive" | "negative";
         reason?:
-            | "incorrect"
-            | "not_helpful"
-            | "incomplete"
-            | "harmful"
-            | "other";
+        | "incorrect"
+        | "not_helpful"
+        | "incomplete"
+        | "harmful"
+        | "other";
         notes?: string;
     }) => Promise<{ success: boolean; error?: string } | void>;
+    onMessageUpdate?: (messageId: string, updates: Partial<ChatMessage>) => void;
 }
 
 export default function MessageList({
@@ -50,6 +51,7 @@ export default function MessageList({
     contextWindowSize = 10,
     feedbackState = {},
     onSubmitFeedback,
+    onMessageUpdate,
 }: MessageListProps) {
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const [selectedCitation, setSelectedCitation] = useState<Citation | null>(
@@ -102,7 +104,7 @@ export default function MessageList({
                     name: data?.name,
                     avatar_url: data?.avatar_url,
                 });
-            } catch (err) {}
+            } catch (err) { }
         };
 
         loadUserProfile();
@@ -214,11 +216,10 @@ export default function MessageList({
                     .map((message) => (
                         <div
                             key={message.id}
-                            className={`flex gap-3 ${
-                                message.role === "user"
-                                    ? "justify-end"
-                                    : "justify-start"
-                            }`}
+                            className={`flex gap-3 ${message.role === "user"
+                                ? "justify-end"
+                                : "justify-start"
+                                }`}
                         >
                             {message.role === "assistant" && (
                                 <Avatar className="h-8 w-8 mt-1">
@@ -233,29 +234,38 @@ export default function MessageList({
                             )}
 
                             <div
-                                className={`flex flex-col gap-1 max-w-[85%] md:max-w-[75%] ${
-                                    message.role === "user"
-                                        ? "items-end"
-                                        : "items-start"
-                                }`}
+                                className={`flex flex-col gap-1 max-w-[85%] md:max-w-[75%] ${message.role === "user"
+                                    ? "items-end"
+                                    : "items-start"
+                                    }`}
                             >
                                 {/* Pending verification state */}
                                 {message.role === "assistant" &&
-                                message.trustLevel === "pending" &&
-                                botId ? (
+                                    message.trustLevel === "pending" &&
+                                    botId ? (
                                     <div className="w-full">
                                         <PendingVerification
                                             messageId={message.id}
                                             botId={botId}
+                                            onVerified={(response) => {
+                                                onMessageUpdate?.(message.id, {
+                                                    content: response.content,
+                                                    trustLevel: response.trustLevel || "verified",
+                                                    confidence: 1.0,
+                                                    sourceType: "hitl",
+                                                    // Ensure we keep the local ID, or update if response has one
+                                                    // response.id from backend might be different (UUID vs int or differnt UUID)
+                                                    // usually safe to keep local ID for React keys, but could store backend ID in metadata
+                                                });
+                                            }}
                                         />
                                     </div>
                                 ) : (
                                     <div
-                                        className={`w-full px-5 py-3 shadow-sm ${
-                                            message.role === "user"
-                                                ? "bg-gradient-to-br from-sky-600 to-blue-600 text-white rounded-2xl rounded-tr-sm"
-                                                : "bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-sm"
-                                        }`}
+                                        className={`w-full px-5 py-3 shadow-sm ${message.role === "user"
+                                            ? "bg-gradient-to-br from-sky-600 to-blue-600 text-white rounded-2xl rounded-tr-sm"
+                                            : "bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-sm"
+                                            }`}
                                     >
                                         {message.role === "user" ? (
                                             <p className="text-sm whitespace-pre-wrap text-left">
@@ -333,68 +343,66 @@ export default function MessageList({
 
                                                 {message.confidence !==
                                                     undefined && (
-                                                    <div className="mt-3 pt-3 border-t border-slate-100">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-xs font-medium text-slate-500">
-                                                                Certainty
-                                                            </span>
-                                                            <span
-                                                                className={`text-xs font-semibold ${
-                                                                    message.confidence >
-                                                                    0.75
+                                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <span className="text-xs font-medium text-slate-500">
+                                                                    Certainty
+                                                                </span>
+                                                                <span
+                                                                    className={`text-xs font-semibold ${message.confidence >
+                                                                        0.75
                                                                         ? "text-green-600"
                                                                         : message.confidence >
-                                                                          0.3
-                                                                        ? "text-amber-600"
-                                                                        : "text-red-600"
-                                                                }`}
-                                                            >
-                                                                {Math.round(
-                                                                    message.confidence *
-                                                                        100
-                                                                )}
-                                                                %
-                                                            </span>
-                                                        </div>
-                                                        <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full rounded-full transition-all duration-500 ${
-                                                                    message.confidence >
-                                                                    0.75
-                                                                        ? "bg-green-500"
-                                                                        : message.confidence >
-                                                                          0.3
-                                                                        ? "bg-amber-500"
-                                                                        : "bg-red-500"
-                                                                }`}
-                                                                style={{
-                                                                    width: `${Math.round(
+                                                                            0.3
+                                                                            ? "text-amber-600"
+                                                                            : "text-red-600"
+                                                                        }`}
+                                                                >
+                                                                    {Math.round(
                                                                         message.confidence *
-                                                                            100
-                                                                    )}%`,
-                                                                }}
-                                                            />
-                                                        </div>
-                                                        {/* Low confidence messages are automatically routed to HITL review by the backend */}
-                                                        {message.confidence <
-                                                            (confidenceThresholdPercent
-                                                                ? confidenceThresholdPercent /
-                                                                  100
-                                                                : 0.8) && (
-                                                            <div className="mt-2 flex items-center gap-1.5 text-xs">
-                                                                <AlertCircle className="h-3 w-3 text-amber-500" />
-                                                                <span className="text-amber-600">
-                                                                    Sent to team
-                                                                    for review
+                                                                        100
+                                                                    )}
+                                                                    %
                                                                 </span>
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                                <div
+                                                                    className={`h-full rounded-full transition-all duration-500 ${message.confidence >
+                                                                        0.75
+                                                                        ? "bg-green-500"
+                                                                        : message.confidence >
+                                                                            0.3
+                                                                            ? "bg-amber-500"
+                                                                            : "bg-red-500"
+                                                                        }`}
+                                                                    style={{
+                                                                        width: `${Math.round(
+                                                                            message.confidence *
+                                                                            100
+                                                                        )}%`,
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            {/* Low confidence messages are automatically routed to HITL review by the backend */}
+                                                            {message.confidence <
+                                                                (confidenceThresholdPercent
+                                                                    ? confidenceThresholdPercent /
+                                                                    100
+                                                                    : 0.8) && (
+                                                                    <div className="mt-2 flex items-center gap-1.5 text-xs">
+                                                                        <AlertCircle className="h-3 w-3 text-amber-500" />
+                                                                        <span className="text-amber-600">
+                                                                            Sent to team
+                                                                            for review
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                        </div>
+                                                    )}
 
                                                 {message.citations &&
                                                     message.citations.length >
-                                                        0 && (
+                                                    0 && (
                                                         <div className="mt-4 pt-3 border-t border-slate-100">
                                                             <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                                                                 Sources

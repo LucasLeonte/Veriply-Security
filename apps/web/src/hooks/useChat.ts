@@ -778,5 +778,12 @@ export function useChat(
         feedbackError,
         submitFeedbackForMessage,
         startNewSession,
+        updateMessage: (messageId: string, updates: Partial<ChatMessage>) => {
+            setMessages((prev) =>
+                prev.map((msg) =>
+                    msg.id === messageId ? { ...msg, ...updates } : msg
+                )
+            );
+        },
     };
 }

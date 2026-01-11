@@ -451,8 +451,13 @@ class VectorSearchService:
                 Chunk.metadata_json,
                 Chunk.vector.cosine_distance(query_embedding).label("distance"),
             )
-            .where(and_(*base_conditions))
-            .order_by(text("distance"))
+            .join(Document, Chunk.document_id == Document.id)  # Join Document to check deleted status
+            .where(
+                and_(
+                    *base_conditions,
+                    Document.deleted_at.is_(None)  # Exclude soft-deleted documents
+                )
+            )
             .order_by(text("distance"))
             .limit(k * 10)  # Get many candidates to apply diversity filtering
         )
