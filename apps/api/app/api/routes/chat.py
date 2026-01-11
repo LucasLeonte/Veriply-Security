@@ -34,7 +34,6 @@ from app.services.chat_message_service import ChatMessageService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bots", tags=["chat"])
-router = APIRouter(prefix="/bots", tags=["chat"])
 context_service = ContextService()
 chat_message_service = ChatMessageService()
 
@@ -766,19 +765,26 @@ async def websocket_chat_endpoint(
     pubsub = None
     
     try:
-        # Connect to Redis
+        # Connect to Redis with robust fallback
         try:
+            # Try configured URL first
             redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
             await redis_client.ping()
         except Exception as first_error:
-             # Fallback logic similar to hitl.py
-             if "redis" in settings.REDIS_URL and "getaddrinfo failed" in str(first_error):
-                logger.warning(f"Redis connection failed with {settings.REDIS_URL}, attempting localhost fallback...")
+            logger.warning(f"Initial Redis connection failed: {first_error}. Attempting localhost fallback...")
+            try:
+                # Fallback to localhost default
                 fallback_url = "redis://localhost:6379/0"
                 if settings.REDIS_PASSWORD:
+                    # If password is set, try to use it with localhost
                     fallback_url = f"redis://:{settings.REDIS_PASSWORD}@localhost:6379/0"
+                
                 redis_client = await aioredis.from_url(fallback_url, decode_responses=True)
-             else:
+                await redis_client.ping()
+                logger.info(f"Connected to Redis via fallback: {fallback_url}")
+            except Exception as second_error:
+                logger.error(f"Redis fallback also failed: {second_error}")
+                # Re-raise the original error if fallback fails
                 raise first_error
 
         pubsub = redis_client.pubsub()

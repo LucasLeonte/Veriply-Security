@@ -11,7 +11,7 @@ describe("TrustBadge Component", () => {
             const badge = screen.getByRole("button");
             expect(badge).toHaveClass("bg-green-100");
             expect(badge).toHaveClass("text-green-900");
-            expect(screen.getByText("✓ Verified")).toBeInTheDocument();
+            expect(screen.getByText("Verified")).toBeInTheDocument();
         });
 
         it("displays correct aria-label for verified badge", () => {
@@ -30,7 +30,7 @@ describe("TrustBadge Component", () => {
             );
 
             const badge = screen.getByRole("button");
-            
+
             // Use fireEvent for mouseenter
             fireEvent.mouseEnter(badge);
 
@@ -42,8 +42,8 @@ describe("TrustBadge Component", () => {
 
         it("displays update date in tooltip when provided", async () => {
             const { container } = render(
-                <TrustBadge 
-                    trustLevel="verified" 
+                <TrustBadge
+                    trustLevel="verified"
                     updatedDate="Dec 18, 2025"
                 />
             );
@@ -78,8 +78,8 @@ describe("TrustBadge Component", () => {
 
         it("shows confidence score in tooltip", () => {
             const { container } = render(
-                <TrustBadge 
-                    trustLevel="ai_generated" 
+                <TrustBadge
+                    trustLevel="ai_generated"
                     confidenceScore={85.5}
                 />
             );
@@ -137,7 +137,7 @@ describe("TrustBadge Component", () => {
             // Green: #DCFCE7 (bg) and #166534 (text) - High contrast
             // Amber: #FEF3C7 (bg) and #92400E (text) - High contrast
             // Blue: #DBEAFE (bg) and #1e3a8a (text) - High contrast
-            
+
             render(<TrustBadge trustLevel="verified" />);
             const verifiedBadge = screen.getByRole("button");
             expect(verifiedBadge).toHaveClass("bg-green-100", "text-green-900");

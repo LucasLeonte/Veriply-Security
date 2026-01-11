@@ -24,7 +24,7 @@ export default function TrustBadge({
             text: "text-green-900",
             border: "border-green-200",
             icon: Check,
-            label: "✓ Verified",
+            label: "Verified",
             ariaLabel: "Verified. This answer has been verified by a human expert.",
             tooltipText: "This answer has been verified by a human expert",
             additionalInfo: updatedDate ? `Updated: ${updatedDate}` : null,

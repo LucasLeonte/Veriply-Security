@@ -157,19 +157,21 @@ export function useChat(
         const wsUrl = getWsUrl();
 
         try {
-            console.log(`[Chat] Connecting to WebSocket: ${wsUrl}`);
+            console.log(`[Chat Debug] Attempting to connect to WebSocket: ${wsUrl}`);
             const ws = new WebSocket(wsUrl);
             wsRef.current = ws;
 
             ws.onopen = () => {
-                console.log("[Chat] WebSocket connected");
+                console.log("[Chat Debug] WebSocket connected successfully");
             };
 
             ws.onmessage = (event) => {
+                console.log("[Chat Debug] WebSocket message received:", event.data);
                 try {
                     const data = JSON.parse(event.data);
 
                     if (data.type === "approved_answer") {
+                        console.log("[Chat Debug] Processing approved answer:", data);
                         setMessages((prev) => {
                             // 1. Try to find and update existing message by ID
                             if (data.message_id) {
@@ -177,6 +179,7 @@ export function useChat(
                                     (m) => m.id === data.message_id
                                 );
                                 if (exists) {
+                                    console.log("[Chat Debug] Updating existing message:", data.message_id);
                                     return prev.map((m) =>
                                         m.id === data.message_id
                                             ? {
@@ -198,9 +201,13 @@ export function useChat(
                                     m.sourceType === "hitl" &&
                                     m.content === data.answer
                             );
-                            if (alreadyExists) return prev;
+                            if (alreadyExists) {
+                                console.log("[Chat Debug] Duplicate message ignored");
+                                return prev;
+                            }
 
                             // 3. Append as new message
+                            console.log("[Chat Debug] Appending new message");
                             const newMsg: ChatMessage = {
                                 id: data.message_id || uuidv4(),
                                 role: "assistant",
@@ -215,23 +222,25 @@ export function useChat(
                         });
                     }
                 } catch (e) {
-                    // ignore errors
+                    console.error("[Chat Debug] Error parsing WebSocket message:", e);
                 }
             };
 
-            ws.onclose = () => {
+            ws.onclose = (e) => {
+                console.log("[Chat Debug] WebSocket closed. Code:", e.code, "Reason:", e.reason);
                 wsRef.current = null;
                 // Reconnect after delay
                 reconnectTimeoutRef.current = setTimeout(() => {
+                    console.log("[Chat Debug] Attempting reconnect...");
                     connectWebSocket();
                 }, 3000);
             };
 
             ws.onerror = (e) => {
-                console.error("[Chat] WebSocket error", e);
+                console.error("[Chat Debug] WebSocket error:", e);
             };
         } catch (e) {
-            console.error(e);
+            console.error("[Chat Debug] Exception in connectWebSocket:", e);
         }
     }, [botId]);
 
