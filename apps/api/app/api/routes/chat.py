@@ -329,13 +329,14 @@ async def chat_query(
             return response
 
         # Retrieve relevant context from vector store
+        # Retrieve relevant context from vector store
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
             query=request.query.strip(),
             k=8,
-            similarity_threshold=0.40, # Lowered from 0.60 to allow broader matching (especially for multilingual/semantic)
+            similarity_threshold=0.35, # Lowered further to 0.35 to catch Dutch semantic matches
         )
 
         # Debug logging for KB search results

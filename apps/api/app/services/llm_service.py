@@ -162,7 +162,8 @@ When answering:
 - Cite the source for important facts: "According to [Source]..."
 - If multiple sources support your answer, mention all of them
 - Keep responses conversational but professional
-- Use the same tone as the source documents"""
+- Use the same tone as the source documents
+- ALWAYS answer in the same language as the user's question (e.g., if question is Dutch, answer in Dutch), even if the context is in a different language."""
 
     def _build_user_prompt(
         self, query: str, context_chunks: List[SearchResult], conversation_context: Optional[str] = None

@@ -462,12 +462,12 @@ class VectorSearchService:
         rows = result.all()
 
         # DEBUG: Log raw chunk search results
-        logger.debug(f"[DEBUG] Raw chunk search returned {len(rows)} rows")
+        logger.warning(f"[DEBUG] Raw chunk search returned {len(rows)} rows")
         if rows:
-             for i, row in enumerate(rows[:3]):
+             for i, row in enumerate(rows[:5]): # Show top 5
                  dist = row.distance
                  sim = 1.0 - dist
-                 logger.debug(f"[DEBUG] Raw Chunk #{i+1} similarity: {sim:.4f} (distance={dist:.4f})")
+                 logger.warning(f"[DEBUG] Raw Chunk #{i+1} similarity: {sim:.4f} (distance={dist:.4f})")
 
         # Convert distance to similarity and filter by threshold
         # Also apply diversity filtering: Max chunks per document
