@@ -335,8 +335,28 @@ async def chat_query(
             tenant_id=tenant_id,
             query=request.query.strip(),
             k=8,
-            similarity_threshold=0.60, # Lowered from 0.70 to allow relevant document chunks
+            similarity_threshold=0.40, # Lowered from 0.60 to allow broader matching (especially for multilingual/semantic)
         )
+
+        # Debug logging for KB search results
+        if search_results:
+            verified_count = sum(1 for r in search_results if r.is_verified)
+            doc_count = sum(1 for r in search_results if not r.is_verified and not r.chunk_id.startswith('email_'))
+            email_count = sum(1 for r in search_results if r.chunk_id.startswith('email_'))
+            logger.info(
+                f"[Chat KB Debug] Query: '{request.query.strip()[:50]}...' → "
+                f"Found {len(search_results)} results: {verified_count} verified, {doc_count} docs, {email_count} emails"
+            )
+            for i, r in enumerate(search_results[:3]):  # Log top 3 results
+                logger.debug(
+                    f"[Chat KB Debug] Result #{i+1}: sim={r.similarity:.3f}, "
+                    f"verified={r.is_verified}, doc='{r.document_name[:40]}...'"
+                )
+        else:
+            logger.warning(
+                f"[Chat KB Debug] Query: '{request.query.strip()[:50]}...' → "
+                f"No results found! Check if bot has KB entries."
+            )
 
         if not search_results:
             # No relevant context found

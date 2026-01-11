@@ -221,10 +221,10 @@ class Settings(BaseSettings):
     SIMILARITY_THRESHOLD: float = 0.7
     
     # Story 7.2: Verified KB Priority Configuration
-    # Verified KB similarity threshold (balanced for semantic matching)
+    # Verified KB similarity threshold (per PRD AC#2: >= 95% for short-circuit)
     VERIFIED_KB_SIMILARITY_THRESHOLD: float = Field(
-        default=0.85,
-        description="Minimum similarity score for verified KB matches (0-1, default 0.85 for semantic matching)"
+        default=0.95,
+        description="Minimum similarity score for verified KB matches (0-1, default 0.95 per PRD AC#2)"
     )
     # Latency budget for verified KB lookup in milliseconds
     VERIFIED_KB_LATENCY_BUDGET_MS: int = Field(

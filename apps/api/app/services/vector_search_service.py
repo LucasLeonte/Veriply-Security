@@ -463,6 +463,11 @@ class VectorSearchService:
 
         # DEBUG: Log raw chunk search results
         logger.debug(f"[DEBUG] Raw chunk search returned {len(rows)} rows")
+        if rows:
+             for i, row in enumerate(rows[:3]):
+                 dist = row.distance
+                 sim = 1.0 - dist
+                 logger.debug(f"[DEBUG] Raw Chunk #{i+1} similarity: {sim:.4f} (distance={dist:.4f})")
 
         # Convert distance to similarity and filter by threshold
         # Also apply diversity filtering: Max chunks per document
