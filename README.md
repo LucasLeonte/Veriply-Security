@@ -4,8 +4,6 @@
 
 **Veriply** is an enterprise AI-powered knowledge base verification platform.
 
-This README serves as the entry point to the project documentation. The master documentation index is located at [`docs/index.md`](docs/index.md).
-
 ---
 
 ## 🚀 Quick Start
@@ -78,7 +76,6 @@ This README serves as the entry point to the project documentation. The master d
 |----------|---------|-----|
 | [UX Design Specification](docs/product/ux-design-specification.md) | UI/UX design details | Designers, Frontend Devs |
 | [Design Themes - Light](docs/product/ux-color-themes-light.html) | Color themes (light mode) | Designers |
-| [Design Themes - Dark](docs/product/ux-color-themes.html) | Color themes (dark mode) | Designers |
 | [Mockups Directory](docs/product/mockups/) | UI mockups and wireframes | Product, Design |
 
 ### Project Management
@@ -86,7 +83,7 @@ This README serves as the entry point to the project documentation. The master d
 | Document | Purpose | Status |
 |----------|---------|--------|
 | [Backlog](docs/product/backlog.md) | Product backlog and prioritization | Current sprint |
-| [Sprint Status](docs/product/sprint-status.yaml) | Current sprint tracking | Team sync |
+| [Sprint Status](docs/product/sprint-artifacts/sprint-status.yaml) | Current sprint tracking | Team sync |
 | [Implementation Readiness](docs/archive/implementation-readiness-report-2025-12-11.md) | Implementation status | Dev planning |
 
 ### Research & Discovery
