@@ -31,9 +31,8 @@ These models can run on a single RTX 4090 or equivalent, ideal for MVP and cost 
 | **Phi-4** | 14B | 16K | 6.3M | ⭐⭐⭐⭐ | Microsoft. Excellent reasoning for size. Short context. |
 | **Gemma 3** | 1B - 27B | 128K | 26.7M | ⭐⭐⭐⭐ | Google. Runs on single GPU. Vision support. |
 
-**Recommendation for MVP:** **Qwen 2.5 7B or 14B**
+**Recommendation for MVP:** **Qwen 2.5 7B**
 *   **Why:** Best balance of reasoning, multilingual support (important for European SMEs), and 128K context window.
-*   **Alternative:** Phi-4 14B if context window is less critical (16K limit).
 
 ---
 
@@ -82,11 +81,11 @@ The embedding model is just as important as the LLM for RAG quality.
 | Model | Dimensions | Multilingual | Ollama Pulls | Notes |
 | :--- | :--- | :--- | :--- | :--- |
 | **nomic-embed-text** | 768 | Limited | 46.3M | High performance, large context. Industry favorite. |
-| **bge-m3** | 1024 | ✅ Yes | 2.8M | BAAI. Multi-granularity (dense + sparse). Best for multilingual. |
+| **bge-m3** | 1024 | yes | 2.8M | BAAI. Multi-granularity (dense + sparse. |
 | **mxbai-embed-large** | 1024 | Limited | 5.4M | State-of-the-art from mixedbread.ai. |
 | **snowflake-arctic-embed** | Varies | Limited | 1.1M | Snowflake-optimized. |
 
-**Recommendation:** **bge-m3** for multilingual support (European SMEs), or **nomic-embed-text** for pure English use cases.
+**Recommendation:** **nomic-embed-text** for pure English use cases.
 
 ---
 
@@ -122,14 +121,14 @@ The embedding model is just as important as the LLM for RAG quality.
 
 ### Phase 1: MVP (Sprint 1-4)
 *   **LLM:** Qwen 2.5 14B (via Ollama, self-hosted or Docker).
-*   **Embedding:** bge-m3 (via Ollama).
+*   **Embedding:** nomic-embed-text (via Ollama).
 *   **Vector DB:** PostgreSQL + pgvector (already in tech stack).
 *   **Rationale:** Zero API costs, full privacy (selling point), excellent multilingual support for EU market.
 
 ### Phase 2: Scale (Post-MVP)
 *   **Primary LLM:** DeepSeek V3 (API) for complex queries.
 *   **Fast Fallback:** Llama 4 Scout (API) for simple/high-volume queries.
-*   **Embedding:** Keep bge-m3 (self-hosted is fine for embeddings).
+*   **Embedding:** Change to bge-m3 (self-hosted is fine for embeddings).
 *   **Rationale:** MoE models (DeepSeek, Llama 4) are fast and cheap at scale.
 
 ### Phase 3: Enterprise (Future)
