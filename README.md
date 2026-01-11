@@ -300,10 +300,8 @@ A: [Data Models](docs/technical/data-models.md) has complete ERD and table defin
 
 ## 🔗 Quick Links
 
-- **Code Repository:** GitHub (link)
 - **Bug Tracker:** GitHub Issues
 - **Team Wiki:** [Team Coordination](docs/team/team-coordination.md)
 - **Design System:** [UX Design Specification](docs/product/ux-design-specification.md)
-- **Video Tutorials:** (to be added)
 
 ---
