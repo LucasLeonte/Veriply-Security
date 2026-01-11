@@ -1,4 +1,5 @@
 from sqlalchemy import Column, String, Integer, Uuid, ForeignKey, DateTime, Text, Index
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from .base import Base
 
@@ -28,8 +29,17 @@ class Document(Base):
         Index('ix_documents_status', 'status'),
         Index('ix_documents_deleted', 'deleted_at'),
     )
+
+    uploader = relationship("User", foreign_keys=[uploader_id], lazy="joined")
     
     @property
     def filename(self):
         """Alias for title - API expects 'filename' but DB column is 'title'"""
         return self.title
+
+    @property
+    def uploader_name(self):
+        """Get the name or email of the uploader."""
+        if self.uploader:
+            return self.uploader.name or self.uploader.email
+        return str(self.uploader_id)

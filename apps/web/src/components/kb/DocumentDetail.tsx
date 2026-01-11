@@ -74,7 +74,7 @@ export function DocumentDetail({
         try {
             await onReprocess(document.id);
         } catch (err) {
-            
+
         } finally {
             setIsReprocessing(false);
         }
@@ -88,7 +88,7 @@ export function DocumentDetail({
         try {
             await onDelete(document.id);
         } catch (err) {
-            
+
         } finally {
             setIsDeleting(false);
         }
@@ -150,31 +150,28 @@ export function DocumentDetail({
                 <div className="flex gap-6">
                     <button
                         onClick={() => setActiveTab("details")}
-                        className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === "details"
+                        className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "details"
                                 ? "border-emerald-600 text-slate-900"
                                 : "border-transparent text-slate-600 hover:text-slate-900"
-                        }`}
+                            }`}
                     >
                         Details
                     </button>
                     <button
                         onClick={() => setActiveTab("chunks")}
-                        className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === "chunks"
+                        className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "chunks"
                                 ? "border-emerald-600 text-slate-900"
                                 : "border-transparent text-slate-600 hover:text-slate-900"
-                        }`}
+                            }`}
                     >
                         Chunks ({document.chunk_count})
                     </button>
                     <button
                         onClick={() => setActiveTab("actions")}
-                        className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === "actions"
+                        className={`px-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "actions"
                                 ? "border-emerald-600 text-slate-900"
                                 : "border-transparent text-slate-600 hover:text-slate-900"
-                        }`}
+                            }`}
                     >
                         Actions
                     </button>
@@ -202,6 +199,12 @@ export function DocumentDetail({
                                     <p className="text-sm text-slate-500 mb-1">Uploaded</p>
                                     <p className="text-sm font-medium text-slate-900">
                                         {formatDate(document.created_at)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-slate-500 mb-1">Uploaded by</p>
+                                    <p className="text-sm font-medium text-slate-900">
+                                        {document.uploader_name || document.uploader_id}
                                     </p>
                                 </div>
                                 <div>

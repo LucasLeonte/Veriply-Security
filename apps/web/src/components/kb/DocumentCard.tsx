@@ -245,7 +245,7 @@ export function DocumentCard({
                             <div className="flex items-center gap-1">
                                 <User size={12} />
                                 <span>
-                                    Uploaded by User {document.uploader_id}
+                                    Uploaded by {document.uploader_name || document.uploader_id}
                                 </span>
                             </div>
                         )}

@@ -341,6 +341,7 @@ class DocumentResponse(BaseModel):
     title: Optional[str] = None
     status: str
     uploader_id: str | UUID
+    uploader_name: Optional[str] = None
     mime: Optional[str] = None
     size: Optional[int] = 0
     storage_path: Optional[str] = None
