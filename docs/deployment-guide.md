@@ -14,7 +14,7 @@ graph TB
     PGVECTOR["📦 pgvector<br/>HNSW Index<br/>Vector Search"]
     REDIS["⚡ Redis<br/>(Port 6379)<br/>Alpine<br/>Cache & Queue"]
     CELERY["🔄 Celery Worker<br/>Email polling<br/>Retention jobs"]
-    OLLAMA["🤖 Ollama LLM<br/>Model serving<br/>bge-m3 | Qwen 2.5"]
+    OLLAMA["🤖 Ollama LLM<br/>Model serving<br/>nomic-embed-text | Qwen 2.5"]
     
     CLIENT -->|HTTPS| NGINX
     NGINX --> NEXTJS
