@@ -139,6 +139,53 @@ class LLMService:
             logger.error(f"Failed to generate answer: {e}")
             raise
 
+    async def rewrite_query(self, query: str, history: List[dict]) -> str:
+        """Rewrite query to be standalone based on conversation history.
+        
+        Args:
+            query: The user's follow-up question
+            history: List of previous messages
+            
+        Returns:
+            Rewritten standalone query
+        """
+        system_prompt = """You are a helpful assistant that writes search queries.
+Your task is to rewrite the user's latest question to be a standalone search query, resolving any coreferences (like "it", "this", "that") using the provided conversation history.
+
+Rules:
+1. If the question is already standalone, return it exactly as is.
+2. If the question refers to previous context, rewrite it to be fully explicit.
+3. Do NOT answer the question. Only rewrite it.
+4. Keep it concise."""
+
+        user_prompt = f"""Conversation History: (Oldest to Newest)
+{self._format_conversation_history(history)}
+
+User's Latest Question: {query}
+
+Standalone Search Query:"""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        rewritten = []
+        try:
+            async for token in self._generate_with_retry(messages):
+                rewritten.append(token)
+            
+            result = "".join(rewritten).strip()
+            # Remove any quotes or prefixes if LLM adds them
+            result = result.strip('"').strip("'")
+            if result.startswith("Search Query:"):
+                result = result.replace("Search Query:", "").strip()
+                
+            return result
+        except LLMError as e:
+            logger.error(f"Failed to rewrite query: {e}")
+            return query  # Fallback to original query
+
     def _build_system_prompt(self) -> str:
         """Build system prompt enforcing context-only behavior.
 

@@ -522,6 +522,7 @@ class ConfidenceCalculatorService:
             # If message_id is provided, use it for strict idempotency
             # Otherwise fall back to query_text + time window (legacy behavior)
             message_id = metadata_json.get("message_id") if metadata_json else None
+            query_text_truncated = query[:500] if query else None
             
             if message_id:
                 # Check for existing log with same message_id

@@ -328,15 +328,38 @@ async def chat_query(
             response.headers["Access-Control-Allow-Headers"] = "*"
             return response
 
-        # Retrieve relevant context from vector store
-        # Retrieve relevant context from vector store
+        # Rewrite query if context is available to improve retrieval
+        # e.g. "Why do we do this?" -> "Why do we do usability testing?"
+        query_text = request.query.strip()
+        is_rewritten = False
+        
+        if context_messages:
+            try:
+                # Convert ChatMessage objects to dicts for LLM service
+                history_dicts = [
+                    {"role": m.role, "content": m.content} 
+                    for m in context_messages
+                    if m.content and m.role in ["user", "assistant"]
+                ]
+                
+                if history_dicts:
+                    logger.debug(f"Rewriting query with {len(history_dicts)} comments of context...")
+                    rewritten = await llm_service.rewrite_query(query_text, history_dicts)
+                    
+                    if rewritten and rewritten != query_text:
+                        logger.info(f"Rewrote query: '{query_text}' -> '{rewritten}'")
+                        query_text = rewritten
+                        is_rewritten = True
+            except Exception as e:
+                logger.error(f"Failed to rewrite query: {e}")
+
         # Retrieve relevant context from vector store
         similarity_threshold = 0.35 # Lowered further to 0.35 to catch Dutch semantic matches
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
-            query=request.query.strip(),
+            query=query_text,
             k=8,
             similarity_threshold=similarity_threshold,
         )
@@ -347,7 +370,7 @@ async def chat_query(
             doc_count = sum(1 for r in search_results if not r.is_verified and not r.chunk_id.startswith('email_'))
             email_count = sum(1 for r in search_results if r.chunk_id.startswith('email_'))
             logger.info(
-                f"[Chat KB Debug] Query: '{request.query.strip()[:50]}...' → "
+                f"[Chat KB Debug] Query: '{query_text[:50]}...' → "
                 f"Found {len(search_results)} results: {verified_count} verified, {doc_count} docs, {email_count} emails"
             )
             for i, r in enumerate(search_results[:3]):  # Log top 3 results
@@ -357,7 +380,7 @@ async def chat_query(
                 )
         else:
             logger.warning(
-                f"[Chat KB Debug] Query: '{request.query.strip()[:50]}...' → "
+                f"[Chat KB Debug] Query: '{query_text[:50]}...' → "
                 f"No results found! Check if bot has KB entries."
             )
 
@@ -388,7 +411,7 @@ async def chat_query(
         # If we have a verified answer, use it directly (no LLM needed)
         if verified_match:
             logger.info(
-                f"Using verified Q&A answer for query '{request.query.strip()[:50]}...' "
+                f"Using verified Q&A answer for query '{query_text[:50]}...' "
                 f"(similarity={verified_match.similarity})"
             )
             ai_draft = verified_match.verified_answer
@@ -397,7 +420,7 @@ async def chat_query(
             # Generate AI draft tokens via LLM
             draft_tokens: list[str] = []
             async for token in llm_service.generate_answer(
-                query=request.query.strip(),
+                query=query_text,
                 context_chunks=search_results,
                 conversation_history=[
                     {"role": m.role, "content": m.content} for m in conversation_history
@@ -504,22 +527,29 @@ async def chat_query(
                 media_type="text/event-stream",
             )
         
+        
+        metadata_payload = {
+            "confidence_threshold": threshold,
+            "ai_draft": ai_draft,
+            "citations": confidence_citations,
+            "session_id": request.session_id,  # For sending approved answers back to chat
+            "message_id": request.message_id,
+        }
+        
+        if is_rewritten:
+            metadata_payload["original_query"] = request.query.strip()
+            metadata_payload["is_rewritten"] = True
+
         confidence_result = await confidence_service.calculate_confidence(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
-            query=request.query.strip(),
+            query=query_text,
             search_results=search_results,
             confidence_threshold=threshold,
             group_id=bot.group_id,
             is_verified_kb=is_verified_kb,
-            metadata_json={
-                "confidence_threshold": threshold,
-                "ai_draft": ai_draft,
-                "citations": confidence_citations,
-                "session_id": request.session_id,  # For sending approved answers back to chat
-                "message_id": request.message_id,
-            },
+            metadata_json=metadata_payload,
         )
 
         # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
