@@ -335,7 +335,7 @@ async def chat_query(
             tenant_id=tenant_id,
             query=request.query.strip(),
             k=3,
-            similarity_threshold=0.70, # Increased to prevent irrelevant retrieval
+            similarity_threshold=0.60, # Lowered from 0.70 to allow relevant document chunks
         )
 
         if not search_results:
