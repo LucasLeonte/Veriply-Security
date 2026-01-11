@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Default search parameters
 DEFAULT_TOP_K = 5
-DEFAULT_SIMILARITY_THRESHOLD = 0.5
+DEFAULT_SIMILARITY_THRESHOLD = 0.70
 # Story 7.2: Configurable threshold for verified KB (default 0.95)
 VERIFIED_KB_SIMILARITY_THRESHOLD = settings.VERIFIED_KB_SIMILARITY_THRESHOLD
 HNSW_EF_SEARCH = 40  # Runtime parameter for HNSW index
@@ -238,6 +238,7 @@ class VectorSearchService:
                 query_embedding=query_embedding,
                 k=k,
                 similarity_threshold=VERIFIED_KB_SIMILARITY_THRESHOLD,
+                query_text=query,
             )
             
             verified_latency_ms = int((time.time() - verified_start) * 1000)

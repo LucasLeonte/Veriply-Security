@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { ReviewQueueItem } from "@/hooks/useHITLQueue";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -23,7 +24,7 @@ interface ReviewQueueItemCardProps {
     item: ReviewQueueItem;
     isSelected: boolean;
     onSelect: () => void;
-    onApprove: (edits?: string) => Promise<void>;
+    onApprove: (edits?: string, addToKB?: boolean) => Promise<void>;
     onReject: (reason?: string) => Promise<void>;
 }
 
@@ -39,6 +40,7 @@ export function ReviewQueueItemCard({
     const [isRejecting, setIsRejecting] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [editedDraft, setEditedDraft] = useState(item.aiDraft);
+    const [addToKB, setAddToKB] = useState(true);
 
     // AC3: Approve button disabled until >3s review
     const [reviewTimeElapsed, setReviewTimeElapsed] = useState(0);
@@ -70,14 +72,19 @@ export function ReviewQueueItemCard({
 
         try {
             setIsApproving(true);
-            await onApprove(editMode ? editedDraft : undefined);
+            await onApprove(editMode ? editedDraft : undefined, addToKB);
+
 
             // AC3: Success toast on send
+            const description = editMode
+                ? "Your edited response has been approved"
+                : "AI draft approved";
+
             toast({
                 title: "Response sent and verified!",
-                description: editMode
-                    ? "Your edited response has been approved and added to the Verified KB."
-                    : "AI draft approved and added to the Verified KB.",
+                description: addToKB
+                    ? `${description} and added to the Verified KB.`
+                    : `${description}.`,
                 variant: "success",
             });
 
@@ -146,8 +153,8 @@ export function ReviewQueueItemCard({
                             confidence > 0.75
                                 ? "bg-emerald-400"
                                 : confidence > 0.3
-                                ? "bg-amber-400"
-                                : "bg-orange-400"
+                                    ? "bg-amber-400"
+                                    : "bg-orange-400"
                         )}
                         style={{ width: `${pct}%` }}
                     />
@@ -359,6 +366,19 @@ export function ReviewQueueItemCard({
                                     Review for {3 - reviewTimeElapsed}s more...
                                 </span>
                             )}
+                            <div className="flex items-center gap-2 mr-2">
+                                <Checkbox
+                                    id={`add-to-kb-${item.id}`}
+                                    checked={addToKB}
+                                    onCheckedChange={setAddToKB}
+                                />
+                                <label
+                                    htmlFor={`add-to-kb-${item.id}`}
+                                    className="text-sm text-slate-600 select-none cursor-pointer"
+                                >
+                                    Add to KB
+                                </label>
+                            </div>
                             <Button
                                 onClick={handleReject}
                                 disabled={isRejecting || !canReject}
@@ -430,6 +450,19 @@ export function ReviewQueueItemCard({
                                     Review for {3 - reviewTimeElapsed}s more...
                                 </span>
                             )}
+                            <div className="flex items-center gap-2 mr-2">
+                                <Checkbox
+                                    id={`add-to-kb-edit-${item.id}`}
+                                    checked={addToKB}
+                                    onCheckedChange={setAddToKB}
+                                />
+                                <label
+                                    htmlFor={`add-to-kb-edit-${item.id}`}
+                                    className="text-sm text-slate-600 select-none cursor-pointer"
+                                >
+                                    Add to KB
+                                </label>
+                            </div>
                             <Button
                                 onClick={handleReject}
                                 disabled={isRejecting || !canReject}
@@ -494,7 +527,7 @@ interface ReviewQueueProps {
         email: number;
     };
     isLoading: boolean;
-    onApprove: (itemId: string, edits?: string) => Promise<void>;
+    onApprove: (itemId: string, edits?: string, addToKB?: boolean) => Promise<void>;
     onReject: (itemId: string, reason?: string) => Promise<void>;
     sortBy?: string;
     onSortChange?: (sortBy: string) => void;
@@ -567,8 +600,8 @@ export function ReviewQueue({
                     const rawBots = Array.isArray(data?.bots)
                         ? data.bots
                         : Array.isArray(data)
-                        ? data
-                        : [];
+                            ? data
+                            : [];
 
                     const normalizedBots = rawBots
                         .map((bot: unknown) => {
@@ -749,8 +782,8 @@ export function ReviewQueue({
     }, [filteredItems, selectedId]);
 
     // Wrap approve/reject handlers to ensure next item loads
-    const handleApprove = async (itemId: string, edits?: string) => {
-        await onApprove(itemId, edits);
+    const handleApprove = async (itemId: string, edits?: string, addToKB?: boolean) => {
+        await onApprove(itemId, edits, addToKB);
         // Auto-load next item is handled by useEffect above
     };
 
@@ -841,8 +874,8 @@ export function ReviewQueue({
                                 item={item}
                                 isSelected={selectedId === item.id}
                                 onSelect={() => setSelectedId(item.id)}
-                                onApprove={(edits) =>
-                                    handleApprove(item.id, edits)
+                                onApprove={(edits, addToKB) =>
+                                    handleApprove(item.id, edits, addToKB)
                                 }
                                 onReject={(reason) =>
                                     handleReject(item.id, reason)

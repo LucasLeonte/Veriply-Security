@@ -15,8 +15,8 @@ describe('Story 7.2: Verified Badge Display', () => {
     it('should render verified badge when trustLevel is "verified"', () => {
       // Arrange & Act
       render(
-        <TrustBadge 
-          trustLevel="verified" 
+        <TrustBadge
+          trustLevel="verified"
           confidenceScore={100}
         />
       );
@@ -24,15 +24,15 @@ describe('Story 7.2: Verified Badge Display', () => {
       // Assert
       const badge = screen.getByRole('button');
       expect(badge).toBeInTheDocument();
-      expect(badge).toHaveTextContent('✓ Verified');
+      expect(badge).toHaveTextContent('Verified');
       expect(badge).toHaveClass('bg-green-100', 'text-green-900');
     });
 
     it('should show verified tooltip with human verification message', async () => {
       // Arrange & Act
       const { container } = render(
-        <TrustBadge 
-          trustLevel="verified" 
+        <TrustBadge
+          trustLevel="verified"
           confidenceScore={97}
           updatedDate="2024-01-07"
         />
@@ -50,15 +50,15 @@ describe('Story 7.2: Verified Badge Display', () => {
     it('should NOT render verified badge when trustLevel is "ai_generated"', () => {
       // Arrange & Act
       render(
-        <TrustBadge 
-          trustLevel="ai_generated" 
+        <TrustBadge
+          trustLevel="ai_generated"
           confidenceScore={85}
         />
       );
 
       // Assert
       const badge = screen.getByRole('button');
-      expect(badge).not.toHaveTextContent('✓ Verified');
+      expect(badge).not.toHaveTextContent('Verified');
       expect(badge).toHaveTextContent('AI Generated');
       expect(badge).toHaveClass('bg-amber-100', 'text-amber-900');
     });
@@ -66,15 +66,15 @@ describe('Story 7.2: Verified Badge Display', () => {
     it('should NOT render verified badge when trustLevel is "pending"', () => {
       // Arrange & Act
       render(
-        <TrustBadge 
-          trustLevel="pending" 
+        <TrustBadge
+          trustLevel="pending"
           confidenceScore={45}
         />
       );
 
       // Assert
       const badge = screen.getByRole('status'); // Pending uses status role
-      expect(badge).not.toHaveTextContent('✓ Verified');
+      expect(badge).not.toHaveTextContent('Verified');
       expect(badge).toHaveTextContent('Checking with the team');
       expect(badge).toHaveClass('bg-blue-100', 'text-blue-900');
     });
@@ -108,7 +108,7 @@ describe('Story 7.2: Verified Badge Display', () => {
     it('should pass verified trust level from message to TrustBadge', () => {
       // This test verifies the integration between MessageList and TrustBadge
       // In the real component, trustLevel comes from message.trustLevel
-      
+
       const message = {
         id: 'msg-123',
         role: 'assistant' as const,

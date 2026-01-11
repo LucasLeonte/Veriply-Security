@@ -355,7 +355,7 @@ export function useHITLQueue(
         };
     }, []);
 
-    const approveItem = async (itemId: string, edits?: string) => {
+    const approveItem = async (itemId: string, edits?: string, addToKB: boolean = true) => {
         try {
             const token = getAccessToken();
             const headers: Record<string, string> = {
@@ -372,13 +372,12 @@ export function useHITLQueue(
             setItems((prev) => prev.filter((i) => i.id !== itemId));
 
             const response = await fetch(
-                `${
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+                `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
                 }/api/v1/hitl/queue/${itemId}/approve?_t=${Date.now()}`,
                 {
                     method: "POST",
                     headers,
-                    body: JSON.stringify({ edits, send_to_chat: true }),
+                    body: JSON.stringify({ edits, send_to_chat: true, add_to_kb: addToKB }),
                     cache: "no-store",
                 }
             );
@@ -445,8 +444,7 @@ export function useHITLQueue(
             setItems((prev) => prev.filter((i) => i.id !== itemId));
 
             const response = await fetch(
-                `${
-                    process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+                `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
                 }/api/v1/hitl/queue/${itemId}/reject?_t=${Date.now()}`,
                 {
                     method: "POST",

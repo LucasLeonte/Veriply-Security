@@ -468,6 +468,7 @@ async def search_verified_qa(
     query_embedding: List[float],
     k: int = 3,
     similarity_threshold: float = 0.7,
+    query_text: Optional[str] = None, # Add query_text for exact match
 ) -> List[tuple[VerifiedQA, float]]:
     """Search verified Q&A entries by semantic similarity.
     
@@ -486,11 +487,12 @@ async def search_verified_qa(
         k: Maximum number of results to return (default 3)
         similarity_threshold: Minimum cosine similarity score (default 0.7, higher than
             document search since verified answers should be high-confidence matches)
+        query_text: Optional original query text for exact match prioritization
         
     Returns:
         List of tuples (VerifiedQA entry, similarity score), sorted by similarity desc
     """
-    from sqlalchemy import text
+    from sqlalchemy import text, or_
     
     # Validate embedding dimensions
     if len(query_embedding) != 768:
@@ -498,22 +500,47 @@ async def search_verified_qa(
         return []
     
     # Set RLS session variables to allow query access (required for public chat flow)
-    # This ensures the RLS policy on verified_qa allows access to the correct tenant/group
     try:
         await db.execute(text(f"SET LOCAL app.current_tenant_id = '{str(tenant_id)}'"))
         await db.execute(text(f"SET LOCAL app.current_group_id = '{str(group_id)}'"))
     except Exception as rls_err:
         logger.warning(f"Failed to set RLS session variables: {rls_err}")
-        # Continue anyway - the explicit WHERE clauses should still work
     
+    results: List[tuple[VerifiedQA, float]] = []
+    found_ids = set()
+
+    # 1. EXACT MATCH SEARCH
+    # If query_text is provided, check for exact match on question_text (case-insensitive)
+    if query_text:
+        exact_stmt = (
+            select(VerifiedQA)
+            .where(
+                and_(
+                    VerifiedQA.tenant_id == tenant_id,
+                    VerifiedQA.group_id == group_id,
+                    VerifiedQA.deleted_at.is_(None),
+                    VerifiedQA.question_text.ilike(query_text.strip())
+                )
+            )
+            .limit(1)
+        )
+        exact_match = (await db.execute(exact_stmt)).scalar_one_or_none()
+        if exact_match:
+            results.append((exact_match, 1.0))
+            found_ids.add(exact_match.id)
+            logger.info(f"Verified Q&A cache HIT (Exact Match): {exact_match.id}")
+            # If k=1, we can return immediately
+            if k == 1:
+                return results
+
+    # 2. VECTOR SEARCH
+    # Adjust k to account for exact matches already found
+    vector_k = k - len(results)
+    if vector_k <= 0:
+        return results
+
     # Set HNSW search parameter for performance
-    await db.execute(text("SET hnsw.ef_search = 40"))
-    
-    # Perform vector similarity search using pgvector cosine distance
-    # Note: cosine_distance returns 0 for identical vectors, 2 for opposite
-    # Similarity = 1 - distance
-    # Q&A entries are group-scoped (shared across all bots), so we only filter by group_id
-    from sqlalchemy import select, and_
+    await db.execute(text("SET hnsw.ef_search = 60")) # Increased for better recall
     
     stmt = (
         select(
@@ -525,18 +552,21 @@ async def search_verified_qa(
                 VerifiedQA.tenant_id == tenant_id,
                 VerifiedQA.group_id == group_id,
                 VerifiedQA.question_embedding.isnot(None),
-                VerifiedQA.deleted_at.is_(None),  # Exclude soft-deleted entries
+                VerifiedQA.deleted_at.is_(None),
             )
         )
-        .order_by(text("distance"))
-        .limit(k * 2)  # Get extra for threshold filtering
     )
+
+    # Exclude already found exact match
+    if found_ids:
+        stmt = stmt.where(VerifiedQA.id.notin_(found_ids))
+
+    stmt = stmt.order_by(text("distance")).limit(vector_k * 3)  # Get extra for threshold filtering
     
     result = await db.execute(stmt)
     rows = result.all()
     
     # Convert distance to similarity and filter by threshold
-    results: List[tuple[VerifiedQA, float]] = []
     for verified_qa, distance in rows:
         similarity = 1.0 - distance
         if similarity >= similarity_threshold:

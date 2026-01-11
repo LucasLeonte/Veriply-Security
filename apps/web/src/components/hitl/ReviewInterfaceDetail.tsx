@@ -10,13 +10,16 @@ import {
     ChevronUp,
     ExternalLink,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ReviewQueueItemDetail, ContextChunk } from "@/types/hitl";
 
+
+
 interface ReviewInterfaceDetailProps {
     item: ReviewQueueItemDetail;
-    onApprove: (edits?: string) => Promise<void>;
+    onApprove: (edits?: string, addToKB?: boolean) => Promise<void>;
     onReject: (reason?: string) => Promise<void>;
     onBack: () => void;
 }
@@ -30,13 +33,14 @@ export function ReviewInterfaceDetail({
     const [editedDraft, setEditedDraft] = useState(item.aiDraft);
     const [isEditing, setIsEditing] = useState(false);
     const [isApproving, setIsApproving] = useState(false);
+    const [addToKB, setAddToKB] = useState(true);
     const [isRejecting, setIsRejecting] = useState(false);
     const hasEdits = editedDraft !== item.aiDraft;
 
     const handleApprove = async () => {
         try {
             setIsApproving(true);
-            await onApprove(hasEdits ? editedDraft : undefined);
+            await onApprove(hasEdits ? editedDraft : undefined, addToKB);
         } finally {
             setIsApproving(false);
         }
@@ -56,8 +60,8 @@ export function ReviewInterfaceDetail({
         item.confidence > 0.75
             ? "text-emerald-700 bg-emerald-100"
             : item.confidence > 0.3
-            ? "text-amber-700 bg-amber-100"
-            : "text-orange-700 bg-orange-100";
+                ? "text-amber-700 bg-amber-100"
+                : "text-orange-700 bg-orange-100";
 
     return (
         <div className="h-screen flex flex-col bg-slate-50">
@@ -93,6 +97,19 @@ export function ReviewInterfaceDetail({
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mr-2">
+                        <Checkbox
+                            id="add-to-kb-detail"
+                            checked={addToKB}
+                            onCheckedChange={setAddToKB}
+                        />
+                        <label
+                            htmlFor="add-to-kb-detail"
+                            className="text-sm text-slate-600 select-none cursor-pointer"
+                        >
+                            Add to KB
+                        </label>
+                    </div>
                     <Button
                         onClick={handleReject}
                         disabled={isRejecting || isApproving}

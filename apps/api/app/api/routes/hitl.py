@@ -39,6 +39,7 @@ class ApproveQueueItemRequest(BaseModel):
     """Request to approve a review queue item."""
     edits: Optional[str] = Field(None, description="Optional edited response text")
     send_to_chat: bool = Field(True, description="Send approved answer back to chat")
+    add_to_kb: bool = Field(True, description="Whether to add the approved answer to the Knowledge Base")
 
 
 class RejectQueueItemRequest(BaseModel):
@@ -716,7 +717,7 @@ async def approve_queue_item(
 
         # Create VerifiedQA entry (FR52: Auto-add approved HITL to Verified KB)
         verified_qa_created = False
-        if question_text and approved_answer and item.bot_id:
+        if request.add_to_kb and question_text and approved_answer and item.bot_id:
             try:
                 # Generate embedding for the question
                 embedding_service = EmbeddingService()
@@ -889,7 +890,22 @@ async def approve_queue_item(
             try:
                 session_id = item.metadata_json.get("session_id")
                 if session_id:
-                    redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                    # Connect to Redis with robust fallback
+                    try:
+                        redis_client = await aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+                        await redis_client.ping()
+                    except Exception as first_error:
+                        logger.warning(f"Initial Redis connection failed in HITL: {first_error}. Attempting localhost fallback...")
+                        try:
+                            fallback_url = "redis://localhost:6379/0"
+                            if settings.REDIS_PASSWORD:
+                                fallback_url = f"redis://:{settings.REDIS_PASSWORD}@localhost:6379/0"
+                            redis_client = await aioredis.from_url(fallback_url, decode_responses=True)
+                            await redis_client.ping()
+                        except Exception as second_error:
+                             logger.error(f"Redis fallback also failed in HITL: {second_error}")
+                             raise first_error
+
                     chat_channel = f"chat_session:{session_id}"
                     chat_message = {
                         "type": "approved_answer",
@@ -897,6 +913,7 @@ async def approve_queue_item(
                         "question": item.query_text,
                         "citations": item.metadata_json.get("citations", []),
                         "timestamp": datetime.utcnow().isoformat(),
+                        "message_id": item.metadata_json.get("message_id"),
                     }
                     await redis_client.publish(chat_channel, json.dumps(chat_message))
                     await redis_client.close()
