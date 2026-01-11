@@ -59,6 +59,17 @@ NO_ANSWER_PATTERNS = [
     "outside my knowledge",
     "beyond my knowledge",
     "not able to find",
+    # Dutch patterns
+    "is niet vermeld",
+    "geen informatie",
+    "niet gevonden",
+    "ik weet het niet",
+    "ik kan geen antwoord geven",
+    "geen antwoord vinden",
+    "buiten mijn kennis",
+    "kan dit niet beantwoorden",
+    "niet beschikbaar",
+    "ik heb geen informatie",
 ]
 
 
@@ -476,6 +487,51 @@ class ConfidenceCalculatorService:
         
         return reasoning
 
+    async def get_resolved_answer_for_query(
+        self,
+        db: AsyncSession,
+        bot_id: UUID,
+        query: str,
+    ) -> Optional[dict]:
+        """Check if a similar query has been resolved by HITL.
+        
+        Args:
+            db: Database session
+            bot_id: Bot ID
+            query: The user query to check
+            
+        Returns:
+            Dict containing the resolved answer metadata if found, else None.
+            The dict will likely contain 'human_final_answer'.
+        """
+        from sqlalchemy.future import select
+        
+        # Use truncated query text for lookup
+        query_text_truncated = query[:500] if query else None
+        
+        try:
+            # Find the most recent resolved log for this query
+            existing_resolved = await db.scalar(
+                select(ConfidenceLog)
+                .where(ConfidenceLog.bot_id == bot_id)
+                .where(ConfidenceLog.query_text == query_text_truncated)
+                .where(ConfidenceLog.hitl_resolved == True)
+                .order_by(ConfidenceLog.created_at.desc())
+                .limit(1)
+            )
+            
+            if existing_resolved and existing_resolved.metadata_json:
+                logger.info(
+                    "Found previously resolved question (id=%s). Returning resolved answer.",
+                    existing_resolved.id,
+                )
+                return existing_resolved.metadata_json
+                
+        except Exception as e:
+            logger.warning("Failed to check for existing resolution: %s", e)
+            
+        return None
+
     async def _log_confidence(
         self,
         db: AsyncSession,
@@ -507,47 +563,81 @@ class ConfidenceCalculatorService:
         from sqlalchemy.future import select
         
         try:
-            # Dedup check: prevent duplicate entries for the same query within 5 seconds
-            # This handles React StrictMode double-invocations
-            dedup_window = datetime.utcnow() - timedelta(seconds=5)
+            # Dedup check: prevent duplicate entries
+            # If message_id is provided, use it for strict idempotency
+            # Otherwise fall back to query_text + time window (legacy behavior)
+            message_id = metadata_json.get("message_id") if metadata_json else None
             query_text_truncated = query[:500] if query else None
             
-            existing = await db.execute(
-                select(ConfidenceLog.id).where(
-                    and_(
-                        ConfidenceLog.bot_id == bot_id,
-                        ConfidenceLog.tenant_id == tenant_id,
-                        ConfidenceLog.query_text == query_text_truncated,
-                        ConfidenceLog.created_at >= dedup_window,
-                    )
-                ).limit(1)
-            )
-            if existing.scalar_one_or_none() is not None:
-                logger.debug(f"Skipping duplicate confidence log for query: {query_text_truncated[:50]}...")
-                return
-
-            # Guard: Do not re-queue questions that were previously resolved (approved or rejected)
-            try:
-                existing_resolved = await db.scalar(
-                    select(ConfidenceLog)
-                    .where(ConfidenceLog.bot_id == bot_id)
-                    .where(ConfidenceLog.query_text == query_text_truncated)
-                    .where(ConfidenceLog.hitl_resolved == True)
-                    .order_by(ConfidenceLog.created_at.desc())
+            if message_id:
+                # Check for existing log with same message_id
+                existing = await db.execute(
+                    select(ConfidenceLog.id).where(
+                        and_(
+                            ConfidenceLog.bot_id == bot_id,
+                            ConfidenceLog.metadata_json.op('->>')('message_id') == message_id
+                        )
+                    ).limit(1)
                 )
-                if existing_resolved is not None:
-                    logger.info(
-                        "Skipping HITL log: previously resolved question detected (id=%s)",
-                        existing_resolved.id,
-                    )
+                if existing.scalar_one_or_none() is not None:
+                    logger.debug(f"Skipping duplicate confidence log for message_id: {message_id}")
                     return
-            except Exception as e:
-                logger.warning("Resolved-check failed; continuing without re-queue guard: %s", e)
-            
+            else:
+                # Legacy dedup: same query within 5 seconds
+                dedup_window = datetime.utcnow() - timedelta(seconds=5)
+                
+                existing = await db.execute(
+                    select(ConfidenceLog.id).where(
+                        and_(
+                            ConfidenceLog.bot_id == bot_id,
+                            ConfidenceLog.tenant_id == tenant_id,
+                            ConfidenceLog.query_text == query_text_truncated,
+                            ConfidenceLog.created_at >= dedup_window,
+                        )
+                    ).limit(1)
+                )
+                if existing.scalar_one_or_none() is not None:
+                    logger.debug(f"Skipping duplicate confidence log for query: {query_text_truncated[:50]}...")
+                    return
+
+            # Prepare metadata with defaults
             metadata_to_store = dict(metadata_json or {})
             metadata_to_store.setdefault("context_coverage", result.context_coverage)
             metadata_to_store.setdefault("source_consistency", result.source_consistency)
             metadata_to_store.setdefault("generation_confidence", result.generation_confidence)
+
+            # NOTE: We previously added auto-resolution logic here, but we are moving it
+            # to be handled BEFORE confidence calculation in chat.py (using get_resolved_answer_for_query).
+            # However, we keep this as a fallback to update status if it somehow slipped through.
+            hitl_resolved = result.routing_decision == RoutingDecision.hitl and False 
+            resolution_user_id = None
+            resolution_timestamp = None
+            
+            if result.routing_decision == RoutingDecision.hitl:
+                try:
+                    existing_resolved = await db.scalar(
+                        select(ConfidenceLog)
+                        .where(ConfidenceLog.bot_id == bot_id)
+                        .where(ConfidenceLog.query_text == query_text_truncated)
+                        .where(ConfidenceLog.hitl_resolved == True)
+                        .order_by(ConfidenceLog.created_at.desc())
+                        .limit(1)
+                    )
+                    
+                    if existing_resolved:
+                        hitl_resolved = True
+                        resolution_user_id = existing_resolved.resolution_user_id
+                        resolution_timestamp = existing_resolved.resolution_timestamp
+                        
+                        if existing_resolved.metadata_json:
+                            prev_meta = existing_resolved.metadata_json
+                            if "human_final_answer" in prev_meta:
+                                metadata_to_store["human_final_answer"] = prev_meta["human_final_answer"]
+                            if "ai_draft" in prev_meta and "ai_draft" not in metadata_to_store:
+                                metadata_to_store["ai_draft"] = prev_meta["ai_draft"]
+                                
+                except Exception:
+                    pass
 
             log_entry = ConfidenceLog(
                 bot_id=bot_id,
@@ -555,7 +645,7 @@ class ConfidenceCalculatorService:
                 group_id=group_id,
                 user_id=user_id,
                 query_id=query_id,
-                query_text=query[:500] if query else None,  # Truncate for storage
+                query_text=query_text_truncated,
                 retrieval_confidence=Decimal(str(result.retrieval_confidence)),
                 source_consistency=(
                     Decimal(str(result.source_consistency)) 
@@ -571,7 +661,9 @@ class ConfidenceCalculatorService:
                 threshold_used=Decimal(str(threshold)),
                 routing_decision=result.routing_decision,
                 is_verified_kb=result.is_verified_kb,
-                hitl_resolved=False,
+                hitl_resolved=hitl_resolved,
+                resolution_user_id=resolution_user_id,
+                resolution_timestamp=resolution_timestamp,
                 metadata_json=metadata_to_store,
             )
             
@@ -579,7 +671,7 @@ class ConfidenceCalculatorService:
             await db.flush()
             await db.commit()
             
-            logger.debug(f"Confidence log created: query_id={query_id}")
+            logger.debug(f"Confidence log created: query_id={query_id}, resolved={hitl_resolved}")
             
         except Exception as e:
             logger.error(f"Failed to log confidence: {e}")
@@ -588,6 +680,7 @@ class ConfidenceCalculatorService:
             except Exception:
                 logger.error("Rollback failed after logging error")
             # Don't raise - logging failure shouldn't break the flow
+
 
 
 class ConfidenceCalculatorError(Exception):

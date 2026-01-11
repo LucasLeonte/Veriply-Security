@@ -328,15 +328,61 @@ async def chat_query(
             response.headers["Access-Control-Allow-Headers"] = "*"
             return response
 
+        # Rewrite query if context is available to improve retrieval
+        # e.g. "Why do we do this?" -> "Why do we do usability testing?"
+        query_text = request.query.strip()
+        is_rewritten = False
+        
+        if context_messages:
+            try:
+                # Convert ChatMessage objects to dicts for LLM service
+                history_dicts = [
+                    {"role": m.role, "content": m.content} 
+                    for m in context_messages
+                    if m.content and m.role in ["user", "assistant"]
+                ]
+                
+                if history_dicts:
+                    logger.debug(f"Rewriting query with {len(history_dicts)} comments of context...")
+                    rewritten = await llm_service.rewrite_query(query_text, history_dicts)
+                    
+                    if rewritten and rewritten != query_text:
+                        logger.info(f"Rewrote query: '{query_text}' -> '{rewritten}'")
+                        query_text = rewritten
+                        is_rewritten = True
+            except Exception as e:
+                logger.error(f"Failed to rewrite query: {e}")
+
         # Retrieve relevant context from vector store
+        similarity_threshold = 0.35 # Lowered further to 0.35 to catch Dutch semantic matches
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
-            query=request.query.strip(),
-            k=3,
-            similarity_threshold=0.70, # Increased to prevent irrelevant retrieval
+            query=query_text,
+            k=8,
+            similarity_threshold=similarity_threshold,
         )
+
+        # Debug logging for KB search results
+        if search_results:
+            verified_count = sum(1 for r in search_results if r.is_verified)
+            doc_count = sum(1 for r in search_results if not r.is_verified and not r.chunk_id.startswith('email_'))
+            email_count = sum(1 for r in search_results if r.chunk_id.startswith('email_'))
+            logger.info(
+                f"[Chat KB Debug] Query: '{query_text[:50]}...' → "
+                f"Found {len(search_results)} results: {verified_count} verified, {doc_count} docs, {email_count} emails"
+            )
+            for i, r in enumerate(search_results[:3]):  # Log top 3 results
+                logger.debug(
+                    f"[Chat KB Debug] Result #{i+1}: sim={r.similarity:.3f}, "
+                    f"verified={r.is_verified}, doc='{r.document_name[:40]}...'"
+                )
+        else:
+            logger.warning(
+                f"[Chat KB Debug] Query: '{query_text[:50]}...' → "
+                f"No results found! Check if bot has KB entries."
+            )
 
         if not search_results:
             # No relevant context found
@@ -357,24 +403,44 @@ async def chat_query(
                 verified_match = result
                 break
 
+        # Check for previously resolved HITL queries (same question asked again)
+        # This prevents the bot from saying "I'm checking with the team" for questions
+        # that the team has ALREADY answered.
+        resolved_hitl_answer = None
+        if not verified_match:
+            resolved_meta = await confidence_service.get_resolved_answer_for_query(
+                db=db, bot_id=bot_id, query=query_text
+            )
+            if resolved_meta:
+                resolved_hitl_answer = resolved_meta.get("human_final_answer") or resolved_meta.get("ai_draft")
+
         # Build conversation history that will be sent to the LLM
         conversation_history: list[ChatMessage] = []
         if not conversation_context and context_messages:
             conversation_history = context_messages[-context_window:]
 
-        # If we have a verified answer, use it directly (no LLM needed)
+        # If we have a verified KB answer, use it directly
         if verified_match:
             logger.info(
-                f"Using verified Q&A answer for query '{request.query.strip()[:50]}...' "
+                f"Using verified Q&A answer for query '{query_text[:50]}...' "
                 f"(similarity={verified_match.similarity})"
             )
             ai_draft = verified_match.verified_answer
             draft_tokens = [ai_draft]  # Single token for verified answer
+            
+        # If we have a previously resolved HITL answer, use it directly (treat as verified)
+        elif resolved_hitl_answer:
+            logger.info(
+                f"Using previously resolved HITL answer for query '{query_text[:50]}...'"
+            )
+            ai_draft = resolved_hitl_answer
+            draft_tokens = [ai_draft]
+
         else:
             # Generate AI draft tokens via LLM
             draft_tokens: list[str] = []
             async for token in llm_service.generate_answer(
-                query=request.query.strip(),
+                query=query_text,
                 context_chunks=search_results,
                 conversation_history=[
                     {"role": m.role, "content": m.content} for m in conversation_history
@@ -418,7 +484,7 @@ async def chat_query(
         # Build detailed citations for streaming metadata.
         # Use the same threshold as vector search so that
         # every retrieved chunk is surfaced as a source.
-        CITATION_SIMILARITY_THRESHOLD = 0.70
+        CITATION_SIMILARITY_THRESHOLD = similarity_threshold
         streaming_citations = [
             {
                 "source": result.document_name or "Unknown",
@@ -480,22 +546,58 @@ async def chat_query(
                 ),
                 media_type="text/event-stream",
             )
+            
+        elif resolved_hitl_answer:
+            # Story 7.2: Previously resolved HITL answers also skip LLM
+            logger.info("[Story 7.2] Returning previously resolved HITL answer as high-confidence AI draft.")
+            
+            # Determine confidence based on whether it was human-edited or just approved
+            # If a human explicitly wrote/edited the answer, we are 100% confident.
+            if resolved_meta and resolved_meta.get("human_final_answer"):
+                confidence_value = 1.0
+            else:
+                # If it was just an approved AI draft, use the original confidence
+                # This prevents "I don't know" drafts (with low confidence) from appearing as 100% certain
+                confidence_value = resolved_meta.get("generation_confidence", 0.9) if resolved_meta else 0.9
+
+            return StreamingResponse(
+                _stream_precomputed_response(
+                    tokens=draft_tokens,
+                    citations=streaming_citations,
+                    extra_metadata={
+                        "confidence": confidence_value,
+                        "verified": False,
+                        "trust_level": "ai_generated",
+                        "source_type": "hitl_resolved",
+                        "routing_decision": "direct_resolved",
+                    },
+                ),
+                media_type="text/event-stream",
+            )
         
+        
+        metadata_payload = {
+            "confidence_threshold": threshold,
+            "ai_draft": ai_draft,
+            "citations": confidence_citations,
+            "session_id": request.session_id,  # For sending approved answers back to chat
+            "message_id": request.message_id,
+        }
+        
+        if is_rewritten:
+            metadata_payload["original_query"] = request.query.strip()
+            metadata_payload["is_rewritten"] = True
+
         confidence_result = await confidence_service.calculate_confidence(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
-            query=request.query.strip(),
+            query=query_text,
             search_results=search_results,
             confidence_threshold=threshold,
+            group_id=bot.group_id,
             is_verified_kb=is_verified_kb,
-            metadata_json={
-                "confidence_threshold": threshold,
-                "ai_draft": ai_draft,
-                "citations": confidence_citations,
-                "session_id": request.session_id,  # For sending approved answers back to chat
-                "message_id": request.message_id,
-            },
+            metadata_json=metadata_payload,
         )
 
         # Keep confidence as 0–1 for the streaming API; UI expects a float in [0,1].
@@ -504,19 +606,46 @@ async def chat_query(
         # Stream the AI draft regardless of confidence - frontend will handle review queue submission
         # The ConfidenceLog is already created with routing_decision=hitl, so the review queue
         # will pick it up when the frontend submits it
+        
+        # Story 7.2 Enhancement: If routing to HITL (low confidence), HIDE the draft from the user
+        # and display a generic "checking with team" message. The original draft is sent in metadata
+        # so the frontend can still submit it to the review queue.
+        if confidence_result.routing_decision == RoutingDecision.hitl or getattr(confidence_result.routing_decision, "value", str(confidence_result.routing_decision)) == "hitl":
+            logger.info(f"Low confidence ({confidence_value:.2f}), suppressing draft and routing to HITL.")
+            
+            # Use the generic wait message tokens
+            wait_message = "I am not confident enough to answer this question accurately. I have sent it to the team for review, and you will receive an answer shortly."
+            response_tokens = [wait_message] # Send as single block or char-by-char doesn't matter much for static
+            
+            # Suppress citations for the user view (don't show sources for an 'I don't know')
+            response_citations = []
+            
+            # Ensure the full actual draft is in metadata for the review queue
+            extra_meta = {
+                "confidence": confidence_value,
+                "verified": False,
+                "trust_level": "pending", # Show orange clock icon
+                "source_type": "rag",
+                "routing_decision": "hitl",
+                "ai_draft": ai_draft, # CRITICAL: used by frontend to submit to queue
+            }
+        else:
+            # High confidence: show actual draft and citations
+            response_tokens = draft_tokens
+            response_citations = streaming_citations
+            extra_meta = {
+                "confidence": confidence_value,
+                "verified": False,
+                "trust_level": "ai_generated",
+                "source_type": "rag",
+                "routing_decision": "auto_send",
+            }
+
         response = StreamingResponse(
             _stream_precomputed_response(
-                tokens=draft_tokens,
-                citations=streaming_citations,
-                extra_metadata={
-                    "confidence": confidence_value,
-                    # Story 7.2: Mark as AI-generated from RAG
-                    "verified": False,
-                    "trust_level": "ai_generated",
-                    "source_type": "rag",
-                    # Include routing decision for frontend to handle appropriately
-                    "routing_decision": confidence_result.routing_decision.value,
-                },
+                tokens=response_tokens,
+                citations=response_citations,
+                extra_metadata=extra_meta,
                 response_id=confidence_result.query_id,
             ),
             media_type="text/event-stream",
@@ -555,7 +684,7 @@ async def get_message_status(
 
     Args:
         - bot_id: UUID of the bot
-        - message_id: ID of the pending message
+        - message_id: ID of the pending message (frontend-generated ID sent in query)
 
     Returns:
         - 200: { status: "pending" | "resolved", response?: {...} }
@@ -570,21 +699,61 @@ async def get_message_status(
                 detail="Bot not found",
             )
 
-        # TODO: Implement message status tracking in database
-        # For now, return pending status as placeholder
-        # In production:
-        # 1. Query message_status table to get current status
-        # 2. If status == "resolved", fetch and return the verified response
-        # 3. If status == "pending", return pending status
-        # 4. If message not found, return 404
-
         logger.debug(f"Checking status for message {message_id} in bot {bot_id}")
 
-        # Placeholder response - implement when HITL queue is ready
-        return {
-            "status": "pending",
-            "error": "Message status tracking not yet implemented",
-        }
+        # Query ConfidenceLog to find the item corresponding to this message_id
+        # We look inside metadata_json for the 'message_id' key
+        # Note: Using op('->>') for Postgres JSON text extraction
+        from app.models.confidence_log import ConfidenceLog
+        from sqlalchemy import desc
+
+        stmt = select(ConfidenceLog).where(
+            ConfidenceLog.bot_id == bot_id,
+            ConfidenceLog.metadata_json.op('->>')('message_id') == message_id
+        ).order_by(desc(ConfidenceLog.created_at)).limit(1)
+
+        result = await db.execute(stmt)
+        log_entry = result.scalar_one_or_none()
+
+        if not log_entry:
+            # If not found, it might simply not be created yet or ID is wrong
+            # Return 404 so client stops polling or retries
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Message log not found",
+            )
+
+        if log_entry.hitl_resolved:
+            # Resolved! Return the approved answer
+            metadata = log_entry.metadata_json or {}
+            
+            # Prefer human edited answer, fallback to AI draft
+            final_content = metadata.get("human_final_answer") or metadata.get("ai_draft") or ""
+            
+            # Smart confidence logic:
+            # - Human edited: 1.0 confidence
+            # - AI draft (unedited): use original generation confidence (default 0.9)
+            confidence = 1.0
+            if not metadata.get("human_final_answer"):
+                confidence = float(metadata.get("generation_confidence", 0.9))
+
+            return {
+                "status": "resolved",
+                "response": {
+                    "id": str(log_entry.id),
+                    "role": "assistant",
+                    "content": final_content,
+                    "confidence": confidence,
+                    "trustLevel": "ai_generated",  # Use ai_generated to avoid confusion with KB
+                    "sourceType": "hitl",
+                    "timestamp": int(log_entry.resolution_timestamp.timestamp() * 1000) if log_entry.resolution_timestamp else None,
+                }
+            }
+        else:
+            # Still pending
+            return {
+                "status": "pending"
+            }
 
     except HTTPException:
         raise

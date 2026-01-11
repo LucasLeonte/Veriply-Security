@@ -169,9 +169,12 @@ class EmbeddingService:
                 f"No embedding returned from Ollama API for query: '{text[:50]}...' using model {self.model}"
             )
 
+        # Validate dimensions (warn but don't crash, let DB decide)
         if len(embedding) != EMBEDDING_DIMENSIONS:
-            raise EmbeddingError(
-                f"Expected {EMBEDDING_DIMENSIONS} dimensions, got {len(embedding)} for model {self.model}"
+            logger.warning(
+                f"Embedding dimension mismatch: Expected {EMBEDDING_DIMENSIONS}, "
+                f"got {len(embedding)} for model {self.model}. "
+                f"Ensure database schema matches this dimension."
             )
 
         return embedding

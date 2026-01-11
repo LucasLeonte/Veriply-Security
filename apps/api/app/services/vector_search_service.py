@@ -28,9 +28,11 @@ logger = logging.getLogger(__name__)
 
 # Default search parameters
 DEFAULT_TOP_K = 5
-DEFAULT_SIMILARITY_THRESHOLD = 0.70
-# Story 7.2: Configurable threshold for verified KB (default 0.95)
+DEFAULT_SIMILARITY_THRESHOLD = 0.55  # Lowered from 0.70 to allow relevant document matches
+# Story 7.2: Configurable threshold for verified KB (default 0.85)
 VERIFIED_KB_SIMILARITY_THRESHOLD = settings.VERIFIED_KB_SIMILARITY_THRESHOLD
+# High-confidence threshold for short-circuit (skip document search only for very high matches)
+HIGH_CONFIDENCE_SHORTCIRCUIT_THRESHOLD = 0.92
 HNSW_EF_SEARCH = 40  # Runtime parameter for HNSW index
 
 
@@ -180,6 +182,7 @@ class VectorSearchService:
         # STEP 1: Search verified Q&A FIRST (Story 7.2)
         # ============================================================
         verified_results: List[SearchResult] = []
+        lower_confidence_verified: List[SearchResult] = []  # Initialize outside try block
         verified_latency_ms = 0
         try:
             from app.services.verified_qa import search_verified_qa
@@ -302,19 +305,32 @@ class VectorSearchService:
                     f"[Story 7.2] VERIFIED_KB_CACHE_SET: stored {len(payload)} result(s) for TTL={cache_ttl}s"
                 )
             
-            # Story 7.2: SHORT-CIRCUIT LOGIC (AC #2)
-            # If we have high-confidence verified match(es), return immediately
-            # No need to search documents or invoke LLM
-            if verified_results:
+            # Story 7.2: SHORT-CIRCUIT LOGIC (AC #2) - Modified for better behavior
+            # Only short-circuit for VERY HIGH confidence matches (>=0.92)
+            # Lower confidence verified matches will be merged with document results
+            high_confidence_verified = [
+                r for r in verified_results if r.similarity >= HIGH_CONFIDENCE_SHORTCIRCUIT_THRESHOLD
+            ]
+            lower_confidence_verified = [
+                r for r in verified_results if r.similarity < HIGH_CONFIDENCE_SHORTCIRCUIT_THRESHOLD
+            ]
+            
+            if high_confidence_verified:
                 total_latency_ms = int((time.time() - start_time) * 1000)
                 logger.info(
-                    f"[Story 7.2] SHORT-CIRCUIT: Returning {len(verified_results)} verified "
-                    f"answer(s), skipping document search and LLM generation "
+                    f"[Story 7.2] SHORT-CIRCUIT: Returning {len(high_confidence_verified)} high-confidence verified "
+                    f"answer(s) (similarity >= {HIGH_CONFIDENCE_SHORTCIRCUIT_THRESHOLD}), skipping document search "
                     f"(total latency: {total_latency_ms}ms)"
                 )
-                return verified_results, total_latency_ms
+                return high_confidence_verified, total_latency_ms
             
-            logger.debug("[Story 7.2] No verified matches, continuing to document search")
+            if lower_confidence_verified:
+                logger.debug(
+                    f"[Story 7.2] Found {len(lower_confidence_verified)} lower-confidence verified matches, "
+                    f"will merge with document search results"
+                )
+            else:
+                logger.debug("[Story 7.2] No verified matches, continuing to document search")
             
         except Exception as e:
             logger.warning(f"Verified KB search failed, continuing with document search: {e}", exc_info=True)
@@ -386,15 +402,45 @@ class VectorSearchService:
             )
         )
 
+        # Check if bot has any explicit access rules configured
+        has_access_rules_stmt = select(BotDocumentAccess.id).where(
+            and_(
+                BotDocumentAccess.bot_id == bot_id,
+                BotDocumentAccess.tenant_id == tenant_id,
+            )
+        ).limit(1)
+        has_rules_result = await db.execute(has_access_rules_stmt)
+        has_access_rules = has_rules_result.scalar_one_or_none() is not None
+
         # Final filter condition for accessible documents
-        accessible_docs_condition = or_(
-            Chunk.document_id.in_(allowed_docs_explicit),
-            Chunk.document_id.in_(allowed_docs_via_folder),
-        )
+        if has_access_rules:
+            # Use explicit access rules OR folder-based access
+            accessible_docs_condition = or_(
+                Chunk.document_id.in_(allowed_docs_explicit),
+                Chunk.document_id.in_(allowed_docs_via_folder)
+            )
+            logger.debug(f"Bot {bot_id} has access rules, filtering documents (explicit + folder)")
+        else:
+            # No access rules = allow ALL documents in the group (default open access)
+            logger.debug(
+                f"Bot {bot_id} has no explicit access rules, allowing all documents in group {group_id_val}"
+            )
+            # Filter to only documents in this group (via join with Document table later)
+            accessible_docs_condition = Chunk.group_id == group_id_val
 
         # Perform vector search with RLS filtering and bot allowlist
         # Use pgvector's cosine distance operator (<=>)
         # Lower distance = higher similarity
+        base_conditions = [
+            Chunk.tenant_id == tenant_id,
+            Chunk.vector.isnot(None),  # Only chunks with embeddings
+            accessible_docs_condition,
+        ]
+        
+        # Only apply denied docs filter if we have access rules
+        if has_access_rules:
+            base_conditions.append(~Chunk.document_id.in_(denied_docs_explicit))
+        
         stmt = (
             select(
                 Chunk.id,
@@ -405,26 +451,56 @@ class VectorSearchService:
                 Chunk.metadata_json,
                 Chunk.vector.cosine_distance(query_embedding).label("distance"),
             )
-            .where(Chunk.tenant_id == tenant_id)
-            .where(Chunk.vector.isnot(None))  # Only chunks with embeddings
-            .where(accessible_docs_condition)
-            .where(~Chunk.document_id.in_(denied_docs_explicit))
+            .join(Document, Chunk.document_id == Document.id)  # Join Document to check deleted status
+            .where(
+                and_(
+                    *base_conditions,
+                    Document.deleted_at.is_(None)  # Exclude soft-deleted documents
+                )
+            )
             .order_by(text("distance"))
-            .limit(k * 2)  # Get extra results for threshold filtering
+            .limit(k * 10)  # Get many candidates to apply diversity filtering
         )
 
         result = await db.execute(stmt)
         rows = result.all()
 
+        # DEBUG: Log raw chunk search results
+        logger.warning(f"[DEBUG] Raw chunk search returned {len(rows)} rows")
+        if rows:
+             for i, row in enumerate(rows[:5]): # Show top 5
+                 dist = row.distance
+                 sim = 1.0 - dist
+                 logger.warning(f"[DEBUG] Raw Chunk #{i+1} similarity: {sim:.4f} (distance={dist:.4f})")
+
         # Convert distance to similarity and filter by threshold
-        # Cosine similarity = 1 - cosine distance
+        # Also apply diversity filtering: Max chunks per document
         chunk_results = []
+        doc_counts = {}
+        MAX_CHUNKS_PER_DOC = 3
+        
         for row in rows:
             similarity = 1.0 - row.distance
-            if similarity >= similarity_threshold:
-                chunk_results.append((row, similarity))
+            
+            # 1. Similarity Threshold
+            if similarity < similarity_threshold:
+                continue
+                
+            # 2. Diversity Filter (Max chunks per document)
+            # This prevents one document from dominating results (Shadowing)
+            doc_id = row.document_id
+            current_count = doc_counts.get(doc_id, 0)
+            if current_count >= MAX_CHUNKS_PER_DOC:
+                continue
+            
+            chunk_results.append((row, similarity))
+            doc_counts[doc_id] = current_count + 1
+            
+            # Stop if we hit k results
             if len(chunk_results) >= k:
                 break
+        
+        logger.info(f"[DEBUG] After threshold filter ({similarity_threshold}): {len(chunk_results)} chunks remain")
 
         # Fetch document names for results
         if chunk_results:
@@ -556,11 +632,28 @@ class VectorSearchService:
                     is_verified=False
                 ))
         
+        # 3. Add lower-confidence verified results (if any) to unified results
+        # These were not high-confidence enough to short-circuit, but may still be relevant
+        if lower_confidence_verified:
+            for verified_result in lower_confidence_verified:
+                unified_results.append(verified_result)
+                logger.debug(
+                    f"Added lower-confidence verified result: similarity={verified_result.similarity:.4f}"
+                )
+        
         # Sort combined results by similarity descending
         unified_results.sort(key=lambda x: x.similarity, reverse=True)
         
         # Take top K
         final_results = unified_results[:k]
+        
+        # Log the composition of final results for debugging
+        verified_count = sum(1 for r in final_results if r.is_verified)
+        doc_count = sum(1 for r in final_results if not r.is_verified and not r.chunk_id.startswith('email_'))
+        email_count = sum(1 for r in final_results if r.chunk_id.startswith('email_'))
+        logger.debug(
+            f"Final results composition: {verified_count} verified, {doc_count} documents, {email_count} emails"
+        )
 
         latency_ms = int((time.time() - start_time) * 1000)
         logger.info(
