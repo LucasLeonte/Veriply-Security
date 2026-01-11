@@ -414,13 +414,12 @@ class VectorSearchService:
 
         # Final filter condition for accessible documents
         if has_access_rules:
-            # Use explicit access rules only
-            # Note: The or_() with allowed_docs_via_folder was causing issues when the 
-            # folder subquery returned empty results - PostgreSQL IN with empty subquery 
-            # combined with OR was filtering out all results. Since folder-based access
-            # is rarely used, we simplify to only use explicit document access.
-            accessible_docs_condition = Chunk.document_id.in_(allowed_docs_explicit)
-            logger.debug(f"Bot {bot_id} has access rules, filtering documents accordingly")
+            # Use explicit access rules OR folder-based access
+            accessible_docs_condition = or_(
+                Chunk.document_id.in_(allowed_docs_explicit),
+                Chunk.document_id.in_(allowed_docs_via_folder)
+            )
+            logger.debug(f"Bot {bot_id} has access rules, filtering documents (explicit + folder)")
         else:
             # No access rules = allow ALL documents in the group (default open access)
             logger.debug(
