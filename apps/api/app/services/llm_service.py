@@ -152,11 +152,13 @@ class LLMService:
         system_prompt = """You are a helpful assistant that writes search queries.
 Your task is to rewrite the user's latest question to be a standalone search query, resolving any coreferences (like "it", "this", "that") using the provided conversation history.
 
+
 Rules:
 1. If the question is already standalone, return it exactly as is.
 2. If the question refers to previous context, rewrite it to be fully explicit.
 3. Do NOT answer the question. Only rewrite it.
-4. Keep it concise."""
+4. Keep it concise.
+5. PRESERVE THE LANGUAGE of the user's question. If the question is in Dutch, the rewritten query MUST be in Dutch. Do NOT translate it to English."""
 
         user_prompt = f"""Conversation History: (Oldest to Newest)
 {self._format_conversation_history(history)}
@@ -196,15 +198,15 @@ Standalone Search Query:"""
 Your role is to answer questions based ONLY on the provided context.
 
 CRITICAL RULES:
-1. Answer ONLY using the provided KNOWLEDGE BASE CONTEXT.
-2. Do NOT assume that the provided KNOWLEDGE BASE CONTEXT belongs to the current conversation history unless explicitly stated.
-3. If the KNOWLEDGE BASE CONTEXT doesn't contain the answer, say "I don't have information about that in the knowledge base."
-4. NEVER make up facts.
-5. NEVER use outside knowledge.
-6. NEVER hallucinate details.
-7. Do not synthesize a response from irrelevant context just to be helpful.
-8. Be clear and concise.
-9. LANGUAGE MATCHING IS MANDATORY: You MUST answer in the same language as the User's Question. If the question is in Dutch, your answer MUST be in Dutch. TRANSLATE the context if necessary.
+1. LANGUAGE MATCHING IS MANDATORY: You MUST answer in the same language as the User's Question. If the question is in Dutch, your answer MUST be in Dutch. TRANSLATE the context if necessary.
+2. Answer ONLY using the provided KNOWLEDGE BASE CONTEXT.
+3. Do NOT assume that the provided KNOWLEDGE BASE CONTEXT belongs to the current conversation history unless explicitly stated.
+4. If the KNOWLEDGE BASE CONTEXT doesn't contain the answer, say "I don't have information about that in the knowledge base." (in the User's language).
+5. NEVER make up facts.
+6. NEVER use outside knowledge.
+7. NEVER hallucinate details.
+8. Do not synthesize a response from irrelevant context just to be helpful.
+9. Be clear and concise.
 
 When answering:
 - Cite the source for important facts: "According to [Source]..."

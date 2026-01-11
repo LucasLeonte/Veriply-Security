@@ -403,12 +403,23 @@ async def chat_query(
                 verified_match = result
                 break
 
+        # Check for previously resolved HITL queries (same question asked again)
+        # This prevents the bot from saying "I'm checking with the team" for questions
+        # that the team has ALREADY answered.
+        resolved_hitl_answer = None
+        if not verified_match:
+            resolved_meta = await confidence_service.get_resolved_answer_for_query(
+                db=db, bot_id=bot_id, query=query_text
+            )
+            if resolved_meta:
+                resolved_hitl_answer = resolved_meta.get("human_final_answer") or resolved_meta.get("ai_draft")
+
         # Build conversation history that will be sent to the LLM
         conversation_history: list[ChatMessage] = []
         if not conversation_context and context_messages:
             conversation_history = context_messages[-context_window:]
 
-        # If we have a verified answer, use it directly (no LLM needed)
+        # If we have a verified KB answer, use it directly
         if verified_match:
             logger.info(
                 f"Using verified Q&A answer for query '{query_text[:50]}...' "
@@ -416,6 +427,15 @@ async def chat_query(
             )
             ai_draft = verified_match.verified_answer
             draft_tokens = [ai_draft]  # Single token for verified answer
+            
+        # If we have a previously resolved HITL answer, use it directly (treat as verified)
+        elif resolved_hitl_answer:
+            logger.info(
+                f"Using previously resolved HITL answer for query '{query_text[:50]}...'"
+            )
+            ai_draft = resolved_hitl_answer
+            draft_tokens = [ai_draft]
+
         else:
             # Generate AI draft tokens via LLM
             draft_tokens: list[str] = []
@@ -522,6 +542,34 @@ async def chat_query(
                         # Include citations from verified entry if available
                         **({"verified_citations": verified_match.verified_citations}
                            if verified_match.verified_citations else {}),
+                    },
+                ),
+                media_type="text/event-stream",
+            )
+            
+        elif resolved_hitl_answer:
+            # Story 7.2: Previously resolved HITL answers also skip LLM
+            logger.info("[Story 7.2] Returning previously resolved HITL answer as high-confidence AI draft.")
+            
+            # Determine confidence based on whether it was human-edited or just approved
+            # If a human explicitly wrote/edited the answer, we are 100% confident.
+            if resolved_meta and resolved_meta.get("human_final_answer"):
+                confidence_value = 1.0
+            else:
+                # If it was just an approved AI draft, use the original confidence
+                # This prevents "I don't know" drafts (with low confidence) from appearing as 100% certain
+                confidence_value = resolved_meta.get("generation_confidence", 0.9) if resolved_meta else 0.9
+
+            return StreamingResponse(
+                _stream_precomputed_response(
+                    tokens=draft_tokens,
+                    citations=streaming_citations,
+                    extra_metadata={
+                        "confidence": confidence_value,
+                        "verified": False,
+                        "trust_level": "ai_generated",
+                        "source_type": "hitl_resolved",
+                        "routing_decision": "direct_resolved",
                     },
                 ),
                 media_type="text/event-stream",
@@ -679,17 +727,24 @@ async def get_message_status(
             # Resolved! Return the approved answer
             metadata = log_entry.metadata_json or {}
             
-            # Prefer human edited answer, fallback to AI draft (though resolved usually means human touched it)
+            # Prefer human edited answer, fallback to AI draft
             final_content = metadata.get("human_final_answer") or metadata.get("ai_draft") or ""
             
+            # Smart confidence logic:
+            # - Human edited: 1.0 confidence
+            # - AI draft (unedited): use original generation confidence (default 0.9)
+            confidence = 1.0
+            if not metadata.get("human_final_answer"):
+                confidence = float(metadata.get("generation_confidence", 0.9))
+
             return {
                 "status": "resolved",
                 "response": {
-                    "id": str(log_entry.id), # Return backend ID or keep original? Frontend might not care
+                    "id": str(log_entry.id),
                     "role": "assistant",
                     "content": final_content,
-                    "confidence": 1.0,
-                    "trustLevel": "verified",
+                    "confidence": confidence,
+                    "trustLevel": "ai_generated",  # Use ai_generated to avoid confusion with KB
                     "sourceType": "hitl",
                     "timestamp": int(log_entry.resolution_timestamp.timestamp() * 1000) if log_entry.resolution_timestamp else None,
                 }
