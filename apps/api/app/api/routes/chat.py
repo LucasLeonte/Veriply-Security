@@ -330,13 +330,15 @@ async def chat_query(
 
         # Retrieve relevant context from vector store
         # Retrieve relevant context from vector store
+        # Retrieve relevant context from vector store
+        similarity_threshold = 0.35 # Lowered further to 0.35 to catch Dutch semantic matches
         search_results, _latency_ms = await vector_search_service.search(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
             query=request.query.strip(),
             k=8,
-            similarity_threshold=0.35, # Lowered further to 0.35 to catch Dutch semantic matches
+            similarity_threshold=similarity_threshold,
         )
 
         # Debug logging for KB search results
@@ -439,7 +441,7 @@ async def chat_query(
         # Build detailed citations for streaming metadata.
         # Use the same threshold as vector search so that
         # every retrieved chunk is surfaced as a source.
-        CITATION_SIMILARITY_THRESHOLD = 0.70
+        CITATION_SIMILARITY_THRESHOLD = similarity_threshold
         streaming_citations = [
             {
                 "source": result.document_name or "Unknown",
