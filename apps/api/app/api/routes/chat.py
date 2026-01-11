@@ -334,7 +334,7 @@ async def chat_query(
             bot_id=bot_id,
             tenant_id=tenant_id,
             query=request.query.strip(),
-            k=3,
+            k=8,
             similarity_threshold=0.60, # Lowered from 0.70 to allow relevant document chunks
         )
 

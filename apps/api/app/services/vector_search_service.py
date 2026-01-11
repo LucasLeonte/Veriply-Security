@@ -454,26 +454,40 @@ class VectorSearchService:
             )
             .where(and_(*base_conditions))
             .order_by(text("distance"))
-            .limit(k * 2)  # Get extra results for threshold filtering
+            .order_by(text("distance"))
+            .limit(k * 10)  # Get many candidates to apply diversity filtering
         )
 
         result = await db.execute(stmt)
         rows = result.all()
 
         # DEBUG: Log raw chunk search results
-        logger.info(f"[DEBUG] Raw chunk search returned {len(rows)} rows")
-        if rows:
-            for i, row in enumerate(rows[:3]):
-                similarity = 1.0 - row.distance
-                logger.info(f"[DEBUG] Row {i}: doc_id={row.document_id}, sim={similarity:.4f}")
+        logger.debug(f"[DEBUG] Raw chunk search returned {len(rows)} rows")
 
         # Convert distance to similarity and filter by threshold
-        # Cosine similarity = 1 - cosine distance
+        # Also apply diversity filtering: Max chunks per document
         chunk_results = []
+        doc_counts = {}
+        MAX_CHUNKS_PER_DOC = 3
+        
         for row in rows:
             similarity = 1.0 - row.distance
-            if similarity >= similarity_threshold:
-                chunk_results.append((row, similarity))
+            
+            # 1. Similarity Threshold
+            if similarity < similarity_threshold:
+                continue
+                
+            # 2. Diversity Filter (Max chunks per document)
+            # This prevents one document from dominating results (Shadowing)
+            doc_id = row.document_id
+            current_count = doc_counts.get(doc_id, 0)
+            if current_count >= MAX_CHUNKS_PER_DOC:
+                continue
+            
+            chunk_results.append((row, similarity))
+            doc_counts[doc_id] = current_count + 1
+            
+            # Stop if we hit k results
             if len(chunk_results) >= k:
                 break
         
