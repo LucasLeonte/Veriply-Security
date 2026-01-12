@@ -36,6 +36,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/profile", tags=["gdpr"])
 
 
+def _user_attr(user, name, default=None):
+    """Safely get attribute `name` from `user` which may be a model or a dict."""
+    if user is None:
+        return default
+    if isinstance(user, dict):
+        return user.get(name, default)
+    return getattr(user, name, default)
+
+
 async def _collect_user_data(db: AsyncSession, user: User) -> Dict[str, Any]:
     """Collect all user data for GDPR export.
     
@@ -46,15 +55,24 @@ async def _collect_user_data(db: AsyncSession, user: User) -> Dict[str, Any]:
     - Email integrations
     - Activity logs
     """
+    # Normalize user id and attributes (support model instance or dict)
+    user_id = _user_attr(user, "id")
+    try:
+        if user_id is not None and not isinstance(user_id, UUID):
+            user_id = UUID(str(user_id))
+    except Exception:
+        # leave as-is if parsing fails
+        pass
+
     data = {
         "user_profile": {
-            "id": str(user.id),
-            "email": user.email,
-            "full_name": user.full_name,
-            "tenant_id": str(user.tenant_id),
-            "is_active": user.is_active,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+            "id": str(user_id) if user_id is not None else None,
+            "email": _user_attr(user, "email"),
+            "full_name": _user_attr(user, "full_name"),
+            "tenant_id": str(_user_attr(user, "tenant_id")) if _user_attr(user, "tenant_id") is not None else None,
+            "is_active": _user_attr(user, "is_active"),
+            "created_at": (_user_attr(user, "created_at").isoformat() if hasattr(_user_attr(user, "created_at"), "isoformat") else _user_attr(user, "created_at")) if _user_attr(user, "created_at") else None,
+            "updated_at": (_user_attr(user, "updated_at").isoformat() if hasattr(_user_attr(user, "updated_at"), "isoformat") else _user_attr(user, "updated_at")) if _user_attr(user, "updated_at") else None,
         },
         "group_memberships": [],
         "bots": [],
@@ -64,25 +82,28 @@ async def _collect_user_data(db: AsyncSession, user: User) -> Dict[str, Any]:
         "audit_logs": [],
     }
     
-    # Get group memberships
-    result = await db.execute(
-        select(GroupMember)
-        .where(GroupMember.user_id == user.id)
-        .options(selectinload(GroupMember.group))
+    # Get group memberships (join groups to fetch the group name)
+    from app.models.group import Group
+
+    stmt = (
+        select(GroupMember, Group)
+        .join(Group, Group.id == GroupMember.group_id)
+        .where(GroupMember.user_id == user_id)
     )
-    memberships = result.scalars().all()
-    
-    for member in memberships:
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    for member, group in rows:
         data["group_memberships"].append({
             "group_id": str(member.group_id),
-            "group_name": member.group.name if member.group else None,
+            "group_name": group.name if group else None,
             "role": member.role.value,
-            "joined_at": member.created_at.isoformat() if member.created_at else None,
+            "joined_at": member.invited_at.isoformat() if member.invited_at else None,
         })
     
     # Get bots created by user
     result = await db.execute(
-        select(Bot).where(Bot.creator_id == user.id)
+        select(Bot).where(Bot.created_by == user_id)
     )
     bots = result.scalars().all()
     
@@ -96,7 +117,7 @@ async def _collect_user_data(db: AsyncSession, user: User) -> Dict[str, Any]:
     
     # Get documents uploaded by user
     result = await db.execute(
-        select(Document).where(Document.uploader_id == user.id)
+        select(Document).where(Document.uploader_id == user_id)
     )
     documents = result.scalars().all()
     
@@ -110,7 +131,7 @@ async def _collect_user_data(db: AsyncSession, user: User) -> Dict[str, Any]:
     
     # Get email integrations
     result = await db.execute(
-        select(EmailIntegration).where(EmailIntegration.user_id == user.id)
+        select(EmailIntegration).where(EmailIntegration.user_id == user_id)
     )
     integrations = result.scalars().all()
     
@@ -124,21 +145,29 @@ async def _collect_user_data(db: AsyncSession, user: User) -> Dict[str, Any]:
     
     # Get HITL activities (resolved by user)
     result = await db.execute(
-        select(ConfidenceLog).where(ConfidenceLog.resolved_by == user.id)
+        select(ConfidenceLog).where(ConfidenceLog.resolution_user_id == user_id)
     )
     hitl_items = result.scalars().all()
-    
+
     for item in hitl_items:
+        # Map ConfidenceLog fields to export fields. Use metadata_json if available for stored response.
+        bot_resp = None
+        if getattr(item, 'metadata_json', None):
+            try:
+                bot_resp = item.metadata_json.get('bot_response') if isinstance(item.metadata_json, dict) else None
+            except Exception:
+                bot_resp = None
+
         data["hitl_activities"].append({
             "id": str(item.id),
-            "question": item.question,
-            "bot_response": item.bot_response,
-            "resolved_at": item.resolved_at.isoformat() if item.resolved_at else None,
+            "question": item.query_text,
+            "bot_response": bot_resp,
+            "resolved_at": item.resolution_timestamp.isoformat() if getattr(item, 'resolution_timestamp', None) else None,
         })
     
     # Get audit logs
     result = await db.execute(
-        select(AuditLog).where(AuditLog.actor_id == user.id).limit(1000)
+        select(AuditLog).where(AuditLog.actor_id == user_id).limit(1000)
     )
     logs = result.scalars().all()
     
@@ -152,7 +181,7 @@ async def _collect_user_data(db: AsyncSession, user: User) -> Dict[str, Any]:
     return data
 
 
-@router.get("/export")
+@router.get("/me/export")
 async def export_user_data(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -171,17 +200,24 @@ async def export_user_data(
     Security: Users can only export their own data.
     """
     try:
+        # Extract identifiers (support both model instances and dicts)
+        tenant_id = _user_attr(current_user, "tenant_id")
+        user_id = _user_attr(current_user, "id")
+        user_email = _user_attr(current_user, "email") or "user"
+
         # Set RLS context
-        await set_tenant_context(db, current_user.tenant_id)
-        
+        await set_tenant_context(db, tenant_id)
+
         # Collect all user data
+        # If current_user is a dict, _collect_user_data expects a User-like object;
+        # pass through the dict and let the collector handle fields by key access where necessary.
         user_data = await _collect_user_data(db, current_user)
         
         # Generate JSON export
         json_content = json.dumps(user_data, indent=2, ensure_ascii=False)
         
         # Return as downloadable file
-        filename = f"veriply_data_export_{current_user.email}_{datetime.utcnow().strftime('%Y%m%d')}.json"
+        filename = f"veriply_data_export_{user_email}_{datetime.utcnow().strftime('%Y%m%d')}.json"
         
         return StreamingResponse(
             iter([json_content]),
@@ -192,7 +228,8 @@ async def export_user_data(
         )
         
     except Exception as e:
-        logger.exception(f"Error exporting user data for user {current_user.id}: {e}")
+        # Use extracted user_id for logging (handles dict or model)
+        logger.exception(f"Error exporting user data for user {user_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to export user data"
@@ -267,8 +304,8 @@ async def delete_user_account(
         from sqlalchemy import update
         await db.execute(
             update(ConfidenceLog)
-            .where(ConfidenceLog.resolved_by == user_id)
-            .values(resolved_by=None)
+            .where(ConfidenceLog.resolution_user_id == user_id)
+            .values(resolution_user_id=None)
         )
         logger.info(f"Anonymized HITL resolutions for user {user_id}")
 
@@ -279,7 +316,7 @@ async def delete_user_account(
         logger.info(f"Deleted audit logs for user {user_id}")
 
         # 5. Delete user-owned bots and documents instead of transferring ownership
-        await db.execute(delete(Bot).where(Bot.creator_id == user_id))
+        await db.execute(delete(Bot).where(Bot.created_by == user_id))
         logger.info(f"Deleted bots for user {user_id}")
 
         # Delete documents and related chunks/embeddings owned by the user
@@ -295,7 +332,7 @@ async def delete_user_account(
 
         # 6a. Delete all embeddings created by this user's bots
         bot_ids_result = await db.execute(
-            select(Bot.id).where(Bot.creator_id == user_id)
+            select(Bot.id).where(Bot.created_by == user_id)
         )
         bot_ids = [row[0] for row in bot_ids_result.all()]
         if bot_ids:

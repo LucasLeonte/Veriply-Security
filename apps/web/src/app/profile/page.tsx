@@ -31,6 +31,7 @@ export default function ProfilePage() {
     });
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [deleting, setDeleting] = useState(false);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         fetchProfile();
@@ -296,6 +297,99 @@ export default function ProfilePage() {
         }
     };
 
+    const handleExportData = async () => {
+        if (exporting) return;
+        try {
+            setExporting(true);
+            setError(null);
+            setSuccessMessage(null);
+
+            const token = getAccessToken();
+            if (!token) {
+                setError("Not authenticated. Please log in.");
+                return;
+            }
+
+            const apiUrl =
+                process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+            const response = await fetch(`${apiUrl}/api/v1/profile/me/export`, {
+                method: "GET",
+                credentials: "include",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    setError("Session expired. Please log in again.");
+                    clearAccessToken();
+                    window.location.href = "/login";
+                    return;
+                }
+                // Try to capture and display any validation or error payload (e.g., 422 details)
+                const text = await response.text();
+                let message = text;
+                try {
+                    const parsed = JSON.parse(text);
+                    // If the backend returned a structured error, try to extract useful info
+                    if (parsed.detail) {
+                        message =
+                            typeof parsed.detail === "string"
+                                ? parsed.detail
+                                : JSON.stringify(parsed.detail);
+                    } else if (parsed.message) {
+                        message = parsed.message;
+                    } else {
+                        message = JSON.stringify(parsed);
+                    }
+                } catch (_) {
+                    // not JSON, keep raw text
+                }
+                console.error("Export failed", response.status, message);
+                setError(
+                    `Export failed (${response.status}): ${message}` ||
+                        "Failed to export data"
+                );
+                return;
+            }
+
+            const blob = await response.blob();
+
+            // Try to extract filename from Content-Disposition header
+            let filename = "veriply_data_export.json";
+            const cd =
+                response.headers.get("Content-Disposition") ||
+                response.headers.get("content-disposition");
+            if (cd) {
+                const match = cd.match(/filename\*?=([^;]+)/);
+                if (match) {
+                    filename = match[1].replace(/\"/g, "").trim();
+                }
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            setSuccessMessage(
+                "Your data export has started. Check your downloads folder."
+            );
+            setTimeout(() => setSuccessMessage(null), 4000);
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : "Failed to export data"
+            );
+        } finally {
+            setExporting(false);
+        }
+    };
+
     if (loading) {
         return (
             <DashboardLayout>
@@ -499,6 +593,26 @@ export default function ProfilePage() {
                             </div>
                         )}
                     </form>
+                </div>
+
+                {/* Export Data */}
+                <div className="mt-8 p-6 bg-white border border-gray-200 rounded-lg">
+                    <p className="text-sm text-gray-700 mb-4">
+                        Export a copy of your personal data in JSON format. This
+                        includes your profile, group memberships, integrations,
+                        HITL activities, and recent audit logs.
+                    </p>
+                    <button
+                        onClick={handleExportData}
+                        disabled={exporting}
+                        className={`px-4 py-2 rounded-lg text-white font-semibold transition ${
+                            exporting
+                                ? "bg-blue-300 cursor-not-allowed"
+                                : "bg-blue-600 hover:bg-blue-700"
+                        }`}
+                    >
+                        {exporting ? "Exporting..." : "Export my data"}
+                    </button>
                 </div>
 
                 {/* Delete Account */}
