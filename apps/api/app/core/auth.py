@@ -52,7 +52,12 @@ def decode_jwt(token: str) -> dict | None:
     Used for optional authentication checks.
     """
     try:
-        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            get_jwt_secret(),
+            algorithms=[JWT_ALGORITHM],
+            options={"require": ["exp", "sub"], "verify_exp": True, "verify_signature": True},
+        )
         return payload
     except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
         return None
@@ -88,7 +93,12 @@ async def get_current_user(
         )
     
     try:
-        payload = jwt.decode(token, get_jwt_secret(), algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(
+            token,
+            get_jwt_secret(),
+            algorithms=[JWT_ALGORITHM],
+            options={"require": ["exp", "sub"], "verify_exp": True, "verify_signature": True},
+        )
         user_id: str = payload.get("sub")
         tenant_id: str = payload.get("tenant_id")
         role: str = payload.get("role")

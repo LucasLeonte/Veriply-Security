@@ -27,6 +27,7 @@ from app.models.user import User
 from app.models.confidence_log import ConfidenceLog, RoutingDecision
 from app.models.bot import Bot
 from app.models.bot import Bot
+from app.core.distributed_lock import acquire_review_lock, release_review_lock, extend_review_lock
 from app.services.embedding_service import EmbeddingService, EmbeddingError
 from app.services.verified_qa import create_verified_qa
 from app.services.document_service import create_document
@@ -561,10 +562,31 @@ async def get_queue_item_detail(
         )
     except Exception as e:
         logger.error(f"Error fetching queue item detail: {e}")
+@router.post("/queue/{item_id}/lock")
+async def lock_queue_item(
+    item_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    current_tenant: UUID = Depends(get_current_tenant),
+):
+    """Acquire an exclusive editing lock on a review item (THR-06)."""
+    acquired, holder = await acquire_review_lock(item_id, str(current_user.id))
+    if not acquired:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch item detail",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Item is currently locked by operator {holder}",
         )
+    return {"status": "locked", "item_id": item_id, "locked_by": str(current_user.id)}
+
+
+@router.post("/queue/{item_id}/unlock")
+async def unlock_queue_item(
+    item_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Explicitly release an editing lock on a review item."""
+    released = await release_review_lock(item_id, str(current_user.id))
+    return {"status": "unlocked" if released else "not_locked", "item_id": item_id}
 
 
 @router.post("/queue/{item_id}/approve")
@@ -939,6 +961,9 @@ async def approve_queue_item(
         except Exception as e:
             logger.warning(f"Failed to publish approval event to Redis: {e}")
 
+        # Automatically release distributed review lock upon resolution (THR-06)
+        await release_review_lock(item_id, str(current_user.id))
+
         return {
             "status": "approved",
             "item_id": item_id,
@@ -1094,6 +1119,9 @@ async def reject_queue_item(
             await redis_client.close()
         except Exception as e:
             logger.warning(f"Failed to publish rejection event to Redis: {e}")
+
+        # Automatically release distributed review lock upon resolution (THR-06)
+        await release_review_lock(item_id, str(current_user.id))
 
         return {"status": "rejected", "item_id": item_id}
 

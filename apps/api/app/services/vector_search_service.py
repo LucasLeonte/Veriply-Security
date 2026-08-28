@@ -428,11 +428,11 @@ class VectorSearchService:
             # Filter to only documents in this group (via join with Document table later)
             accessible_docs_condition = Chunk.group_id == group_id_val
 
-        # Perform vector search with RLS filtering and bot allowlist
-        # Use pgvector's cosine distance operator (<=>)
-        # Lower distance = higher similarity
+        # Perform vector search with strict multi-layer RLS filtering and bot allowlist
+        # Enforce tenant_id AND group_id on both Chunk and Document tables to guarantee zero vector bleed (THR-02)
         base_conditions = [
             Chunk.tenant_id == tenant_id,
+            Chunk.group_id == group_id_val,
             Chunk.vector.isnot(None),  # Only chunks with embeddings
             accessible_docs_condition,
         ]
@@ -451,13 +451,16 @@ class VectorSearchService:
                 Chunk.metadata_json,
                 Chunk.vector.cosine_distance(query_embedding).label("distance"),
             )
-            .join(Document, Chunk.document_id == Document.id)  # Join Document to check deleted status
-            .where(
+            .join(
+                Document,
                 and_(
-                    *base_conditions,
-                    Document.deleted_at.is_(None)  # Exclude soft-deleted documents
-                )
+                    Chunk.document_id == Document.id,
+                    Document.tenant_id == tenant_id,
+                    Document.group_id == group_id_val,
+                    Document.deleted_at.is_(None),  # Exclude soft-deleted documents
+                ),
             )
+            .where(and_(*base_conditions))
             .order_by(text("distance"))
             .limit(k * 10)  # Get many candidates to apply diversity filtering
         )

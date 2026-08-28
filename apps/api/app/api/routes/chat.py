@@ -1,4 +1,4 @@
-﻿"""Chat endpoint for public bot interactions."""
+"""Chat endpoint for public bot interactions."""
 
 import json
 import logging
@@ -31,14 +31,23 @@ from app.services.confidence_service import ConfidenceCalculatorService
 from app.services.domain_whitelist_service import extract_request_origin, matches_whitelist
 from app.services.chat_message_service import ChatMessageService
 
+from app.core.rate_limit import RateLimiter
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/bots", tags=["chat"])
 context_service = ContextService()
 chat_message_service = ChatMessageService()
 
+# Rate limiters (THR-07)
+public_rate_limiter = RateLimiter(requests_per_minute=settings.RATE_LIMIT_PUBLIC_RPM, scope="public_chat")
 
-@router.get("/{bot_id}/public", response_model=PublicBotInfo)
+
+@router.get(
+    "/{bot_id}/public",
+    response_model=PublicBotInfo,
+    dependencies=[Depends(public_rate_limiter)],
+)
 async def get_public_bot_info(
     bot_id: UUID,
     response: Response,
@@ -161,7 +170,10 @@ async def get_current_user_optional(
     except Exception:
         return None
 
-@router.post("/{bot_id}/chat/query")
+@router.post(
+    "/{bot_id}/chat/query",
+    dependencies=[Depends(public_rate_limiter)],
+)
 async def chat_query(
     bot_id: UUID,
     request: ChatQueryRequest,
@@ -178,7 +190,7 @@ async def chat_query(
 
     Args:
         - bot_id: UUID of the bot to query
-        - query: User's question (1-5000 chars)
+        - query: User's question (1-500 chars)
         - conversation_history: Optional previous messages for context
 
     Returns:
@@ -186,6 +198,7 @@ async def chat_query(
         - 400: Invalid query
         - 404: Bot not found
         - 403: Bot is not public
+        - 429: Rate limit exceeded
     """
     # Use provided session_id or generate a new one
     session_id = request.session_id or str(uuid4())
@@ -200,10 +213,10 @@ async def chat_query(
             detail="Query cannot be empty",
         )
 
-    if len(request.query) > 5000:
+    if len(request.query) > 500:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Query too long (max 5000 characters)",
+            detail="Query too long (max 500 characters)",
         )
 
     # Verify bot exists and is public

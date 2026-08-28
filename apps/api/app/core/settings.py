@@ -212,6 +212,11 @@ class Settings(BaseSettings):
         """Parse comma-separated CORS origins into a list."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
     
+    # Rate Limiting & DoS Protection (THR-07)
+    RATE_LIMIT_PUBLIC_RPM: int = 30  # Requests per minute for public chat/queries
+    RATE_LIMIT_AUTHENTICATED_RPM: int = 120  # Requests per minute for authenticated staff
+    REDIS_LOCK_DEFAULT_TTL: int = 60  # Default distributed lock expiration in seconds
+
     # ========================================================================
     # VECTOR SEARCH CONFIGURATION
     # ========================================================================

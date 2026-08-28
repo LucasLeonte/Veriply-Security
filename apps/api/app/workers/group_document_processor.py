@@ -78,14 +78,20 @@ def _chunk_text(text: str, max_words: int = 200, overlap: int = 30) -> List[str]
 
 
 async def _read_file_bytes(storage_path: str) -> bytes:
-    """Read bytes from storage path used by group upload.
+    """Read bytes from storage path used by group upload with path traversal guard (THR-09).
 
     Group uploads save under storage/documents/<storage_path> where storage_path
     is like 'groups/<group_id>/documents/<filename>'.
     """
     # Absolute path under project storage
-    base = os.path.join(os.getcwd(), "storage", "documents")
-    local = os.path.join(base, storage_path.replace("/", os.sep))
+    base = os.path.abspath(os.path.join(os.getcwd(), "storage", "documents"))
+    local = os.path.abspath(os.path.join(base, storage_path.replace("/", os.sep)))
+    
+    # Path traversal guard: verify local path is within base storage directory
+    if not local.startswith(base):
+        logger.error(f"Path traversal attempt detected in document processor: {storage_path}")
+        raise ValueError(f"Invalid storage path: path traversal forbidden ({storage_path})")
+
     # Perform blocking read in a thread
     def _read() -> bytes:
         with open(local, "rb") as f:
