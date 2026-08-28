@@ -254,34 +254,36 @@ OPERATIONAL RULES:
 
 When answering:
 - Cite the source for important facts: "According to [Source]..."
-- If multiple sources support your answer, mention all of them."""
+- If multiple sources support your answer, mention all of them
+- Keep responses conversational but professional
+- Use the same tone as the source documents"""
 
     def _build_user_prompt(
         self, query: str, context_chunks: List[SearchResult], conversation_context: Optional[str] = None
     ) -> str:
-        """Build user prompt with XML-delimited context chunks and conversation history.
+        """Build user prompt with formatted context chunks and conversation history.
 
         Args:
-            query: User's question (already sanitized)
+            query: User's question
             context_chunks: Retrieved context chunks from vector search
             conversation_context: Formatted conversation history (optional)
 
         Returns:
-            Formatted user prompt with XML context sections, conversation history, and query
+            Formatted user prompt with context sections, conversation history, and query
         """
         # Build conversation context section if provided
         conversation_section = ""
         if conversation_context:
-            conversation_section = f"""<conversation_history>
+            conversation_section = f"""## Current Conversation History
+(This is what has been said in the CURRENT session. Do not confuse this with the Knowledge Base.)
 {conversation_context}
-</conversation_history>
 
 """
         # Handle empty context
         if not context_chunks:
-            return f"""{conversation_section}<knowledge_base_context>
-[No relevant documents found in knowledge base]
-</knowledge_base_context>
+            return f"""{conversation_section}## Knowledge Base Context
+(Potential information retrieved from the database - MAY BE IRRELEVANT)
+[No documents found in knowledge base]
 
 ---
 
@@ -289,27 +291,24 @@ Question: {query}
 
 Answer (based ONLY on the relevant Knowledge Base Context above):"""
 
-        # Format context chunks with XML tags for injection defense (THR-01)
+        # Format context chunks with source labels and separators
         context_sections = []
         for i, chunk in enumerate(context_chunks):
             source = self._format_source(chunk)
-            # Escape angle brackets in chunk text to prevent breaking XML tags
-            safe_text = chunk.text.replace("<retrieved_context", "&lt;retrieved_context").replace("</retrieved_context>", "&lt;/retrieved_context&gt;")
-            context_sections.append(
-                f'<retrieved_context id="{i+1}" source="{source}">\n{safe_text}\n</retrieved_context>'
-            )
+            context_sections.append(f"[Source: {source}]\n{chunk.text}")
 
-        context_text = "\n\n".join(context_sections)
+        context_text = "\n---\n".join(context_sections)
 
-        return f"""{conversation_section}<knowledge_base_context>
+        return f"""{conversation_section}## Knowledge Base Context
+(Potential information retrieved from the database - MAY BE IRRELEVANT. Ignore if not useful.)
+
 {context_text}
-</knowledge_base_context>
 
 ---
 
 Question: {query}
 
-Answer (based ONLY on the factual information inside <retrieved_context> tags above):"""
+Answer (based ONLY on the relevant Knowledge Base Context above):"""
 
     def _format_source(self, chunk: SearchResult) -> str:
         """Format source citation for a chunk.

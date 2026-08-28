@@ -32,8 +32,12 @@ from app.services.domain_whitelist_service import extract_request_origin, matche
 from app.services.chat_message_service import ChatMessageService
 
 from app.core.rate_limit import RateLimiter
+from app.services.pii_service import PIIRedactionService
 
 logger = logging.getLogger(__name__)
+
+# Module-level PII redaction singleton for chat log sanitisation (THR-05)
+_pii_service = PIIRedactionService(presidio_enabled=True)
 
 router = APIRouter(prefix="/bots", tags=["chat"])
 context_service = ContextService()
@@ -298,14 +302,15 @@ async def chat_query(
         # Get tenant_id from bot for context retrieval
         tenant_id = bot.tenant_id
 
-        # Log User Message
+        # Log User Message (THR-05: redact PII from user query before writing to D4 chat logs)
+        _logged_query = _pii_service.redact_document_chunk(request.query.strip())
         await chat_message_service.log_message(
             db=db,
             bot_id=bot_id,
             tenant_id=tenant_id,
             session_id=session_id,
             role="user",
-            content=request.query.strip(),
+            content=_logged_query,
             user_id=user_id,
             client_message_id=request.message_id,
             origin=extract_request_origin(http_request) or "unknown",

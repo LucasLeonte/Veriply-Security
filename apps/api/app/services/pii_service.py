@@ -42,10 +42,16 @@ class RedactedQuery:
 
 class PIIRedactionService:
     """
-    Service for detecting and redacting PII from queries.
-    Uses two-tier approach: fast regex patterns + ML-based NER.
+    Service for detecting and redacting PII from queries and document chunks.
+    Uses a two-tier approach: fast regex patterns + ML-based NER (Presidio).
+
+    THR-05 hardening:
+    - Tier 1 extended with custom patterns for IBANs, Belgian/EU National IDs,
+      and internal corporate employee key formats (non-standard PII Presidio misses).
+    - Tier 2 Presidio entity list expanded to cover EU-relevant entities.
+    - New redact_document_chunk() for synchronous pre-storage dual-pass during ingestion.
     """
-    
+
     # Tier 1: Regex patterns for high-confidence PII
     PATTERNS = {
         "EMAIL": {
@@ -54,6 +60,7 @@ class PIIRedactionService:
             "confidence": 0.99,
         },
         "SSN": {
+            # US Social Security Number
             "pattern": r"\b\d{3}-\d{2}-\d{4}\b",
             "replacement": "<SSN>",
             "confidence": 0.99,
@@ -73,6 +80,40 @@ class PIIRedactionService:
             "pattern": r"https?://[^\s]+",
             "replacement": "<URL>",
             "confidence": 0.99,
+        },
+        # --- Custom Recognizers (THR-05) ---
+        "IBAN": {
+            # International Bank Account Number (EU-wide; handles BE, NL, DE, FR, etc.)
+            # Format: 2 letter country code + 2 check digits + up to 30 alphanumeric
+            "pattern": r"\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b",
+            "replacement": "<IBAN>",
+            "confidence": 0.97,
+        },
+        "BELGIAN_NATIONAL_ID": {
+            # Belgian National Register Number: YY.MM.DD-NNN.CC (11 digits, formatted)
+            "pattern": r"\b\d{2}\.\d{2}\.\d{2}[- ]\d{3}\.\d{2}\b",
+            "replacement": "<NATIONAL_ID>",
+            "confidence": 0.99,
+        },
+        "EU_TAX_ID": {
+            # Generic EU VAT / Tax ID: 2-letter country prefix + 8-12 alphanumeric
+            # Covers BE (BE0123456789), NL (NL123456789B01), DE (DE123456789), etc.
+            "pattern": r"\b(?:BE|NL|DE|FR|IT|ES|PL|PT|AT|SE|DK|FI|IE|CZ|HU|RO|HR|BG|SK|SI|EE|LV|LT|LU|MT|CY)\d{8,12}\b",
+            "replacement": "<TAX_ID>",
+            "confidence": 0.96,
+        },
+        "EMPLOYEE_ID": {
+            # Internal corporate employee / HR keys: EMP- or HR- prefix followed by 4-10 digits
+            # e.g. EMP-00421, HR-10592, EMPL-8821
+            "pattern": r"\b(?:EMP[L]?|HR)[\-_]?\d{4,10}\b",
+            "replacement": "<EMPLOYEE_ID>",
+            "confidence": 0.97,
+        },
+        "PHONE_NUMBER": {
+            # International phone numbers (E.164 and common EU formats)
+            "pattern": r"(?:\+\d{1,3}[\s.-]?)?(?:\(?\d{1,4}\)?[\s.-]?){2,5}\d{4}",
+            "replacement": "<PHONE>",
+            "confidence": 0.95,
         },
     }
     
@@ -106,6 +147,43 @@ class PIIRedactionService:
             logger.warning("Microsoft Presidio not installed. Using regex-only detection.")
             self.presidio_enabled = False
     
+    def redact_document_chunk(self, chunk_text: str) -> str:
+        """Synchronous PII redaction for document chunks during KB ingestion (THR-05).
+
+        Applies the full two-tier pipeline (regex + Presidio) and returns the
+        redacted chunk text safe to embed and store in pgvector (D2).
+
+        Unlike redact_query(), this is intentionally synchronous so it can be
+        called directly inside the async document processor without an extra
+        event-loop hop.
+
+        Args:
+            chunk_text: Raw extracted text chunk from a knowledge base document.
+
+        Returns:
+            Redacted chunk text with PII replaced by typed placeholders.
+        """
+        if not chunk_text or not chunk_text.strip():
+            return chunk_text
+
+        # Tier 1: Regex-based detection
+        redactions = self._detect_with_regex(chunk_text)
+
+        # Tier 2: Presidio NER (if available)
+        if self.presidio_enabled:
+            ml_redactions = self._detect_with_presidio(chunk_text)
+            redactions = self._resolve_conflicts(redactions, ml_redactions)
+
+        redacted = self._apply_redactions(chunk_text, redactions)
+
+        if redactions:
+            logger.debug(
+                "[THR-05] Document chunk redacted: %d PII entities removed",
+                len(redactions),
+            )
+
+        return redacted
+
     async def redact_query(
         self,
         query_text: str,
@@ -232,7 +310,7 @@ class PIIRedactionService:
         redactions = []
         
         try:
-            # Analyze text for PII
+            # Analyze text for PII (THR-05: expanded entity list for EU context)
             results = self.analyzer.analyze(
                 text=text,
                 language="en",
@@ -241,6 +319,14 @@ class PIIRedactionService:
                     "ORGANIZATION",
                     "LOCATION",
                     "DOMAIN_NAME",
+                    "EMAIL_ADDRESS",
+                    "PHONE_NUMBER",
+                    "IBAN_CODE",
+                    "US_SSN",
+                    "CREDIT_CARD",
+                    "NRP",          # Nationality, Religious, Political affiliation
+                    "MEDICAL_LICENSE",
+                    "DATE_TIME",
                 ],
                 score_threshold=0.5,  # 50% confidence for consideration
             )
