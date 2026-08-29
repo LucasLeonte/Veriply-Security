@@ -35,8 +35,11 @@ async def set_tenant_context(session: AsyncSession, tenant_id: UUID, group_id: U
     CRITICAL: This must be called on EVERY database session to enforce Row-Level Security.
     Without this, RLS policies are bypassed and users can access all data.
     """
+    if not tenant_id:
+        raise ValueError("CRITICAL SECURITY ERROR: set_tenant_context called with null/empty tenant_id.")
+    
     try:
-        # Use set_config with parameters (SET LOCAL + bind params is not supported by asyncpg)
+        # Use set_config with is_local=true (third argument) to ensure context is scoped ONLY to current transaction
         await session.execute(
             text("SELECT set_config('app.current_tenant_id', :tenant_id, true)"),
             {"tenant_id": str(tenant_id)}

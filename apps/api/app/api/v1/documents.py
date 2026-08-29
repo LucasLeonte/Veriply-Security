@@ -78,21 +78,49 @@ async def upload_document(
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
 
-        # Validate file
+        # Validate filename and sanitize against path traversal (THR-09)
         if not file.filename:
             raise HTTPException(status_code=400, detail="File must have a name")
 
-        if file.size and file.size > 100 * 1024 * 1024:  # 100MB limit
-            raise HTTPException(status_code=413, detail="File too large (max 100MB)")
+        safe_filename = Path(file.filename).name
+        ext = Path(safe_filename).suffix.lower()
+        allowed_extensions = {".pdf", ".docx", ".txt", ".md"}
+        if ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"Unsupported file type '{ext}'. Allowed types: {', '.join(sorted(allowed_extensions))}",
+            )
+
+        # Read content and enforce size limits from settings
+        content = await file.read()
+        if len(content) > settings.MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large (max {settings.MAX_UPLOAD_SIZE_MB}MB)",
+            )
+
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+        # Magic byte validation to prevent MIME spoofing / executable polyglots
+        if ext == ".pdf" and not content.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid PDF file: missing standard PDF header",
+            )
+        elif ext == ".docx" and not content.startswith(b"PK\x03\x04"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid DOCX file: missing standard zip archive signature",
+            )
 
         # Save file to storage using local directory
-        # Storage path matches DB path: groups/{group_id}/documents/{filename}
-        storage_path = f"groups/{group_id}/documents/{file.filename}"
+        # Storage path matches DB path: groups/{group_id}/documents/{safe_filename}
+        storage_path = f"groups/{group_id}/documents/{safe_filename}"
         storage_base = Path("storage") / "documents" / "groups" / str(group_id) / "documents"
         storage_base.mkdir(parents=True, exist_ok=True)
-        file_path = storage_base / file.filename
+        file_path = storage_base / safe_filename
 
-        content = await file.read()
         with open(file_path, "wb") as f:
             f.write(content)
 
@@ -102,11 +130,11 @@ async def upload_document(
             tenant_id=UUID(current_user["tenant_id"]),
             group_id=group_id,
             uploader_id=UUID(current_user["sub"]),
-            filename=file.filename,
+            filename=safe_filename,
             mime_type=file.content_type or "application/octet-stream",
             size_bytes=len(content),
             storage_path=storage_path,
-            title=title or file.filename,
+            title=title or safe_filename,
             folder_id=UUID(folder_id) if folder_id else None,
         )
 

@@ -177,7 +177,6 @@ async def gmail_authorize(
     )
 
     state = str(uuid4())
-    # In production store state in user session to validate in callback
     
     auth_url = gmail.get_authorization_url(
         client_id=client_id,
@@ -186,6 +185,16 @@ async def gmail_authorize(
     )
 
     response = RedirectResponse(auth_url)
+    
+    # Store state in secure cookie to validate against CSRF in callback (THR-03)
+    response.set_cookie(
+        key="veriply_oauth_state",
+        value=state,
+        max_age=300,  # 5 minutes
+        httponly=True,
+        samesite="lax",
+        secure=settings.is_production
+    )
     
     # Set a short-lived cookie with the auth token so we can identify the user on callback
     # The frontend passes 'token' in the query param or header to this endpoint
@@ -272,6 +281,12 @@ async def gmail_callback(
         tenant_id = UUID(payload.get("tenant_id"))
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid authentication cookie")
+
+    # Verify OAuth state parameter to prevent CSRF / session fixation attacks (THR-03)
+    expected_state = request.cookies.get("veriply_oauth_state")
+    if expected_state and state and expected_state != state:
+        logger.warning("OAuth CSRF state mismatch detected in gmail_callback")
+        raise HTTPException(status_code=400, detail="Invalid OAuth state parameter (possible CSRF attempt)")
 
     # Fetch user
     result = await db.execute(select(User).where(User.id == user_id))

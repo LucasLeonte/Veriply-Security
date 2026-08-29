@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +30,7 @@ from app.api.routes import verified_qa  # Story 7.3: Manual Q&A entry
 from app.api.routes import kb_emails  # KB emails separate from documents
 from app.api.routes import writing_style  # Story 6.5: Writing style matching
 from app.api.routes.documents import documents_router as document_detail_router  # Legacy document operations
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -45,6 +46,20 @@ app = FastAPI(
     lifespan=lifespan,
     debug=settings.DEBUG,
 )
+
+# Global Security Response Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add secure HTTP response headers to all responses."""
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+    if settings.is_production:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 
 # Serve avatars from local storage for development/local use
 avatars_dir = Path(__file__).resolve().parents[3] / "storage" / "avatars"

@@ -21,7 +21,12 @@ class ChatMessage(BaseModel):
 class ChatQueryRequest(BaseModel):
     """Request body for chat query endpoint."""
 
-    query: str = Field(..., min_length=1, max_length=5000)
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="User question, capped at 500 characters for DoS/compute-exhaustion protection (THR-07)",
+    )
     context: Optional[List[ChatMessage]] = Field(
         default=None,
         description=(

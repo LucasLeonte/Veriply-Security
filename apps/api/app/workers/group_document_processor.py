@@ -12,8 +12,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document
 from app.models.chunk import Chunk
 from app.services.embedding_service import EmbeddingService, EmbeddingError
+from app.services.pii_service import PIIRedactionService
 
 logger = logging.getLogger(__name__)
+
+# Module-level PII redaction singleton (THR-05: pre-storage dual-pass)
+_pii_service = PIIRedactionService(presidio_enabled=True)
 
 
 def _simple_text_extractor(file_bytes: bytes, filename: Optional[str], mime: Optional[str]) -> str:
@@ -78,14 +82,20 @@ def _chunk_text(text: str, max_words: int = 200, overlap: int = 30) -> List[str]
 
 
 async def _read_file_bytes(storage_path: str) -> bytes:
-    """Read bytes from storage path used by group upload.
+    """Read bytes from storage path used by group upload with path traversal guard (THR-09).
 
     Group uploads save under storage/documents/<storage_path> where storage_path
     is like 'groups/<group_id>/documents/<filename>'.
     """
     # Absolute path under project storage
-    base = os.path.join(os.getcwd(), "storage", "documents")
-    local = os.path.join(base, storage_path.replace("/", os.sep))
+    base = os.path.abspath(os.path.join(os.getcwd(), "storage", "documents"))
+    local = os.path.abspath(os.path.join(base, storage_path.replace("/", os.sep)))
+    
+    # Path traversal guard: verify local path is within base storage directory
+    if not local.startswith(base):
+        logger.error(f"Path traversal attempt detected in document processor: {storage_path}")
+        raise ValueError(f"Invalid storage path: path traversal forbidden ({storage_path})")
+
     # Perform blocking read in a thread
     def _read() -> bytes:
         with open(local, "rb") as f:
@@ -117,6 +127,11 @@ async def _process_bytes(
             chunk_text = _sanitize_text(chunk_text)
             if not chunk_text.strip():
                 continue
+
+            # THR-05: Redact PII from chunk before embedding and persistence.
+            # This is the "pre-storage" pass that prevents PII from ever
+            # reaching D2 (pgvector) even if Presidio fails at upload-time.
+            chunk_text = _pii_service.redact_document_chunk(chunk_text)
 
             vec = None
             try:
@@ -384,6 +399,10 @@ async def process_kb_email(
     
     full_text = "\\n\\n".join(parts)
     text = _sanitize_text(full_text)
+
+    # THR-05: Redact PII from email content before embedding into D2 (vector store).
+    # Covers both the subject and body to prevent PII leakage via email KB ingestion.
+    text = _pii_service.redact_document_chunk(text)
     
     own_service = False
     if embedding_service is None:

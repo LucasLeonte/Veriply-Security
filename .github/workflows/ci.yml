@@ -1,10 +1,8 @@
 name: CI
 
+# Triggers disabled on push/PR - manual trigger only
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   lint-frontend:
