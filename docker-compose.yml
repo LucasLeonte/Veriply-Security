@@ -19,25 +19,23 @@ version: "3.8"
 
 services:
     # PostgreSQL with pgvector extension
-    # NOTE: COMMENTED OUT - Using external database at 10.2.160.214
-    #       If you need a local database, uncomment this service
-    # db:
-    #   image: pgvector/pgvector:pg16
-    #   ports:
-    #     - "${DB_PORT:-5432}:5432"
-    #   environment:
-    #     - POSTGRES_USER=${DB_USER:-veriply_user}
-    #     - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
-    #     - POSTGRES_DB=${DB_NAME:-veriply_dev}
-    #   volumes:
-    #     - postgres_data:/var/lib/postgresql/data
-    #   healthcheck:
-    #     test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-veriply_user}"]
-    #     interval: 10s
-    #     timeout: 5s
-    #     retries: 5
-    #   networks:
-    #     - veriply-network
+    db:
+        image: pgvector/pgvector:pg16
+        ports:
+            - "${DB_PORT:-5432}:5432"
+        environment:
+            - POSTGRES_USER=${DB_USER:-veriply_user}
+            - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+            - POSTGRES_DB=${DB_NAME:-veriply_dev}
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-veriply_user} -d ${DB_NAME:-veriply_dev}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+            - veriply-network
 
     # Redis for caching and sessions
     redis:
@@ -51,28 +49,27 @@ services:
               redis-server;
             fi"
         healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
+            test: [ "CMD", "redis-cli", "ping" ]
             interval: 10s
             timeout: 5s
             retries: 5
         networks:
             - veriply-network
-
-    # Ollama for LLM inference
-    ollama:
-        build:
-            context: ./docker/ollama
-        ports:
-            - "11434:11434"
-        volumes:
-            - ollama_data:/root/.ollama
-        healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
-        networks:
-            - veriply-network
+        # Ollama for LLM inference
+        # ollama:
+        #     build:
+        #         context: ./docker/ollama
+        #     ports:
+        #         - "11434:11434"
+        #     volumes:
+        #         - ollama_data:/root/.ollama
+        #     healthcheck:
+        #         test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+        #         interval: 30s
+        #         timeout: 10s
+        #         retries: 3
+        #     networks:
+        #         - veriply-network
         # Uncomment if you have an NVIDIA GPU
         # deploy:
         #   resources:

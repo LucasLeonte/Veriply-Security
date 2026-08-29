@@ -34,8 +34,8 @@ from app.api.routes.documents import documents_router as document_detail_router 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await init_db()
     await enable_pgvector()
+    await init_db()
     await enable_rls()
     
     yield

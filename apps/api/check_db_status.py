@@ -23,11 +23,11 @@ async def check_db():
             print(f"SUCCESS: Connected to database.")
             print(f"Active connections: {count}")
             
-            result = await conn.execute(text("SELECT datname, usename, state FROM pg_stat_activity;"))
-            rows = result.fetchall()
-            print("\nDetailed connections:")
-            for row in rows:
-                print(row)
+            result = await conn.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;"))
+            tables = [r[0] for r in result.fetchall()]
+            print(f"\nTables in database ({len(tables)} total):")
+            for t in tables:
+                print(f"  - {t}")
     except Exception as e:
         print(f"FAILURE: Could not connect to database. Error: {e}")
 
