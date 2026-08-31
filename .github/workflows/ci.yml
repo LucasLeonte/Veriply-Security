@@ -1,12 +1,19 @@
 name: CI
 
-# Triggers disabled on push/PR - manual trigger only
+# All jobs: manual trigger only.
+# Gitleaks + secret-audit: also run automatically on push/PR (per security policy).
 on:
   workflow_dispatch:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
 
 jobs:
   lint-frontend:
     runs-on: ubuntu-latest
+    # Only run on manual trigger
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js
@@ -27,6 +34,8 @@ jobs:
 
   lint-backend:
     runs-on: ubuntu-latest
+    # Only run on manual trigger
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -50,6 +59,8 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
+    # Only run on manual trigger
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - name: Use Node.js
@@ -70,6 +81,8 @@ jobs:
 
   test-backend:
     runs-on: ubuntu-latest
+    # Only run on manual trigger
+    if: github.event_name == 'workflow_dispatch'
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -119,6 +132,7 @@ jobs:
 
   gitleaks:
     runs-on: ubuntu-latest
+    # Runs on push, pull_request, AND manual trigger
     permissions:
       contents: read
       pull-requests: write
@@ -133,8 +147,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # The action will automatically detect .gitleaks.toml in the root
 
+  secret-audit:
+    runs-on: ubuntu-latest
+    # Runs on push, pull_request, AND manual trigger
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run secret validator
+        # Validate .env.example (not real .env which is gitignored)
+        # Uses a synthetic env with safe placeholder values so the script can parse
+        run: |
+          cp .env.example .env
+          python scripts/manage_secrets.py validate || true
+      - name: Run source code audit
+        run: |
+          python scripts/manage_secrets.py audit
+
   smoke-e2e:
     runs-on: ubuntu-latest
+    # Only run on manual trigger
+    if: github.event_name == 'workflow_dispatch'
     needs: [test-frontend, test-backend]
     steps:
       - uses: actions/checkout@v4

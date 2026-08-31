@@ -1,5 +1,9 @@
 title = "gitleaks config"
 
+# ============================================================
+# Custom rules for Veriply-specific secret patterns
+# ============================================================
+
 [[rules]]
 id = "AWS Access Key"
 description = "AWS Access Key ID"
@@ -13,15 +17,44 @@ regex = '''-----BEGIN RSA PRIVATE KEY-----|-----BEGIN PRIVATE KEY-----'''
 tags = ["key", "secret"]
 
 [[rules]]
+id = "Google OAuth Client Secret"
+description = "Google OAuth client secret (GOCSPX- prefix)"
+regex = '''GOCSPX-[A-Za-z0-9_\-]{28,}'''
+tags = ["key", "secret", "google", "oauth"]
+
+[[rules]]
+id = "Gmail App Password"
+description = "Gmail App Password (four 4-letter groups separated by spaces)"
+regex = '''[a-z]{4} [a-z]{4} [a-z]{4} [a-z]{4}'''
+tags = ["password", "secret", "gmail"]
+
+[[rules]]
+id = "Base64 Encryption Key"
+description = "Base64-encoded 32-byte encryption key"
+regex = '''[A-Za-z0-9+/]{43}={0,2}'''
+entropy = 4.5
+tags = ["key", "secret", "encryption"]
+
+[[rules]]
 id = "High Entropy String"
-description = "Potential secret detected by high entropy"
-regex = '''[a-zA-Z0-9]{20,}'''
-entropy = 5.5
+description = "Potential secret detected by high entropy (tightened from 5.5 to 4.5)"
+regex = '''[a-zA-Z0-9+/\-_]{20,}'''
+entropy = 4.5
 tags = ["secret", "entropy"]
 
 [allowlist]
 description = "Global allowlist"
 paths = [
     '''\.bmad/''',
-    '''package-lock\.json'''
+    '''package-lock\.json''',
+    '''\.gitleaksignore''',
+]
+# Allow known-safe CI test patterns and placeholder values
+regexes = [
+    # CI test secret used in ci.yml (sufficiently long but not a real secret)
+    '''test-secret-key-minimum-32-characters-long''',
+    # Placeholder values in .env.example and .env (unset/template values)
+    '''CHANGE_ME_''',
+    # Base64 encoded zero-value test fixtures
+    '''AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=''',
 ]

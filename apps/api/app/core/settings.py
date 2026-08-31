@@ -21,6 +21,8 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
+from app.core.secrets import SecretValue, validate_secrets, warn_if_rotation_overdue
+
 
 class Settings(BaseSettings):
     """
@@ -128,20 +130,21 @@ class Settings(BaseSettings):
     
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
-    REDIS_PASSWORD: Optional[str] = None
+    REDIS_PASSWORD: Optional[SecretValue] = None
     
     @property
     def REDIS_URL(self) -> str:
         """Construct Redis connection URL."""
         if self.REDIS_PASSWORD:
-            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
+            pw = self.REDIS_PASSWORD.get_secret_value()
+            return f"redis://:{pw}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
     
     # ========================================================================
     # JWT & AUTHENTICATION
     # ========================================================================
     
-    JWT_SECRET: Optional[str] = None  # REQUIRED - validation done on first use
+    JWT_SECRET: Optional[SecretValue] = None  # REQUIRED — validated at startup
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 1440  # 24 hours
     
@@ -152,7 +155,7 @@ class Settings(BaseSettings):
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
+    SMTP_PASSWORD: Optional[SecretValue] = None
 
     # Optional email presentation fields
     EMAIL_FROM: Optional[str] = None
@@ -165,14 +168,14 @@ class Settings(BaseSettings):
     # ========================================================================
     
     GOOGLE_CLIENT_ID: Optional[str] = None
-    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[SecretValue] = None
     GOOGLE_OAUTH_REDIRECT: Optional[str] = None
-    
+
     OUTLOOK_CLIENT_ID: Optional[str] = None
-    OUTLOOK_CLIENT_SECRET: Optional[str] = None
+    OUTLOOK_CLIENT_SECRET: Optional[SecretValue] = None
     OUTLOOK_OAUTH_REDIRECT: Optional[str] = None
-    
-    EMAIL_TOKEN_ENCRYPTION_KEY: Optional[str] = None
+
+    EMAIL_TOKEN_ENCRYPTION_KEY: Optional[SecretValue] = None
 
     # Email polling interval (seconds) for background worker (default: 5 minutes)
     EMAIL_POLL_INTERVAL_SECONDS: int = 300
@@ -292,7 +295,7 @@ class Settings(BaseSettings):
     # NEXTAUTH CONFIGURATION (if needed for server-side validation)
     # ========================================================================
     
-    NEXTAUTH_SECRET: Optional[str] = None
+    NEXTAUTH_SECRET: Optional[SecretValue] = None
     NEXTAUTH_URL: Optional[str] = None
     
     # ========================================================================
@@ -310,13 +313,16 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
-# Validate critical settings on import
-if not settings.JWT_SECRET:
-    raise ValueError(
-        "JWT_SECRET is required but not set. "
-        "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))' "
-        "and add it to your .env file."
-    )
+# Validate all required secrets at startup — fails fast with clear messages.
+# In development mode: only required secrets (JWT, NEXTAUTH, REDIS, ENCRYPTION KEY) are enforced.
+# In production mode: all secrets including SMTP and OAuth are also enforced.
+try:
+    validate_secrets(settings)
+except ValueError as e:
+    raise ValueError(str(e)) from e
+
+# Warn if secrets are overdue for rotation (reads SECRET_LAST_ROTATED_AT from .env).
+warn_if_rotation_overdue()
 
 # Validate database connection (check if we can construct a URL)
 try:

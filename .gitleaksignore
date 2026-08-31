@@ -7,3 +7,7 @@ tests/e2e/smoke-logs.txt
 .vscode/
 *.log
 /.git/
+# Scratch artifacts directory (contains staged files, never real secrets)
+.gemini/
+# secrets.py script itself (contains pattern strings for detection, not real secrets)
+scripts/manage_secrets.py

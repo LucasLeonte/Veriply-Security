@@ -12,22 +12,24 @@ def get_jwt_secret() -> str:
     CRITICAL: Fail fast if not configured to prevent security vulnerabilities.
     """
     global _jwt_secret_cache
-    
+
     if _jwt_secret_cache is not None:
         return _jwt_secret_cache
-    
+
     # Import here to avoid circular imports at module load time
     from app.core.settings import settings
-    
-    secret = settings.JWT_SECRET
-    if not secret:
+
+    secret_val = settings.JWT_SECRET
+    if not secret_val:
         raise RuntimeError(
             "CRITICAL SECURITY ERROR: JWT_SECRET not configured in .env file. "
             "This is required for production security. "
-            "Set JWT_SECRET to a strong, random value (minimum 32 characters)."
+            "Run `python scripts/secrets.py generate` to create one."
         )
-    
-    # Warn if using default/weak secret (but allow for development only with strict conditions)
+
+    # Unwrap SecretValue to get the raw string for PyJWT
+    secret = secret_val.get_secret_value()
+
     if len(secret) < 32:
         raise RuntimeError(
             f"CRITICAL SECURITY ERROR: JWT_SECRET is too short (length: {len(secret)}). "
@@ -35,9 +37,10 @@ def get_jwt_secret() -> str:
             "A weak secret exposes the application to token forgery attacks. "
             "Use a cryptographically secure random secret."
         )
-    
+
     _jwt_secret_cache = secret
     return _jwt_secret_cache
+
 
 
 JWT_ALGORITHM = "HS256"

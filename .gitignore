@@ -41,3 +41,16 @@ storage/avatars/
 storage/documents/
 /apps/api/storage/documents
 
+# Explicitly ignore per-app .env files (belt-and-suspenders alongside root rule)
+apps/api/.env
+apps/api/.env.*
+!apps/api/.env.example
+apps/web/.env
+apps/web/.env.*
+!apps/web/.env.example
+
+# Any local secrets files developers might create
+*.secrets
+*.secrets.local
+secrets.local.*
+.secrets/
