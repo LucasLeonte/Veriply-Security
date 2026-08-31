@@ -7,6 +7,7 @@ from fastapi import Request, HTTPException, status
 import redis.asyncio as aioredis
 
 from app.core.settings import settings
+from app.core.security_logger import SecurityEvent, log_security_event, extract_request_context
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +88,15 @@ class RateLimiter:
 
                 if current_count > self.requests_per_minute:
                     retry_after = max(1, current_ttl)
-                    logger.warning(
-                        f"Rate limit exceeded for {client_ip} on scope '{self.scope}': "
-                        f"{current_count}/{self.requests_per_minute} req/min"
+                    ctx = extract_request_context(request)
+                    await log_security_event(
+                        SecurityEvent.RATE_LIMIT_HIT,
+                        status=429,
+                        detail=(
+                            f"Rate limit exceeded on scope '{self.scope}': "
+                            f"{current_count}/{self.requests_per_minute} req/{self.window_seconds}s"
+                        ),
+                        **ctx,
                     )
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -119,9 +126,15 @@ class RateLimiter:
         count, reset_at = current_data
         if count >= self.requests_per_minute:
             retry_after = max(1, int(reset_at - now))
-            logger.warning(
-                f"In-memory rate limit exceeded for {client_ip} on scope '{self.scope}': "
-                f"{count + 1}/{self.requests_per_minute} req/min"
+            ctx = extract_request_context(request)
+            await log_security_event(
+                SecurityEvent.RATE_LIMIT_HIT,
+                status=429,
+                detail=(
+                    f"In-memory rate limit exceeded on scope '{self.scope}': "
+                    f"{count + 1}/{self.requests_per_minute} req/{self.window_seconds}s"
+                ),
+                **ctx,
             )
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,

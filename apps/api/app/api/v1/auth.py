@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Response
+from fastapi import APIRouter, HTTPException, status, Depends, Response, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.api.v1.schemas import UserRegister
 from app.services.user_service import register_user_and_tenant, get_user_by_email
@@ -6,6 +6,7 @@ from app.services.auth_service import verify_password
 from app.services.email_service import EmailService
 from app.core.database import get_db
 from app.core.settings import settings
+from app.core.security_logger import SecurityEvent, log_security_event, extract_request_context
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.user import User
@@ -24,8 +25,12 @@ security = HTTPBearer()
 JWT_ALGORITHM = "HS256"
 
 def get_jwt_secret() -> str:
-    """Get JWT secret from settings."""
-    return settings.JWT_SECRET
+    """Get JWT secret from settings, unwrapping SecretValue wrapper."""
+    secret = settings.JWT_SECRET
+    if secret is None:
+        raise RuntimeError("JWT_SECRET not configured")
+    # Unwrap SecretValue if needed
+    return secret.get_secret_value() if hasattr(secret, "get_secret_value") else str(secret)
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -110,14 +115,15 @@ async def get_current_tenant(
         )
 
 @router.post("/register", response_model=dict)
-async def register(req: UserRegister):
+async def register(req: UserRegister, request: Request):
     """Register a new user and create tenant."""
+    ctx = extract_request_context(request)
     existing_user = await get_user_by_email(req.email)
     if existing_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
-    
+
     result = await register_user_and_tenant(req.email, req.password, req.tenant_name)
-    
+
     # Generate JWT token
     token_payload = {
         "sub": result["user_id"],
@@ -126,7 +132,16 @@ async def register(req: UserRegister):
         "exp": datetime.utcnow() + timedelta(hours=24)
     }
     token = jwt.encode(token_payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
-    
+
+    await log_security_event(
+        SecurityEvent.AUTH_REGISTER,
+        user_id=result["user_id"],
+        tenant_id=result["tenant_id"],
+        status=201,
+        detail=f"New user registered: {req.email}",
+        **ctx,
+    )
+
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -135,24 +150,39 @@ async def register(req: UserRegister):
     }
 
 @router.post("/login", response_model=dict)
-async def login(req: UserRegister, response: Response, db: AsyncSession = Depends(get_db)):
+async def login(req: UserRegister, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     """Login an existing user."""
+    ctx = extract_request_context(request)
     result = await db.execute(select(User).where(User.email == req.email))
     user = result.scalar_one_or_none()
-    
+
     if not user:
+        await log_security_event(
+            SecurityEvent.AUTH_LOGIN_FAILURE,
+            status=401,
+            detail=f"Login attempt for unknown email: {req.email}",
+            **ctx,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
-    
+
     # Verify password
     if not verify_password(req.password, user.password_hash):
+        await log_security_event(
+            SecurityEvent.AUTH_LOGIN_FAILURE,
+            user_id=str(user.id),
+            tenant_id=str(user.tenant_id),
+            status=401,
+            detail="Invalid password",
+            **ctx,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password"
         )
-    
+
     # Generate JWT token
     token_payload = {
         "sub": str(user.id),
@@ -161,7 +191,7 @@ async def login(req: UserRegister, response: Response, db: AsyncSession = Depend
         "exp": datetime.utcnow() + timedelta(hours=24)
     }
     token = jwt.encode(token_payload, get_jwt_secret(), algorithm=JWT_ALGORITHM)
-    
+
     # Set httpOnly cookie for middleware auth
     response.set_cookie(
         key="access_token",
@@ -172,7 +202,16 @@ async def login(req: UserRegister, response: Response, db: AsyncSession = Depend
         max_age=86400,  # 24 hours
         path="/"
     )
-    
+
+    await log_security_event(
+        SecurityEvent.AUTH_LOGIN_SUCCESS,
+        user_id=str(user.id),
+        tenant_id=str(user.tenant_id),
+        status=200,
+        detail=f"User logged in: {user.email}",
+        **ctx,
+    )
+
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -198,72 +237,87 @@ class AcceptTeamInviteRequest(BaseModel):
 
 
 @router.post("/forgot-password")
-async def forgot_password(req: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(req: ForgotPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Request a password reset link."""
-    # Find user by email
+    ctx = extract_request_context(request)
     result = await db.execute(select(User).where(User.email == req.email))
     user = result.scalar_one_or_none()
-    
+
     if not user:
         # For security, don't reveal if email exists
         return {"message": "If an account with this email exists, a password reset link will be sent."}
-    
+
     # Generate reset token (valid for 1 hour)
     reset_token = secrets.token_urlsafe(32)
     user.password_reset_token = reset_token
     user.password_reset_expires = datetime.utcnow() + timedelta(hours=1)
-    
+
     await db.commit()
-    
+
+    await log_security_event(
+        SecurityEvent.PASSWORD_RESET_REQUESTED,
+        user_id=str(user.id),
+        tenant_id=str(user.tenant_id),
+        status=200,
+        detail=f"Password reset requested for: {req.email}",
+        **ctx,
+    )
+
     # Send password reset email
     await EmailService.send_password_reset_email(req.email, reset_token)
-    
+
     return {"message": "If an account with this email exists, a password reset link will be sent."}
 
 
 @router.post("/reset-password")
-async def reset_password(req: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
     """Reset password using a valid reset token."""
-    # Find user by reset token
+    ctx = extract_request_context(request)
     result = await db.execute(
         select(User).where(User.password_reset_token == req.token)
     )
     user = result.scalar_one_or_none()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token"
         )
-    
+
     # Check if token is expired
     if user.password_reset_expires is None or user.password_reset_expires < datetime.utcnow():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password reset token has expired. Please request a new one."
         )
-    
+
     # Validate new password
     if len(req.new_password) < 8:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters"
         )
-    
-    # Import hash_password from auth_service
+
     from app.services.auth_service import hash_password
-    
-    # Update password and clear reset token
+
     user.password_hash = hash_password(req.new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
-    user_email = user.email  # Store email for confirmation email
-    
+    user_email = user.email
+
     await db.commit()
-    
-    # Send confirmation email
+
+    await log_security_event(
+        SecurityEvent.PASSWORD_RESET_COMPLETED,
+        user_id=str(user.id),
+        tenant_id=str(user.tenant_id),
+        status=200,
+        detail=f"Password reset completed for: {user_email}",
+        **ctx,
+    )
+
     await EmailService.send_password_reset_confirmation(user_email)
-    
+
     return {"message": "Password reset successfully"}
 
 

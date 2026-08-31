@@ -4,6 +4,8 @@ from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
+import time
+from uuid import uuid4
 from app.core.database import init_db, AsyncSessionLocal
 from app.core.migrations import enable_pgvector, enable_rls
 from app.core.settings import settings
@@ -18,6 +20,7 @@ from app.api.v1 import bot_access
 from app.api.v1 import review_queue  # Story 4.4: Low-confidence review queue
 from app.api.v1 import query as query_v1  # Story 3.4: Confidence-based query
 from app.api.v1 import gdpr  # GDPR compliance endpoints
+from app.api.v1 import security as security_audit  # Security audit log endpoint
 from app.api.routes import query
 from app.api.routes import chat
 from app.api.routes import chat_history
@@ -47,7 +50,47 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
-# Global Security Response Headers Middleware
+# ---------------------------------------------------------------------------
+# Middleware 1: Request-ID & HTTP Audit Logging
+# ---------------------------------------------------------------------------
+# NOTE: FastAPI middleware executes in LIFO order — this outer middleware runs
+# first on the way in and last on the way out, wrapping all others.
+
+_SKIP_AUDIT_PREFIXES = ("/healthz", "/avatars/", "/docs", "/openapi", "/redoc")
+
+
+@app.middleware("http")
+async def request_audit_middleware(request: Request, call_next):
+    """Stamp every request with a correlation UUID and log its outcome."""
+    # Attach a per-request correlation ID (available to all downstream handlers)
+    request_id = str(uuid4())
+    request.state.request_id = request_id
+
+    start_time = time.perf_counter()
+    response: Response = await call_next(request)
+    duration_ms = round((time.perf_counter() - start_time) * 1000, 1)
+
+    # Echo the ID back in the response so clients can correlate errors
+    response.headers["X-Request-ID"] = request_id
+
+    # Skip high-frequency/low-signal paths
+    path = request.url.path
+    if not any(path.startswith(p) for p in _SKIP_AUDIT_PREFIXES):
+        import logging as _logging
+        _audit_logger = _logging.getLogger("veriply.http")
+        _audit_logger.info(
+            "{\"request_id\": \"%s\", \"method\": \"%s\", \""
+            "path\": \"%s\", \"status\": %d, \"duration_ms\": %s}",
+            request_id, request.method, path, response.status_code, duration_ms,
+        )
+
+    return response
+
+
+# ---------------------------------------------------------------------------
+# Middleware 2: Security Response Headers
+# ---------------------------------------------------------------------------
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add secure HTTP response headers to all responses."""
@@ -97,6 +140,7 @@ app.include_router(feedback.router, prefix="/api/v1")  # Feedback collection and
 app.include_router(analytics.router, prefix="/api/v1")  # Analytics metrics: /api/v1/analytics
 app.include_router(verified_qa.router, prefix="/api/v1")  # Story 7.3: Manual Q&A entry
 app.include_router(document_detail_router, prefix="/api/v1")  # Legacy: /api/v1/documents/{id} operations
+app.include_router(security_audit.router)  # Security: /api/v1/security/audit-log
 
 @app.get("/")
 async def root():

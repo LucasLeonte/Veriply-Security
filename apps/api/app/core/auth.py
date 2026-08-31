@@ -1,6 +1,7 @@
 import jwt
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer
+from app.core.security_logger import SecurityEvent, log_security_event, extract_request_context
 
 # Cache for JWT secret
 _jwt_secret_cache = None
@@ -72,29 +73,30 @@ async def get_current_user(
 ) -> dict:
     """
     Validate JWT token from secure httpOnly cookie or Bearer token.
-    
+
     Priority order:
     1. httpOnly cookie (preferred - not accessible to JavaScript)
     2. Authorization Bearer token (fallback for testing/mobile apps)
-    
+
     Returns user info or raises 401/403 error.
     """
     token = None
-    
+    ctx = extract_request_context(request)
+
     # First try to get token from secure httpOnly cookie
     token = request.cookies.get("access_token")
-    
+
     # Fallback to Bearer token if no cookie (for testing and mobile clients)
     if not token and credentials:
         token = credentials.credentials
-    
+
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated. Missing credentials.",
             headers={"WWW-Authenticate": "Bearer"}
         )
-    
+
     try:
         payload = jwt.decode(
             token,
@@ -105,24 +107,36 @@ async def get_current_user(
         user_id: str = payload.get("sub")
         tenant_id: str = payload.get("tenant_id")
         role: str = payload.get("role")
-        
+
         if user_id is None or tenant_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token claims"
             )
-        
+
         return {
             "sub": user_id,
             "tenant_id": tenant_id,
             "role": role
         }
     except jwt.ExpiredSignatureError:
+        await log_security_event(
+            SecurityEvent.AUTH_TOKEN_EXPIRED,
+            status=401,
+            detail="JWT token has expired",
+            **ctx,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired"
         )
     except jwt.InvalidTokenError:
+        await log_security_event(
+            SecurityEvent.AUTH_TOKEN_INVALID,
+            status=401,
+            detail="Invalid JWT token presented",
+            **ctx,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"

@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import GroupRole, GroupMember, User
+from app.core.security_logger import SecurityEvent, log_security_event
 
 
 # Role hierarchy (higher number = more permissions)
@@ -86,13 +87,25 @@ def require_role(
             
             # Check if user is a member
             if user_role is None:
+                await log_security_event(
+                    SecurityEvent.ACCESS_DENIED,
+                    user_id=str(current_user.id) if current_user else None,
+                    detail=f"Not a member of group {group_id}",
+                    status=403,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"Access denied: You are not a member of this group"
                 )
-            
+
             # Check if user has sufficient permissions
             if not has_permission(user_role, required_role):
+                await log_security_event(
+                    SecurityEvent.ACCESS_DENIED,
+                    user_id=str(current_user.id) if current_user else None,
+                    detail=f"Group {group_id}: needs {required_role.value}, has {user_role.value}",
+                    status=403,
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"Access denied: {required_role.value}+ role required (you have {user_role.value})"
@@ -139,12 +152,24 @@ async def check_group_access(
     user_role = result.scalar_one_or_none()
     
     if user_role is None:
+        await log_security_event(
+            SecurityEvent.ACCESS_DENIED,
+            user_id=str(user_id),
+            detail=f"Not a member of group {group_id}",
+            status=403,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: You are not a member of this group"
         )
-    
+
     if required_role and not has_permission(user_role, required_role):
+        await log_security_event(
+            SecurityEvent.ACCESS_DENIED,
+            user_id=str(user_id),
+            detail=f"Group {group_id}: needs {required_role.value}, has {user_role.value}",
+            status=403,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Access denied: {required_role.value}+ role required (you have {user_role.value})"
